@@ -1,6 +1,11 @@
 # Nox-Decomp
 
-**This repository is archived and no longer accepting contributions. The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
+This is a fork of https://github.com/neuromancer/nox-decomp
+
+Fixed most of the known bugs for Neuromancer's version.
+
+Neuromancers comments:
+**The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
 
 I am not the author of this code. It comes from the [playnox.xyz](https://playnox.xyz) website. A copy of the original source code is permanently archived [here](https://web.archive.org/web/20191104220905/https://playnox.xyz/public_v1.zip). I just did some small modifications to properly run it in Linux.
 
@@ -29,10 +34,9 @@ mv app/* .
 
 # Known issues
 
-* "Solo" game fails to start ("This game is only available in a primary installation")
-* All graphics are totally corrupted in 8-bit color mode.
-* Mouse pointer is corrupted in 16-bit color mode.
+* All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.
 * Can't play demo.
+* Videos don't load.
 
 # License
 
@@ -56,6 +60,7 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - Westwood Studios
 - [/u/awesie](https://www.reddit.com/u/awesie)
 - neuromancer (for some Linux fixes)
+- Sookyboo (for fixing 16bit cursor color, solo game, arm32bit crashes)
 
 Are you the one that should be mentioned here? Let me know I will add your name. Also, if you are interested in continue this project, I can give you administrative access to this repository.
 
