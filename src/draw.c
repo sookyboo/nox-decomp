@@ -93,6 +93,17 @@ int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
 	int v10; // eax
 	int result; // eax
 
+    // Sookyboo Disable gameplay widescreen (force original 40-tile mode)
+//    if (a2 > 640) {
+//        a2 = 640;
+//        a3 = 480;
+//    }
+
+	printf(
+        "[VIDEO REQUEST] width=%d height=%d flags=0x%x\n",
+        a2, a3, a4
+    );
+
 	InitializeCriticalSection((LPCRITICAL_SECTION)&byte_5D4594[3799596]);
 	*(_DWORD *)&byte_5D4594[823780] = 1;
 #ifdef USE_SDL
@@ -114,6 +125,10 @@ int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
 		*(_DWORD *)&byte_5D4594[3801772] |= 0x120u;
 	}
 	v8 = a2 & 0xFFFFFFE0;
+	printf(
+        "[VIDEO ALIGN] requested=%d aligned=%d\n",
+        a2, v8
+    );
 	if (v7 & 4)
 	{
 		v9 = (v7 & 0x17) - 20;
@@ -395,6 +410,12 @@ GLuint g_texture, g_program, g_tex_coord_buffer, g_tex_coord_attr, g_gamma_unifo
 unsigned int g_tex_coord_itemsize, g_tex_coord_numitems;
 float draw_gamma = 1.0;
 
+// NEW: tracking for GL texture & conversion buffer
+static int g_tex_width = 0;
+static int g_tex_height = 0;
+static uint32_t *g_convbuf = NULL;
+static size_t g_convbuf_size = 0;
+
 SDL_Surface *dword_6F7C48;
 SDL_Surface *g_cursor_surf;
 SDL_Surface *dword_973C60;
@@ -404,10 +425,13 @@ SDL_Surface *dword_973C88;
 
 static void glCheckError()
 {
-#if 0
+#if 1
     GLenum error = glGetError();
-    if (error)
-        DebugBreak();
+    if (error != GL_NO_ERROR) {
+            fprintf(stderr, "GL error: 0x%04x\n", error);
+    }
+//    if (error)
+//        DebugBreak();
 #endif
 }
 #else
@@ -447,60 +471,51 @@ void(*dword_714204)();
 //----- (0048A040) --------------------------------------------------------
 int __cdecl sub_48A040(HWND a1, int a2, int a3, int a4)
 {
-	int result; // eax
+    int result; // eax
 
-	g_backbuffer_count = 2;
-	dword_6F7BB0 = 0;
+    g_backbuffer_count = 2;
+    dword_6F7BB0 = 0;
 #ifdef USE_SDL
-	g_ddraw = 0;
-	g_backbuffer1 = 0;
+    // IMPORTANT:
+    // Do NOT reset g_ddraw here. The SDL GL context is created once
+    // in sub_48B000() and reused across menu/game/resolution changes.
+    //
+    // We only recreate the *surfaces* here; the GL context stays alive.
+    g_backbuffer1 = NULL;
 #else
-	g_ddraw = 0;
-	g_frontbuffer = 0;
-	g_backbuffer1 = 0;
-	g_clipper = 0;
+    g_ddraw = 0;
+    g_frontbuffer = 0;
+    g_backbuffer1 = 0;
+    g_clipper = 0;
 #endif
-	dword_973C88 = 0;
-	dword_973C60 = 0;
-	dword_973C70 = 0;
-	dword_973C7C = 0;
-	dword_974854 = 0;
-	dword_6F7B9C = 1;
-	dword_5ACFAC = 1;
-	if (!(byte_5D4594[3801772] & 4))
-	{
-		sub_48AA40();
-		result = sub_48B000();
-		if (!result)
-			return result;
+    dword_973C88 = 0;
+    dword_973C60 = 0;
+    dword_973C70 = 0;
+    dword_973C7C = 0;
+    dword_974854 = 0;
+    dword_6F7B9C = 1;
+    dword_5ACFAC = 1;
+    if (!(byte_5D4594[3801772] & 4))
+    {
+        sub_48AA40();
+        result = sub_48B000();
+        if (!result)
+            return result;
 #ifdef USE_SDL
         create_surfaces(a1, a2, a3);
 #else
-		if (byte_5D4594[3801772] & 0x10)
-		{
-            // windowed mode
-			result = sub_48AED0(a1, a2, a3);
-			if (!result)
-				return result;
-		}
-		else
-		{
-            // fullscreen mode
-			result = sub_48AD40(a1, a2, a3, a4);
-			if (!result)
-				return result;
-		}
+        ...
 #endif
-	}
-	dword_6F7BB0 = 1;
-	sub_48A820(1u);
-	result = sub_48A3D0();
-	if (result)
-	{
-		sub_48A7F0();
-		result = 1;
-	}
-	return result;
+    }
+    dword_6F7BB0 = 1;
+    sub_48A820(1u);
+    result = sub_48A3D0();
+    if (result)
+    {
+        sub_48A7F0();
+        result = 1;
+    }
+    return result;
 }
 
 //----- (0048A120) --------------------------------------------------------
@@ -915,6 +930,10 @@ void sub_48AA40()
 #ifdef USE_SDL
 static void set_viewport(float srcw, float srch)
 {
+//    printf(
+//        "[VIEWPORT] src=%gx%g\n",
+//        srcw, srch
+//    );
     float ratio = srcw / srch, offx = 0, offy = 0;
 	int vpw, vph, vpx, vpy;
 
@@ -929,6 +948,10 @@ static void set_viewport(float srcw, float srch)
 	vph = EM_ASM_INT(return canvas.height);
 #else
 	SDL_GL_GetDrawableSize(dword_973FE0, &vpw, &vph);
+//	fprintf(stderr,
+//        "[SDL_GL_GetDrawableSize] drawable=%dx%d src=%gx%g rotate=%d\n",
+//        vpw, vph, srcw, srch, g_rotate
+//    );
 #endif
 
     //
@@ -949,75 +972,295 @@ static void set_viewport(float srcw, float srch)
     vpy = offy;
 
     glViewport(vpx, vpy, vpw, vph);
+//    fprintf(stderr,
+//        "[glViewport] x=%d y=%d w=%d h=%d (window drawable)\n",
+//        vpx, vpy, vpw, vph
+//    );
 }
+
+static void glCheckErrorAt(const char *where)
+{
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        fprintf(stderr, "GL error at %s: 0x%04x\n", where, err);
+    }
+}
+
+#ifdef SDL_DEBUG_FRAMES
+#define FRAME_LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define FRAME_LOG(...) do {} while (0)
+#endif
 
 void sdl_present()
 {
-    if (g_ddraw)
-    {
-        SDL_Rect srcrect;
-        char *srcpixels = g_backbuffer1->pixels;
-        char *pixels;
-        int srcpitch = g_backbuffer1->pitch;
-        int pitch;
-        const float matrix[] = {1.0, 0.0, 0.0, 1.0};
-        const float matrixRotated[] = {0.0, 1.0, 1.0, 0.0};
+    if (!g_ddraw || !g_backbuffer1)
+        return;
 
-		sub_48BE50(1);
-		sub_48B5D0(0, 0);
+    // --------------------------------------------------------------------
+    // Frame + backbuffer tracking
+    // --------------------------------------------------------------------
+    static int   s_frame_id    = 0;
+    static void *s_last_pixels = NULL;
+    static int   s_last_pitch  = 0;
 
-        glBindTexture(GL_TEXTURE_2D, g_texture);
-        glCheckError();
-#ifndef __EMSCRIPTEN__
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, g_backbuffer1->pitch / 2);
-        glCheckError();
-#endif
-#ifdef _WIN32
-        // XXX FIXME WHY?
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_backbuffer1->w, g_backbuffer1->h, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, g_backbuffer1->pixels);
-#else
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g_backbuffer1->w, g_backbuffer1->h, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, g_backbuffer1->pixels);
-#endif
-        glCheckError();
+    ++s_frame_id;
 
-/*
-        EM_ASM_({
-            Module['renderTexture']($0, $1);
-        }, g_backbuffer1->w, g_backbuffer1->h);
-*/
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glCheckError();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glCheckError();
-        set_viewport(g_backbuffer1->w, g_backbuffer1->h);
-        glCheckError();
-
-        glClear(GL_COLOR_BUFFER_BIT);
-        glCheckError();
-
-        glUseProgram(g_program);
-        glCheckError();
-        glUniform1i(g_sampler_uniform, 0);
-        glCheckError();
-        glUniformMatrix2fv(g_matrix_uniform, 1, GL_FALSE, g_rotated ? matrixRotated : matrix);
-        glCheckError();
-        glUniform1f(g_gamma_uniform, draw_gamma);
-        glCheckError();
-        glBindBuffer(GL_ARRAY_BUFFER, g_tex_coord_buffer);
-        glCheckError();
-        glVertexAttribPointer(g_tex_coord_attr, g_tex_coord_itemsize, GL_FLOAT, GL_FALSE, 0, 0);
-        glCheckError();
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, g_tex_coord_numitems);
-        glCheckError();
-
-        SDL_GL_SwapWindow(dword_973FE0);
-
-		sub_48BE50(0);
+#ifdef USE_SDL
+    // --------------------------------------------------------------------
+    // GL context identity check (sparse logs, keep always)
+    // --------------------------------------------------------------------
+    static SDL_GLContext s_main_ctx = NULL;
+    SDL_GLContext cur_ctx = SDL_GL_GetCurrentContext();
+    if (!s_main_ctx) {
+        s_main_ctx = cur_ctx;
+        fprintf(stderr, "GLCTX: main_ctx=%p\n", (void *)s_main_ctx);
     }
+    if (cur_ctx != s_main_ctx) {
+        fprintf(stderr,
+                "GLCTX: context change frame=%d cur=%p main=%p\n",
+                s_frame_id, (void *)cur_ctx, (void *)s_main_ctx);
+    }
+#endif
+
+#ifdef SDL_DEBUG_FRAMES
+    // --------------------------------------------------------------------
+    // Dump some GL state at the start of the frame (debug only)
+    // --------------------------------------------------------------------
+    GLint fbo        = 0;
+    GLint vp[4]      = {0, 0, 0, 0};
+    GLint activeTex  = 0;
+
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
+    glCheckErrorAt("get FBO");
+
+    glGetIntegerv(GL_VIEWPORT, vp);
+    glCheckErrorAt("get viewport");
+
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTex);
+    glCheckErrorAt("get active texture");
+
+    FRAME_LOG(
+        "GLSTATE frame=%d FBO=%d viewport=%d %d %d %d activeTex=0x%04x\n",
+        s_frame_id, fbo, vp[0], vp[1], vp[2], vp[3], activeTex);
+#endif
+
+    // --------------------------------------------------------------------
+    // Backbuffer / surface tracking
+    // --------------------------------------------------------------------
+    int w       = g_backbuffer1->w;
+    int h       = g_backbuffer1->h;
+    int pitch16 = g_backbuffer1->pitch;   // bytes per row, 16-bit pixels
+
+#ifdef SDL_DEBUG_FRAMES
+    if (g_backbuffer1->pixels != s_last_pixels || g_backbuffer1->pitch != s_last_pitch) {
+        s_last_pixels = g_backbuffer1->pixels;
+        s_last_pitch  = g_backbuffer1->pitch;
+        FRAME_LOG(
+            "BACKBUFFER change frame=%d pixels=%p pitch=%d w=%d h=%d\n",
+            s_frame_id, s_last_pixels, s_last_pitch, w, h);
+    }
+
+    // Sample a few pixels in 3 rows (top / middle / bottom) if possible
+    if (w > 0 && h > 0) {
+        uint8_t *base = (uint8_t *)g_backbuffer1->pixels;
+        int sample_rows[3] = {0, h / 2, h - 1};
+        int nrows = (h >= 3) ? 3 : 1;
+
+        int sample_cols_full[5] = {0, w / 4, w / 2, (3 * w) / 4, w - 1};
+        int ncols = (w >= 5) ? 5 : (w > 0 ? w : 0);
+
+        FRAME_LOG("BACKBUFFER samples frame=%d:\n", s_frame_id);
+        for (int ri = 0; ri < nrows; ++ri) {
+            int y = sample_rows[ri];
+            if (y < 0 || y >= h)
+                continue;
+
+            uint16_t *row16 = (uint16_t *)(base + y * pitch16);
+            FRAME_LOG("  y=%d: ", y);
+
+            for (int ci = 0; ci < ncols; ++ci) {
+                int x = sample_cols_full[ci];
+                if (x < 0 || x >= w)
+                    continue;
+                uint16_t p = row16[x];
+                FRAME_LOG("%04x ", p);
+            }
+            FRAME_LOG("\n");
+        }
+    }
+#endif // SDL_DEBUG_FRAMES
+
+    SDL_Rect srcrect;
+    char *srcpixels = g_backbuffer1->pixels;
+    char *pixels;
+    int srcpitch = g_backbuffer1->pitch;
+    int pitch;
+    const float matrix[]        = {1.0f, 0.0f, 0.0f, 1.0f};
+    const float matrixRotated[] = {0.0f, 1.0f, 1.0f, 0.0f};
+
+    sub_48BE50(1);
+    sub_48B5D0(0, 0);
+
+#ifdef SDL_DEBUG_FRAMES
+    // --------------------------------------------------------------------
+    // Object validity check (debug only)
+    // --------------------------------------------------------------------
+    GLboolean prog_ok = glIsProgram(g_program);
+    glCheckErrorAt("glIsProgram");
+
+    GLboolean tex_ok  = glIsTexture(g_texture);
+    glCheckErrorAt("glIsTexture");
+
+    FRAME_LOG(
+        "GLOBJ frame=%d isProgram=%d isTexture=%d g_program=%u g_texture=%u\n",
+        s_frame_id, prog_ok, tex_ok,
+        (unsigned int)g_program, (unsigned int)g_texture);
+#endif
+
+    glBindTexture(GL_TEXTURE_2D, g_texture);
+    glCheckErrorAt("bind texture");
+
+#ifndef __EMSCRIPTEN__
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glCheckErrorAt("pixelstore alignment");
+#endif
+
+    // --------------------------------------------------------------------
+    // Convert 16-bit 1:5:5:5 (REV-style) source into RGBA8888 for GLES.
+    // Alpha is forced to 0xFF so "transparent" source pixels can't make
+    // the whole image invisible.
+    // --------------------------------------------------------------------
+    static uint32_t *conv     = NULL;
+    static int       conv_cap = 0;
+    int needed = w * h;
+
+    if (needed > conv_cap) {
+        free(conv);
+        conv = (uint32_t *)malloc(needed * sizeof(uint32_t));
+        conv_cap = needed;
+#ifdef SDL_DEBUG_FRAMES
+        FRAME_LOG(
+            "CONV realloc frame=%d needed=%d new_cap=%d ptr=%p\n",
+            s_frame_id, needed, conv_cap, (void *)conv);
+#endif
+    }
+
+    if (!conv) {
+        fprintf(stderr, "CONV allocation failed, aborting present\n");
+        sub_48BE50(0);
+        return;
+    }
+
+    for (int y = 0; y < h; ++y) {
+        uint16_t *row16 = (uint16_t *)((uint8_t *)g_backbuffer1->pixels + y * pitch16);
+        uint32_t *row32 = conv + y * w;
+
+        for (int x = 0; x < w; ++x) {
+            uint16_t p = row16[x];
+
+            // Assume original is like GL_UNSIGNED_SHORT_1_5_5_5_REV:
+            // bit0:  A, bits1-5:  B, bits6-10: G, bits11-15: R
+            uint8_t b5 = (uint8_t)((p >> 1)  & 0x1F);
+            uint8_t g5 = (uint8_t)((p >> 6)  & 0x1F);
+            uint8_t r5 = (uint8_t)((p >> 11) & 0x1F);
+
+            uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
+            uint8_t g = (uint8_t)((g5 << 3) | (g5 >> 2));
+            uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
+
+            row32[x] = (uint32_t)r |
+                       ((uint32_t)g << 8) |
+                       ((uint32_t)b << 16) |
+                       0xFF000000u;   // force alpha
+        }
+    }
+
+#ifndef __EMSCRIPTEN__
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, w);
+    glCheckErrorAt("pixelstore row length");
+#endif
+
+    glTexSubImage2D(
+        GL_TEXTURE_2D, 0, 0, 0,
+        w, h,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        conv
+    );
+    glCheckErrorAt("texsubimage2d rgba8888");
+
+    // --------------------------------------------------------------------
+    // Draw textured quad
+    // --------------------------------------------------------------------
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glCheckErrorAt("tex parameters");
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glCheckErrorAt("bind default FBO");
+
+    set_viewport(g_backbuffer1->w, g_backbuffer1->h);
+    glCheckErrorAt("set viewport");
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glCheckErrorAt("clear color buffer");
+
+    if (g_program) {
+        glUseProgram(g_program);
+        glCheckErrorAt("use program");
+
+        glUniform1i(g_sampler_uniform, 0);
+        glCheckErrorAt("uniform sampler");
+
+        glUniformMatrix2fv(
+            g_matrix_uniform, 1, GL_FALSE,
+            g_rotated ? matrixRotated : matrix
+        );
+        glCheckErrorAt("uniform matrix");
+
+        glUniform1f(g_gamma_uniform, draw_gamma);
+        glCheckErrorAt("uniform gamma");
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, g_tex_coord_buffer);
+    glCheckErrorAt("bind texcoord buffer");
+
+    glVertexAttribPointer(
+        g_tex_coord_attr,
+        g_tex_coord_itemsize,
+        GL_FLOAT,
+        GL_FALSE,
+        0,
+        0
+    );
+    glCheckErrorAt("vertex attrib pointer");
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, g_tex_coord_numitems);
+    glCheckErrorAt("draw arrays");
+
+#ifdef SDL_DEBUG_FRAMES
+    FRAME_LOG("PRESENT end frame=%d\n", s_frame_id);
+#endif
+
+    SDL_GL_SwapWindow(dword_973FE0);
+
+    sub_48BE50(0);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 #else
 //----- (0048AAF0) --------------------------------------------------------
 void __cdecl sub_48AAF0()
@@ -1122,6 +1365,10 @@ int create_surfaces(HWND a1, int width, int height)
 	if ((v3 & 0x18) == 24)
 		SetWindowLongA(dword_973FE0, GWL_STYLE, WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_GROUP);
 #endif
+    printf(
+        "[SURFACE CREATE] backbuffer=%dx%d\n",
+        width, height
+    );
     g_backbuffer1 = sub_48A600(width, height, DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH, DDSCAPS_OFFSCREENPLAIN);
     //g_backbufferrgb = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_ABGR8888);
     if (g_backbuffer1)
@@ -1270,12 +1517,21 @@ const GLchar *fragment_source = FLOAT_PRECISION \
     "    gl_FragColor.rgb = pow(texture2D(uSampler, coordTex * uMatrix).rgb, vec3(1.0/uGamma));\n" \
     "}\n";
 
+
+
+
+
+
 int sub_48B000()
 {
+    static int gl_inited = 0;       // guard to avoid 2nd context
     GLenum err;
     GLint status;
     GLuint vertex, fragment;
-    float coords[] = {1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0};
+    float coords[] = {1.0f, 1.0f,
+                      0.0f, 1.0f,
+                      1.0f, 0.0f,
+                      0.0f, 0.0f};
 
 #if __EMSCRIPTEN__
     g_rotate = EM_ASM_INT(return Module['shouldRotate']());
@@ -1283,98 +1539,257 @@ int sub_48B000()
     g_rotate = 0;
 #endif
     g_format = SDL_PIXELFORMAT_RGBA5551;
-    g_ddraw = SDL_GL_CreateContext(dword_973FE0);
-    SDL_GL_SetSwapInterval(1);
+
+    if (!gl_inited) {
+
+        // ---- Enforce OpenGL 2.1 compatibility ----
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
+        // ---------------- FIRST TIME: full GL init ----------------
+        g_ddraw = SDL_GL_CreateContext(dword_973FE0);
+        fprintf(stderr, "GLCTX_CREATE(FIRST): ctx=%p window=%p\n", g_ddraw, dword_973FE0);
+
+        if (!g_ddraw) {
+            fprintf(stderr, "GLCTX_CREATE(FIRST): SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+            return 0;
+        }
+
+        if (SDL_GL_MakeCurrent(dword_973FE0, g_ddraw) != 0) {
+            fprintf(stderr, "GLINIT_BEGIN: SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
+            SDL_GL_DeleteContext(g_ddraw);
+            g_ddraw = NULL;
+            return 0;
+        }
+
+        const char *gl_ver   = (const char *)glGetString(GL_VERSION);
+        const char *glsl_ver = (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
+        const char *vendor   = (const char *)glGetString(GL_VENDOR);
+        const char *renderer = (const char *)glGetString(GL_RENDERER);
+
+        fprintf(stderr,
+            "GL INFO:\n"
+            "  Vendor   : %s\n"
+            "  Renderer : %s\n"
+            "  Version  : %s\n"
+            "  GLSL     : %s\n",
+            vendor ? vendor : "(null)",
+            renderer ? renderer : "(null)",
+            gl_ver ? gl_ver : "(null)",
+            glsl_ver ? glsl_ver : "(null)"
+        );
+
+        fprintf(stderr, "GLINIT_BEGIN: ctx=%p\n", SDL_GL_GetCurrentContext());
+
+        SDL_GL_SetSwapInterval(1);
 
 #ifdef _WIN32
-    err = glewInit();
-    if (GLEW_OK != err)
-    {
-      /* Problem: glewInit failed, something is seriously wrong. */
-      dprintf("Error: %s\n", glewGetErrorString(err));
-    }
+        err = glewInit();
+        if (GLEW_OK != err)
+        {
+            /* Problem: glewInit failed, something is seriously wrong. */
+            dprintf("Error: %s\n", glewGetErrorString(err));
+        }
 #endif
 
-    glGenTextures(1, &g_texture);
-    glCheckError();
-    glActiveTexture(GL_TEXTURE0);
-    glCheckError();
+        glGenTextures(1, &g_texture);
+        glCheckError();
+        glActiveTexture(GL_TEXTURE0);
+        glCheckError();
+        glBindTexture(GL_TEXTURE_2D, g_texture);
+        glCheckError();
+
+        // We’ll allocate actual size below.
+        g_tex_width  = 0;
+        g_tex_height = 0;
+
+        // Set basic parameters here.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glCheckError();
+
+        // Make the GL texture a plain RGBA8888 buffer.
+        int tex_w = *(_DWORD *)&byte_5D4594[3805496];
+        int tex_h = *(_DWORD *)&byte_5D4594[3807120];
+        if (tex_w <= 0) tex_w = 1024;
+        if (tex_h <= 0) tex_h = 1024;
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            tex_w,
+            tex_h,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+        glCheckError();
+
+        g_tex_width  = tex_w;
+        g_tex_height = tex_h;
+
+        fprintf(stderr,
+                "GLINIT_TEXTURE: ctx=%p tex=%u size=%dx%d\n",
+                SDL_GL_GetCurrentContext(), g_texture, tex_w, tex_h);
+
+        vertex = glCreateShader(GL_VERTEX_SHADER);
+        glCheckError();
+        glShaderSource(vertex, 1, &vertex_source, NULL);
+        glCheckError();
+        glCompileShader(vertex);
+        glCheckError();
+        glGetShaderiv(vertex, GL_COMPILE_STATUS, &status);
+        if (status == GL_FALSE)
+        {
+            char tmp[8192];
+            glGetShaderInfoLog(vertex, 8192, NULL, tmp);
+            fprintf(stderr, "GLINIT_VERTEX_COMPILE_ERR:\n%s\n", tmp);
+        }
+
+        fragment = glCreateShader(GL_FRAGMENT_SHADER);
+        glCheckError();
+        glShaderSource(fragment, 1, &fragment_source, NULL);
+        glCheckError();
+        glCompileShader(fragment);
+        glCheckError();
+        glGetShaderiv(fragment, GL_COMPILE_STATUS, &status);
+        if (status == GL_FALSE)
+        {
+            char tmp[8192];
+            glGetShaderInfoLog(fragment, 8192, NULL, tmp);
+            fprintf(stderr, "GLINIT_FRAGMENT_COMPILE_ERR:\n%s\n", tmp);
+        }
+
+        g_program = glCreateProgram();
+        glCheckError();
+        glAttachShader(g_program, vertex);
+        glCheckError();
+        glAttachShader(g_program, fragment);
+        glCheckError();
+        glLinkProgram(g_program);
+        glCheckError();
+        glGetProgramiv(g_program, GL_LINK_STATUS, &status);
+        if (status == GL_FALSE)
+        {
+            fprintf(stderr, "GLINIT_LINK_FAILED: ctx=%p program=%u\n",
+                    SDL_GL_GetCurrentContext(), g_program);
+        }
+
+        fprintf(stderr, "GLINIT_PROGRAM: ctx=%p program=%u\n",
+                SDL_GL_GetCurrentContext(), g_program);
+
+        glUseProgram(g_program);
+        glCheckError();
+
+        g_tex_coord_attr = glGetAttribLocation(g_program, "aTextureCoord");
+        glCheckError();
+        fprintf(stderr, "GLINIT_UNIFORM: aTextureCoord attr=%d\n", g_tex_coord_attr);
+
+        glEnableVertexAttribArray(g_tex_coord_attr);
+        glCheckError();
+
+        g_gamma_uniform = glGetUniformLocation(g_program, "uGamma");
+        glCheckError();
+        fprintf(stderr, "GLINIT_UNIFORM: uGamma loc=%d\n", g_gamma_uniform);
+
+        g_matrix_uniform = glGetUniformLocation(g_program, "uMatrix");
+        glCheckError();
+        fprintf(stderr, "GLINIT_UNIFORM: uMatrix loc=%d\n", g_matrix_uniform);
+
+        g_sampler_uniform = glGetUniformLocation(g_program, "uSampler");
+        glCheckError();
+        fprintf(stderr, "GLINIT_UNIFORM: uSampler loc=%d\n", g_sampler_uniform);
+
+        glGenBuffers(1, &g_tex_coord_buffer);
+        glCheckError();
+        glBindBuffer(GL_ARRAY_BUFFER, g_tex_coord_buffer);
+        glCheckError();
+        glBufferData(GL_ARRAY_BUFFER, sizeof(coords), coords, GL_STATIC_DRAW);
+        glCheckError();
+
+        g_tex_coord_itemsize = 2;
+        g_tex_coord_numitems = 4;
+
+        fprintf(stderr,
+                "GLINIT_DONE: ctx=%p program=%u tex=%u sampler=%d matrix=%d gamma=%d vbo=%u\n",
+                SDL_GL_GetCurrentContext(),
+                g_program,
+                g_texture,
+                g_sampler_uniform,
+                g_matrix_uniform,
+                g_gamma_uniform,
+                g_tex_coord_buffer);
+
+        gl_inited = 1;
+        return 1;
+    }
+
+    // ---------------- SUBSEQUENT CALLS: reuse context ----------------
+    fprintf(stderr, "GLCTX_REUSE: existing ctx=%p window=%p\n", g_ddraw, dword_973FE0);
+
+    if (!g_ddraw) {
+        fprintf(stderr, "GLCTX_REUSE: g_ddraw is NULL, cannot reuse context!\n");
+        return 0;
+    }
+
+    if (SDL_GL_MakeCurrent(dword_973FE0, g_ddraw) != 0) {
+        fprintf(stderr, "GLCTX_REUSE: SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
+        // We keep going, but this is bad and will show up in logs.
+    }
+
+    // Update texture size for new resolution (e.g. 848x480 in game).
+    int tex_w = *(_DWORD *)&byte_5D4594[3805496];
+    int tex_h = *(_DWORD *)&byte_5D4594[3807120];
+    if (tex_w <= 0) tex_w = 1024;
+    if (tex_h <= 0) tex_h = 1024;
+
     glBindTexture(GL_TEXTURE_2D, g_texture);
     glCheckError();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, *(_DWORD *)&byte_5D4594[3805496], *(_DWORD *)&byte_5D4594[3807120], 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
-    glCheckError();
 
-#if 0
-    EM_ASM_({
-        Module['initGL']($0, $1);
-    }, *(_DWORD *)&byte_5D4594[3805496], *(_DWORD *)&byte_5D4594[3807120]);
-#endif
+    if (tex_w != g_tex_width || tex_h != g_tex_height) {
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            tex_w,
+            tex_h,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+        glCheckError();
 
-    vertex = glCreateShader(GL_VERTEX_SHADER);
-    glCheckError();
-    glShaderSource(vertex, 1, &vertex_source, NULL);
-    glCheckError();
-    glCompileShader(vertex);
-    glCheckError();
-    glGetShaderiv(vertex, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE)
-    {
-        char tmp[8192];
-        glGetShaderInfoLog(vertex, 8192, NULL, tmp);
-        fprintf(stderr, "%s\n", tmp);
+        g_tex_width  = tex_w;
+        g_tex_height = tex_h;
+
+        fprintf(stderr,
+                "GLINIT_TEXTURE_RESIZE: ctx=%p tex=%u size=%dx%d\n",
+                SDL_GL_GetCurrentContext(), g_texture, tex_w, tex_h);
+    } else {
+        fprintf(stderr,
+                "GLINIT_TEXTURE_RESIZE: ctx=%p tex=%u size unchanged (%dx%d)\n",
+                SDL_GL_GetCurrentContext(), g_texture, tex_w, tex_h);
     }
 
-    fragment = glCreateShader(GL_FRAGMENT_SHADER);
-    glCheckError();
-    glShaderSource(fragment, 1, &fragment_source, NULL);
-    glCheckError();
-    glCompileShader(fragment);
-    glCheckError();
-    glGetShaderiv(fragment, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE)
-    {
-        char tmp[8192];
-        glGetShaderInfoLog(fragment, 8192, NULL, tmp);
-        fprintf(stderr, "%s\n", tmp);
-    }
-
-    g_program = glCreateProgram();
-    glCheckError();
-    glAttachShader(g_program, vertex);
-    glCheckError();
-    glAttachShader(g_program, fragment);
-    glCheckError();
-    glLinkProgram(g_program);
-    glCheckError();
-    glGetProgramiv(g_program, GL_LINK_STATUS, &status);
-    if (status == GL_FALSE)
-    {
-        fprintf(stderr, "Link failed.\n");
-    }
-
+    // Re-bind program just to be safe.
     glUseProgram(g_program);
     glCheckError();
-    g_tex_coord_attr = glGetAttribLocation(g_program, "aTextureCoord");
-    glCheckError();
-    glEnableVertexAttribArray(g_tex_coord_attr);
-    glCheckError();
-    g_gamma_uniform = glGetUniformLocation(g_program, "uGamma");
-    glCheckError();
-    g_matrix_uniform = glGetUniformLocation(g_program, "uMatrix");
-    glCheckError();
-    g_sampler_uniform = glGetUniformLocation(g_program, "uSampler");
-    glCheckError();
-
-    glGenBuffers(1, &g_tex_coord_buffer);
-    glCheckError();
-    glBindBuffer(GL_ARRAY_BUFFER, g_tex_coord_buffer);
-    glCheckError();
-    glBufferData(GL_ARRAY_BUFFER, sizeof(coords), coords, GL_STATIC_DRAW);
-    g_tex_coord_itemsize = 2;
-    g_tex_coord_numitems = 4;
 
     return 1;
 }
+
+
+
+
+
+
+
+
 #else
 //----- (0048B000) --------------------------------------------------------
 int sub_48B000()
@@ -1448,15 +1863,32 @@ int __cdecl sub_48B140(LPDIRECTDRAW a1, const IID *a2, int *a3)
 #ifdef USE_SDL
 void __cdecl sub_48B1B0(SDL_GLContext *a1)
 {
-    if (*a1)
-    {
-        SDL_GL_DeleteContext(*a1);
-        *a1 = NULL;
+    if (!a1) {
+        return;
     }
+
+    fprintf(stderr, "GLCTX_DELETE: *a1=%p g_ddraw=%p\n", *a1, g_ddraw);
+
+    if (!*a1) {
+        // Nothing to do.
+        return;
+    }
+
+    if (*a1 == g_ddraw) {
+        // This is the main GL context we want to keep alive.
+        // IMPORTANT: do NOT delete it and do NOT set it to NULL.
+        fprintf(stderr, "GLCTX_DELETE: skipping delete for main context (leaving pointer intact)\n");
+        return;
+    }
+
+    // Any non-main context can be safely destroyed.
+    SDL_GL_DeleteContext(*a1);
+    *a1 = NULL;
 }
 
 void __cdecl sub_48B1D0(SDL_Surface **a1)
 {
+    fprintf(stderr, "SURFACE_DELETE: *a1=%p g_backbuffer1=%p\n", *a1, g_backbuffer1);
     if (*a1)
     {
         SDL_FreeSurface(*a1);
@@ -1553,19 +1985,19 @@ int sub_48B1F0()
 		dword_6F7BF0 = sub_48B840;
 #endif
 	result = sub_48BF70();
-    printf("%s: %d\n", __FUNCTION__, result);
+    //printf("%s: %d\n", __FUNCTION__, result);
 	if (result)
 	{
 		result = sub_48C060();
-    printf("%s: %d\n", __FUNCTION__, result);
+    //printf("%s: %d\n", __FUNCTION__, result);
 		if (result)
 		{
 			result = sub_48BDE0();
-    printf("%s: %d\n", __FUNCTION__, result);
+    //printf("%s: %d\n", __FUNCTION__, result);
 			if (result)
 			{
 				result = sub_48BE70();
-    printf("%s: %d\n", __FUNCTION__, result);
+    //printf("%s: %d\n", __FUNCTION__, result);
 				if (result)
 				{
 					*(_DWORD *)&byte_5D4594[1193660] = 1;
@@ -2071,7 +2503,7 @@ void sub_4353F0()
 			plpal[i + 46] = v9;
 			plpal[i + 47] = 4;
 		}
-		
+
 		*(_DWORD *)&byte_5D4594[809596] = CreatePalette((const LOGPALETTE *)plpal);
 	}
 #endif
@@ -2158,7 +2590,7 @@ int __cdecl sub_444930(HWND a1, int a2, int a3, int a4, int a5)
 	*(_DWORD *)&byte_5D4594[823776] = 0;
 	*(_DWORD *)&byte_5D4594[3799572] = &byte_5D4594[3799660];
 	result = sub_4449D0(a1, a2, a3, a4, a5);
-    printf("%s: %d\n", __FUNCTION__, result);
+    //printf("%s: %d\n", __FUNCTION__, result);
 	if (result)
 	{
 		*(_DWORD *)&byte_5D4594[3799572] = &byte_5D4594[3800716];
@@ -2297,61 +2729,79 @@ void sub_4AD180()
 }
 
 //----- (004AD1E0) --------------------------------------------------------
+#ifdef USE_SDL
 void sub_4AD1E0()
 {
-	int result; // eax
-	_WORD *v1; // edi
-	int v2; // edx
-	_WORD **v3; // ebp
-	_WORD *v4; // esi
-	int v5; // ecx
-	int v6; // ebx
-	int v7; // ebx
-	int v8; // ebx
-	int v9; // ebx
+    int result;      // eax
+    _WORD *v1;       // edi
+    int v2;          // edx
+    _WORD **v3;      // ebp
+    _WORD *v4;       // esi
+    int v5;          // ecx;
 
-	if (!dword_973C70)
-	{
+    if (dword_973C70)
+        return;
+
 #ifdef USE_SDL
-        result = SDL_LockSurface(g_backbuffer1);
-        v1 = g_backbuffer1->pixels;
+    if (!g_backbuffer1)
+        return;
+
+    // SDL path: lock the surface and get 16-bit pixel pointer
+    result = SDL_LockSurface(g_backbuffer1);
+    v1 = (_WORD *)g_backbuffer1->pixels;
 #else
-        DDSURFACEDESC v11; // [esp+Ch] [ebp-70h]
-		v11.dwSize = sizeof(v11);
-		v11.dwFlags = 0;
-		result = g_backbuffer1->lpVtbl->Lock(g_backbuffer1, 0, &v11, 1, 0);
-        v1 = v11.lpSurface;
+    DDSURFACEDESC v11; // [esp+Ch] [ebp-70h]
+
+    if (!g_backbuffer1)
+        return;
+
+    v11.dwSize  = sizeof(v11);
+    v11.dwFlags = 0;
+    result = g_backbuffer1->lpVtbl->Lock(g_backbuffer1, 0, &v11, DDLOCK_WAIT | DDLOCK_NOSYSLOCK, 0);
+    v1 = (_WORD *)v11.lpSurface;
 #endif
-		if (!result)
-		{
-			v2 = *(_DWORD *)&byte_5D4594[3801788];
-			v3 = *(_WORD ***)&byte_5D4594[3798784];
-            while (v2 > 0)
-			{
-				v4 = *v3;
-				v5 = *(_DWORD *)&byte_5D4594[3801800];
-                while (v5 > 0)
-                {
-                    int i;
-                    for ( i = 0 ; i < 16 ; i++ )
-                        *v1++ = *v4++ << 1;
-                    v5--;
-                }
-                //memcpy(v1, v4, v5 * 32);
-                //v1 = (_DWORD *)((char *)v1 + v5 * 32);
-				v1 = (_WORD *)((char *)v1 + dword_974868);
-				++v3;
-                v2--;
+
+    if (!result)
+    {
+        v2 = *(_DWORD *)&byte_5D4594[3801788];          // height
+        v3 = *(_WORD ***)&byte_5D4594[3798784];         // source row pointers
+
+        while (v2 > 0)
+        {
+            v4 = *v3;                                   // src row
+            v5 = *(_DWORD *)&byte_5D4594[3801800];      // blocks per row (width / 16)
+
+            while (v5 > 0)
+            {
+                int i;
+                for (i = 0; i < 16; i++)
+                    *v1++ = *v4++ << 1;                 // expand to 1:5:5:5 (or similar)
+                v5--;
             }
+
+            // advance to next dest row using pre-computed pitch delta
+            v1 = (_WORD *)((char *)v1 + dword_974868);
+            ++v3;
+            v2--;
+        }
+
 #ifdef USE_SDL
-            SDL_UnlockSurface(g_backbuffer1);
+        // Optional: keep our wide-mode debug sample print (no pixel changes).
+        //if (g_backbuffer1->w > 800) {
+        //    uint16_t *p16 = (uint16_t *)g_backbuffer1->pixels;
+        //    printf("sub_4AD1E0: first row samples = %04x %04x %04x %04x\n",
+        //           p16[0], p16[1], p16[2], p16[3]);
+        //}
+
+        SDL_UnlockSurface(g_backbuffer1);
 #else
-			g_backbuffer1->lpVtbl->Unlock(g_backbuffer1, v11.lpSurface);
+        g_backbuffer1->lpVtbl->Unlock(g_backbuffer1, v11.lpSurface);
 #endif
-			++*(_DWORD *)&byte_5D4594[3798652];
-		}
-	}
+
+        ++*(_DWORD *)&byte_5D4594[3798652];
+    }
 }
+#endif
 
 //----- (004AD2A0) --------------------------------------------------------
 void sub_4AD2A0()
@@ -2456,6 +2906,14 @@ int sub_48A3D0()
         sub_48A190();
         if (g_format == SDL_PIXELFORMAT_RGBA5551 || g_format == SDL_PIXELFORMAT_RGB565)
         {
+            printf(
+                "[48A3D0] backbuffer w=%d h=%d pitch=%d => tiles_x=%d\n",
+                g_backbuffer1->w,
+                g_backbuffer1->h,
+                g_backbuffer1->pitch,
+                g_backbuffer1->w >> 4
+            );
+
             *(_DWORD *)&byte_5D4594[3801800] = g_backbuffer1->w >> 4;
             *(_DWORD *)&byte_5D4594[3801776] = g_backbuffer1->w >> 1;
             *(_DWORD *)&byte_5D4594[3801780] = 1;
@@ -2656,6 +3114,34 @@ int __cdecl sub_48B3F0(int a1, int a2, int a3)
 			if (sub_48C0C0(a1, &a2, &a3))
 			{
 				dword_6F7C10(a1, a2, a3);
+
+#ifdef USE_SDL
+				// Cursor decode produces RGB555 (0RRRRRGGGGGBBBBB). Our SDL cursor surface is RGBA5551,
+				// where RGB lives in bits 1..15 and bit0 is alpha. Convert with alpha=1 so SDL blits it.
+				if (g_cursor_surf && g_cursor_surf->format &&
+				    g_cursor_surf->format->format == SDL_PIXELFORMAT_RGBA5551)
+				{
+					// Engine's colorkey value used by sub_49D1C0 is stored here (likely RGB555).
+					Uint16 key555 = (Uint16)(*(int *)&byte_5D4594[1193592]);
+					Uint16 key    = (Uint16)((key555 << 1) | 1); // RGBA5551 + alpha=1
+
+					Uint16 *p = (Uint16 *)g_cursor_surf->pixels;
+					int count = g_cursor_surf->w * g_cursor_surf->h;
+
+					for (i = 0; i < count; ++i)
+					{
+						Uint16 v = p[i];
+						if (v == key555)
+							p[i] = key;                 // convert key pixels too (so colorkey matches)
+						else
+							p[i] = (Uint16)((v << 1) | 1); // convert + force alpha=1 (opaque)
+					}
+
+					SDL_SetColorKey(g_cursor_surf, SDL_TRUE, key);
+					SDL_SetSurfaceBlendMode(g_cursor_surf, SDL_BLENDMODE_NONE);
+				}
+#endif
+
 				*(_DWORD *)&byte_5D4594[1193580] = a2;
 				*(_DWORD *)&byte_5D4594[1193600] = *(_DWORD *)&byte_5D4594[1193568];
 				*(_DWORD *)&byte_5D4594[1193620] = *(_DWORD *)&byte_5D4594[1193576];
@@ -2683,6 +3169,8 @@ int __cdecl sub_48B3F0(int a1, int a2, int a3)
 	return 1;
 }
 
+
+
 //----- (0048BDE0) --------------------------------------------------------
 BOOL sub_48BDE0()
 {
@@ -2694,8 +3182,11 @@ BOOL sub_48BDE0()
 	{
 #if USE_SDL
         // FIXME use SDL_MapRGB instead?
-		v0 = *(_DWORD *)&byte_5D4594[3799624] ? (unsigned __int16)v0 : (unsigned __int8)v0;
-        SDL_SetColorKey(g_cursor_surf, SDL_TRUE, v0);
+		//v0 = *(_DWORD *)&byte_5D4594[3799624] ? (unsigned __int16)v0 : (unsigned __int8)v0;
+        //SDL_SetColorKey(g_cursor_surf, SDL_TRUE, v0);
+        // Sookyboo
+        Uint32 key = SDL_MapRGB(g_cursor_surf->format, 255, 0, 255);
+        SDL_SetColorKey(g_cursor_surf, SDL_TRUE, key);
 #else
         DDCOLORKEY v2; // [esp+0h] [ebp-8h]
 
@@ -3330,6 +3821,10 @@ int __cdecl sub_4B0340(int a1)
 			sub_486110();
 			sub_48A120();
 			*(_DWORD *)&byte_5D4594[3801772] = v4;
+
+			// Sookyboo:Hack to force 640x480 resolution
+//			v8 = 640;
+//            v7 = 480;
 			result = sub_48A040(v3, v8, v7, a1);
 			if (!result)
 				return result;

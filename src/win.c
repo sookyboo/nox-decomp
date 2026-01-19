@@ -5,6 +5,7 @@
 #include "proto.h"
 
 #ifdef USE_SDL
+#include <stdio.h>     // for fprintf
 SDL_Window *g_window;
 #else
 WNDCLASSEXA g_wnd_class;
@@ -66,9 +67,36 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			break;
 		}
 	}
+
 #ifdef USE_SDL
-	SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER);
-	g_window = SDL_CreateWindow("Nox Game Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, *(int *)&byte_5D4594[3805496], *(int *)&byte_5D4594[3807120], SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+	// ---------------------------------------------------------------------
+	// SDL path: FORCE CLASSIC 640x480, NO WIDESCREEN
+	// ---------------------------------------------------------------------
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+
+	// Hard clamp to 640x480 to avoid widescreen / wide backbuffer modes.
+	// Also overwrite the original global resolution variables so the rest
+	// of the engine thinks it's always 640x480.
+	//int width  = 640;
+	//int height = 480;
+
+//	*(int *)&byte_5D4594[3805496] = width;   // original width global
+//	*(int *)&byte_5D4594[3807120] = height;  // original height global
+
+	g_window = SDL_CreateWindow(
+		"Nox Game Window",
+		SDL_WINDOWPOS_UNDEFINED,
+		SDL_WINDOWPOS_UNDEFINED,
+		*(int *)&byte_5D4594[3805496],
+		*(int *)&byte_5D4594[3807120],
+		SDL_WINDOW_OPENGL      // NOTE: no SDL_WINDOW_RESIZABLE here
+	);
+
+	if (!g_window)
+	{
+		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+		return 0;
+	}
 
 #ifdef __EMSCRIPTEN__
     if (EM_ASM_INT(return isMobile()))
