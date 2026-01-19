@@ -1,11 +1,15 @@
 #include "string.h"
+#include <stdio.h>
+#include <ctype.h>
+#include <stdarg.h>
 
 int __cdecl nox_vsnwprintf(wchar_t *buffer, size_t count, const wchar_t *format, va_list ap)
 {
     int i = 0, j, out = 0;
     wchar_t ch;
 
-#define EMIT(c) do { if (buffer && out < count) buffer[out++] = c; else out++; } while (0)
+#define EMIT(c) do { if (buffer && count > 0 && out < (int)count - 1) buffer[out] = (c); out++; } while (0)
+
 
     if (count == 0)
         buffer = NULL;
@@ -54,8 +58,8 @@ int __cdecl nox_vsnwprintf(wchar_t *buffer, size_t count, const wchar_t *format,
         {
         case 'c':
             {
-                wchar_t c = va_arg(ap, wchar_t);
-                EMIT(c);
+                 int c = va_arg(ap, int);
+                 EMIT((wchar_t)c);
             }
             break;
         case 's':
@@ -72,7 +76,7 @@ int __cdecl nox_vsnwprintf(wchar_t *buffer, size_t count, const wchar_t *format,
                 const char *pcch = va_arg(ap, const char *);
                 if (pcch == NULL) pcch = "(null)";
                 for (j = 0; pcch[j]; j++)
-                    EMIT(pcch[j]);
+                    EMIT((wchar_t)(unsigned char)pcch[j]);
             }
             break;
         case 'd':
@@ -115,12 +119,52 @@ int __cdecl nox_vsnwprintf(wchar_t *buffer, size_t count, const wchar_t *format,
                     EMIT('0');
 
                 for (j = 0; j < len; j++)
-                    EMIT(ch == 'X' ? toupper(tmp[j]) : tmp[j]);
+                    EMIT(ch == 'X' ? (char)toupper((unsigned char)tmp[j]) : tmp[j]);
             }
             break;
         case '%':
             EMIT('%');
             break;
+        case 'f': case 'F':
+        case 'e': case 'E':
+        case 'g': case 'G':
+        {
+            char fmt[64];
+            int k = 0;
+
+            fmt[k++] = '%';
+            if (flag) fmt[k++] = flag;
+
+            if (width >= 0)  { int n = snprintf(fmt + k, (k < (int)sizeof(fmt)) ? (int)sizeof(fmt) - k : 0, "%d", width); if (n > 0) { int room = (int)sizeof(fmt) - 1 - k; if (room < 0) room = 0; if (n > room) n = room; k += n; } }
+
+            if (precision >= 0) { int n = snprintf(fmt + k, (k < (int)sizeof(fmt)) ? (int)sizeof(fmt) - k : 0, ".%d", precision); if (n > 0) { int room = (int)sizeof(fmt) - 1 - k; if (room < 0) room = 0; if (n > room) n = room; k += n; } }
+
+
+            fmt[k++] = ch;
+            fmt[k] = 0;
+
+            double v = va_arg(ap, double);
+
+            char tmp[128];
+            int len = snprintf(tmp, sizeof(tmp), fmt, v);
+            if (len < 0) len = 0;
+            if (len > (int)sizeof(tmp) - 1) len = (int)sizeof(tmp) - 1;
+
+            for (j = 0; j < len; j++)
+                EMIT(tmp[j]);
+        }
+        break;
+        case 'p':
+        {
+            void *p = va_arg(ap, void *);
+            char tmp[64];
+            int len = snprintf(tmp, sizeof(tmp), "%p", p);
+            if (len < 0) len = 0;
+            if (len > (int)sizeof(tmp) - 1) len = (int)sizeof(tmp) - 1;
+            for (j = 0; j < len; j++)
+                EMIT((wchar_t)(unsigned char)tmp[j]);
+        }
+        break;
         default:
             dprintf("Unhandled format character: '%c'", ch);
             DebugBreak();
@@ -128,18 +172,19 @@ int __cdecl nox_vsnwprintf(wchar_t *buffer, size_t count, const wchar_t *format,
         }
     }
 
-    EMIT(0);
-    return out - 1;
+    if (buffer && count > 0) buffer[(out < (int)count) ? out : (int)count - 1] = 0;
+    return out;
 #undef EMIT
 }
 
 int __cdecl nox_vsnprintf(char *buffer, size_t count, const char *format, va_list ap)
 {
-    
+
     int i = 0, j, out = 0;
     char ch;
 
-#define EMIT(c) do { if (buffer && out < count) buffer[out++] = c; else out++; } while (0)
+#define EMIT(c) do { if (buffer && count > 0 && out < (int)count - 1) buffer[out] = (c); out++; } while (0)
+
 
     if (count == 0)
         buffer = NULL;
@@ -188,8 +233,8 @@ int __cdecl nox_vsnprintf(char *buffer, size_t count, const char *format, va_lis
         {
         case 'c':
             {
-                char c = va_arg(ap, char);
-                EMIT(c);
+                int c = va_arg(ap, int);
+                EMIT((char)c);
             }
             break;
         case 's':
@@ -249,12 +294,50 @@ int __cdecl nox_vsnprintf(char *buffer, size_t count, const char *format, va_lis
                     EMIT('0');
 
                 for (j = 0; j < len; j++)
-                    EMIT(ch == 'X' ? toupper(tmp[j]) : tmp[j]);
+                    EMIT(ch == 'X' ? (char)toupper((unsigned char)tmp[j]) : tmp[j]);
             }
             break;
         case '%':
             EMIT('%');
             break;
+        case 'f': case 'F':
+        case 'e': case 'E':
+        case 'g': case 'G':
+        {
+            char fmt[64];
+            int k = 0;
+
+            fmt[k++] = '%';
+            if (flag) fmt[k++] = flag;
+
+            if (width >= 0)  k += snprintf(fmt + k, sizeof(fmt) - k, "%d", width);
+            if (precision >= 0) k += snprintf(fmt + k, sizeof(fmt) - k, ".%d", precision);
+
+            fmt[k++] = ch;
+            fmt[k] = 0;
+
+            double v = va_arg(ap, double);
+
+            char tmp[128];
+            int len = snprintf(tmp, sizeof(tmp), fmt, v);
+            if (len < 0) len = 0;
+            if (len > (int)sizeof(tmp) - 1) len = (int)sizeof(tmp) - 1;
+
+            for (j = 0; j < len; j++)
+                EMIT(tmp[j]);
+        }
+        break;
+        case 'p':
+        {
+            void *p = va_arg(ap, void *);
+            char tmp[64];
+            int len = snprintf(tmp, sizeof(tmp), "%p", p);
+            if (len < 0) len = 0;
+            if (len > (int)sizeof(tmp) - 1) len = (int)sizeof(tmp) - 1;
+            for (j = 0; j < len; j++)
+                EMIT(tmp[j]);
+        }
+        break;
         default:
             dprintf("Unhandled format character: '%c'", ch);
             DebugBreak();
@@ -262,11 +345,11 @@ int __cdecl nox_vsnprintf(char *buffer, size_t count, const char *format, va_lis
         }
     }
 
-    EMIT(0);
     //puts("Printing: ");
     //puts(buffer);
 
-    return out - 1;
+    if (buffer && count > 0) buffer[(out < (int)count) ? out : (int)count - 1] = 0;
+    return out;
 #undef EMIT
 }
 
@@ -341,13 +424,46 @@ size_t nox_wcslen(const wchar_t *nox_wcs)
     return result;
 }
 
+// sookyboo
+//wchar_t *nox_wcsncpy(wchar_t *dest, const wchar_t *src, size_t n)
+//{
+//    size_t result;
+//    for (result = 0; src[result] && result < n; result++)
+//        dest[result] = src[result];
+//    while (result < n)
+//        dest[result++] = 0;
+//    return dest;
+//}
 wchar_t *nox_wcsncpy(wchar_t *dest, const wchar_t *src, size_t n)
 {
-    size_t result;
-    for (result = 0; src[result] && result < n; result++)
-        dest[result] = src[result];
-    while (result < n)
-        dest[result++] = 0;
+    size_t i;
+
+    /* Nothing to do if no buffer or zero length */
+    if (!dest || n == 0) {
+        return dest;
+    }
+
+    /*
+     * Defensive: some callers pass small integer sentinels (e.g. 0xFA)
+     * instead of a real pointer. On x86 this happened to "work" by
+     * accident; on ARM it segfaults. Treat such values as an empty string.
+     */
+    if (!src || (unsigned long)src < 0x10000UL) {
+        for (i = 0; i < n; ++i) {
+            dest[i] = 0;
+        }
+        return dest;
+    }
+
+    /* Normal bounded copy */
+    for (i = 0; i < n && src[i]; ++i) {
+        dest[i] = src[i];
+    }
+    /* NUL-pad the rest */
+    while (i < n) {
+        dest[i++] = 0;
+    }
+
     return dest;
 }
 
@@ -436,16 +552,19 @@ long nox_wcstol(const wchar_t *nptr, wchar_t **endptr, int base)
     tmp[i] = 0;
 
     result = strtol(tmp, &ptr, base);
-    
+
     if (endptr)
         *endptr = &nptr[ptr - tmp];
-	
+
 	free(tmp);
 	return result;
 }
 
 int WINAPIV nox_wsprintfA(LPSTR lpBuffer, LPCSTR lpFmt, ...)
 {
-    DebugBreak();
+    va_list ap;
+    va_start(ap, lpFmt);
+    int ret = nox_vsnprintf(lpBuffer, 0x7fffffff, lpFmt, ap);
+    va_end(ap);
+    return ret;
 }
-
