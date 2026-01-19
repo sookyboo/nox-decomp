@@ -3242,7 +3242,7 @@ LABEL_7:
 }
 
 //----- (00549220) --------------------------------------------------------
-int __cdecl sub_549220(float a1)
+int __cdecl sub_549220__abi_raw(float a1)
 {
   float2 *v1; // eax
   double v2; // st7
@@ -3313,7 +3313,7 @@ void __cdecl sub_549270(int a1, int a2)
 }
 
 //----- (00549380) --------------------------------------------------------
-int __cdecl sub_549380(float a1)
+int __cdecl sub_549380__abi_raw(float a1)
 {
   float v1; // edi
   int v2; // ebp
@@ -3414,7 +3414,7 @@ void __cdecl sub_5494C0(float *a1, int a2)
 }
 
 //----- (005495B0) --------------------------------------------------------
-int __cdecl sub_5495B0(float a1)
+int __cdecl sub_5495B0__abi_raw(float a1)
 {
   int v1; // edi
   int v2; // ebp
@@ -3478,7 +3478,7 @@ BOOL __cdecl sub_549690(int a1, int a2)
 }
 
 //----- (00549700) --------------------------------------------------------
-int __cdecl sub_549700(float a1)
+int __cdecl sub_549700__abi_raw(float a1)
 {
   int v1; // edi
   int v2; // ebp
@@ -3521,14 +3521,16 @@ int __cdecl sub_549700(float a1)
 }
 
 //----- (005497E0) --------------------------------------------------------
-int __cdecl sub_5497E0(float a1)
+int __cdecl sub_549800__abi_raw(float a1);
+
+int __cdecl sub_5497E0__abi_raw(float a1)
 {
   *(_DWORD *)&byte_5D4594[2491560] = 0;
-  return sub_549800(a1);
+  return sub_549800__abi_raw(a1);
 }
 
 //----- (00549800) --------------------------------------------------------
-int __cdecl sub_549800(float a1)
+int __cdecl sub_549800__abi_raw(float a1)
 {
   float2 *v1; // esi
   double v2; // st7
@@ -3546,7 +3548,7 @@ int __cdecl sub_549800(float a1)
 }
 
 //----- (00549860) --------------------------------------------------------
-void __cdecl sub_549860(int a1, float a2)
+void __cdecl sub_549860__abi_raw(int a1, float a2)
 {
   int v2; // esi
   bool v3; // zf
@@ -3593,14 +3595,14 @@ void __cdecl sub_549860(int a1, float a2)
 }
 
 //----- (00549960) --------------------------------------------------------
-int __cdecl sub_549960(float a1)
+int __cdecl sub_549960__abi_raw(float a1)
 {
   *(_DWORD *)&byte_5D4594[2491560] = 1;
-  return sub_549800(a1);
+  return sub_549800__abi_raw(a1);
 }
 
 //----- (00549980) --------------------------------------------------------
-int __cdecl sub_549980(float a1)
+int __cdecl sub_549980__abi_raw(float a1)
 {
   float v1; // edi
   int v2; // ebp
@@ -3640,7 +3642,7 @@ int __cdecl sub_549980(float a1)
 }
 
 //----- (00549A60) --------------------------------------------------------
-int __cdecl sub_549A60(float a1)
+int __cdecl sub_549A60__abi_raw(float a1)
 {
   int v1; // edi
   int v2; // ebp
@@ -3708,7 +3710,7 @@ int sub_549BB0()
 }
 
 //----- (00549BC0) --------------------------------------------------------
-int __cdecl sub_549BC0(float a1)
+int __cdecl sub_549BC0__abi_raw(float a1)
 {
   int v1; // edi
   int v2; // ebp
@@ -3748,7 +3750,7 @@ int __cdecl sub_549BC0(float a1)
 }
 
 //----- (00549CA0) --------------------------------------------------------
-int __cdecl sub_549CA0(float a1)
+int __cdecl sub_549CA0__abi_raw(float a1)
 {
   int v1; // edi
   int v2; // ebp
@@ -10713,7 +10715,7 @@ int __cdecl sub_553210(unsigned int a1, unsigned __int8 *a2, int a3, int a4)
 
   v4 = a4;
   v5 = &a2[a3];
-  dhexdump(a2, a3);
+  // dhexdump(a2, a3);
   v6 = *a2;
   LOBYTE(a3) = a2[1];
   v7 = *(_DWORD *)&byte_5D4594[4 * a1 + 3843788];

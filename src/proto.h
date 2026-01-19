@@ -1,4 +1,6 @@
+#pragma pack(push, 1)
 #include "defs.h"
+/* ---- Linux socket ABI compatibility (post-glibc) ---- */
 
 #ifdef __thiscall
 #undef __thiscall
@@ -6536,7 +6538,7 @@ int __cdecl sub_52D8A0(int a1, int a2, int a3, int a4, int a5, int a6);
 int __cdecl sub_52D9D0(int a1, int a2, int a3, int a4, int a5, int a6);
 int __cdecl sub_52DB60(int a1, int a2, int a3, int a4, int a5);
 int __cdecl sub_52DC80(int a1, int a2, int a3, int a4, int a5);
-int __cdecl sub_52DD50(int, int, int, int, float); // idb
+int __cdecl sub_52DD50(int, int, int, int, void *); // idb
 int __cdecl sub_52DE40(int a1, int a2, int a3, int a4, int a5, int a6);
 __int16 __cdecl sub_52DEC0(int a1, int a2);
 int __cdecl sub_52DF40(int a1, int a2, int a3, int a4, int *a5, char a6);
@@ -6544,7 +6546,7 @@ char __cdecl sub_52DF80(int a1, int a2, float a3);
 unsigned int __cdecl sub_52E020(int a1);
 void __cdecl sub_52E040(int a1, float a2, int a3, float a4, int a5, int a6, int a7);
 void __cdecl sub_52E0E0(int a1, int **a2);
-int __cdecl sub_52E210(float); // idb
+int __cdecl sub_52E210(void *p); // idb
 int __cdecl sub_52E450(int a1, int a2, int a3);
 int __cdecl sub_52E610(int *a1, int a2);
 void __cdecl sub_52E660(int a1, int a2);
@@ -6558,15 +6560,15 @@ int __cdecl sub_52EF30(int a1);
 int __cdecl sub_52EFD0(int a1);
 int __cdecl sub_52F1D0(int a1);
 BOOL __cdecl sub_52F220(int *a1);
-int __cdecl sub_52F2E0(float a1);
-int __cdecl sub_52F460(float); // idb
+int __cdecl sub_52F2E0(void *p);
+int __cdecl sub_52F460(void *p); // idb
 int __cdecl sub_52F5A0(_DWORD *a1);
 BOOL __cdecl sub_52F650(int a1);
 int __cdecl sub_52F670(int a1);
 char __cdecl sub_52F690(int a1, int a2);
 void __cdecl sub_52F710(int a1, int *a2, int a3, int a4);
 int __cdecl sub_52F820(int a1);
-int __cdecl sub_52F8A0(float); // idb
+int __cdecl sub_52F8A0(void *p); // idb
 void __cdecl sub_52FF10(int a1, int a2);
 _DWORD *__cdecl sub_52FFD0(int a1, int a2, int a3);
 void __cdecl sub_530020(int a1, int a2);
@@ -7067,18 +7069,18 @@ void __cdecl sub_549270(int a1, int a2);
 int __cdecl sub_549380(float); // idb
 int __cdecl sub_549440(int a3, int a2); // idb
 void __cdecl sub_5494C0(float *, int); // idb
-int __cdecl sub_5495B0(float); // idb
+int __cdecl sub_5495B0(void *p); // idb
 BOOL __cdecl sub_549690(int a1, int a2);
-int __cdecl sub_549700(float); // idb
-int __cdecl sub_5497E0(float a1);
-int __cdecl sub_549800(float); // idb
-void __cdecl sub_549860(int a1, float a2);
-int __cdecl sub_549960(float); // idb
-int __cdecl sub_549980(float); // idb
-int __cdecl sub_549A60(float); // idb
+int __cdecl sub_549700(void *p); // idb
+int __cdecl sub_5497E0(void *p);
+int __cdecl sub_549800(void *p); // idb
+void __cdecl sub_549860(int a1, void *p2);
+int __cdecl sub_549960(void *p); // idb
+int __cdecl sub_549980(void *p); // idb
+int __cdecl sub_549A60(void *p); // idb
 int sub_549BB0();
-int __cdecl sub_549BC0(float); // idb
-int __cdecl sub_549CA0(float); // idb
+int __cdecl sub_549BC0(void *p); // idb
+int __cdecl sub_549CA0(void *p); // idb
 int __cdecl sub_549D80(int a1);
 int __cdecl sub_549E00(int a1);
 int __cdecl sub_549E70(int a1);
@@ -7718,3 +7720,4 @@ char __cdecl sub_57F1D0(float2 *a1); // idb
 int __cdecl sub_57F2A0(float2 *a1, int a2, int a3); // idb
 void sub_57FCD0();
 void sub_5800B0();
+#pragma pack(pop)

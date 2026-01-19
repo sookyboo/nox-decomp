@@ -17036,8 +17036,15 @@ LABEL_14:
 }
 
 //----- (004BA670) --------------------------------------------------------
+// Minimal port-safe rewrite:
+//  - Freeze endY so it can't be clobbered when a5 is reused as a loop counter.
+//  - Don't pass &a5 (which we mutate) as the callback arg; pass a stable layerArg instead.
+//  - Everything else stays the same.
+
 void __cdecl sub_4BA670(int a1, int a2, int a3, int a4, int a5)
 {
+  const int endY = a5;                 // MIN FIX #1: preserve real endY
+
   int v5; // ebx
   int v6; // edi
   int v7; // esi
@@ -17050,7 +17057,6 @@ void __cdecl sub_4BA670(int a1, int a2, int a3, int a4, int a5)
   double v14; // st5
   double v15; // rt0
   int v16; // eax
-  int v17; // ecx
   int v18; // esi
   int v19; // edx
   unsigned __int8 *v20; // eax
@@ -17061,52 +17067,65 @@ void __cdecl sub_4BA670(int a1, int a2, int a3, int a4, int a5)
   int2 a1a; // [esp+30h] [ebp-8h]
   float v26; // [esp+40h] [ebp+8h]
 
-  v5 = a5;
+  v5 = endY;
   v6 = a4 - a2;
-  v7 = a5 - a3;
-  v8 = sub_48C6B0(a4 - a2, a5 - a3);
+  v7 = endY - a3;
+
+  v8 = sub_48C6B0(a4 - a2, endY - a3);
   *(_DWORD *)&byte_5D4594[1316408] = v8 / 40 + 1;
   if ( v8 / 40 + 2 >= 30 )
     *(_DWORD *)&byte_5D4594[1316408] = 28;
+
   a1a.field_0 = a2;
-  v9 = *(float *)&byte_587000[8 * a1 + 194136];
+  v9  = *(float *)&byte_587000[8 * a1 + 194136];
   v10 = *(float *)&byte_587000[8 * a1 + 194140];
   v11 = (double)(a4 - a2);
   v12 = (double)v7;
+
   a1a.field_4 = a3;
   a2a.field_0 = a4;
   a2a.field_4 = v5;
+
   *(float *)&byte_5D4594[1313880] = v12;
   v26 = sqrt(v12 * *(float *)&byte_5D4594[1313880] + v11 * v11) + 0.0099999998;
+
   *(float *)&byte_5D4594[1313876] = v11 / v26;
   v13 = *(float *)&byte_5D4594[1313880] / v26;
   *(float *)&byte_5D4594[1313880] = v13;
+
   v14 = v13 * v10 + *(float *)&byte_5D4594[1313876] * v9;
   if ( v14 < 0.0 )
     v14 = v14 * 0.2;
+
   v15 = (1.0 - v14) * (double)v8 * 2.3;
   *(float *)&byte_5D4594[1313868] = v9 * v15;
   *(float *)&byte_5D4594[1313872] = v10 * v15;
+
   a3a.field_0 = sub_419A70(*(float *)&byte_5D4594[1313868]);
   v16 = sub_419A70(*(float *)&byte_5D4594[1313872]);
+
   a4a.field_0 = v6;
-  v17 = 0;
   a3a.field_4 = v16;
   a4a.field_4 = v7;
-  a5 = 0;
-  do
+
+  // MIN FIX #2: use a stable layer variable and pass it by address to callback
+  for (int layer = 0; layer < 3; ++layer)
   {
-    if ( v17 )
-      *(float *)&byte_5D4594[4 * v17 + 1313856] = *(float *)&byte_5D4594[4 * v17 + 1313856] + 0.25;
+    if ( layer )
+      *(float *)&byte_5D4594[4 * layer + 1313856] =
+        *(float *)&byte_5D4594[4 * layer + 1313856] + 0.25;
     else
-      *(float *)&byte_5D4594[1313856] = *(float *)&byte_5D4594[1313856] + 0.2;
+      *(float *)&byte_5D4594[1313856] =
+        *(float *)&byte_5D4594[1313856] + 0.2;
+
     v18 = *(_DWORD *)&byte_5D4594[1316408];
-    if ( *(float *)&byte_5D4594[4 * v17 + 1313856] >= 1.0 )
+
+    if ( *(float *)&byte_5D4594[4 * layer + 1313856] >= 1.0 )
     {
       v19 = *(_DWORD *)&byte_5D4594[1316408] + 1;
       if ( *(_DWORD *)&byte_5D4594[1316408] + 1 > 0 )
       {
-        v20 = &byte_5D4594[28 * (v19 + 30 * v17) + 1313872];
+        v20 = &byte_5D4594[28 * (v19 + 30 * layer) + 1313872];
         do
         {
           *((_DWORD *)v20 + 6) = *((_DWORD *)v20 - 1);
@@ -17119,15 +17138,16 @@ void __cdecl sub_4BA670(int a1, int a2, int a3, int a4, int a5)
         }
         while ( v19 );
       }
-      *(_DWORD *)&byte_5D4594[4 * v17 + 1313856] = 0;
-      *(_DWORD *)&byte_5D4594[840 * v17 + 1313908] = 0;
+      *(_DWORD *)&byte_5D4594[4 * layer + 1313856] = 0;
+      *(_DWORD *)&byte_5D4594[840 * layer + 1313908] = 0;
     }
-    v21 = *(float *)&byte_5D4594[4 * v17 + 1313856];
+
+    v21 = *(float *)&byte_5D4594[4 * layer + 1313856];
     *(_DWORD *)&byte_5D4594[1316412] = 0;
-    sub_4BEDE0(&a1a, &a2a, &a3a, &a4a, v18, v21, sub_4BA8B0, (int)&a5);
-    v17 = ++a5;
+
+    int layerArg = layer;
+    sub_4BEDE0(&a1a, &a2a, &a3a, &a4a, v18, v21, sub_4BA8B0, (int)&layerArg);
   }
-  while ( a5 < 3 );
 }
 // 4BA6B4: variable 'v8' is possibly undefined
 
@@ -20361,168 +20381,81 @@ int __cdecl sub_4BE840(int *a1, int *a2, int *a3, int *a4, int a5)
 //----- (004BEAD0) --------------------------------------------------------
 void __cdecl sub_4BEAD0(int2 *a1, int2 *a2, int2 *a3, int2 *a4, int a5, int a6)
 {
-  int v6; // eax
-  double v7; // st7
-  unsigned __int8 *v8; // ecx
-  int v9; // edi
-  int v10; // eax
-  int v11; // esi
-  int v12; // ebx
-  int v13; // edi
-  int v14; // edx
-  int v15; // ebx
-  unsigned __int8 *v16; // eax
-  int v17; // ecx
-  double v18; // st7
-  double v19; // st7
-  double v20; // st6
-  double v21; // st5
-  double v22; // st4
-  double v23; // st3
-  double v24; // st2
-  double v25; // st1
-  double v26; // st0
-  int v27; // ebp
-  int v28; // ebx
-  int i; // eax
-  int v30; // esi
-  int v31; // ecx
-  int v32; // eax
-  bool v33; // zf
-  int v34; // [esp+4h] [ebp-38h]
-  int v35; // [esp+8h] [ebp-34h]
-  int v36; // [esp+Ch] [ebp-30h]
-  int v37; // [esp+10h] [ebp-2Ch]
-  int v38; // [esp+14h] [ebp-28h]
-  int v39; // [esp+18h] [ebp-24h]
-  int v40[8]; // [esp+1Ch] [ebp-20h]
-  int v41; // [esp+40h] [ebp+4h]
-  int v42; // [esp+44h] [ebp+8h]
-  float v43; // [esp+44h] [ebp+8h]
-  int v44; // [esp+48h] [ebp+Ch]
-  int v45; // [esp+4Ch] [ebp+10h]
-  float v46; // [esp+4Ch] [ebp+10h]
-  int v47; // [esp+4Ch] [ebp+10h]
-  int v48; // [esp+50h] [ebp+14h]
+    if (a5 <= 0) return;
 
-  v36 = a1->field_0;
-  v41 = a1->field_4;
-  v6 = a4->field_4;
-  v34 = a4->field_0;
-  v7 = 1.0 / (double)a5;
-  v35 = a2->field_0;
-  v39 = a2->field_4;
-  v42 = a3->field_0;
-  v38 = a3->field_4;
-  v44 = v6;
-  v8 = &byte_581450[9876];
-  v45 = 0;
-  do
-  {
-    v9 = *((_DWORD *)v8 + 1);
-    v10 = *((_DWORD *)v8 + 2);
-    v37 = v9;
-    v11 = v39 * *(_DWORD *)v8;
-    v12 = v35 * *(_DWORD *)v8 + v34 * v10 + v42 * v9;
-    v13 = v36;
-    v14 = v41 * *((_DWORD *)v8 - 1);
-    v15 = v36 * *((_DWORD *)v8 - 1) + v12;
-    v8 += 16;
-    v40[v45 + 4] = v15;
-    ++v45;
-    *(int *)((char *)&v39 + v45 * 4) = v14 + v11 + v38 * v37 + v44 * v10;
-  }
-  while ( (int)v8 < (int)&byte_581450[9940] );
-  *(float *)&byte_587000[180484] = v7;
-  v16 = &byte_587000[180468];
-  v17 = 0;
-  *(float *)&byte_587000[180480] = v7 * v7;
-  *(float *)&byte_587000[180476] = v7 * v7 * v7;
-  *(float *)&byte_587000[180496] = *(float *)&byte_587000[180480] + *(float *)&byte_587000[180480];
-  v18 = *(float *)&byte_587000[180476] * 6.0;
-  *(float *)&byte_587000[180492] = v18;
-  *(float *)&byte_587000[180508] = v18;
-  v19 = (double)v40[7];
-  v20 = (double)v40[6];
-  v21 = (double)v40[5];
-  v22 = (double)v40[4];
-  v23 = (double)v40[3];
-  v24 = (double)v40[2];
-  v43 = (double)v40[1];
-  v46 = (double)v40[0];
-  do
-  {
-    v25 = v22 * *((float *)v16 - 2);
-    v26 = v21 * *((float *)v16 - 1);
-    v16 += 16;
-    ++v17;
-    *(float *)((char *)&v39 + v17 * 4) = v25 + v26 + v20 * *((float *)v16 - 4) + v19 * *((float *)v16 - 3);
-    *(float *)&v40[v17 + 3] = v46 * *((float *)v16 - 6)
-                            + v43 * *((float *)v16 - 5)
-                            + v24 * *((float *)v16 - 4)
-                            + v23 * *((float *)v16 - 3);
-  }
-  while ( (int)v16 < (int)&byte_587000[180532] );
-  if ( a5 > 0 )
-  {
-    v47 = a5;
-    do
+    /* Hermite endpoints */
+    const float x0 = (float)a1->field_0;
+    const float y0 = (float)a1->field_4;
+    const float x1 = (float)a2->field_0;
+    const float y1 = (float)a2->field_4;
+
+    /* Tangents (as passed by plasma: amp*cos/sin) */
+    const float tx0 = (float)a3->field_0;
+    const float ty0 = (float)a3->field_4;
+    const float tx1 = (float)a4->field_0;
+    const float ty1 = (float)a4->field_4;
+
+    int px = a1->field_0;
+    int py = a1->field_4;
+
+    for (int k = 1; k <= a5; ++k)
     {
-      *(float *)v40 = *(float *)v40 + *(float *)&v40[1];
-      *(float *)&v40[1] = *(float *)&v40[2] + *(float *)&v40[1];
-      *(float *)&v40[2] = *(float *)&v40[3] + *(float *)&v40[2];
-      *(float *)&v40[4] = *(float *)&v40[4] + *(float *)&v40[5];
-      *(float *)&v40[5] = *(float *)&v40[6] + *(float *)&v40[5];
-      *(float *)&v40[6] = *(float *)&v40[7] + *(float *)&v40[6];
-      v27 = sub_419A70(*(float *)v40);
-      v28 = sub_419A70(*(float *)&v40[4]);
-      sub_49F500(v13, v41);
-      sub_49F500(v27, v28);
-      sub_434460(*(int *)&byte_5D4594[1316980]);
-      sub_49E4B0();
-      if ( a6 )
-      {
-        v48 = 0;
-        for ( i = v13 - v28; ; i = v13 - v28 )
+        float t  = (float)k / (float)a5;
+        float t2 = t * t;
+        float t3 = t2 * t;
+
+        /* Cubic Hermite basis */
+        float h00 =  2.0f*t3 - 3.0f*t2 + 1.0f;
+        float h10 =        t3 - 2.0f*t2 + t;
+        float h01 = -2.0f*t3 + 3.0f*t2;
+        float h11 =        t3 -       t2;
+
+        float xf = h00*x0 + h10*tx0 + h01*x1 + h11*tx1;
+        float yf = h00*y0 + h10*ty0 + h01*y1 + h11*ty1;
+
+        int cx = sub_419A70((double)xf);
+        int cy = sub_419A70((double)yf);
+
+        /* main segment */
+        sub_49F500(px, py);
+        sub_49F500(cx, cy);
+        sub_434460(*(int *)&byte_5D4594[1316980]);
+        sub_49E4B0();
+
+        /* thickness (a6 != 0): draw +/-1 pixel offset like original intent */
+        if (a6)
         {
-          v30 = v48 != 0 ? 1 : -1;
-          if ( i >= 0 )
-            v31 = i;
-          else
-            v31 = v28 - v13;
-          if ( i < 0 )
-            i = v28 - v13;
-          if ( v31 <= i )
-          {
-            sub_49F500(v30 + v27, v28);
-            sub_49F500(v13 + v30, v41);
-          }
-          else
-          {
-            sub_49F500(v27, v30 + v28);
-            sub_49F500(v13, v41 + v30);
-          }
-          sub_49E4B0();
-          if ( ++v48 >= 2 )
-            break;
+            int dx = cx - px;
+            int dy = cy - py;
+            int adx = dx >= 0 ? dx : -dx;
+            int ady = dy >= 0 ? dy : -dy;
+
+            /* offset perpendicular-ish depending on dominant axis */
+            if (adx >= ady) {
+                /* mostly horizontal: offset in Y */
+                sub_49F500(px, py - 1); sub_49F500(cx, cy - 1); sub_49E4B0();
+                sub_49F500(px, py + 1); sub_49F500(cx, cy + 1); sub_49E4B0();
+            } else {
+                /* mostly vertical: offset in X */
+                sub_49F500(px - 1, py); sub_49F500(cx - 1, cy); sub_49E4B0();
+                sub_49F500(px + 1, py); sub_49F500(cx + 1, cy); sub_49E4B0();
+            }
         }
-      }
-      if ( *(_DWORD *)&byte_5D4594[1316988] )
-      {
-        sub_49F500(v13, v41);
-        sub_49F500(v27, v28);
-        sub_434040(*(int *)&byte_5D4594[1316984]);
-        v32 = sub_434080(*(int *)&byte_5D4594[1316992]);
-        LOBYTE(v32) = byte_5D4594[1316996];
-        sub_49E4F0(v32);
-      }
-      v13 = v27;
-      v33 = v47 == 1;
-      v41 = v28;
-      --v47;
+
+        /* optional overlay path (kept from your original) */
+        if (*(_DWORD *)&byte_5D4594[1316988])
+        {
+            sub_49F500(px, py);
+            sub_49F500(cx, cy);
+            sub_434040(*(int *)&byte_5D4594[1316984]);
+            int v = sub_434080(*(int *)&byte_5D4594[1316992]);
+            LOBYTE(v) = byte_5D4594[1316996];
+            sub_49E4F0(v);
+        }
+
+        px = cx;
+        py = cy;
     }
-    while ( !v33 );
-  }
 }
 
 //----- (004BEDE0) --------------------------------------------------------
@@ -25327,6 +25260,7 @@ void sub_4C5050()
 }
 
 //----- (004C5060) --------------------------------------------------------
+// Fix beam missing sometimes
 int __cdecl sub_4C5060(_DWORD *a1)
 {
   int result; // eax
@@ -25360,29 +25294,46 @@ int __cdecl sub_4C5060(_DWORD *a1)
         v6 = v2[3] - v2[1];
         if ( v3 <= 0 || v3 >= a1[8] - 1 || v4 <= 0 || v4 >= a1[9] - 1 )
           v5 = 0;
+
         v14.field_0 = v3 + v2[2] - *v2;
         v14.field_4 = v4 + v6;
         v12.field_0 = v3;
         v12.field_4 = v4;
+
         v7 = sub_498C20(&v12, &v14, (int)a1);
+
+        /* --- MINIMAL SAFETY NET: ensure we draw at least once --- */
         if ( v7 )
         {
+          int drew_any = 0; /* NEW */
+
           v8 = 0;
           for ( a1a = v12; v8 < v7; v5 = 1 - v5 )
           {
             *(_QWORD*)&a2 = sub_499290(v8);
-            if ( v5 )
+
+            /* CHANGED: if we'd draw nothing, force first segment */
+            if ( v5 || !drew_any )
+            {
               sub_4C51D0(&a1a, &a2);
+              drew_any = 1;
+            }
+
             a1a = a2;
             ++v8;
           }
-          if ( v5 )
+
+          /* CHANGED: same rule for final segment */
+          if ( v5 || !drew_any )
             sub_4C51D0(&a1a, &v14);
         }
-        else if ( v5 )
+        else
         {
+          /* CHANGED: previously only drew if (v5) */
           sub_4C51D0(&v12, &v14);
         }
+        /* --- end safety net --- */
+
         result = v10 + 1;
         v2 += 4;
         ++v10;
@@ -59081,12 +59032,7 @@ char *__cdecl sub_4EF500(int a1)
   result = (char *)sub_40A5C0(2048);
   if ( result )
   {
-    v2 = *(_DWORD *)&byte_5D4594[2650636];
-    if ( a1 == 1 )
-      LOBYTE(v2) = byte_5D4594[2650636] | 0x30;
-    else
-      LOBYTE(v2) = byte_5D4594[2650636] & 0xCF;
-    *(_DWORD *)&byte_5D4594[2650636] = v2;
+    if ( a1 == 1 ) byte_5D4594[2650636] |= 0x30; else byte_5D4594[2650636] &= 0xDF;
     result = sub_416EA0();
     for ( i = (int)result; result; i = (int)result )
     {
@@ -64004,7 +63950,7 @@ int __cdecl sub_4F4CB0(int a1)
 }
 
 //----- (004F4E50) --------------------------------------------------------
-int __cdecl sub_4F4E50(float a1)
+int __cdecl sub_4F4E50__abi_raw(float a1)
 {
   int v1; // edi
   _BYTE *v2; // esi

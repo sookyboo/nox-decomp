@@ -456,7 +456,7 @@ void __cdecl sub_401B20(char *a1)
   char *v1; // edi
   int v2; // eax
 
-  strcpy((char *)&byte_5D4594[272], "ìqX");
+  strcpy((char *)&byte_5D4594[272], "ï¿½qX");
   *(_DWORD *)&byte_5D4594[404] = 1;
   v1 = strtok(a1, (const char *)&byte_587000[488]);
   sub_43BEF0(0, 0, 0);
@@ -50174,7 +50174,7 @@ int sub_43CCA0()
   unsigned __int64 v3; // rax
   unsigned __int64 v4; // rax
   unsigned __int64 v5; // rax
-  char v7[5]; // [esp+8h] [ebp-8h]
+  char v7[8]; // [esp+8h] [ebp-8h]
 
   sub_49C4B0();
   v0 = *(_DWORD *)&byte_5D4594[2598000];

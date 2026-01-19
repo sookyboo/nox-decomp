@@ -1,7 +1,16 @@
+# CMakeLists.txt
+#if (MSVC)
+#    add_compile_options ("$<$<CONFIG:DEBUG>:/RTCs>")
+#else ()
+#    add_compile_options (-O3 -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar)
+#    if (USE_ASAN)
+#        add_compile_options (-fsanitize=address)
+#    endif ()
+#endif ()
 if (MSVC)
     add_compile_options ("$<$<CONFIG:DEBUG>:/RTCs>")
 else ()
-    add_compile_options (-O3 -g -fno-strict-aliasing -fno-strict-overflow -m32 -fshort-wchar)
+    add_compile_options (-g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0)
     if (USE_ASAN)
         add_compile_options (-fsanitize=address)
     endif ()
@@ -46,6 +55,28 @@ add_executable (
     win.c
     "${COMPAT_SOURCES}"
 )
+
+# Rename only the definition in GAME3.c: its sub_4F4E50 body becomes sub_4F4E50__abi_raw.
+#set_source_files_properties(GAME3.c PROPERTIES
+#    COMPILE_DEFINITIONS "sub_4F4E50=sub_4F4E50__abi_raw"
+#)
+
+# Rename only the definitions in GAME4.c so the bodies become *_abi_raw.
+#set_source_files_properties(GAME4.c PROPERTIES
+#    COMPILE_DEFINITIONS
+#      "sub_50A5C0=sub_50A5C0__abi_raw;sub_531E20=sub_531E20__abi_raw"
+#)
+
+# Rename only the definition in GAME5.c: its sub_549380 body becomes sub_549380__abi_raw.
+#set_source_files_properties(GAME5.c PROPERTIES
+#    COMPILE_DEFINITIONS
+#      "sub_549220=sub_549220__abi_raw;sub_549380=sub_549380__abi_raw"
+#)
+
+# ---- ABI wrapper integration ----
+add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)
+set_target_properties(abi_wrappers PROPERTIES C_STANDARD 99)
+
 target_link_libraries (
     out
     SDL2
@@ -53,11 +84,16 @@ target_link_libraries (
     "${OPENGL_LIBRARIES}"
     "${PTHREAD_LIBRARIES}"
     "${WIN32_LIBRARIES}"
+    abi_wrappers
 )
+
 if (MSVC)
 else ()
-    target_link_options (out PUBLIC -m32)
+    target_link_options (out PUBLIC )
     if (USE_ASAN)
         target_link_options (out PRIVATE -fsanitize=address)
     endif ()
 endif ()
+
+
+#add_compile_options(-Wfatal-errors)

@@ -9258,8 +9258,7 @@ LABEL_13:
   if ( *(_BYTE *)(a1[4] + 8) & 4 )
   {
     v6 = sub_4272B0(*(unsigned __int16 *)(v4 + 4));
-    LOBYTE(v7) = sub_500D70(a1[4], v6);
-    if ( !v7 )
+    if ( !sub_500D70(a1[4], v6) )
     {
       sub_4DA2C0(a1[4], (const char *)&byte_587000[218544], 0);
       goto LABEL_13;
@@ -9353,7 +9352,7 @@ _DWORD *__cdecl sub_5016C0(int a1, int *a2, int a3, unsigned __int8 a4)
   v5 = result;
   if ( !result )
     return result;
-  sub_4DAA50((int)result, a3, *(float *)a2, *((float *)a2 + 1));
+  float f0, f1; memcpy(&f0, (const void *)a2, 4); memcpy(&f1, (const void *)((const char *)a2 + 4), 4); sub_4DAA50((int)result, a3, f0, f1);
   v6 = v5[187];
   *((_WORD *)v5 + 63) = a4;
   *((_WORD *)v5 + 62) = a4;
@@ -16440,7 +16439,7 @@ LABEL_13:
 }
 
 //----- (0050A5C0) --------------------------------------------------------
-int __cdecl sub_50A5C0(float a1)
+int __cdecl sub_50A5C0__abi_raw(float a1)
 {
   int v1; // esi
   int v2; // edi
@@ -38607,10 +38606,10 @@ int __cdecl sub_5236F0(__int16 a1, float *a2, char a3, __int16 a4, __int16 a5)
   v9[0] = 126;
   *(_WORD *)&v9[5] = a1;
   *(_WORD *)&v9[7] = a4;
-  v5 = *a2;
+  float f0, f1; memcpy(&f0, (const void *)a2, 4); memcpy(&f1, (const void *)((const char *)a2 + 4), 4); v5 = f0;
   v9[9] = a3;
   v6 = (__int64)v5;
-  v7 = a2[1];
+  v7 = f1;
   *(_WORD *)&v9[1] = v6;
   *(_WORD *)&v9[3] = (__int64)v7;
   *(_WORD *)&v9[10] = a5;
@@ -47183,7 +47182,7 @@ int __cdecl sub_52DC80(int a1, int a2, int a3, int a4, int a5)
 }
 
 //----- (0052DD50) --------------------------------------------------------
-int __cdecl sub_52DD50(int a1, int a2, int a3, int a4, float a5)
+int __cdecl sub_52DD50__abi_raw(int a1, int a2, int a3, int a4, float a5)
 {
   float v5; // edi
   int v6; // esi
@@ -47430,7 +47429,7 @@ void __cdecl sub_52E0E0(int a1, int **a2)
 }
 
 //----- (0052E210) --------------------------------------------------------
-int __cdecl sub_52E210(float a1)
+int __cdecl sub_52E210__abi_raw(float a1)
 {
   int v1; // esi
   int v2; // eax
@@ -47760,7 +47759,7 @@ int __cdecl sub_52E820(int a1)
 }
 
 //----- (0052E850) --------------------------------------------------------
-int __cdecl sub_52E850(float a1)
+int __cdecl sub_52E850__abi_raw(float a1)
 {
   int v1; // esi
   int v2; // eax
@@ -48306,7 +48305,7 @@ LABEL_5:
 }
 
 //----- (0052F2E0) --------------------------------------------------------
-int __cdecl sub_52F2E0(float a1)
+int __cdecl sub_52F2E0__abi_raw(float a1)
 {
   float v1; // esi
   int v2; // eax
@@ -48368,7 +48367,7 @@ LABEL_27:
 }
 
 //----- (0052F460) --------------------------------------------------------
-int __cdecl sub_52F460(float a1)
+int __cdecl sub_52F460__abi_raw(float a1)
 {
   float v1; // esi
   int v2; // eax
@@ -48607,7 +48606,7 @@ int __cdecl sub_52F820(int a1)
 }
 
 //----- (0052F8A0) --------------------------------------------------------
-int __cdecl sub_52F8A0(float a1)
+int __cdecl sub_52F8A0__abi_raw(float a1)
 {
   int v1; // esi
   int v2; // eax
@@ -50503,7 +50502,7 @@ int *__cdecl sub_531D50(int a1, int a2)
 }
 
 //----- (00531E20) --------------------------------------------------------
-int __cdecl sub_531E20(float a1)
+int __cdecl sub_531E20__abi_raw(float a1)
 {
   int *v1; // edi
   int v2; // eax
@@ -60972,8 +60971,7 @@ int __cdecl sub_53F290(int a1, _DWORD *a2)
     *(_DWORD *)(v2 + 84) = sub_4E3AA0((CHAR *)(v2 + 4));
   if ( !*(_BYTE *)(v2 + 109) || *(_BYTE *)(v2 + 108) )
   {
-    if ( *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(v2 + 104) >= (unsigned int)(*(_DWORD *)(v2 + 100)
-                                                                                  - sub_4E0960((int)a2)) )
+    if ( (int)(*(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(v2 + 104)) >= (int)(*(_DWORD *)(v2 + 100) - sub_4E0960((int)a2)) )
     {
       v4 = *(float *)(a1 + 176) + 4.0;
       v5 = 8 * *(__int16 *)(a1 + 124);
@@ -61071,8 +61069,7 @@ int __cdecl sub_53F4F0(int a1, _DWORD *a2)
     sub_501960(222, a1, 0, 0);
     return 0;
   }
-  if ( *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(v2 + 104) < (unsigned int)(*(_DWORD *)(v2 + 100)
-                                                                               - 2 * sub_4E0960((int)a2)) )
+  if ( *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(v2 + 104) < *(_DWORD *)(v2 + 100) - 2 * sub_4E0960((int)a2) )
     return 0;
   if ( *(_BYTE *)(a1 + 8) & 4 )
   {

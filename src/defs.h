@@ -114,16 +114,35 @@ static void memset32(_DWORD *x, _DWORD y, size_t z)
 
 #define __ROL4__ _rotl
 
+//#if !defined(__clang__) && !defined(_MSC_VER)
+//static _QWORD __rdtsc()
+//{
+//#ifdef __GNUC__
+//	unsigned int low, high;
+//	asm ("rdtsc" : "=a" (low), "=d" (high));
+//	return ((_QWORD)high << 32) | low;
+//#else
+//	_asm rdtsc;
+//#endif
+//}
+//#endif
+
 #if !defined(__clang__) && !defined(_MSC_VER)
-static _QWORD __rdtsc()
+#include <stdint.h>
+
+/* Don't include SDL headers here if this file is widely included;
+   just forward-declare what we need. */
+typedef uint64_t Uint64;
+extern Uint64 SDL_GetPerformanceCounter(void);
+extern Uint64 SDL_GetPerformanceFrequency(void);
+
+static _QWORD __rdtsc(void)
 {
-#ifdef __GNUC__
-	unsigned int low, high;
-	asm ("rdtsc" : "=a" (low), "=d" (high));
-	return ((_QWORD)high << 32) | low;
-#else
-	_asm rdtsc;
-#endif
+    /* Return a monotonic "tick" value in nanoseconds. */
+    const Uint64 c = SDL_GetPerformanceCounter();
+    const Uint64 f = SDL_GetPerformanceFrequency();
+    if (!f) return 0;
+    return (_QWORD)((c * 1000000000ULL) / f);
 }
 #endif
 
