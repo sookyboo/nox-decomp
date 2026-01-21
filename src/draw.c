@@ -6,6 +6,8 @@
 #define GL_GLEXT_PROTOTYPES
 #endif
 
+//#define SDL_DEBUG_FRAMES=0
+
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
@@ -317,17 +319,17 @@ BOOL sub_434B60()
 int(*g_on_movie_finished)();
 
 // queue movie
-int __cdecl sub_4B0300(char *a1)
-{
-	return 0;
-}
+//int __cdecl sub_4B0300(char *a1)
+//{
+//	return 0;
+//}
 
 // show movies
-int __cdecl sub_4B0340(int a1)
-{
-	g_on_movie_finished();
-	return 0;
-}
+//int __cdecl sub_4B0340(int a1)
+//{
+//	g_on_movie_finished();
+//	return 0;
+//}
 
 // set on movies finished
 int __cdecl sub_4B0640(int(*a1)(void))
@@ -422,6 +424,10 @@ SDL_Surface *dword_973C60;
 SDL_Surface *g_backbuffer1;
 SDL_Surface *g_backbufferrgb;
 SDL_Surface *dword_973C88;
+
+SDL_Surface *g_present_src = NULL;   // what sdl_present uploads
+int g_present_is_movie = 0;          // 0=game layout, 1=movie RGB555 layout
+SDL_Surface *g_movie_surf = NULL;    // movie decode target
 
 static void glCheckError()
 {
@@ -543,6 +549,9 @@ char sub_48A190()
 
 #ifdef USE_SDL
     dword_6F7BA0 = sdl_present;
+
+    g_present_src = g_backbuffer1;
+    g_present_is_movie = 0;
 
     dword_6F7B9C = 1;
     *(_DWORD *)&byte_5D4594[1193492] = g_backbuffer1->pixels;
@@ -994,7 +1003,11 @@ static void glCheckErrorAt(const char *where)
 
 void sdl_present()
 {
-    if (!g_ddraw || !g_backbuffer1)
+    if (!g_ddraw)
+        return;
+
+    SDL_Surface *srcsurf = g_present_src ? g_present_src : g_backbuffer1;
+    if (!srcsurf)
         return;
 
     // --------------------------------------------------------------------
@@ -1048,14 +1061,20 @@ void sdl_present()
     // --------------------------------------------------------------------
     // Backbuffer / surface tracking
     // --------------------------------------------------------------------
-    int w       = g_backbuffer1->w;
-    int h       = g_backbuffer1->h;
-    int pitch16 = g_backbuffer1->pitch;   // bytes per row, 16-bit pixels
+    int w       = srcsurf->w;
+    int h       = srcsurf->h;
+    int pitch16 = srcsurf->pitch;   // bytes per row, 16-bit pixels
 
 #ifdef SDL_DEBUG_FRAMES
-    if (g_backbuffer1->pixels != s_last_pixels || g_backbuffer1->pitch != s_last_pitch) {
-        s_last_pixels = g_backbuffer1->pixels;
-        s_last_pitch  = g_backbuffer1->pitch;
+    if (g_present_is_movie) {
+        fprintf(stderr,
+            "MOVIE SRC: w=%d h=%d pitch=%d bpp=%d\n",
+            srcsurf->w, srcsurf->h, srcsurf->pitch,
+            srcsurf->format ? srcsurf->format->BitsPerPixel : -1);
+    }
+    if (srcsurf->pixels != s_last_pixels || srcsurf->pitch != s_last_pitch) {
+        s_last_pixels = srcsurf->pixels;
+        s_last_pitch  = srcsurf->pitch;
         FRAME_LOG(
             "BACKBUFFER change frame=%d pixels=%p pitch=%d w=%d h=%d\n",
             s_frame_id, s_last_pixels, s_last_pitch, w, h);
@@ -1063,7 +1082,7 @@ void sdl_present()
 
     // Sample a few pixels in 3 rows (top / middle / bottom) if possible
     if (w > 0 && h > 0) {
-        uint8_t *base = (uint8_t *)g_backbuffer1->pixels;
+        uint8_t *base = (uint8_t *)srcsurf->pixels;
         int sample_rows[3] = {0, h / 2, h - 1};
         int nrows = (h >= 3) ? 3 : 1;
 
@@ -1092,9 +1111,9 @@ void sdl_present()
 #endif // SDL_DEBUG_FRAMES
 
     SDL_Rect srcrect;
-    char *srcpixels = g_backbuffer1->pixels;
+    char *srcpixels = srcsurf->pixels;
     char *pixels;
-    int srcpitch = g_backbuffer1->pitch;
+    int srcpitch = srcsurf->pitch;
     int pitch;
     const float matrix[]        = {1.0f, 0.0f, 0.0f, 1.0f};
     const float matrixRotated[] = {0.0f, 1.0f, 1.0f, 0.0f};
@@ -1118,8 +1137,21 @@ void sdl_present()
         (unsigned int)g_program, (unsigned int)g_texture);
 #endif
 
+static int tex_w = 0, tex_h = 0;
     glBindTexture(GL_TEXTURE_2D, g_texture);
     glCheckErrorAt("bind texture");
+
+    if (tex_w != w || tex_h != h) {
+        tex_w = w;
+        tex_h = h;
+
+        // Allocate a fresh texture of the correct size (contents undefined/empty).
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_w, tex_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+        // Optional: ensure clean black immediately (not strictly required if you fully upload every pixel)
+        // You can skip this if your conv always fills w*h.
+    }
 
 #ifndef __EMSCRIPTEN__
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
@@ -1153,7 +1185,7 @@ void sdl_present()
     }
 
     for (int y = 0; y < h; ++y) {
-        uint16_t *row16 = (uint16_t *)((uint8_t *)g_backbuffer1->pixels + y * pitch16);
+        uint16_t *row16 = (uint16_t *)((uint8_t *)srcsurf->pixels + y * pitch16);
         uint32_t *row32 = conv + y * w;
 
         for (int x = 0; x < w; ++x) {
@@ -1161,9 +1193,18 @@ void sdl_present()
 
             // Assume original is like GL_UNSIGNED_SHORT_1_5_5_5_REV:
             // bit0:  A, bits1-5:  B, bits6-10: G, bits11-15: R
-            uint8_t b5 = (uint8_t)((p >> 1)  & 0x1F);
-            uint8_t g5 = (uint8_t)((p >> 6)  & 0x1F);
-            uint8_t r5 = (uint8_t)((p >> 11) & 0x1F);
+            uint8_t r5, g5, b5;
+        if (!g_present_is_movie) {
+            // GAME: A1B5G5R5 (REV-style)
+            b5 = (uint8_t)((p >> 1)  & 0x1F);
+            g5 = (uint8_t)((p >> 6)  & 0x1F);
+            r5 = (uint8_t)((p >> 11) & 0x1F);
+        } else {
+            // MOVIE: RGB555 0RRRRRGGGGGBBBBB
+            r5 = (uint8_t)((p >> 10) & 0x1F);
+            g5 = (uint8_t)((p >> 5)  & 0x1F);
+            b5 = (uint8_t)((p >> 0)  & 0x1F);
+        }
 
             uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
             uint8_t g = (uint8_t)((g5 << 3) | (g5 >> 2));
@@ -1201,7 +1242,7 @@ void sdl_present()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glCheckErrorAt("bind default FBO");
 
-    set_viewport(g_backbuffer1->w, g_backbuffer1->h);
+    set_viewport(srcsurf->w, srcsurf->h);
     glCheckErrorAt("set viewport");
 
     glClear(GL_COLOR_BUFFER_BIT);
@@ -3738,6 +3779,7 @@ int sub_434CC0()
 //----- (004B0300) --------------------------------------------------------
 int __cdecl sub_4B0300(char *a1)
 {
+    fprintf(stderr, "queue movie\n");
 	int result; // eax
 
 	result = *(_DWORD *)&byte_5D4594[1311928];
@@ -3769,8 +3811,12 @@ int __cdecl sub_4B0340(int a1)
 	*(_DWORD *)&byte_5D4594[1311936] = 1;
 	*(_DWORD *)&byte_5D4594[1311932] = a1;
 #ifdef USE_SDL
-    // FIXME
-    v1 = 0;
+     fprintf(stderr, "show movie\n");
+     v1 = 0;
+
+    g_present_src      = NULL;   // let sub_555430 set it to g_movie_surf
+    g_present_is_movie = 1;
+    dword_6F7BA0        = sdl_present;
 #else
 	v1 = (GetAsyncKeyState(VK_SHIFT) & 0x8000u) != 0;
 #endif
@@ -3792,7 +3838,47 @@ int __cdecl sub_4B0340(int a1)
 		v4 = a1;
 	LABEL_13:
 #ifdef USE_SDL
-        // FIXME movie support
+        // Build the same "VQ" array layout the Win32 code passes to sub_555430.
+        // sub_555430 only relies on:
+        //   a1[0]  -> stored as 2514000 (HWND / window handle)
+        //   a1[1]  -> stored as 2513996 (unused by us)
+        //   a1[10] -> treated as "movie pointer/name" (truthy => play)
+        //
+        // But deeper movie code may look at backbuffer + dimensions, so we populate those too.
+
+        v13[0] = (int)sub_401FD0();     // on SDL you may return 0; that's OK
+        v13[1] = 0;                     // HINSTANCE not applicable
+        v13[2] = 0;                     // g_ddraw not applicable
+        v13[3] = 0;                     // g_frontbuffer not applicable
+
+        // These were set to byte_5D4594[3798780] in Win32 (often pitch/stride or widthbytes).
+        // Best SDL equivalent is surface pitch (bytes per row) if available.
+        v13[4] = (int)g_movie_surf; // optional / ignored now
+
+        if (g_backbuffer1) {
+            v13[5] = g_backbuffer1->pitch;
+            v13[6] = g_backbuffer1->pitch;
+            v13[7] = g_backbuffer1->w;
+            v13[8] = g_backbuffer1->h;
+        } else {
+            v13[5] = *(_DWORD *)&byte_5D4594[3798780];
+            v13[6] = *(_DWORD *)&byte_5D4594[3798780];
+            v13[7] = *(_DWORD *)&byte_5D4594[3801784];
+            v13[8] = *(_DWORD *)&byte_5D4594[3801788];
+        }
+
+
+        v13[9] = 1;
+
+        if (*(_DWORD *)&byte_5D4594[1311928]) {
+            v6 = &byte_5D4594[1311940];
+            do {
+                v13[10] = (int)v6;          // movie filename / descriptor
+                v6 += 260;
+                sub_555430((HWND *)v13);
+                --*(_DWORD *)&byte_5D4594[1311928];
+            } while (*(_DWORD *)&byte_5D4594[1311928]);
+        }
 #else
 		v13[1] = *(_DWORD *)&byte_5D4594[823784];
 		v13[0] = dword_973FE0;
@@ -3843,6 +3929,11 @@ int __cdecl sub_4B0340(int a1)
 		sub_43DBE0();
 		sub_47D8C0();
 		sub_48B3E0(v12);
+	#ifdef USE_SDL
+        g_present_src      = NULL;        // or g_backbuffer1 if you prefer explicit
+        g_present_is_movie = 0;
+//        dword_6F7BA0        = sdl_present;
+    #endif
 	LABEL_23:
 		sub_4B05D0();
 		return 1;

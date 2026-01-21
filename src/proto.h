@@ -7720,4 +7720,15 @@ char __cdecl sub_57F1D0(float2 *a1); // idb
 int __cdecl sub_57F2A0(float2 *a1, int a2, int a3); // idb
 void sub_57FCD0();
 void sub_5800B0();
+//void mm_timer_pump_mainthread(void);
+int external_compat_casepath(const char *path, char *out, size_t outsz);
+
+#ifdef USE_SDL
+extern void sub_48A290(void);   // the game's normal present path
+extern SDL_Surface *g_backbuffer1;
+extern SDL_Surface *g_present_src;
+extern int g_present_is_movie;
+extern SDL_Surface *g_movie_surf;
+#endif
+
 #pragma pack(pop)

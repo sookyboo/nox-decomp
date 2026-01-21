@@ -1,54 +1,844 @@
 #include "proto.h"
 
-#ifdef NO_MOVIE
-void __cdecl sub_555430(HWND *a1)
-{
-	return;
+
+
+//#ifdef NO_MOVIE
+//void __cdecl sub_555430(HWND *a1)
+//{
+//	return;
+//}
+//
+//char __cdecl sub_555500(char a1)
+//{
+//	return 0;
+//}
+//#else
+
+#ifdef USE_SDL
+#include <SDL2/SDL.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#include <stdio.h>
+#include <math.h>
+
+#include <SDL2/SDL.h>
+
+#ifdef __APPLE__
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#else
+#include <AL/al.h>
+#include <AL/alc.h>
+#endif
+
+// FFmpeg
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/time.h>
+#include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
+#include <libavutil/channel_layout.h>
+
+static inline int surf_stride(const _DWORD *s) {
+    // Matches how the original computed row size:
+    // aX[6] + aX[1] + aX[3]
+    return (int)s[6] + (int)s[1] + (int)s[3];
 }
 
-char __cdecl sub_555500(char a1)
-{
-	return 0;
+static inline uint8_t* surf_pixels(_DWORD *s) {
+    return (uint8_t*)(uintptr_t)(*s);
 }
+
+static int __cdecl movie_time_ms(int a1)
+{
+    (void)a1;
+
+#ifdef USE_SDL
+    // If timeGetTime isn't available/meaningful in SDL builds:
+    return (int)SDL_GetTicks();
+#else
+    return (int)timeGetTime();
+#endif
+
+    // Alternative if you *want* to reuse your existing storage:
+    // return *(int *)sub_55C8D0();
+}
+
+/* --------------------------
+ * Miles / WinMM compatibility
+ * -------------------------- */
+
+/* AIL_lock / AIL_unlock: just a process-global mutex.
+ * This matches the intent of "serialize audio updates".
+ */
+static SDL_mutex *g_ail_mutex;
+
+void AIL_lock(void) {
+    if (!g_ail_mutex) g_ail_mutex = SDL_CreateMutex();
+    if (g_ail_mutex) SDL_LockMutex(g_ail_mutex);
+}
+void AIL_unlock(void) {
+    if (g_ail_mutex) SDL_UnlockMutex(g_ail_mutex);
+}
+
+/* WinMM timer API shim using SDL timers.
+ * timeSetEvent returns an ID, timeKillEvent cancels it.
+ *
+ * NOTE: SDL timer callback runs on a separate thread.
+ * That matches WinMM timer behavior closely enough for this use.
+ */
+
+typedef uint32_t MMRESULT;
+
+/* Signature WinMM expects: */
+typedef void (*LPTIMECALLBACK)(uint32_t uTimerID, uint32_t uMsg,
+                              uintptr_t dwUser, uintptr_t dw1, uintptr_t dw2);
+
+static SDL_TimerID g_movie_timer_id = 0;
+static LPTIMECALLBACK g_movie_timer_cb = NULL;
+static uintptr_t g_movie_timer_user = 0;
+
+static uint32_t       g_mm_interval_ms = 0;
+static uint32_t       g_mm_next_fire   = 0;
+static LPTIMECALLBACK g_mm_cb          = NULL;
+static uintptr_t      g_mm_user        = 0;
+static MMRESULT       g_mm_id          = 1;   // any non-zero
+
+
+
+static Uint32 sdl_movie_timer_trampoline(Uint32 interval, void *param)
+{
+    (void)param;
+    // Call with "reasonable" dummy values; most code only cares about dwUser.
+    if (g_movie_timer_cb) {
+        g_movie_timer_cb((uint32_t)(uintptr_t)g_movie_timer_id, 0, g_movie_timer_user, 0, 0);
+    }
+    return interval; // keep repeating
+}
+
+/* Store callback + user so SDL can call it. */
+struct sdl_time_event {
+    LPTIMECALLBACK cb;
+    uintptr_t user;
+    uint32_t id;
+};
+
+/* Extremely small registry so we can free on kill (avoid leaking per movie). */
+#define MAX_SDL_TIME_EVENTS 32
+static SDL_mutex *g_timeev_mutex;
+static SDL_TimerID g_timeev_id[MAX_SDL_TIME_EVENTS];
+static struct sdl_time_event *g_timeev_data[MAX_SDL_TIME_EVENTS];
+
+static Uint32 sdl_time_event_thunk(Uint32 interval, void *param) {
+    struct sdl_time_event *ev = (struct sdl_time_event *)param;
+    if (ev && ev->cb) {
+        ev->cb(ev->id, 0, ev->user, 0, 0);
+    }
+    return interval; /* repeat */
+}
+
+static int timeev_store(SDL_TimerID tid, struct sdl_time_event *ev) {
+    if (!g_timeev_mutex) g_timeev_mutex = SDL_CreateMutex();
+    if (g_timeev_mutex) SDL_LockMutex(g_timeev_mutex);
+    for (int i = 0; i < MAX_SDL_TIME_EVENTS; i++) {
+        if (g_timeev_id[i] == 0) {
+            g_timeev_id[i] = tid;
+            g_timeev_data[i] = ev;
+            if (g_timeev_mutex) SDL_UnlockMutex(g_timeev_mutex);
+            return 1;
+        }
+    }
+    if (g_timeev_mutex) SDL_UnlockMutex(g_timeev_mutex);
+    return 0;
+}
+
+static struct sdl_time_event *timeev_take(SDL_TimerID tid) {
+    struct sdl_time_event *ev = NULL;
+    if (!g_timeev_mutex) g_timeev_mutex = SDL_CreateMutex();
+    if (g_timeev_mutex) SDL_LockMutex(g_timeev_mutex);
+    for (int i = 0; i < MAX_SDL_TIME_EVENTS; i++) {
+        if (g_timeev_id[i] == tid) {
+            ev = g_timeev_data[i];
+            g_timeev_id[i] = 0;
+            g_timeev_data[i] = NULL;
+            break;
+        }
+    }
+    if (g_timeev_mutex) SDL_UnlockMutex(g_timeev_mutex);
+    return ev;
+}
+
+/* WinMM timer functions */
+MMRESULT timeBeginPeriod(uint32_t uPeriod) {
+ (void)uPeriod;
+ return 0; /* no-op on SDL */
+}
+
+MMRESULT timeEndPeriod(uint32_t uPeriod) {
+ (void)uPeriod;
+ return 0; /* no-op on SDL */
+}
+
+MMRESULT timeSetEvent(uint32_t uDelay, uint32_t uResolution,
+                      LPTIMECALLBACK lpTimeProc, uintptr_t dwUser, uint32_t fuEvent)
+{
+    (void)uResolution; (void)fuEvent;
+    if (uDelay == 0) uDelay = 1;
+
+    g_mm_interval_ms = uDelay;
+    g_mm_cb          = lpTimeProc;
+    g_mm_user        = dwUser;
+    g_mm_next_fire   = SDL_GetTicks() + g_mm_interval_ms;
+    return g_mm_id;
+}
+MMRESULT timeKillEvent(MMRESULT uTimerID)
+{
+    (void)uTimerID;
+    g_mm_interval_ms = 0;
+    g_mm_next_fire   = 0;
+    g_mm_cb          = NULL;
+    g_mm_user        = 0;
+    return 0;
+}
+
+// Call this ONLY from the main thread, frequently (each loop iteration is fine)
+void mm_timer_pump_mainthread(void)
+{
+    if (!g_mm_cb || !g_mm_interval_ms) return;
+
+    uint32_t now = SDL_GetTicks();
+    // handle slip; fire as many times as needed but cap it so we don't spiral
+    int fires = 0;
+    while ((int32_t)(now - g_mm_next_fire) >= 0 && fires++ < 4) {
+        g_mm_cb((uint32_t)g_mm_id, 0, g_mm_user, 0, 0);
+        g_mm_next_fire += g_mm_interval_ms;
+    }
+}
+
+/* --------------------------
+ * CRT compatibility
+ * -------------------------- */
+
+/* Windows-style names used by the original code */
+static int _lseek(int fd, int offset, int origin) {
+    off_t r = lseek(fd, (off_t)offset, origin);
+    return (r == (off_t)-1) ? -1 : (int)r;
+}
+
+static int _filelength(int fd) {
+    struct stat st;
+    if (fstat(fd, &st) != 0) return -1;
+    return (int)st.st_size;
+}
+
+#endif /* USE_SDL */
+
+
+#ifdef USE_SDL
+// SDL/OpenAL build: DirectSound is not used.
+// Keep the globals so legacy code compiles, but make them inert.
+//typedef struct IDirectSound IDirectSound;
+//typedef struct IDirectSoundBuffer IDirectSoundBuffer;
+
+//IDirectSound *g_dsound = NULL;
+//IDirectSoundBuffer *g_dsound_buffer = NULL;
 #else
 
 // byte_5D4594[2513944]
 LPDIRECTSOUND g_dsound;
 // byte_5D4594[2513948]
 LPDIRECTSOUNDBUFFER g_dsound_buffer;
-
+#endif
 //----- (00555430) --------------------------------------------------------
+//
+//void __cdecl sub_555430(HWND *a1)
+//{
+//#ifdef USE_SDL
+//    fprintf(stderr, "[MOVIE] start\n");
+//#endif
+//	HWND v2; // edi
+//
+//    if (!a1) {
+//        sub_413B70("No VQ pointer!\n");
+//        return;
+//    }
+//
+//    *(_DWORD *)&byte_5D4594[2514000] = *a1;
+//    *(_DWORD *)&byte_5D4594[2513996] = a1[1];
+//    v2 = a1[10];
+//
+//    sub_413B70("Before Audio_Init\n");
+//#ifdef USE_SDL
+//    // DirectSound isn't available; movie audio should be handled by the SDL/OpenAL audio path.
+//    // Keep the legacy call sites intact by treating init as successful.
+////    if (!sub_555520(0)) {
+////        sub_413B70("Failure to initialize audio\n");
+////        return;
+////    }
+//#else
+//    if (!sub_555520(*(HWND *)&byte_5D4594[2514000])) {
+//		sub_413B70("Failure to initialize audio\n");
+//		return;
+//	}
+//#endif
+//    sub_413B70("Before ShowCursor\n");
+//#ifdef USE_SDL
+//    // SDL cursor hide
+//    //SDL_ShowCursor(SDL_DISABLE);
+//#else
+//    ShowCursor(0);
+//#endif
+//
+//    sub_413B70("Before Set_Option\n");
+//#ifdef USE_SDL
+//    // Force software surface path in the legacy movie code (avoids DirectDraw-style surfaces).
+//    sub_556280(7);
+//#else
+//    sub_556280(15);
+//#endif
+//
+//    sub_413B70("Before VQA_Test\n");
+//    if (v2)
+//        sub_555C40(a1);
+//
+//    sub_413B70("Before Reset_Video_System\n");
+//    sub_555A40();
+//
+//#ifdef USE_SDL
+//    //SDL_ShowCursor(SDL_ENABLE);
+//#else
+//    ShowCursor(1);
+//#endif
+//
+//    sub_413B70("Before Audio_Uninit\n");
+//#ifdef USE_SDL
+//    // No-op for SDL/OpenAL movie path (or keep sub_5555D0 if you made it safe under USE_SDL).
+//    //sub_5555D0();
+//#else
+//    sub_5555D0();
+//#endif
+//}
+
+//FFMPEG start
+#ifndef dprintf
+static void dprintf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    fputc('\n', stderr);
+    va_end(ap);
+}
+#endif
+
+static const char *fferr(int err)
+{
+    static char buf[256];
+    buf[0] = 0;
+    av_strerror(err, buf, sizeof(buf));
+    return buf;
+}
+
+typedef struct MovieAL
+{
+    ALuint source;
+    ALuint bufs[4];
+    int buf_count;
+
+    int sample_rate;
+    int channels;
+    ALenum format;
+} MovieAL;
+
+static int movieal_init(MovieAL *alx, int sample_rate, int channels)
+{
+    memset(alx, 0, sizeof(*alx));
+    alx->buf_count = 4;
+    alx->sample_rate = sample_rate;
+    alx->channels = channels;
+    alx->format = (channels == 2) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
+
+    alGenSources(1, &alx->source);
+    if (alGetError() != AL_NO_ERROR) return 0;
+
+    alGenBuffers(alx->buf_count, alx->bufs);
+    if (alGetError() != AL_NO_ERROR) return 0;
+
+    alSourcef(alx->source, AL_GAIN, 1.0f);
+    return 1;
+}
+
+static void movieal_shutdown(MovieAL *alx)
+{
+    if (!alx) return;
+
+    if (alx->source)
+    {
+        alSourceStop(alx->source);
+
+        ALint queued = 0;
+        alGetSourcei(alx->source, AL_BUFFERS_QUEUED, &queued);
+        while (queued-- > 0)
+        {
+            ALuint b = 0;
+            alSourceUnqueueBuffers(alx->source, 1, &b);
+        }
+
+        alDeleteSources(1, &alx->source);
+    }
+
+    if (alx->bufs[0])
+        alDeleteBuffers(alx->buf_count, alx->bufs);
+
+    memset(alx, 0, sizeof(*alx));
+}
+
+// queues interleaved S16 samples (count = samples_total, not frames)
+static int movieal_queue_s16(MovieAL *alx, const int16_t *pcm, int samples_total)
+{
+    // reuse processed buffer if possible
+    ALint processed = 0;
+    alGetSourcei(alx->source, AL_BUFFERS_PROCESSED, &processed);
+
+    ALuint b = 0;
+    if (processed > 0)
+    {
+        alSourceUnqueueBuffers(alx->source, 1, &b);
+    }
+    else
+    {
+        ALint queued = 0;
+        alGetSourcei(alx->source, AL_BUFFERS_QUEUED, &queued);
+        if (queued >= alx->buf_count)
+        {
+            // already fully queued; don’t stall the game hard, just skip this chunk
+            return 1;
+        }
+        b = alx->bufs[queued];
+    }
+
+    const int bytes = samples_total * (int)sizeof(int16_t);
+    alBufferData(b, alx->format, pcm, bytes, alx->sample_rate);
+    if (alGetError() != AL_NO_ERROR) return 0;
+
+    alSourceQueueBuffers(alx->source, 1, &b);
+    if (alGetError() != AL_NO_ERROR) return 0;
+
+    ALint state = 0;
+    alGetSourcei(alx->source, AL_SOURCE_STATE, &state);
+    if (state != AL_PLAYING)
+        alSourcePlay(alx->source);
+
+    return 1;
+}
+
+static uint64_t now_ms(void) { return (uint64_t)SDL_GetTicks(); }
+
+// Map SDL_Surface format to an FFmpeg pixel format for sws_scale.
+static enum AVPixelFormat sdl_to_avpix(const SDL_PixelFormat *f)
+{
+    if (!f) return AV_PIX_FMT_NONE;
+
+    // Prefer SDL's known format enum when available
+    switch (f->format) {
+        case SDL_PIXELFORMAT_RGB565:   return AV_PIX_FMT_RGB565LE;
+        case SDL_PIXELFORMAT_RGB555:   return AV_PIX_FMT_RGB555LE;
+        case SDL_PIXELFORMAT_ARGB8888: return AV_PIX_FMT_BGRA;
+        case SDL_PIXELFORMAT_RGBA8888: return AV_PIX_FMT_RGBA;
+        default: break;
+    }
+
+    // Heuristic fallback
+    if (f->BytesPerPixel == 2) {
+        if (f->Rmask == 0xF800 && f->Gmask == 0x07E0 && f->Bmask == 0x001F)
+            return AV_PIX_FMT_RGB565LE;
+        if (f->Rmask == 0x7C00 && f->Gmask == 0x03E0 && f->Bmask == 0x001F)
+            return AV_PIX_FMT_RGB555LE;
+    }
+
+    if (f->BytesPerPixel == 4)
+        return AV_PIX_FMT_BGRA;
+
+    return AV_PIX_FMT_RGBA;
+}
+
+// returns 1 if out contains a usable on-disk path
+int movie_resolve_path(const char *in, char *out, size_t out_sz)
+{
+    // 1) copy + normalize slashes
+    size_t n = 0;
+    while (in[n] && n + 1 < out_sz) {
+        char c = in[n];
+        out[n] = (c == '\\') ? '/' : c;
+        n++;
+    }
+    out[n] = 0;
+
+    // 2) try case-correcting (use YOUR existing helper name here)
+    // If you have something like: int compat_casepath(const char *in, char *out)
+    // then do:
+    {
+        char tmp[1024];
+        if (external_compat_casepath(out, tmp, sizeof(tmp))) {            // <-- rename to your actual function
+            strncpy(out, tmp, out_sz - 1);
+            out[out_sz - 1] = 0;
+            return 1;
+        }
+    }
+
+    // If no helper, still usable (after slash normalization), but may fail on case
+    return 1;
+}
+
+
+
+/*
+ * DROP-IN replacement. Keep signature.
+ * a1 is actually your v13 array cast to HWND*.
+ */
 void __cdecl sub_555430(HWND *a1)
 {
-	HWND v2; // edi
+    // Interpret parameter block exactly like the Win32 code does (array-of-ints).
+    uintptr_t *p = (uintptr_t *)a1;
 
-	if (!a1)
-	{
-		sub_413B70("No VQ pointer!\n");
-		return;
-	}
-	*(_DWORD *)&byte_5D4594[2514000] = *a1;
-	*(_DWORD *)&byte_5D4594[2513996] = a1[1];
-	v2 = a1[10];
-	sub_413B70("Before Audio_Init\n");
-	if (!sub_555520(*(HWND *)&byte_5D4594[2514000]))
-	{
-		sub_413B70("Failure to initialize audio\n");
-		return;
-	}
-	sub_413B70("Before ShowCursor\n");
-	ShowCursor(0);
-	sub_413B70("Before Set_Option\n");
-	sub_556280(15);
-	sub_413B70("Before VQA_Test\n");
-	if (v2)
-		sub_555C40(a1);
-	sub_413B70("Before Reset_Video_System\n");
-	sub_555A40();
-	ShowCursor(1);
-	sub_413B70("Before Audio_Uninit\n");
-	sub_5555D0();
+    SDL_Surface *dst = (SDL_Surface *)p[4];
+    const char *movie_path = (const char *)p[10];
+
+    if (!movie_path || !movie_path[0])
+        return;
+
+    // Make sure SDL pumps events while movie plays
+    SDL_Event e;
+
+    AVFormatContext *fmt = NULL;
+    AVCodecContext *vdec = NULL;
+    AVCodecContext *adec = NULL;
+    struct SwsContext *sws = NULL;
+    struct SwrContext *swr = NULL;
+
+    int vstream = -1, astream = -1;
+
+    AVFrame *vfrm = NULL;
+    AVFrame *afrm = NULL;
+    AVPacket *pkt = NULL;
+
+    MovieAL alx;
+    int audio_ok = 0;
+
+    int err = 0;
+
+    // Open file (FFmpeg)
+//    err = avformat_open_input(&fmt, movie_path, NULL, NULL);
+    char resolved[1024];
+    movie_resolve_path(movie_path, resolved, sizeof(resolved));
+
+    err = avformat_open_input(&fmt, resolved, NULL, NULL);
+    if (err < 0)
+    {
+        dprintf("movie: avformat_open_input(%s) failed: %s", movie_path, fferr(err));
+        return;
+    }
+
+    err = avformat_find_stream_info(fmt, NULL);
+    if (err < 0)
+    {
+        dprintf("movie: find_stream_info failed: %s", fferr(err));
+        goto done;
+    }
+
+    for (unsigned i = 0; i < fmt->nb_streams; i++)
+    {
+        AVCodecParameters *cp = fmt->streams[i]->codecpar;
+        if (vstream < 0 && cp->codec_type == AVMEDIA_TYPE_VIDEO) vstream = (int)i;
+        if (astream < 0 && cp->codec_type == AVMEDIA_TYPE_AUDIO) astream = (int)i;
+    }
+
+    if (vstream < 0)
+    {
+        dprintf("movie: no video stream in %s", movie_path);
+        goto done;
+    }
+
+    // Video init
+    {
+        AVCodecParameters *cp = fmt->streams[vstream]->codecpar;
+        const AVCodec *codec = avcodec_find_decoder(cp->codec_id);
+        if (!codec)
+        {
+            dprintf("movie: no video decoder (codec_id=%d)", cp->codec_id);
+            goto done;
+        }
+
+        vdec = avcodec_alloc_context3(codec);
+        if (!vdec) goto done;
+
+        if (avcodec_parameters_to_context(vdec, cp) < 0) goto done;
+        if (avcodec_open2(vdec, codec, NULL) < 0) goto done;
+
+        // Ensure stable movie surface exists and matches the video
+        if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height) {
+            if (g_movie_surf) SDL_FreeSurface(g_movie_surf);
+            g_movie_surf = SDL_CreateRGBSurfaceWithFormat(
+                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_RGB555
+            );
+            if (!g_movie_surf) {
+                dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed");
+                goto done;
+            }
+        }
+        dst = g_movie_surf;
+
+        // present from the stable movie surface
+        g_present_src = g_movie_surf;
+
+        /* Clear the real game backbuffer too, so you don't see stale game pixels
+           on the first present before the first decoded frame arrives. */
+        if (g_backbuffer1) {
+            SDL_Surface *bb = g_backbuffer1;
+            if (SDL_MUSTLOCK(bb)) SDL_LockSurface(bb);
+            memset(bb->pixels, 0, (size_t)bb->h * (size_t)bb->pitch);
+            if (SDL_MUSTLOCK(bb)) SDL_UnlockSurface(bb);
+        }
+
+        // Clear movie surface to black so we don't show stale pixels
+        if (SDL_MUSTLOCK(dst)) SDL_LockSurface(dst);
+
+        // RGB555 black is 0
+        memset(dst->pixels, 0, (size_t)dst->h * (size_t)dst->pitch);
+
+        if (SDL_MUSTLOCK(dst)) SDL_UnlockSurface(dst);
+
+        /* Present black once */
+        sub_48A290();
+
+
+//        enum AVPixelFormat out_fmt = sdl_to_avpix(dst->format);
+//        sws = sws_getContext(
+//            vdec->width, vdec->height, vdec->pix_fmt,
+//            dst->w, dst->h, out_fmt,
+//            SWS_BILINEAR, NULL, NULL, NULL);
+
+        enum AVPixelFormat out_fmt = AV_PIX_FMT_RGB555LE;
+        sws = sws_getContext(
+            vdec->width, vdec->height, vdec->pix_fmt,
+            dst->w, dst->h, out_fmt,
+            SWS_BILINEAR, NULL, NULL, NULL);
+
+        if (!sws)
+        {
+            dprintf("movie: sws_getContext failed");
+            goto done;
+        }
+    }
+
+    // Audio init (optional)
+    // Output: 44100hz stereo S16 -> OpenAL
+    const int out_rate = 44100;
+    const int out_ch = 2;
+
+    if (astream >= 0)
+    {
+        AVCodecParameters *cp = fmt->streams[astream]->codecpar;
+        const AVCodec *codec = avcodec_find_decoder(cp->codec_id);
+        if (codec)
+        {
+            adec = avcodec_alloc_context3(codec);
+            if (adec &&
+                avcodec_parameters_to_context(adec, cp) >= 0 &&
+                avcodec_open2(adec, codec, NULL) >= 0)
+            {
+                // New FFmpeg: channel count comes from AVChannelLayout
+                int in_ch = adec->ch_layout.nb_channels;
+                if (in_ch <= 0) in_ch = 2; // sane fallback
+
+                // Build resampler using AVChannelLayout (new API)
+                AVChannelLayout out_layout;
+                av_channel_layout_default(&out_layout, out_ch);
+
+                // swr_alloc_set_opts2 allocates/sets up SwrContext*
+                if (swr_alloc_set_opts2(
+                        &swr,
+                        &out_layout, AV_SAMPLE_FMT_S16, out_rate,
+                        &adec->ch_layout, adec->sample_fmt, adec->sample_rate,
+                        0, NULL) >= 0 &&
+                    swr_init(swr) >= 0)
+                {
+                    if (movieal_init(&alx, out_rate, out_ch))
+                        audio_ok = 1;
+                    else
+                        dprintf("movie: OpenAL init failed, continuing without audio");
+                }
+                else
+                {
+                    dprintf("movie: swr init failed, continuing without audio");
+                    if (swr) swr_free(&swr);
+                }
+
+                av_channel_layout_uninit(&out_layout);
+            }
+            else
+            {
+                if (adec) avcodec_free_context(&adec);
+            }
+        }
+    }
+
+
+
+    vfrm = av_frame_alloc();
+    afrm = av_frame_alloc();
+    pkt  = av_packet_alloc();
+    if (!vfrm || !afrm || !pkt) goto done;
+
+    // Timing: pace video using PTS
+    uint64_t wall_start_ms = 0;
+    int64_t first_pts_ms = AV_NOPTS_VALUE;
+
+    int running = 1;
+
+    while (running && (err = av_read_frame(fmt, pkt)) >= 0)
+    {
+        while (SDL_PollEvent(&e))
+        {
+            if (e.type == SDL_QUIT) running = 0;
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) running = 0;
+        }
+
+        if (pkt->stream_index == vstream)
+        {
+            if (avcodec_send_packet(vdec, pkt) == 0)
+            {
+                while (avcodec_receive_frame(vdec, vfrm) == 0)
+                {
+                    // Convert directly into SDL_Surface pixels
+                    if (SDL_MUSTLOCK(dst))
+                        SDL_LockSurface(dst);
+
+                    uint8_t *dst_data[4] = { (uint8_t *)dst->pixels, NULL, NULL, NULL };
+                    int dst_linesize[4]  = { dst->pitch, 0, 0, 0 };
+
+                    sws_scale(sws,
+                              (const uint8_t * const*)vfrm->data, vfrm->linesize,
+                              0, vdec->height,
+                              dst_data, dst_linesize);
+
+                    if (SDL_MUSTLOCK(dst))
+                        SDL_UnlockSurface(dst);
+
+                    // PRESENT:
+                    // If your SDL renderer path uses textures, you may need an explicit “flip”.
+                    // In your codebase you often blit backbuffer->screen elsewhere; for movies we at least update the window:
+//                    SDL_UpdateWindowSurface(SDL_GetWindowFromID(1)); // safe-ish fallback
+#ifdef USE_SDL
+                    // Make sure we're writing to the current active backbuffer (engine may swap pointers)
+//                    if (g_backbuffer1) dst = g_backbuffer1;
+
+                    // Call the engine's real present (uploads backbuffer -> GL + swaps)
+                    sub_48A290();
+#endif
+                    // If you have a known SDL_Window*, replace with SDL_UpdateWindowSurface(window).
+
+                    // Pacing
+                    int64_t pts = (vfrm->best_effort_timestamp != AV_NOPTS_VALUE) ? vfrm->best_effort_timestamp : vfrm->pts;
+                    AVRational tb = fmt->streams[vstream]->time_base;
+                    int64_t pts_ms = (pts == AV_NOPTS_VALUE) ? 0 : av_rescale_q(pts, tb, (AVRational){1,1000});
+
+                    if (first_pts_ms == AV_NOPTS_VALUE)
+                    {
+                        first_pts_ms = pts_ms;
+                        wall_start_ms = now_ms();
+                    }
+
+                    uint64_t target = wall_start_ms + (uint64_t)(pts_ms - first_pts_ms);
+                    uint64_t cur = now_ms();
+                    if (target > cur)
+                        SDL_Delay((Uint32)(target - cur));
+                }
+            }
+        }
+        else if (audio_ok && pkt->stream_index == astream)
+        {
+            if (avcodec_send_packet(adec, pkt) == 0)
+            {
+                while (avcodec_receive_frame(adec, afrm) == 0)
+                {
+                    int in_samples = afrm->nb_samples;
+                    int max_out = (int)av_rescale_rnd(
+                        swr_get_delay(swr, adec->sample_rate) + in_samples,
+                        out_rate, adec->sample_rate, AV_ROUND_UP);
+
+                    int16_t *out = (int16_t *)av_malloc((size_t)max_out * (size_t)out_ch * sizeof(int16_t));
+                    if (!out) break;
+
+                    uint8_t *out_planes[1] = { (uint8_t *)out };
+                    int out_samples = swr_convert(
+                        swr,
+                        out_planes, max_out,
+                        (const uint8_t **)afrm->extended_data, in_samples);
+
+                    if (out_samples > 0)
+                    {
+                        int total_samples = out_samples * out_ch; // interleaved
+                        if (!movieal_queue_s16(&alx, out, total_samples))
+                        {
+                            dprintf("movie: OpenAL queue failed, disabling audio");
+                            movieal_shutdown(&alx);
+                            audio_ok = 0;
+                        }
+                    }
+
+                    av_free(out);
+                }
+            }
+        }
+
+        av_packet_unref(pkt);
+    }
+
+    // Drain a tiny bit of audio (don’t hang forever)
+    if (audio_ok)
+    {
+        uint64_t t0 = now_ms();
+        for (;;)
+        {
+            ALint state = 0, queued = 0;
+            alGetSourcei(alx.source, AL_SOURCE_STATE, &state);
+            alGetSourcei(alx.source, AL_BUFFERS_QUEUED, &queued);
+
+            if (queued == 0 || state != AL_PLAYING) break;
+            if (now_ms() - t0 > 300) break;
+
+            SDL_Delay(10);
+        }
+    }
+
+done:
+    if (g_present_is_movie && g_present_src == g_movie_surf)
+        g_present_src = NULL;
+
+    if (pkt)  av_packet_free(&pkt);
+    if (vfrm) av_frame_free(&vfrm);
+    if (afrm) av_frame_free(&afrm);
+
+    if (sws) sws_freeContext(sws);
+    if (swr) swr_free(&swr);
+
+    if (vdec) avcodec_free_context(&vdec);
+    if (adec) avcodec_free_context(&adec);
+
+    if (fmt) avformat_close_input(&fmt);
+
+    if (audio_ok)
+        movieal_shutdown(&alx);
 }
+// FFMPEG end
 
 //----- (00555500) --------------------------------------------------------
 char __cdecl sub_555500(char a1)
@@ -69,6 +859,10 @@ int sub_555510()
 //----- (00555520) --------------------------------------------------------
 signed int __cdecl sub_555520(HWND a1)
 {
+#ifdef USE_SDL
+    (void)a1;
+    return 1;
+#else
 	HRESULT v1; // ebx
 	signed int result; // eax
 
@@ -102,6 +896,7 @@ signed int __cdecl sub_555520(HWND a1)
 		}
 	}
 	return result;
+#endif
 }
 // 5813E8: using guessed type _DWORD __stdcall AIL_unlock();
 // 5813EC: using guessed type _DWORD __stdcall AIL_lock();
@@ -109,6 +904,13 @@ signed int __cdecl sub_555520(HWND a1)
 //----- (005555D0) --------------------------------------------------------
 void __cdecl sub_5555D0()
 {
+#ifdef USE_SDL
+    // SDL/OpenAL build: DirectSound objects don't exist.
+    // Movie audio should be handled by the SDL/OpenAL path, so don't shut anything down here.
+    //g_dsound_buffer = 0;
+    //g_dsound = 0;
+    return;
+#else
 	if (g_dsound_buffer)
 	{
 		g_dsound_buffer->lpVtbl->Stop(g_dsound_buffer);
@@ -122,6 +924,7 @@ void __cdecl sub_5555D0()
 		AIL_unlock();
 		g_dsound = 0;
 	}
+#endif
 }
 // 5813E8: using guessed type _DWORD __stdcall AIL_unlock();
 // 5813EC: using guessed type _DWORD __stdcall AIL_lock();
@@ -160,6 +963,10 @@ int *__cdecl sub_555620(_DWORD *a1)
 	int *v29; // esi
 	int *v30; // eax
 	int v31; // [esp+24h] [ebp+4h]
+
+	#ifdef USE_SDL
+        a1[9] = 0; // force non-DirectDraw path
+    #endif
 
 	v1 = a1;
 	v2 = *(void **)&byte_5D4594[2515916];
@@ -240,7 +1047,9 @@ int *__cdecl sub_555620(_DWORD *a1)
 		}
 		else
 		{
+		    #ifndef USE_SDL
 			sub_5569B0(*(HWND *)&byte_5D4594[2514000]);
+			#endif
 			v10 = (void *)operator_new(0xA8u);
 			if (v10)
 				v11 = sub_556500(v10, v5, v31, 0);
@@ -544,7 +1353,9 @@ int __cdecl sub_555C40(_DWORD *a1)
 	sub_413B70((char *)&byte_587000[293480]);
 	sub_556710(*(_DWORD **)&byte_5D4594[2513968]);
 	sub_413B70((char *)&byte_587000[293472]);
-	memset(**(void ***)&byte_5D4594[2513968], 0, v12);
+	// sookyboo test
+    //	memset(**(void ***)&byte_5D4594[2513968], 0, v12);
+    memset(**(void ***)&byte_5D4594[2513968], 0xFF, v12);
 	sub_413B70((char *)&byte_587000[293452]);
 	sub_556820(*(_DWORD **)&byte_5D4594[2513968]);
 	sub_413B70((char *)&byte_587000[293440]);
@@ -616,6 +1427,34 @@ int sub_556040()
 //----- (00556050) --------------------------------------------------------
 _DWORD *sub_556050()
 {
+#ifdef USE_SDL
+    _DWORD *src = *(_DWORD **)&byte_5D4594[2513968];   // decode surface
+    _DWORD *dst = *(_DWORD **)&byte_5D4594[2515928];   // the “scaled/working” surface used by the pipeline
+
+    if (!src || !dst || !*src || !*dst)
+        return 0;
+
+    // If option 7 is set, the original code forces a 320x200 -> 640x400 scaled blit.
+    if (sub_5562A0(7)) {
+        sub_559030((int)src, (int)dst, 0, 0, 0, 0, 320, 200, 640, 400, 0, 0);
+        return (_DWORD*)1;
+    }
+
+    // Otherwise: do a simple copy if sizes match, else do a nearest-neighbor scale.
+    // (This keeps movies visible even if the buffers differ.)
+    const int srcW = (int)src[1], srcH = (int)src[2];
+    const int dstW = (int)dst[1], dstH = (int)dst[2];
+
+    if (srcW > 0 && srcH > 0 && dstW > 0 && dstH > 0) {
+        if (srcW == dstW && srcH == dstH) {
+            sub_558AA0(src, dst, 0, 0, 0, 0, srcW, srcH, 0);
+        } else {
+            sub_559030((int)src, (int)dst, 0, 0, 0, 0, srcW, srcH, dstW, dstH, 0, 0);
+        }
+    }
+
+    return (_DWORD*)1;
+#else
 	_DWORD *v0; // edi
 	_DWORD *v1; // esi
 	_DWORD *v2; // eax
@@ -713,6 +1552,7 @@ _DWORD *sub_556050()
 		}
 	}
 	return result;
+#endif
 }
 
 //----- (00556240) --------------------------------------------------------
@@ -824,6 +1664,19 @@ void __thiscall sub_5562F0(_DWORD *this, _DWORD *a2, int a3, int a4, int a5, int
 //----- (005563A0) --------------------------------------------------------
 int __thiscall sub_5563A0(_DWORD *this, int a2, char a3)
 {
+#ifdef USE_SDL
+    // SDL build should never come here; caller forces software buffers.
+    // Return 0 and leave fields consistent enough to not explode if someone ignores the rule.
+    _DWORD *v3 = this;
+    memset(v3 + 14, 0, 0x6Cu);
+    v3[12] = 0;
+    v3[8]  = 0;   // not a DD surface
+    *v3    = 0;
+    v3[9]  = 0;
+    v3[13] = 0;
+    v3[41] = 0;
+    return 0;
+#else
 	_DWORD *v3; // esi
 	int v4; // eax
 	int v5; // ecx
@@ -874,6 +1727,8 @@ int __thiscall sub_5563A0(_DWORD *this, int a2, char a3)
 	*v3 = 0;
 	v3[9] = 0;
 	return result;
+#endif
+
 }
 
 //----- (00556470) --------------------------------------------------------
@@ -883,6 +1738,17 @@ void *__thiscall sub_556470(_DWORD *this, void *a2, int a3, int a4, int a5, char
 	_DWORD *v8; // esi
 	int v9; // edx
 
+    result = a2;
+    v8 = this;
+    this[11] = a5;
+    this[1] = a2;   // actually width (passed as 0x280)
+    this[2] = a3;   // height (480)
+
+#ifdef USE_SDL
+    // SDL build: do NOT use DirectDraw surface path (a6&3). Force software buffer.
+    a6 &= ~3;
+    a4 = 0;      // <- IMPORTANT: never treat legacy arg as a pointer
+#endif
 	result = a2;
 	v8 = this;
 	this[11] = a5;
@@ -918,6 +1784,7 @@ void *__thiscall sub_556470(_DWORD *this, void *a2, int a3, int a4, int a5, char
 	v8[7] = v8;
 	return result;
 }
+
 // 5667CB: using guessed type void *__cdecl operator_new(unsigned int);
 
 //----- (00556500) --------------------------------------------------------
@@ -947,14 +1814,19 @@ void *__thiscall sub_556570(void *this, void *a2, int a3, char a4)
 //----- (005565E0) --------------------------------------------------------
 void *__thiscall sub_5565E0(void *this, void *a2, int a3, char a4, int a5)
 {
-	void *v5; // esi
-
-	v5 = this;
+    void *v5 = this;
 	sub_5562C0(this);
 	sub_559AA0((_DWORD *)v5 + 10);
+
+#ifdef USE_SDL
+    // Force software-buffer path (avoid DirectDraw surface path).
+    a4 &= ~3;
+#endif
+
 	sub_556470(v5, a2, a3, 0, a3 * (_DWORD)a2, a4, a5);
 	return v5;
 }
+
 
 //----- (00556650) --------------------------------------------------------
 int __thiscall sub_556650(_DWORD *this)
@@ -1209,6 +2081,15 @@ _DWORD *sub_5569A0()
 //----- (005569B0) --------------------------------------------------------
 int __cdecl sub_5569B0(HWND a1)
 {
+#ifdef USE_SDL
+    (void)a1;
+    // No DirectDraw in SDL builds.
+    *(_DWORD *)&byte_5D4594[2515892] = 0;
+    *(_DWORD *)&byte_5D4594[2515908] = 0;
+    *(_DWORD *)&byte_5D4594[2515900] = 0;
+    *(_DWORD *)&byte_5D4594[2515904] = 0;
+    return 1;
+#else
 	int v1; // eax
 
 	*(_DWORD *)&byte_5D4594[2515892] = a1;
@@ -1222,6 +2103,7 @@ int __cdecl sub_5569B0(HWND a1)
 	sub_556C60(v1, 0);
 	*(_DWORD *)&byte_5D4594[2515904] = 0;
 	return 1;
+#endif
 }
 
 //----- (005569F0) --------------------------------------------------------
@@ -2143,6 +3025,9 @@ _BYTE *__thiscall sub_557C70(_BYTE *this, const char *a2, int a3, int a4, int a5
 	char v23[17]; // [esp+13h] [ebp-11h]
 
 	v9 = this;
+	// install timer
+	//*((_DWORD *)v9 + (84/4)) = (int)movie_time_ms;   // or *(int*)((char*)v9+84) = (int)movie_time_ms;
+
 	*(_DWORD *)&v23[1] = this;
 	sub_559AD0(this + 4);
 	v10 = v9 + 572;
@@ -2487,6 +3372,10 @@ void __thiscall sub_5582C0(int *this, int a2)
 //----- (00558300) --------------------------------------------------------
 BOOL sub_558300()
 {
+#ifdef USE_SDL
+    sub_4453A0();   // already polls SDL and dispatches
+    return 1;
+#else
 	BOOL result; // eax
 	struct tagMSG Msg; // [esp+10h] [ebp-1Ch]
 
@@ -2499,6 +3388,7 @@ BOOL sub_558300()
 		DispatchMessageA(&Msg);
 	}
 	return result;
+#endif
 }
 
 //----- (00558370) --------------------------------------------------------
@@ -2576,6 +3466,13 @@ LABEL_13:
 			sub_558800(v3);
 			sub_55B470(v3[177], 0, v3[377], v3[378], v5, -1, -1);
 			v4 = sub_55AEF0(v3[177], 1, 0);
+			#ifdef USE_SDL
+            static int last_v4 = 123456;
+            if (v4 != last_v4) {
+                fprintf(stderr, "[MOVIE] sub_55AEF0 -> %d\n", v4);
+                last_v4 = v4;
+            }
+            #endif
 			sub_558810(v3);
 			if (v4 >= 0)
 			{
@@ -2585,6 +3482,8 @@ LABEL_13:
 					*((_BYTE *)v3 + 1516) = 0;
 				}
 				((void(*)(void))v3[387])();
+
+#ifndef USE_SDL
 				if (sub_5562A0(5))
 				{
 					v6 = GetWindowDC(*(HWND *)&byte_5D4594[2514000]);
@@ -2594,11 +3493,21 @@ LABEL_13:
 					TextOutA(v6, v13 / 2, v12 / 2, String, strlen(String));
 					ReleaseDC(*(HWND *)&byte_5D4594[2514000], v6);
 				}
+#else
+//                sdl_present();
+#endif
 				v3[370] = v4 + 1;
 			}
+#ifdef USE_SDL
+            sdl_present();
+#endif
+
 			if ((unsigned __int16)sub_555510())
 				v11 = 1;
 		}
+		#ifdef USE_SDL
+        if (v4 < 0) SDL_Delay(1);
+        #endif
 	}
 	*(_QWORD *)String = sub_55C920() - v14;
 	nullsub_31(&byte_587000[300288]);
@@ -2860,10 +3769,55 @@ int __cdecl sub_558A20(int a1, int a2, void *a3, unsigned int a4)
 // 558800: using guessed type int __thiscall sub_558800(_DWORD);
 // 558810: using guessed type int __thiscall sub_558810(_DWORD);
 
-char __cdecl sub_558AA0(_DWORD *a1, _DWORD *a2, unsigned int a3, unsigned int a4, signed int a5, signed int a6, int a7, int a8, char a9)
+char __cdecl sub_558AA0(_DWORD *src, _DWORD *dst,
+                        unsigned int srcX, unsigned int srcY,
+                        signed int dstX, signed int dstY,
+                        int w, int h, char flags)
 {
+#ifdef USE_SDL
+    (void)flags; // (transparency/other flags not needed for movies in the simplest path)
+
+    if (!src || !dst || !*src || !*dst) return 0;
+    if (w <= 0 || h <= 0) return 0;
+
+    const int srcW = (int)src[1], srcH = (int)src[2];
+    const int dstW = (int)dst[1], dstH = (int)dst[2];
+
+    // Clip against source
+    int sx = (int)srcX, sy = (int)srcY;
+    int dx = dstX, dy = dstY;
+    int cw = w, ch = h;
+
+    if (sx < 0) { int d = -sx; sx = 0; dx += d; cw -= d; }
+    if (sy < 0) { int d = -sy; sy = 0; dy += d; ch -= d; }
+    if (sx + cw > srcW) cw = srcW - sx;
+    if (sy + ch > srcH) ch = srcH - sy;
+
+    // Clip against destination
+    if (dx < 0) { int d = -dx; dx = 0; sx += d; cw -= d; }
+    if (dy < 0) { int d = -dy; dy = 0; sy += d; ch -= d; }
+    if (dx + cw > dstW) cw = dstW - dx;
+    if (dy + ch > dstH) ch = dstH - dy;
+
+    if (cw <= 0 || ch <= 0) return 0;
+
+    const int srcStride = surf_stride(src);
+    const int dstStride = surf_stride(dst);
+
+    uint8_t *sp = surf_pixels(src) + sy * srcStride + sx;
+    uint8_t *dp = surf_pixels(dst) + dy * dstStride + dx;
+
+    // Use memmove so overlap is safe (the original had overlap-handling too)
+    for (int y = 0; y < ch; y++) {
+        memmove(dp, sp, (size_t)cw);
+        sp += srcStride;
+        dp += dstStride;
+    }
+    return 1;
+#else
 	DebugBreak();
 	return 0;
+#endif
 }
 
 #if 0
@@ -3097,9 +4051,67 @@ char __cdecl sub_558AA0(_DWORD *a1, _DWORD *a2, unsigned int a3, unsigned int a4
 }
 #endif
 
-void __cdecl sub_559030(int a1, int a2, unsigned int a3, unsigned int a4, int a5, int a6, int a7, int a8, int a9, int a10, int a11, int a12)
+void __cdecl sub_559030(int srcSurfPtr, int dstSurfPtr,
+                        unsigned int srcX, unsigned int srcY,
+                        int dstX, int dstY,
+                        int srcW, int srcH,
+                        int dstW, int dstH,
+                        int flagsA, int flagsB)
 {
+#ifdef USE_SDL
+    (void)flagsA;
+    (void)flagsB;
+
+    _DWORD *src = (_DWORD*)srcSurfPtr;
+    _DWORD *dst = (_DWORD*)dstSurfPtr;
+    if (!src || !dst || !*src || !*dst) return;
+    if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return;
+
+    const int S_W = (int)src[1], S_H = (int)src[2];
+    const int D_W = (int)dst[1], D_H = (int)dst[2];
+
+    // Basic clipping against destination (simple, not perfect but good enough to start)
+    int dx0 = dstX, dy0 = dstY;
+    int dx1 = dstX + dstW, dy1 = dstY + dstH;
+    if (dx1 <= 0 || dy1 <= 0 || dx0 >= D_W || dy0 >= D_H) return;
+
+    int clipL = (dx0 < 0) ? -dx0 : 0;
+    int clipT = (dy0 < 0) ? -dy0 : 0;
+    int clipR = (dx1 > D_W) ? (dx1 - D_W) : 0;
+    int clipB = (dy1 > D_H) ? (dy1 - D_H) : 0;
+
+    dx0 += clipL; dy0 += clipT;
+    dstW -= (clipL + clipR);
+    dstH -= (clipT + clipB);
+    if (dstW <= 0 || dstH <= 0) return;
+
+    // Map destination clip back into source space
+    // Nearest-neighbor mapping with integer math
+    const int srcStride = (int)src[6] + (int)src[1] + (int)src[3];
+    const int dstStride = (int)dst[6] + (int)dst[1] + (int)dst[3];
+
+    uint8_t *sp0 = (uint8_t*)(uintptr_t)(*src);
+    uint8_t *dp0 = (uint8_t*)(uintptr_t)(*dst);
+
+    for (int y = 0; y < dstH; y++) {
+        int dy = dy0 + y;
+        int sy = (int)srcY + (int)((int64_t)(y + clipT) * srcH / (clipT + dstH + clipB));
+        if (sy < 0) sy = 0;
+        if (sy >= S_H) sy = S_H - 1;
+
+        uint8_t *dp = dp0 + dy * dstStride + dx0;
+
+        for (int x = 0; x < dstW; x++) {
+            int sx = (int)srcX + (int)((int64_t)(x + clipL) * srcW / (clipL + dstW + clipR));
+            if (sx < 0) sx = 0;
+            if (sx >= S_W) sx = S_W - 1;
+
+            dp[x] = sp0[sy * srcStride + sx];
+        }
+    }
+#else
 	DebugBreak();
+#endif
 }
 
 #if 0
@@ -3505,6 +4517,50 @@ int __cdecl sub_559DB0(DWORD_PTR dwUser, int a2, int a3, int a4)
 //----- (00559E80) --------------------------------------------------------
 int __cdecl sub_559E80(DWORD_PTR dwUser, int a2, int a3)
 {
+#ifdef USE_SDL
+    // DirectSound + WinMM timer based audio init.
+    // SDL/OpenAL build: audio device is already owned by the SDL/OpenAL path.
+    //
+    // IMPORTANT: callers expect -1 for success and -13 for failure.
+
+    int slot = 0; // choose a stable non-1 slot (Win32 rejects slot==1)
+    unsigned __int8 *v5;
+
+    if (!dwUser || !a2)
+        return -13;
+
+    // Pick slot 0 (first block). We don't rely on the Win32 allocation scan.
+    // (The original code also rejects slot==1, so avoid 1.)
+    slot = 0;
+
+    *(_DWORD *)(dwUser + 52) = slot;
+
+    v5 = &byte_5D4594[200 * slot + 2515988];
+
+    // Clear and mark "in use" similarly to Win32.
+    memset(v5, 0, 0xC8u);
+    *(_DWORD *)v5 = 1;
+    *((_DWORD *)v5 + 1) = *(_DWORD *)(dwUser + 164);
+
+    // Store format info that downstream code may read.
+    // a2 points at a struct/packet where:
+    //   *(uint16*)a2      = sample rate
+    //   *(uint8*)(a2+2)   = channels
+    //   *(uint8*)(a2+3)   = bits per sample
+    //   *(uint32*)(a2+4)  = something (buffer bytes? frame count? keep)
+    v5[10] = *(_BYTE *)(a2 + 2);
+    v5[11] = *(_BYTE *)(a2 + 3);
+    *((_DWORD *)v5 + 8) = *(_DWORD *)(a2 + 4);
+
+    // Preserve the callback function pointers the Win32 path stashes.
+    // These are very likely used by the mixer/service code later.
+    *(_DWORD *)&byte_5D4594[2515980] = *(_DWORD *)(a2 + 8);
+    *(_DWORD *)&byte_5D4594[2515984] = *(_DWORD *)(a2 + 12);
+
+    // No DirectSound buffer, no timeBeginPeriod/timeSetEvent, no CriticalSection.
+    // Pretend success so the movie/audio pipeline continues.
+    return -1;
+#else
 	int v3; // eax
 	unsigned __int8 *v4; // ecx
 	unsigned __int8 *v5; // esi
@@ -3598,6 +4654,7 @@ int __cdecl sub_559E80(DWORD_PTR dwUser, int a2, int a3)
 		result = 0;
 	}
 	return result;
+#endif
 }
 // 5813E8: using guessed type _DWORD __stdcall AIL_unlock();
 // 5813EC: using guessed type _DWORD __stdcall AIL_lock();
@@ -3624,6 +4681,12 @@ int __cdecl sub_55A0C0(int a1)
 //----- (0055A130) --------------------------------------------------------
 int __cdecl sub_55A130(int a1)
 {
+#ifdef USE_SDL
+    // DirectSound streaming buffer setup.
+    // SDL/OpenAL build: audio is handled elsewhere, so this becomes a no-op.
+    (void)a1;
+    return -1; // success (matches the Win32 path's "OK" return)
+#else
 	unsigned __int8 *v1; // esi
 	int v2; // eax
 	LPDIRECTSOUNDBUFFER v3; // eax
@@ -3707,6 +4770,7 @@ int __cdecl sub_55A130(int a1)
 		}
 	}
 	return result;
+#endif
 }
 // 5813E8: using guessed type _DWORD __stdcall AIL_unlock();
 // 5813EC: using guessed type _DWORD __stdcall AIL_lock();
@@ -3778,6 +4842,10 @@ int __cdecl sub_55A3B0(int a1)
 //----- (0055A3F0) --------------------------------------------------------
 int __cdecl sub_55A3F0(int a1)
 {
+#ifdef USE_SDL
+    // SDL/OpenAL: no DirectSound secondary buffer to release here.
+    return -1;
+#else
 	unsigned __int8 *v1; // esi
 	int v2; // eax
 
@@ -3798,6 +4866,7 @@ int __cdecl sub_55A3F0(int a1)
 	*((_DWORD *)v1 + 18) = 0;
 	LeaveCriticalSection((LPCRITICAL_SECTION)(v1 + 172));
 	return -1;
+#endif
 }
 
 //----- (0055A470) --------------------------------------------------------
@@ -15303,4 +16372,4 @@ DWORD __cdecl sub_55A740()
 {
 	return sub_55C930();
 }
-#endif
+//#endif

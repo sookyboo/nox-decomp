@@ -2083,3 +2083,29 @@ DWORD WINAPI WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds)
 
     return result;
 }
+
+
+// Public helper: normalize Win paths + apply casepath.
+// Returns 1 on success, 0 on failure (ENOENT-like).
+int external_compat_casepath(const char *path, char *out, size_t outsz)
+{
+    if (!path || !out || outsz < 2) return 0;
+
+    char *converted_ptr = dos_to_unix(path);
+    const char *converted = converted_ptr ? converted_ptr : path;
+
+    // casepath needs strlen(path)+2 bytes; build into a temp then copy to out.
+    char *tmp = alloca(strlen(converted) + 2);
+
+    const char *use = converted;
+    if (casepath(converted, tmp)) {
+        use = tmp;
+    }
+
+    // copy out safely
+    strncpy(out, use, outsz - 1);
+    out[outsz - 1] = 0;
+
+    if (converted_ptr) free(converted_ptr);
+    return 1;
+}

@@ -204,6 +204,10 @@ void process_event(const SDL_Event *event)
 {
 	switch (event->type)
 	{
+//    case SDL_QUIT:
+//        // Make movie loops exit (sub_555510 reads this)
+//        sub_555500(1);
+//        break;
     case SDL_TEXTEDITING:
         process_textediting_event(&event->edit);
         break;
@@ -212,6 +216,9 @@ void process_event(const SDL_Event *event)
         break;
     case SDL_KEYDOWN:
     case SDL_KEYUP:
+//        // Let existing keyboard queue logic run too, but also allow ESC to stop movie
+//        if (event->key.keysym.sym == SDLK_ESCAPE)
+//            sub_555500(1);
         process_keyboard_event(&event->key);
         break;
     case SDL_MOUSEBUTTONDOWN:
@@ -372,6 +379,7 @@ int sub_4453A0()
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 		process_event(&event);
+	//mm_timer_pump_mainthread();
 	return 0;
 #else
 	struct tagMSG Msg; // [esp+4h] [ebp-1Ch]

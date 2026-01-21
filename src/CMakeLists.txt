@@ -17,6 +17,28 @@ else ()
 endif ()
 include_directories (external/include)
 link_directories (${PROJECT_SOURCE_DIR}/external/lib)
+
+find_package(PkgConfig REQUIRED)
+
+set(FFMPEG_PREFIX "" CACHE PATH "Prefix where FFmpeg was installed")
+if (FFMPEG_PREFIX)
+    set(ENV{PKG_CONFIG_PATH}   "${FFMPEG_PREFIX}/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+    set(ENV{PKG_CONFIG_LIBDIR} "${FFMPEG_PREFIX}/lib/pkgconfig:$ENV{PKG_CONFIG_LIBDIR}")
+endif()
+
+# IMPORTANT: do NOT use IMPORTED_TARGET here
+pkg_check_modules(FFMPEG REQUIRED
+    libavformat
+    libavcodec
+    libavutil
+    libswscale
+    libswresample
+)
+
+message(STATUS "FFMPEG_LIBRARY_DIRS=${FFMPEG_LIBRARY_DIRS}")
+message(STATUS "FFMPEG_LIBRARIES=${FFMPEG_LIBRARIES}")
+message(STATUS "FFMPEG_LDFLAGS=${FFMPEG_LDFLAGS}")
+
 if (WIN32)
     set (OPENAL_LIBRARIES openal)
     set (OPENGL_LIBRARIES glew32 opengl32)
@@ -77,23 +99,28 @@ add_executable (
 add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)
 set_target_properties(abi_wrappers PROPERTIES C_STANDARD 99)
 
-target_link_libraries (
-    out
+# Base libs
+target_link_libraries(out PRIVATE
     SDL2
-    "${OPENAL_LIBRARIES}"
-    "${OPENGL_LIBRARIES}"
-    "${PTHREAD_LIBRARIES}"
-    "${WIN32_LIBRARIES}"
+    ${OPENAL_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PTHREAD_LIBRARIES}
+    ${WIN32_LIBRARIES}
     abi_wrappers
 )
 
-if (MSVC)
-else ()
-    target_link_options (out PUBLIC )
-    if (USE_ASAN)
-        target_link_options (out PRIVATE -fsanitize=address)
-    endif ()
-endif ()
+# FFmpeg from pkg-config
+target_include_directories(out PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_link_directories(out PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries(out PRIVATE ${FFMPEG_LIBRARIES})
+target_link_options(out PRIVATE ${FFMPEG_LDFLAGS_OTHER})
 
+if (NOT WIN32 AND NOT APPLE)
+    target_link_libraries(out PRIVATE m z dl)
+endif()
+
+if (FFMPEG_PREFIX)
+    target_link_options(out PRIVATE "-Wl,-rpath-link,${FFMPEG_PREFIX}/lib")
+endif()
 
 #add_compile_options(-Wfatal-errors)

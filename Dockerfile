@@ -43,14 +43,24 @@ RUN dpkg --add-architecture armhf && \
       libtheora-dev:armhf \
       libopenal-dev:armhf \
       \
+      make \
+      yasm \
+      nasm \
+      gettext \
+      texinfo \
+      \
+      zlib1g-dev:armhf \
+      libbz2-dev:armhf \
+      libssl-dev:armhf \
+      \
       innoextract \
       zip && \
     rm -rf /var/lib/apt/lists/*
 
 
 # Ensure pkg-config resolves ARMHF (prevents host/aarch64 contamination)
-ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
-ENV PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig
+ENV PKG_CONFIG_PATH=/opt/ffmpeg-armhf/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/opt/ffmpeg-armhf/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig
 ENV PKG_CONFIG_SYSROOT_DIR=
 
 # -------------------------------------------------
@@ -121,6 +131,61 @@ RUN cd gl4es/build && \
 
 RUN file /build/gl4es-armhf/usr/lib*/libGL.so* || true
 
+# ffmpeg for videos
+
+# -------------------------------------------------
+# Build FFmpeg (armhf) from git with VQA3 support
+# -------------------------------------------------
+ARG FFMPEG_GIT_REF=n7.1.1
+# You can switch to "master" if you want latest:
+# ARG FFMPEG_GIT_REF=master
+
+
+ARG FFMPEG_PREFIX=/opt/ffmpeg-armhf
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
+
+WORKDIR /build
+
+
+RUN git clone https://git.ffmpeg.org/ffmpeg.git /build/ffmpeg && \
+    cd /build/ffmpeg && \
+    git checkout ${FFMPEG_GIT_REF}
+
+ENV CC="ccache arm-linux-gnueabihf-gcc"
+ENV CXX="ccache arm-linux-gnueabihf-g++"
+ENV AR="arm-linux-gnueabihf-ar"
+ENV RANLIB="arm-linux-gnueabihf-ranlib"
+ENV STRIP="arm-linux-gnueabihf-strip"
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && \
+    ./configure \
+      --prefix=${FFMPEG_PREFIX} \
+      --arch=arm \
+      --target-os=linux \
+      --cross-prefix=arm-linux-gnueabihf- \
+      --enable-cross-compile \
+      --pkg-config=pkg-config \
+      --enable-shared \
+      --disable-static \
+      --disable-programs \
+      --disable-doc \
+      --disable-debug \
+      --enable-pic \
+      --disable-openssl --disable-gnutls  --disable-bzlib --disable-zlib\
+      --sysroot=/usr/arm-linux-gnueabihf \
+      --extra-cflags="-I/usr/include/arm-linux-gnueabihf" \
+      --extra-ldflags="-L/usr/lib/arm-linux-gnueabihf"
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && make -j"$(nproc)" \
+    && make install
+
+RUN ls -l /opt/ffmpeg-armhf/lib/libavformat.so* && \
+    ls -l /opt/ffmpeg-armhf/lib/pkgconfig/libavformat.pc && \
+    PKG_CONFIG_LIBDIR=/opt/ffmpeg-armhf/lib/pkgconfig pkg-config --libs libavformat
+
+#RUN exit 1
 # back to nox
 
 # -------------------------------------------------
@@ -139,6 +204,7 @@ RUN --mount=type=cache,target=/root/.ccache \
     cmake .. \
       -DCMAKE_TOOLCHAIN_FILE=/toolchain-armhf.cmake \
       -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-armhf \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
       -DCMAKE_C_FLAGS="\
@@ -159,6 +225,11 @@ RUN --mount=type=cache,target=/root/.ccache \
     cd /build/nox-decomp/build && \
     cmake --build . -j $(nproc)
 
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/lib/libav*.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswscale.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswresample.so* /build/nox-decomp/build/src/lib/
 # -------------------------------------------------
 # Verify output
 # -------------------------------------------------
@@ -168,6 +239,9 @@ RUN file /build/nox-decomp/build/src/out
 #RUN arm-linux-gnueabihf-nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
 #RUN arm-linux-gnueabihf-nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
 
+RUN readelf -d /build/nox-decomp/build/src/out | grep NEEDED
+
+RUN find  /opt/ffmpeg-armhf/lib/ && ls -lah /opt/ffmpeg-armhf/lib/
 
 
 

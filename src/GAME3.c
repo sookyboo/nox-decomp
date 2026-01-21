@@ -30141,11 +30141,14 @@ BOOL __cdecl sub_4CB230(const char *a1, char *lpFileName)
   char *v3; // eax
   struct _stat v4; // [esp+10h] [ebp-24h]
 
+  //fprintf(stderr, "looking for movies\n");
+
   strcpy(lpFileName, "movies\\");
   strcat(lpFileName, a1);
   if ( !_stat(lpFileName, (int)&v4) )
     return 1;
   v3 = sub_413890();
+  //fprintf(stderr, "sub_413890() -> '%s'\n", v3 ? v3 : "(null)");
   if ( !v3 )
     return 0;
   strcpy(lpFileName, v3);

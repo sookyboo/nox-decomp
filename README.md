@@ -35,8 +35,7 @@ mv app/* .
 # Known issues
 
 * All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.
-* Can't play demo.
-* Videos don't load.
+* Tooltips of inventory sometimes show up while playing the game when hovering right at the top and also sometimes prevent clicks.
 
 # License
 

@@ -37,14 +37,24 @@ RUN dpkg --add-architecture i386 && \
       libtheora-dev:i386 \
       libopenal-dev:i386 \
       \
+      make \
+      yasm \
+      nasm \
+      gettext \
+      texinfo \
+      \
+      zlib1g-dev:i386 \
+      libbz2-dev:i386 \
+      libssl-dev:i386 \
+      \
       innoextract \
       zip && \
     rm -rf /var/lib/apt/lists/*
 
 
 # Ensure pkg-config resolves i386 (prevents host/x86_64 contamination)
-ENV PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig
-ENV PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig
+ENV PKG_CONFIG_PATH=/opt/ffmpeg-i386/lib/pkgconfig:/usr/lib/i386-linux-gnu/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/opt/ffmpeg-i386/lib/pkgconfig:/usr/lib/i386-linux-gnu/pkgconfig
 ENV PKG_CONFIG_SYSROOT_DIR=
 
 # gl4es lib
@@ -98,6 +108,67 @@ RUN grep -n "CheckCCompilerFlag" /build/gl4es/CMakeLists.txt && \
 
 RUN file /build/gl4es-armhf/usr/lib*/libGL.so* || true
 
+# ffmpeg for videos
+
+# -------------------------------------------------
+# Build FFmpeg (armhf) from git with VQA3 support
+# -------------------------------------------------
+ARG FFMPEG_GIT_REF=n7.1.1
+# You can switch to "master" if you want latest:
+# ARG FFMPEG_GIT_REF=master
+
+
+ARG FFMPEG_PREFIX=/opt/ffmpeg-i386
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
+
+WORKDIR /build
+
+
+RUN git clone https://git.ffmpeg.org/ffmpeg.git /build/ffmpeg && \
+    cd /build/ffmpeg && \
+    git checkout ${FFMPEG_GIT_REF}
+
+ENV CC="ccache i686-linux-gnu-gcc"
+ENV CXX="ccache i686-linux-gnu-g++"
+ENV AR="i686-linux-gnu-ar"
+ENV RANLIB="i686-linux-gnu-ranlib"
+ENV STRIP="i686-linux-gnu-strip"
+
+RUN apt-get update && apt-get install -y \
+  gcc-i686-linux-gnu g++-i686-linux-gnu binutils-i686-linux-gnu \
+  libc6-dev-i386-cross linux-libc-dev-i386-cross \
+  pkg-config yasm nasm git ccache
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && \
+    ./configure \
+      --prefix=${FFMPEG_PREFIX} \
+      --arch=x86 \
+      --cpu=i686 \
+      --target-os=linux \
+      --cross-prefix=i686-linux-gnu- \
+      --enable-cross-compile \
+      --enable-shared \
+      --disable-static \
+      --disable-programs \
+      --disable-doc \
+      --disable-debug \
+      --enable-pic \
+      --disable-openssl --disable-gnutls --disable-bzlib --disable-zlib \
+      --sysroot=/usr/i686-linux-gnu \
+      --extra-cflags="-I/usr/include/i386-linux-gnu" \
+      --extra-ldflags="-L/usr/lib/i386-linux-gnu"
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && make -j"$(nproc)" \
+    && make install
+
+RUN ls -l /opt/ffmpeg-i386/lib/libavformat.so* && \
+    ls -l /opt/ffmpeg-i386/lib/pkgconfig/libavformat.pc && \
+    PKG_CONFIG_LIBDIR=/opt/ffmpeg-i386/lib/pkgconfig pkg-config --libs libavformat
+
+#RUN exit 1
+
 # back to nox
 
 # -------------------------------------------------
@@ -115,6 +186,7 @@ RUN --mount=type=cache,target=/root/.ccache \
     cd /build/nox-decomp/build && \
     cmake .. \
       -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-i386 \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
       -DCMAKE_C_FLAGS="\
@@ -144,6 +216,11 @@ RUN --mount=type=cache,target=/root/.ccache \
 RUN --mount=type=cache,target=/root/.ccache \
     cd /build/nox-decomp/build && \
     cmake --build . -j $(nproc)
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/lib/libav*.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswscale.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswresample.so* /build/nox-decomp/build/src/lib/
 
 # -------------------------------------------------
 # Verify output
