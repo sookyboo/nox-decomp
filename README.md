@@ -59,7 +59,7 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - Westwood Studios
 - [/u/awesie](https://www.reddit.com/u/awesie)
 - neuromancer (for some Linux fixes)
-- Sookyboo (for fixing 16bit cursor color, solo game, arm32bit crashes)
+- Sookyboo (for fixing 16bit cursor color, solo game, spell rendering fixes, arm32bit crashes and adding video support)
 
 Are you the one that should be mentioned here? Let me know I will add your name. Also, if you are interested in continue this project, I can give you administrative access to this repository.
 
