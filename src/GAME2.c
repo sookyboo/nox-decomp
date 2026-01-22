@@ -22694,6 +22694,37 @@ LABEL_9:
   }
 }
 
+// Helpers to stop intercepting inventory when inventory is hidden
+
+static void *ui_skip_hidden_in_chain(void *w)
+{
+    // Skip widgets marked hidden/non-hittable by low-byte flag 0x10.
+    // Walk up the +396 chain until a hittable one is found.
+    for (int d = 0; w && d < 16; ++d)
+    {
+        unsigned char fbyte = *(unsigned char *)((char *)w + 4);
+        if ((fbyte & 0x10) == 0)
+            return w;
+        w = *(void **)((char *)w + 396);
+    }
+    return NULL;
+}
+
+static int ui_chain_contains(void *w, void *root)
+{
+    for (int d = 0; w && d < 32; ++d)
+    {
+        if (w == root) return 1;
+        w = *(void **)((char *)w + 396);
+    }
+    return 0;
+}
+
+static inline unsigned char inv_state(void)
+{
+    return byte_5D4594[1049868];
+}
+
 //----- (0046B740) --------------------------------------------------------
 void sub_46B740()
 {
@@ -23038,6 +23069,23 @@ LABEL_98:
     }
   }
 LABEL_99:
+{
+    void *invRoot = *(void **)&byte_5D4594[1062452];
+    unsigned char st = inv_state();
+
+    // Only suppress "ghost" inventory hits when inventory is truly fully hidden.
+    // IMPORTANT: state==3 is likely the status/minibar strip; do NOT suppress then,
+    // or status icon tooltips will stop working.
+    if (st == 0 && invRoot && v1 && ui_chain_contains((void*)v1, invRoot))
+    {
+        v1 = 0;
+        v0 = 0;         // also prevent tooltip from ghost inventory widgets
+        goto LABEL_113; // skip dispatch/cursor logic for this hit
+    }
+
+    // Always filter out hidden/non-hittable widgets.
+    v1 = (wchar_t*)ui_skip_hidden_in_chain((void*)v1);
+}
   v37 = *((_DWORD *)v1 + 1);
   if ( v37 & 0x200 )
   {
