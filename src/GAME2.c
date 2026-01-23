@@ -23076,6 +23076,9 @@ LABEL_99:
     // Only suppress "ghost" inventory hits when inventory is truly fully hidden.
     // IMPORTANT: state==3 is likely the status/minibar strip; do NOT suppress then,
     // or status icon tooltips will stop working.
+    // I think the proper fix has to do with the whole inventory window shifting up above the screen and the
+    // status icons are the bottom of the window and become the top of the screen
+    // maybe if we shift the hits by the dimensions of the inventory window it will fix.
     if (st == 0 && invRoot && v1 && ui_chain_contains((void*)v1, invRoot))
     {
         v1 = 0;
