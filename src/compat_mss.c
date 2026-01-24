@@ -168,17 +168,22 @@ static unsigned int decode_adpcm(int16_t *out, const BYTE *data, unsigned int si
 
     predictor = data[0] | (data[1] << 8);
     index = data[2];
+    index = satindex(index);
 
     out[samples++] = predictor;
 
     for (i = 4; i < size; i++)
     {
-        predictor = decode_nibble(predictor, data[i], index);
-        index = satindex(index + ima_index_table[data[i] & 15]);
+        unsigned int b  = (unsigned int)data[i];
+        unsigned int n0 = b & 0x0Fu;          // low nibble
+        unsigned int n1 = (b >> 4) & 0x0Fu;   // high nibble
+
+        predictor = decode_nibble(predictor, n0, index);
+        index = satindex(index + ima_index_table[n0]);
         out[samples++] = predictor;
 
-        predictor = decode_nibble(predictor, data[i] >> 4, index);
-        index = satindex(index + ima_index_table[data[i] >> 4]);
+        predictor = decode_nibble(predictor, n1, index);
+        index = satindex(index + ima_index_table[n1]);
         out[samples++] = predictor;
     }
 
@@ -194,32 +199,41 @@ static unsigned int decode_adpcm_stereo(int16_t *out, const BYTE *data, unsigned
 
     lpredictor = data[0] | (data[1] << 8);
     lindex = data[2];
+    lindex = satindex(lindex);
     rpredictor = data[4] | (data[5] << 8);
     rindex = data[6];
+    rindex = satindex(rindex);
 
     out[samples++] = lpredictor;
     out[samples++] = rpredictor;
 
-    for (i = 8; i < size; i += 8)
+    for (i = 8; i + 7 < size; i += 8)
     {
         unsigned int j;
 
         for (j = 0; j < 4; j++)
         {
-            lpredictor = decode_nibble(lpredictor, data[i + j], lindex);
-            lindex = satindex(lindex + ima_index_table[data[i + j] & 15]);
+            unsigned int bl  = (unsigned int)data[i + j];
+            unsigned int br  = (unsigned int)data[i + j + 4];
+            unsigned int l0  = bl & 0x0Fu;
+            unsigned int l1  = (bl >> 4) & 0x0Fu;
+            unsigned int r0  = br & 0x0Fu;
+            unsigned int r1  = (br >> 4) & 0x0Fu;
+
+            lpredictor = decode_nibble(lpredictor, l0, lindex);
+            lindex = satindex(lindex + ima_index_table[l0]);
             out[samples++] = lpredictor;
 
-            rpredictor = decode_nibble(rpredictor, data[i + j + 4], rindex);
-            rindex = satindex(rindex + ima_index_table[data[i + j + 4] & 15]);
+            rpredictor = decode_nibble(rpredictor, r0, rindex);
+            rindex = satindex(rindex + ima_index_table[r0]);
             out[samples++] = rpredictor;
 
-            lpredictor = decode_nibble(lpredictor, data[i + j] >> 4, lindex);
-            lindex = satindex(lindex + ima_index_table[data[i + j] >> 4]);
+            lpredictor = decode_nibble(lpredictor, l1, lindex);
+            lindex = satindex(lindex + ima_index_table[l1]);
             out[samples++] = lpredictor;
 
-            rpredictor = decode_nibble(rpredictor, data[i + j + 4] >> 4, rindex);
-            rindex = satindex(rindex + ima_index_table[data[i + j + 4] >> 4]);
+            rpredictor = decode_nibble(rpredictor, r1, rindex);
+            rindex = satindex(rindex + ima_index_table[r1]);
             out[samples++] = rpredictor;
         }
     }
@@ -240,28 +254,41 @@ static void checkError()
 
 static void sample_unqueue_buffers(HSAMPLE S)
 {
-    ALint processed;
+    ALint processed = 0;
     alGetSourcei(S->source, AL_BUFFERS_PROCESSED, &processed);
     checkError();
-    if (processed)
-    {
-        alSourceUnqueueBuffers(S->source, processed, S->hwbuf + S->hwready);
-        checkError();
+
+    if (processed <= 0) return;
+    if (processed > 2) processed = 2; // paranoia
+
+    ALuint tmp[2];
+    alSourceUnqueueBuffers(S->source, processed, tmp);
+    checkError();
+
+    for (int i = 0; i < processed; i++) {
+        if (S->hwready < 2)
+            S->hwbuf[S->hwready++] = tmp[i];
+        // else: drop on floor to avoid overflow (better than corrupting memory)
     }
-    S->hwready += processed;
 }
 
 static void stream_unqueue_buffers(HSTREAM S)
 {
-    ALint processed;
+    ALint processed = 0;
     alGetSourcei(S->source, AL_BUFFERS_PROCESSED, &processed);
     checkError();
-    if (processed)
-    {
-        alSourceUnqueueBuffers(S->source, processed, S->hwbuf + S->hwready);
-        checkError();
+
+    if (processed <= 0) return;
+    if (processed > 2) processed = 2;
+
+    ALuint tmp[2];
+    alSourceUnqueueBuffers(S->source, processed, tmp);
+    checkError();
+
+    for (int i = 0; i < processed; i++) {
+        if (S->hwready < 2)
+            S->hwbuf[S->hwready++] = tmp[i];
     }
-    S->hwready += processed;
 }
 
 DXDEC HSAMPLE AILCALL AIL_allocate_sample_handle (HDIGDRIVER dig)
@@ -395,12 +422,14 @@ static void stream_find_data(HSTREAM stream)
         if (fread(tmp, 8, 1, stream->file) != 1)
             break;
         size = *(DWORD *)(tmp + 4);
+        unsigned int skip = size + (size & 1u); // RIFF chunks are padded to even size
         if (memcmp(tmp, "data", 4) == 0)
         {
             stream->chunk_size = size;
+            stream->chunk_pos = 0;
             break;
         }
-        fseek(stream->file, size, SEEK_CUR);
+        fseek(stream->file, skip, SEEK_CUR);
     }
 }
 
@@ -423,9 +452,10 @@ static unsigned int stream_pcm_decode(HSTREAM stream, int16_t *out, unsigned int
     if (remaining / 2 >= max_samples)
         remaining = max_samples * 2;
 
-    fread(out, 2, remaining / 2, stream->file);
-    stream->pcm.position += remaining / 2 / channels;
-    return remaining / 2;
+    size_t got = fread(out, 2 * channels, remaining / (2 * channels), stream->file);
+    stream->chunk_pos += (unsigned int)(got * 2 * channels);
+    stream->pcm.position += (unsigned int)got;
+    return (unsigned int)got * channels;
 }
 
 static void stream_pcm_seek(HSTREAM stream, unsigned int position)
@@ -470,6 +500,7 @@ static unsigned int stream_adpcm_decode(HSTREAM stream, int16_t *out, unsigned i
             remaining = block_size - stream->buffered;
         fread(stream->buffer + stream->buffered, 1, remaining, stream->file);
         stream->buffered += remaining;
+        stream->chunk_pos += remaining;
     }
 
     if (stream->stereo)
@@ -549,6 +580,7 @@ read_data:
                 remaining = sizeof(stream->buffer) - stream->buffered;
             fread(stream->buffer + stream->buffered, 1, remaining, stream->file);
             stream->buffered += remaining;
+            stream->chunk_pos += remaining;
         }
     }
 
@@ -764,9 +796,11 @@ DXDEC S32 AILCALL AIL_set_preference (U32 number, S32 value)
     return 0;
 }
 
-DXDEC void AILCALL AIL_set_sample_adpcm_block_size (HSAMPLE S, U32 blocksize)
+DXDEC void AILCALL AIL_set_sample_adpcm_block_size(HSAMPLE S, U32 blocksize)
 {
-    // fprintf(stderr, "%s: %08X, %d\n", __FUNCTION__, (int)S, blocksize);
+    // Miles should always set this; but be defensive.
+    if (blocksize < (S->stereo ? 8u : 4u)) blocksize = (S->stereo ? 8u : 4u);
+    if (blocksize > 2048u) blocksize = 2048u; // keep decoded[] safe
     S->block_size = blocksize;
 }
 
@@ -997,9 +1031,15 @@ static void sample_play_adpcm(HSAMPLE S, const BYTE *data, unsigned int size)
     else
         decoded_samples = decode_adpcm(decoded, data, size);
 
+    // cap to avoid overflowing decoded[]
+    {
+        unsigned int max_out = (unsigned int)(sizeof(decoded) / sizeof(decoded[0]));
+        if (decoded_samples > max_out)
+            decoded_samples = max_out;
+    }
+
     S->hwready--;
 #ifdef __EMSCRIPTEN__
-    // XXX Emscripten's OpenAL does not do correct things to mono sources. Fake a stereo sample.
     if (!S->stereo)
     {
         unsigned int i;
@@ -1009,7 +1049,9 @@ static void sample_play_adpcm(HSAMPLE S, const BYTE *data, unsigned int size)
     }
     alBufferData(S->hwbuf[S->hwready], AL_FORMAT_STEREO16, decoded, decoded_samples * 2, S->playback_rate);
 #else
-    alBufferData(S->hwbuf[S->hwready], S->stereo ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16, decoded, decoded_samples * 2, S->playback_rate);
+    alBufferData(S->hwbuf[S->hwready],
+                 S->stereo ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16,
+                 decoded, decoded_samples * 2, S->playback_rate);
 #endif
     checkError();
     alSourceQueueBuffers(S->source, 1, &S->hwbuf[S->hwready]);
@@ -1019,6 +1061,10 @@ static void sample_play_adpcm(HSAMPLE S, const BYTE *data, unsigned int size)
 static void sample_work(HSAMPLE S)
 {
     struct _SAMPLE_BUFFER *buf = &S->buffers[S->current];
+
+    if (S->block_size == 0) {
+        S->block_size = S->stereo ? 2048u : 1024u;
+    }
 
     if (S->ready == 2)
     {
@@ -1034,10 +1080,22 @@ static void sample_work(HSAMPLE S)
     }
 
     sample_unqueue_buffers(S);
-    
+
     while (S->hwready)
     {
         ALint state;
+
+        unsigned int remaining = buf->length - buf->position;
+        if (remaining < S->block_size) {
+            /* Don’t decode partial ADPCM blocks; treat as end of buffer. */
+            buf->position = buf->length;
+
+            sample_eob(S);
+            buf = &S->buffers[S->current];
+            if (buf->length == 0)
+                sample_eos(S);
+            break;
+        }
 
         sample_play_adpcm(S, (BYTE *)buf->buffer + buf->position, S->block_size);
         buf->position += S->block_size;
@@ -1046,12 +1104,13 @@ static void sample_work(HSAMPLE S)
         if (S->playing && state != AL_PLAYING)
             alSourcePlay(S->source);
 
-        if (buf->length == buf->position)
-        {
+        if (buf->position >= buf->length) {
             sample_eob(S);
             buf = &S->buffers[S->current];
-            if (buf->length == 0)
+            if (buf->length == 0) {
+                sample_eos(S);
                 break;
+            }
         }
     }
 }
