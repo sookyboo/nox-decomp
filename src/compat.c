@@ -884,8 +884,16 @@ int WINAPI GetDateFormatA(LCID Locale, DWORD dwFlags, const SYSTEMTIME *lpDate, 
     if (Locale != 0x800 || dwFlags != 1 || lpFormat)
         DebugBreak();
 
-    // default locale, short date (M/d/yy)
-    return snprintf(lpDateStr, cchDate, "%d/%d/%02d", lpDate->wMonth, lpDate->wDay, lpDate->wYear % 100);
+    /* default locale, short date (MM/dd/yy) */
+    int month = (int)lpDate->wMonth;
+    int day   = (int)lpDate->wDay;
+    int year  = (int)(lpDate->wYear % 100);
+
+    /* If month is 0-based (tm_mon style), normalize to 1..12 */
+    if (month >= 0 && month <= 11)
+        month += 1;
+
+    return snprintf(lpDateStr, cchDate, "%02d/%02d/%02d", month, day, year);
 }
 
 int WINAPI GetTimeFormatA(LCID Locale, DWORD dwFlags, const SYSTEMTIME *lpTime, LPCSTR lpFormat, LPSTR lpTimeStr, int cchTime)
