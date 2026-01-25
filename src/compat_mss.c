@@ -243,7 +243,7 @@ static unsigned int decode_adpcm_stereo(int16_t *out, const BYTE *data, unsigned
 
 static void checkError()
 {
-    ALCenum error;
+    ALenum error;
     error = alGetError();
     if (error != AL_NO_ERROR)
     {
@@ -269,6 +269,25 @@ static void sample_unqueue_buffers(HSAMPLE S)
         if (S->hwready < 2)
             S->hwbuf[S->hwready++] = tmp[i];
         // else: drop on floor to avoid overflow (better than corrupting memory)
+    }
+}
+
+static void sample_drain_buffers(HSAMPLE S)
+{
+    ALint queued = 0;
+    alGetSourcei(S->source, AL_BUFFERS_QUEUED, &queued);
+    checkError();
+
+    if (queued <= 0) return;
+    if (queued > 2) queued = 2;
+
+    ALuint tmp[2];
+    alSourceUnqueueBuffers(S->source, queued, tmp);
+    checkError();
+
+    for (int i = 0; i < queued; i++) {
+        if (S->hwready < 2)
+            S->hwbuf[S->hwready++] = tmp[i];
     }
 }
 
@@ -385,7 +404,7 @@ DXDEC void AILCALL AIL_init_sample (HSAMPLE S)
 
     S->playing = 0;
     alSourceStop(S->source);
-    sample_unqueue_buffers(S);
+    sample_drain_buffers(S);
 
     SDL_UnlockMutex(S->dig->mutex);
 }
@@ -597,7 +616,7 @@ read_data:
     if (stream->buffered)
         memmove(stream->buffer, stream->buffer + info.frame_bytes, stream->buffered);
 
-    return samples;
+    return samples * (stream->stereo ? 2u : 1u);
 }
 
 static void stream_mp3_seek(HSTREAM stream, unsigned int position)
@@ -630,7 +649,7 @@ DXDEC HSTREAM AILCALL AIL_open_stream(HDIGDRIVER dig, char const FAR * filename,
         goto error;
 
     // XXX ignore file size?
-    file_size = *(DWORD *)(tmp + 4);
+    file_size = *(DWORD *)(tmp + 4) + 8; // RIFF size excludes the first 8 bytes
 
     if (memcmp(tmp + 8, "WAVE", 4) != 0)
         goto error;
