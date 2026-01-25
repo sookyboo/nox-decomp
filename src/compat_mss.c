@@ -621,7 +621,12 @@ read_data:
 
 static void stream_mp3_seek(HSTREAM stream, unsigned int position)
 {
+    (void)position;
     mp3dec_init(&stream->mp3.dec);
+
+    stream->buffered = 0;
+    stream->chunk_pos = 0;
+    stream->chunk_size = 0; // force stream_find_data() on next decode
 }
 
 static unsigned int stream_mp3_tell(HSTREAM steam)
