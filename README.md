@@ -2,7 +2,7 @@
 
 This is a fork of https://github.com/neuromancer/nox-decomp
 
-Fixed most of the known bugs for Neuromancer's version.
+Fixed most of the known bugs for Neuromancer's version and adds movie support and compiles for ARMHF devices.
 
 Neuromancers comments:
 **The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
@@ -34,8 +34,8 @@ mv app/* .
 
 # Known issues
 
+* Minor glitch on the last column of pixels on text only on some characters - barely noticeable - all text is legible.
 * All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.
-* Tooltips of inventory sometimes show up while playing the game when hovering right at the top and also sometimes prevent clicks.
 
 # License
 
