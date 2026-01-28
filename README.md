@@ -2,19 +2,26 @@
 
 This is a fork of https://github.com/neuromancer/nox-decomp
 
-Fixed most of the known bugs for Neuromancer's version and adds movie support and compiles for ARMHF devices.
+Fixed most of the known bugs for Neuromancer's version and adds movie and LAN support and compiles for ARMHF devices.
 
-Neuromancers comments:
+A build is or will be available for [portmaster](https://portmaster.games/).
+
+Other notable projects:
+[Opennox](https://github.com/opennox/opennox/tree/v1.9.0-alpha13) - This was difficult to get working on 32bit ARM which is why this fork started
+
+Neuromancers original comments:
 **The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
 
 I am not the author of this code. It comes from the [playnox.xyz](https://playnox.xyz) website. A copy of the original source code is permanently archived [here](https://web.archive.org/web/20191104220905/https://playnox.xyz/public_v1.zip). I just did some small modifications to properly run it in Linux.
 
 Nox-Decomp requires an original copy of Nox. None of the Nox game assets are provided by this project. To get a legitimate copy of the game assets, please refer to the [GoG release of Nox](https://www.gog.com/game/nox).
 
-
 # Screenshots
 
-![](https://github.com/neuromancer/nox-decomp/blob/master/screenshots/alpha.png)
+![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/game1.png)
+![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/handheld.jpeg)
+![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/movie1.png)
+![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/movie2.png)
 
 # Building from source
 
