@@ -16200,7 +16200,13 @@ LABEL_14:
       v63 = v68;
       v56 = v71;
       v11 = sub_40F1D0((char *)&byte_587000[137028], 0, (const char *)&byte_587000[136992], 2575);
-      nox_swprintf(v75, v11, v56, v63);
+
+      /* sub_4633B0 actually writes integer durability values into v71/v68.
+       * They are currently typed as float, but the low 32 bits hold the
+       * correct integer (e.g. 100). For the "Durability: %d / %d" format
+       * we must pass them as ints, not as floats.
+       */
+      nox_swprintf(v75, v11, *(int *)&v56, *(int *)&v63);
     }
     else
     {
