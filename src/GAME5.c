@@ -10329,11 +10329,15 @@ LABEL_10:
           if ( !v29 )
             goto LABEL_48;
           v16 = *(_DWORD *)(v29 + 48);
+
+          /* FIX: treat expected sequence as unsigned to avoid signed-char compare bugs */
           v17 = *(_BYTE *)(v16 + 1);
-          if ( v17 != v9 )
+          if ( (unsigned __int8)v17 != v9 )
             goto LABEL_48;
+
           v18 = v31;
-          *(_BYTE *)(v16 + 1) = v17 + 1;
+          *(_BYTE *)(v16 + 1) = (unsigned __int8)((unsigned __int8)v17 + 1);
+
           if ( sub_551EB0(a1, v8, v18, *(_DWORD *)(v2 + 40), *(_DWORD *)(v2 + 36) - *(_DWORD *)(v2 + 40)) == 1 )
             goto LABEL_48;
         }
