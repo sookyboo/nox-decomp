@@ -75,6 +75,7 @@ add_executable (
     sm.c
     string.c
     win.c
+    lobby.c
     "${COMPAT_SOURCES}"
 )
 

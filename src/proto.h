@@ -7731,4 +7731,43 @@ extern int g_present_is_movie;
 extern SDL_Surface *g_movie_surf;
 #endif
 
+/* lobby.c (internet lobby HTTP + JSON parser) */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h>
+#include <stdint.h>
+
+/* Minimal model for /api/v0/games/list */
+typedef struct nox_server_row {
+    char     name[64];
+    char     addr[32];     /* IPv4 string */
+    uint16_t port;
+    char     map[32];
+    uint8_t  players_cur;
+    uint8_t  players_max;
+} nox_server_row;
+
+/* HTTP: fetch response body (NUL-terminated if it fits). Returns body size or -1. */
+int nox_http_get_body(const char *host,
+                      uint16_t port,
+                      const char *path,
+                      char *out,
+                      size_t out_cap);
+
+/* Convenience wrapper for your endpoint: /api/v0/games/list */
+int nox_fetch_games_list_json(char *out, size_t out_cap);
+
+/* JSON: parse endpoint into rows. Returns number of rows written (<= out_cap). */
+size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t out_cap);
+
+int nox_should_inject_internet_servers(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+
 #pragma pack(pop)

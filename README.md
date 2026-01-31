@@ -4,6 +4,8 @@ This is a fork of https://github.com/neuromancer/nox-decomp
 
 Fixed most of the known bugs for Neuromancer's version and adds movie and LAN support and compiles for ARMHF devices.
 
+Also adds support for joining internet games from OpenNox lobby servers.
+
 A build is or will be available for [portmaster](https://portmaster.games/).
 
 Other notable projects:
@@ -37,6 +39,15 @@ cmake --build . -j $(nproc)
 innoextract setup_nox_2.0.0.20.exe
 mv app/* .
 ./src/out
+```
+
+# Internet Lobby env vars 
+These are the default assumed values for these env vars if not present:
+```
+NOX_NO_INTERNET_SERVERS=0
+NOX_LOBBY_HOST=nox.nwca.xyz
+NOX_LOBBY_PORT=8088
+NOX_LOBBY_PATH="/api/v0/games/list"
 ```
 
 # Known issues

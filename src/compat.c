@@ -610,6 +610,7 @@ void build_server_info(void *arg)
     }
 
     length = sub_554040(dummy, sizeof(buf), buf);
+//    dhexdump(buf, length);
     if (oldlen != length || memcmp(buf, oldbuf, length) != 0)
     {
         memcpy(oldbuf, buf, length);
@@ -624,60 +625,357 @@ void build_server_info(void *arg)
 
 // ---- LAN broadcast for native host ----
 #ifndef __EMSCRIPTEN__
-static pthread_t g_lan_bcast_thread;
-static int g_lan_bcast_started = 0;
+//static pthread_t g_lan_bcast_thread;
+//static int g_lan_bcast_started = 0;
+//
+//static void *lan_broadcast_thread(void *arg)
+//{
+//    int sockfd = (int)(intptr_t)arg;
+//
+//    struct sockaddr_in bcast;
+//    memset(&bcast, 0, sizeof(bcast));
+//    bcast.sin_family = AF_INET;
+//    bcast.sin_port   = htons(18590);
+//    bcast.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+//
+//    static char oldbuf[256];
+//    static int oldlen = 0;
+//    char buf[256];
+//    int dummy[3] = {0, 0, 0};
+//
+//    fprintf(stderr, "compat_net: lan_broadcast_thread started on fd=%d\n", sockfd);
+//
+//    for (;;)
+//    {
+//        int len = sub_554040(dummy, sizeof(buf), buf);
+//        dhexdump(buf, len);
+//        if (len <= 0) {
+//            // Nothing to advertise, just wait and retry
+//            SDL_Delay(1000);
+//            continue;
+//        }
+//
+//        // Optional: only spam when the packet actually changes (like Emscripten)
+//        if (len == oldlen && memcmp(buf, oldbuf, len) == 0) {
+//            SDL_Delay(1000);
+//            continue;
+//        }
+//
+//        memcpy(oldbuf, buf, len);
+//        oldlen = len;
+//
+//        fprintf(stderr,
+//                "compat_net: LAN broadcast from fd=%d -> 255.255.255.255:18590, len=%d\n",
+//                sockfd, len);
+//
+//        int r = sendto(sockfd, buf, len, 0,
+//                       (struct sockaddr *)&bcast, sizeof(bcast));
+//        if (r < 0) {
+//            fprintf(stderr, "compat_net: LAN broadcast sendto(fd=%d) FAILED errno=%d (%s)\n",
+//                    sockfd, errno, strerror(errno));
+//        }
+//
+//        SDL_Delay(1000);  // 1 second between adverts (tune as needed)
+//    }
+//
+//    return NULL;
+//}
 
-static void *lan_broadcast_thread(void *arg)
+//static void compat_hexdump(const char *tag, const void *buf, size_t len)
+//{
+//    const unsigned char *p = (const unsigned char *)buf;
+//    size_t i;
+//
+//    fprintf(stderr, "%s len=%zu", tag ? tag : "hexdump", len);
+//
+//    for (i = 0; i < len; ++i) {
+//        if ((i % 16) == 0) {
+//            fprintf(stderr, "\n  %04zx:", i);
+//        }
+//        fprintf(stderr, " %02x", p[i]);
+//    }
+//    fprintf(stderr, "\n");
+//}
+
+static void nox_log_server_info_packet(const unsigned char *pkt,
+                                       size_t len,
+                                       const struct sockaddr_in *from)
 {
-    int sockfd = (int)(intptr_t)arg;
-
-    struct sockaddr_in bcast;
-    memset(&bcast, 0, sizeof(bcast));
-    bcast.sin_family = AF_INET;
-    bcast.sin_port   = htons(18590);
-    bcast.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-
-    static char oldbuf[256];
-    static int oldlen = 0;
-    char buf[256];
-    int dummy[3] = {0, 0, 0};
-
-    fprintf(stderr, "compat_net: lan_broadcast_thread started on fd=%d\n", sockfd);
-
-    for (;;)
-    {
-        int len = sub_554040(dummy, sizeof(buf), buf);
-        if (len <= 0) {
-            // Nothing to advertise, just wait and retry
-            SDL_Delay(1000);
-            continue;
-        }
-
-        // Optional: only spam when the packet actually changes (like Emscripten)
-        if (len == oldlen && memcmp(buf, oldbuf, len) == 0) {
-            SDL_Delay(1000);
-            continue;
-        }
-
-        memcpy(oldbuf, buf, len);
-        oldlen = len;
-
-        fprintf(stderr,
-                "compat_net: LAN broadcast from fd=%d -> 255.255.255.255:18590, len=%d\n",
-                sockfd, len);
-
-        int r = sendto(sockfd, buf, len, 0,
-                       (struct sockaddr *)&bcast, sizeof(bcast));
-        if (r < 0) {
-            fprintf(stderr, "compat_net: LAN broadcast sendto(fd=%d) FAILED errno=%d (%s)\n",
-                    sockfd, errno, strerror(errno));
-        }
-
-        SDL_Delay(1000);  // 1 second between adverts (tune as needed)
+    if (!pkt || len < 73) {
+        return;
     }
 
+    /* Packet type: buf[2] == 13 for server info */
+    if (pkt[2] != 13) {
+        return;
+    }
+
+    char ipbuf[INET_ADDRSTRLEN] = "0.0.0.0";
+    uint16_t port = 0;
+    if (from) {
+        inet_ntop(AF_INET, &from->sin_addr, ipbuf, sizeof(ipbuf));
+        port = ntohs(from->sin_port);
+    }
+
+    uint8_t curPlayers = pkt[3];
+    uint8_t maxPlayers = pkt[4];
+
+    const char *mapName = (const char *)&pkt[10];
+    const char *serverName = (const char *)&pkt[72];
+
+    /* Be defensive: ensure strings are NUL-terminated within packet bounds. */
+    char mapBuf[32];
+    char nameBuf[64];
+
+    /* mapName is supposed to fit in 10..18, but we’ll just clamp. */
+    {
+        size_t maxMapLen = sizeof(mapBuf) - 1;
+        size_t i;
+        for (i = 0; 10 + i < len && i < maxMapLen; ++i) {
+            char c = pkt[10 + i];
+            mapBuf[i] = c;
+            if (!c) break;
+        }
+        mapBuf[maxMapLen] = 0;
+        if (i == maxMapLen)
+            mapBuf[maxMapLen] = 0;
+    }
+
+    {
+        size_t maxNameLen = sizeof(nameBuf) - 1;
+        size_t i;
+        size_t off = 72;
+        for (i = 0; off + i < len && i < maxNameLen; ++i) {
+            char c = pkt[off + i];
+            nameBuf[i] = c;
+            if (!c) break;
+        }
+        nameBuf[maxNameLen] = 0;
+        if (i == maxNameLen)
+            nameBuf[maxNameLen] = 0;
+    }
+
+    fprintf(stderr,
+            "NET server info from %s:%u\n"
+            "  Name   : %s\n"
+            "  Players: %u/%u\n"
+            "  Map    : %s\n",
+            ipbuf, port,
+            nameBuf,
+            (unsigned)curPlayers,
+            (unsigned)maxPlayers,
+            mapBuf);
+}
+
+struct fake_srv_pkt {
+    int used;
+    size_t len;
+    unsigned char data[256];
+    struct sockaddr_in from;
+};
+
+static struct fake_srv_pkt g_fake_packets[4];  /* support up to 4 internet servers */
+
+//static void queue_internet_server_reply(const unsigned char *ping,
+//                                        size_t ping_len)
+//{
+//    /* Find a free slot. */
+//    struct fake_srv_pkt *slot = NULL;
+//    for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
+//        if (!g_fake_packets[i].used) {
+//            slot = &g_fake_packets[i];
+//            break;
+//        }
+//    }
+//    if (!slot) return; /* queue full, just skip */
+//
+//    /* Build a minimal valid server-info packet. */
+//    unsigned char *out = slot->data;
+//    memset(out, 0, sizeof(slot->data));
+//
+//    /* Header */
+//    out[0] = 0;
+//    out[1] = 0;
+//    out[2] = 13;          /* type: server info */
+//    out[3] = 0;           /* cur players */
+//    out[4] = 31;          /* max players */
+//
+//    /* Mode bits – use some sane defaults, e.g. arena mode similar to LAN packet you saw.
+//       For now we just copy nibbles from a LAN packet later if you like, but here we'll
+//       pick something simple. */
+//    out[5] = 0x0F;        /* low nibble flags */
+//    out[6] = 0x0F;        /* high nibble flags */
+//
+//    /* game/session id (just some non-zero value) */
+//    *(uint32_t *)&out[7] = 0xFFFFFFFFu;
+//
+//    /* Map name at offset 10 – keep it short (< 9 chars) */
+//    strcpy((char *)&out[10], "!takest");  /* from your JSON */
+//
+//    /* The rest of the header can be mostly defaulted to 0 or FFFF.
+//       We *do* want to echo the ping cookie (bytes 8..11 in the original ping). */
+//    if (ping_len >= 12) {
+//        *(uint32_t *)&out[44] = *(const uint32_t *)&ping[8];
+//    }
+//
+//    /* Optional: mark as 1024x768 by mimicking your LAN packet fields.
+//       For now we'll just leave most flags as zero; the client only really cares
+//       about name/map/players. */
+//
+//    /* questStage at 68–69 = 0 (non-quest) */
+//
+//    /* Server name at offset 72 */
+//    const char *srvName = "USA Server #1";
+//    strcpy((char *)&out[72], srvName);
+//
+//    size_t total_len = 72 + strlen(srvName) + 1;
+//    if (total_len > sizeof(slot->data))
+//        total_len = sizeof(slot->data);
+//
+//    slot->len = total_len;
+//
+//    memset(&slot->from, 0, sizeof(slot->from));
+//    slot->from.sin_family = AF_INET;
+//    slot->from.sin_port   = htons(18590);
+//    inet_pton(AF_INET, "173.208.129.98", &slot->from.sin_addr);
+//
+//    slot->used = 1;
+//
+//    fprintf(stderr,
+//            "compat_net: queued internet server '%s' as fake reply (%zu bytes)\n",
+//            srvName, total_len);
+//}
+
+/* Cache the fetched list so we don't HTTP on every ping */
+static int g_srv_cache_valid = 0;
+static nox_server_row g_srv_cache[32];
+static size_t g_srv_cache_n = 0;
+static size_t g_srv_rr = 0; /* round-robin index */
+
+/* Fetch+parse once (best-effort). */
+static void nox_refresh_server_cache_once(void)
+{
+    if (g_srv_cache_valid) return;
+
+    char json[64 * 1024];
+    int n = nox_fetch_games_list_json(json, sizeof(json));
+    if (n <= 0) {
+        fprintf(stderr, "compat_net: fetch games/list failed\n");
+        g_srv_cache_valid = 1; /* prevent hammering */
+        g_srv_cache_n = 0;
+        return;
+    }
+
+    g_srv_cache_n = nox_parse_games_list_json(json, g_srv_cache, sizeof(g_srv_cache)/sizeof(g_srv_cache[0]));
+    g_srv_cache_valid = 1;
+
+    fprintf(stderr, "compat_net: games/list parsed %zu servers\n", g_srv_cache_n);
+}
+
+/* Find a free fake packet slot. */
+static struct fake_srv_pkt *alloc_fake_slot(void)
+{
+    for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
+        if (!g_fake_packets[i].used) return &g_fake_packets[i];
+    }
     return NULL;
 }
+
+static void queue_internet_server_reply(const unsigned char *ping,
+                                        size_t ping_len)
+{
+#ifndef __EMSCRIPTEN__
+    if (!nox_should_inject_internet_servers()) {
+        return; /* env disables injection */
+    }
+
+    /* Fetch/parse list once (or keep existing cache if fetch fails) */
+    nox_refresh_server_cache_once();
+
+    /* If still nothing cached, do nothing: LAN-only */
+    if (g_srv_cache_n == 0) {
+        return;
+    }
+
+    /* Queue as many servers as we can fit right now (round-robin across pings). */
+    size_t queued = 0;
+    size_t slots_avail = sizeof(g_fake_packets)/sizeof(g_fake_packets[0]);
+
+    for (size_t tries = 0; tries < g_srv_cache_n && queued < slots_avail; ++tries) {
+        struct fake_srv_pkt *slot = alloc_fake_slot();
+        if (!slot) break;
+
+        const nox_server_row *row = &g_srv_cache[(g_srv_rr + tries) % g_srv_cache_n];
+
+        unsigned char *out = slot->data;
+        memset(out, 0, sizeof(slot->data));
+
+        out[0] = 0;
+        out[1] = 0;
+        out[2] = 13;                    /* server info */
+        out[3] = row->players_cur;
+        out[4] = row->players_max ? row->players_max : 31;
+        out[5] = 0x0F;
+        out[6] = 0x0F;
+
+        {
+            uint32_t sid = 0xFFFFFFFFu;
+            memcpy(&out[7], &sid, sizeof(sid));
+        }
+
+        /* map at offset 10 */
+        if (row->map[0]) {
+            strncpy((char *)&out[10], row->map, 31);
+            out[10 + 31] = 0;
+        }
+
+        /* echo ping cookie (bytes 8..11 from ping) at offset 44 */
+        if (ping && ping_len >= 12) {
+            memcpy(&out[44], &ping[8], 4);
+        }
+
+        /* server name at offset 72 */
+        if (row->name[0]) {
+            strncpy((char *)&out[72], row->name, sizeof(slot->data) - 72 - 1);
+            out[sizeof(slot->data) - 1] = 0;
+        }
+
+        /* compute packet length */
+        {
+            size_t name_len = strnlen((char *)&out[72], sizeof(slot->data) - 72);
+            size_t total_len = 72 + name_len + 1;
+            if (total_len > sizeof(slot->data)) total_len = sizeof(slot->data);
+            slot->len = total_len;
+        }
+
+        /* sockaddr from JSON */
+        memset(&slot->from, 0, sizeof(slot->from));
+        slot->from.sin_family = AF_INET;
+        slot->from.sin_port   = htons(row->port ? row->port : 18590);
+        if (inet_pton(AF_INET, row->addr, &slot->from.sin_addr) != 1) {
+            /* bad IP in JSON; skip this one */
+            slot->used = 0;
+            continue;
+        }
+
+        slot->used = 1;
+        queued++;
+
+        fprintf(stderr, "compat_net: queued internet server '%s' (%s:%u) map=%s %u/%u\n",
+                row->name, row->addr, (unsigned)row->port, row->map,
+                (unsigned)row->players_cur, (unsigned)row->players_max);
+    }
+
+    /* advance round-robin pointer */
+    if (g_srv_cache_n) {
+        g_srv_rr = (g_srv_rr + queued) % g_srv_cache_n;
+    }
+
+#else
+    (void)ping; (void)ping_len;
+#endif
+}
+
 #endif
 // ---- end LAN broadcast code ----
 
@@ -792,12 +1090,57 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
         addr_in->sin_family = AF_INET;
     return ret;
 #else
+    /* First, see if we have a fake server packet queued. */
+    if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
+        for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
+            struct fake_srv_pkt *slot = &g_fake_packets[i];
+            if (slot->used && slot->len <= length) {
+                memcpy(buffer, slot->data, slot->len);
+                memcpy(addr, &slot->from, sizeof(struct sockaddr_in));
+                *addrlen = sizeof(struct sockaddr_in);
+                int ret = (int)slot->len;
+                slot->used = 0;
+
+                fprintf(stderr,
+                        "compat_net: returning fake internet server packet (%d bytes)\n",
+                        ret);
+
+                return ret;
+            }
+        }
+    }
+
+    /* No fake packets waiting: fall back to real recvfrom. */
     int r = recvfrom(sockfd, buffer, length, flags,
                      (__SOCKADDR_ARG)addr, addrlen);
 
     if (r >= 0) {
         if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
             struct sockaddr_in *in = (struct sockaddr_in *)addr;
+
+            uint16_t sport = ntohs(in->sin_port);
+
+            /* Heuristic: only dump Nox UDP (18590) and only “non-server-info”
+               packets, since server-info is already decoded/logged. */
+//            if (sport == 18590 && r >= 3) {
+//                const unsigned char *pkt = (const unsigned char *)buffer;
+//
+//                /* 0x0D is server info (already parsed); dump everything else. */
+//                if (pkt[2] != 0x0D) {
+//                    compat_hexdump("NET recvfrom 18590", buffer, (size_t)r);
+//                }
+//            }
+//
+//            /* Only bother parsing packets on the Nox LAN discovery port. */
+//            if (ntohs(in->sin_port) == 18590 && r >= 12) {
+//                const unsigned char *pkt = (const unsigned char *)buffer;
+//
+//                /* 0x0C = discovery ping, 0x0D = server info; we only decode replies. */
+//                if (pkt[2] == 0x0D && (size_t)r >= 73) {
+//                    nox_log_server_info_packet(pkt, (size_t)r, in);
+//                }
+//            }
+
             char ipbuf[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &in->sin_addr, ipbuf, sizeof(ipbuf));
 
@@ -856,6 +1199,22 @@ int WINAPI sendto(int sockfd, void *buffer, unsigned int length, int flags,
 
     char ipbuf[INET_ADDRSTRLEN] = {0};
     inet_ntop(AF_INET, &in->sin_addr, ipbuf, sizeof(ipbuf));
+//    /* Dump discovery / game packets to port 18590 so we can clone them later */
+//    if (dest_port == 18590) {
+//        fprintf(stderr, "NET sendto 18590 len=%u\n", length);
+//        if (length <= 64 || length == 520) { // small control pkts + full chunk-size pkts if you ever send them
+//            compat_hexdump("NET sendto 18590", buffer, length);
+//        }
+//    }
+
+    /* Discovery ping: broadcast to 18590 with type 0x0C at byte 2. */
+    if (dest_port == 18590 && length >= 3) {
+        const unsigned char *p = (const unsigned char *)buffer;
+        if (p[2] == 0x0C) {
+            /* Queue our hardcoded internet server reply. */
+            queue_internet_server_reply(p, length);
+        }
+    }
 
 //    fprintf(stderr, "compat_net: sendto(fd=%d -> %s:%u, len=%u)\n",
 //            sockfd, ipbuf, dest_port, length);
@@ -864,8 +1223,8 @@ int WINAPI sendto(int sockfd, void *buffer, unsigned int length, int flags,
                    (__CONST_SOCKADDR_ARG)addr, addrlen);
     if (r < 0) {
         last_socket_error = 10000 + errno;  /* crude mapping */
-//        fprintf(stderr, "compat_net: sendto(fd=%d) FAILED errno=%d (%s)\n",
-//                sockfd, errno, strerror(errno));
+//        fprintf(stderr, "compat_net: sendto(fd=%d -> %s:%u) FAILED errno=%d (%s)\n",
+//                sockfd, ipbuf, dest_port, errno, strerror(errno));
     }
     return r;
 #endif
