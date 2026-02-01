@@ -44,16 +44,26 @@ mv app/* .
 # Internet Lobby env vars 
 These are the default assumed values for these env vars if not present:
 ```
-NOX_NO_INTERNET_SERVERS=0
-NOX_LOBBY_HOST=nox.nwca.xyz
-NOX_LOBBY_PORT=8088
-NOX_LOBBY_PATH="/api/v0/games/list"
+export NOX_NO_INTERNET_SERVERS=0 # 1 switches off internet access but keeps LAN access, 0 allows internet access
+
+export NOX_LOBBY_HOST=nox.nwca.xyz
+export NOX_LOBBY_PORT=8088
+export NOX_LOBBY_PATH="/api/v0/games/list"
+
+export NOX_SERVER_CACHE_TTL=30 # How long to cache internet game queries - minimum 30 seconds
+
+# If there are bad servers that crash the game they can be filtered using this list
+export NOX_BAD_SERVER_IPS="127.1.1.1,127.1.1.2"
+export NOX_BAD_SERVER_NAMES="VeryBadServerName1,VeryBadServerName2"
 ```
 
 # Known issues
 
-* Minor glitch on the last column of pixels on text only on some characters - barely noticeable - all text is legible.
 * All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.
+* Minor glitch on the last column of pixels on text only on some characters - barely noticeable - all text is legible.
+* Minor glitch on death rays appearing in shadows when they should be hidden from view.
+* Slightly slow when there are dozens of enemies on screen but this doesn't happen frequently and not noticeable on powerful hardware.
+* Some slow downs in fade outs and fade ins and not noticeable on powerful hardware. (This is due to the way that the game is being drawn and was present in the original game I think)
 
 # License
 
@@ -77,7 +87,7 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - Westwood Studios
 - [/u/awesie](https://www.reddit.com/u/awesie)
 - neuromancer (for some Linux fixes)
-- Sookyboo (for fixing 16bit cursor color, solo game, spell rendering fixes, arm32bit crashes and adding video support)
+- Sookyboo (for fixing 16bit cursor color, solo game, spell rendering fixes, arm32bit crashes, adding video support and internet game support)
 
 Are you the one that should be mentioned here? Let me know I will add your name. Also, if you are interested in continue this project, I can give you administrative access to this repository.
 

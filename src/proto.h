@@ -7765,6 +7765,11 @@ size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t o
 
 int nox_should_inject_internet_servers(void);
 
+int nox_env_int(const char *name, int defv);
+
+int nox_is_bad_server_ip(const char *ip);
+int nox_is_bad_server_name(const char *name);
+
 #ifdef __cplusplus
 }
 #endif

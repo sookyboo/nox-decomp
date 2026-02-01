@@ -852,22 +852,63 @@ static nox_server_row g_srv_cache[32];
 static size_t g_srv_cache_n = 0;
 static size_t g_srv_rr = 0; /* round-robin index */
 
+static long g_srv_cache_last_ok = 0;   /* epoch seconds of last successful refresh */
+static long g_srv_cache_next_try = 0;  /* epoch seconds when we may retry after failure */
+
+static long nox_now_sec(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long)tv.tv_sec;
+}
+
 /* Fetch+parse once (best-effort). */
 static void nox_refresh_server_cache_once(void)
 {
-    if (g_srv_cache_valid) return;
+    /* TTL seconds; default 30; 0 = never refresh after first success */
+    int ttl = nox_env_int("NOX_SERVER_CACHE_TTL", 30);
+    if (ttl < 30) ttl = 30;
+
+    long now = nox_now_sec();
+
+    /* If we already have a valid cache: honor TTL and failure backoff */
+    if (g_srv_cache_valid) {
+        if (ttl == 0) {
+            /* never refresh after first attempt/success */
+            return;
+        }
+        if (g_srv_cache_last_ok != 0 && (now - g_srv_cache_last_ok) < (long)ttl) {
+            return; /* cache still fresh */
+        }
+        if (g_srv_cache_next_try != 0 && now < g_srv_cache_next_try) {
+            return; /* still backing off after a failure */
+        }
+        /* else: TTL expired or never had success -> attempt refresh */
+    }
 
     char json[64 * 1024];
     int n = nox_fetch_games_list_json(json, sizeof(json));
     if (n <= 0) {
         fprintf(stderr, "compat_net: fetch games/list failed\n");
-        g_srv_cache_valid = 1; /* prevent hammering */
-        g_srv_cache_n = 0;
+
+        /* prevent hammering, but DO NOT wipe any existing cache */
+        g_srv_cache_valid = 1;
+
+        /* backoff retry (default 10s) */
+        g_srv_cache_next_try = now + 10;
         return;
     }
 
-    g_srv_cache_n = nox_parse_games_list_json(json, g_srv_cache, sizeof(g_srv_cache)/sizeof(g_srv_cache[0]));
+    /* Success: parse and commit */
+    g_srv_cache_n = nox_parse_games_list_json(
+        json,
+        g_srv_cache,
+        sizeof(g_srv_cache) / sizeof(g_srv_cache[0])
+    );
+
     g_srv_cache_valid = 1;
+    g_srv_cache_last_ok = now;
+    g_srv_cache_next_try = 0;
 
     fprintf(stderr, "compat_net: games/list parsed %zu servers\n", g_srv_cache_n);
 }
@@ -906,6 +947,14 @@ static void queue_internet_server_reply(const unsigned char *ping,
         if (!slot) break;
 
         const nox_server_row *row = &g_srv_cache[(g_srv_rr + tries) % g_srv_cache_n];
+
+        /* skip known-bad servers via env deny lists */
+        if (row->addr[0] && nox_is_bad_server_ip(row->addr)) {
+            continue;
+        }
+        if (row->name[0] && nox_is_bad_server_name(row->name)) {
+            continue;
+        }
 
         unsigned char *out = slot->data;
         memset(out, 0, sizeof(slot->data));

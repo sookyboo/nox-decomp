@@ -12,6 +12,78 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+/* env: comma-separated deny lists (defaults used when env missing) */
+#define NOX_ENV_BAD_IPS   "NOX_BAD_SERVER_IPS"
+#define NOX_ENV_BAD_NAMES "NOX_BAD_SERVER_NAMES"
+
+/* defaults if env not set (edit these to whatever you want) */
+#define NOX_DEFAULT_BAD_IPS   ""
+#define NOX_DEFAULT_BAD_NAMES ""
+
+/* ----- csv helpers ----- */
+static const char *csv_next_token(const char *s, char *tok, size_t tok_sz)
+{
+    /* Returns pointer to char after next comma, or NULL if end. Writes token trimmed. */
+    if (!s || !*s || !tok || tok_sz == 0) return NULL;
+
+    /* skip leading ws/commas */
+    while (*s == ',' || (unsigned char)*s <= ' ') s++;
+    if (!*s) return NULL;
+
+    /* copy until comma/end */
+    size_t n = 0;
+    const char *start = s;
+    while (*s && *s != ',') {
+        if (n + 1 < tok_sz) tok[n++] = *s;
+        s++;
+    }
+    tok[n] = 0;
+
+    /* trim right */
+    while (n && (unsigned char)tok[n - 1] <= ' ') tok[--n] = 0;
+
+    /* advance past comma if present */
+    if (*s == ',') s++;
+
+    /* if token is empty after trimming, continue */
+    if (tok[0] == 0) return csv_next_token(s, tok, tok_sz);
+
+    return s;
+}
+
+static int str_eq_case(const char *a, const char *b)
+{
+    if (!a || !b) return 0;
+    while (*a && *b) {
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0;
+        a++; b++;
+    }
+    return *a == 0 && *b == 0;
+}
+
+static int csv_contains_case(const char *csv, const char *value)
+{
+    char tok[128];
+    const char *p = csv;
+    if (!csv || !value || !*value) return 0;
+
+    while ((p = csv_next_token(p, tok, sizeof(tok))) != NULL) {
+        if (str_eq_case(tok, value)) return 1;
+    }
+    return 0;
+}
+
+static int csv_contains_exact(const char *csv, const char *value)
+{
+    char tok[64];
+    const char *p = csv;
+    if (!csv || !value || !*value) return 0;
+
+    while ((p = csv_next_token(p, tok, sizeof(tok))) != NULL) {
+        if (strcmp(tok, value) == 0) return 1;
+    }
+    return 0;
+}
 
 /* ----- env helpers ----- */
 static int nox_env_truthy(const char *s)
@@ -51,6 +123,14 @@ static uint16_t nox_env_u16(const char *name, uint16_t defv)
         s++;
     }
     return (uint16_t)v;
+}
+
+int nox_env_int(const char *name, int defv)
+{
+    const char *s = getenv(name);
+    if (!s || !*s) return defv;
+    /* atoi is fine here; tolerate garbage -> 0 */
+    return atoi(s);
 }
 
 static const char *nox_env_str(const char *name, const char *defv)
@@ -602,4 +682,33 @@ size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t o
     }
 
     return count;
+}
+
+/* ----- bad server filters ----- */
+
+static const char *nox_getenv_or_default(const char *key, const char *defv)
+{
+    const char *v = getenv(key);
+    if (!v || !*v) return defv;
+    return v;
+}
+
+static const char *nox_bad_ip_csv(void)
+{
+    return nox_getenv_or_default(NOX_ENV_BAD_IPS, NOX_DEFAULT_BAD_IPS);
+}
+
+static const char *nox_bad_name_csv(void)
+{
+    return nox_getenv_or_default(NOX_ENV_BAD_NAMES, NOX_DEFAULT_BAD_NAMES);
+}
+
+int nox_is_bad_server_ip(const char *ip)
+{
+    return csv_contains_exact(nox_bad_ip_csv(), ip);
+}
+
+int nox_is_bad_server_name(const char *name)
+{
+    return csv_contains_case(nox_bad_name_csv(), name);
 }
