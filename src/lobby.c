@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <netdb.h>
 
 /* env: comma-separated deny lists (defaults used when env missing) */
@@ -19,6 +20,9 @@
 /* defaults if env not set (edit these to whatever you want) */
 #define NOX_DEFAULT_BAD_IPS   ""
 #define NOX_DEFAULT_BAD_NAMES ""
+
+#define NOX_ENV_CONNECT_TIMEOUT "NOX_LOBBY_CONNECT_TIMEOUT"
+#define NOX_DEFAULT_CONNECT_TIMEOUT_MS 2000
 
 /* ----- csv helpers ----- */
 static const char *csv_next_token(const char *s, char *tok, size_t tok_sz)
@@ -140,6 +144,15 @@ static const char *nox_env_str(const char *name, const char *defv)
 }
 
 /* centralized config */
+static int nox_lobby_connect_timeout_ms(void)
+{
+    int ms = nox_env_int(NOX_ENV_CONNECT_TIMEOUT, NOX_DEFAULT_CONNECT_TIMEOUT_MS);
+    /* clamp to something sane */
+    if (ms < 100) ms = 100;
+    if (ms > 60000) ms = 60000;
+    return ms;
+}
+
 int nox_should_inject_internet_servers(void)
 {
     /* default: inject (return 1). If NOX_NO_INTERNET_SERVERS is truthy -> disable. */
@@ -189,6 +202,63 @@ static const char *skip_ws(const char *p) {
     return p;
 }
 
+static void set_sock_timeouts(int fd, int ms)
+{
+    struct timeval tv;
+    tv.tv_sec  = ms / 1000;
+    tv.tv_usec = (ms % 1000) * 1000;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, (socklen_t)sizeof(tv));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, (socklen_t)sizeof(tv));
+}
+
+static int connect_with_timeout(int fd, const struct sockaddr *sa, socklen_t slen, int ms)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) return -1;
+
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) return -1;
+
+    int rc = connect(fd, sa, slen);
+    if (rc == 0) {
+        (void)fcntl(fd, F_SETFL, flags);
+        return 0;
+    }
+    if (rc < 0 && errno != EINPROGRESS) {
+        (void)fcntl(fd, F_SETFL, flags);
+        return -1;
+    }
+
+    fd_set wfds;
+    FD_ZERO(&wfds);
+    FD_SET(fd, &wfds);
+
+    struct timeval tv;
+    tv.tv_sec  = ms / 1000;
+    tv.tv_usec = (ms % 1000) * 1000;
+
+    rc = select(fd + 1, NULL, &wfds, NULL, &tv);
+    if (rc <= 0) {
+        (void)fcntl(fd, F_SETFL, flags);
+        errno = (rc == 0) ? ETIMEDOUT : errno;
+        return -1;
+    }
+
+    int soerr = 0;
+    socklen_t soerrlen = sizeof(soerr);
+    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &soerrlen) < 0) {
+        (void)fcntl(fd, F_SETFL, flags);
+        return -1;
+    }
+
+    (void)fcntl(fd, F_SETFL, flags);
+
+    if (soerr != 0) {
+        errno = soerr;
+        return -1;
+    }
+    return 0;
+}
+
 static int connect_tcp(const char *host, const char *port_str)
 {
     struct addrinfo hints;
@@ -204,13 +274,19 @@ static int connect_tcp(const char *host, const char *port_str)
         return -1;
     }
 
+    const int ms = nox_lobby_connect_timeout_ms();
+
     for (it = res; it; it = it->ai_next) {
         fd = (int)socket(it->ai_family, it->ai_socktype, it->ai_protocol);
         if (fd < 0) continue;
 
-        if (connect(fd, it->ai_addr, (socklen_t)it->ai_addrlen) == 0) {
+        /* keep recv()/send() from blocking forever too */
+        set_sock_timeouts(fd, ms);
+
+        if (connect_with_timeout(fd, it->ai_addr, (socklen_t)it->ai_addrlen, ms) == 0) {
             break; /* success */
         }
+
         close(fd);
         fd = -1;
     }
@@ -445,11 +521,26 @@ int nox_http_get_body(const char *host,
     return (int)out_len;
 }
 
+static int looks_like_json(const char *s)
+{
+    if (!s) return 0;
+    s = skip_ws(s);
+    if (!*s) return 0;
+    return (*s == '{' || *s == '[');
+}
+
 /* Convenience wrapper for your endpoint */
 int nox_fetch_games_list_json(char *out, size_t out_cap)
 {
-//    return nox_http_get_body("nox.nwca.xyz", 8088, "/api/v0/games/list", out, out_cap);
-    return nox_http_get_body(nox_lobby_host(), nox_lobby_port(), nox_lobby_path(), out, out_cap);
+    int n = nox_http_get_body(nox_lobby_host(), nox_lobby_port(), nox_lobby_path(), out, out_cap);
+    if (n <= 0) return -1;
+
+    /* If it’s HTML (example.com) or anything else, treat as failure. */
+    if (!looks_like_json(out)) {
+        fprintf(stderr, "compat_net: lobby response not json (first bytes: %.16s)\n", out ? out : "");
+        return -1;
+    }
+    return n;
 }
 
 #include <stddef.h>

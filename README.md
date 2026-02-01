@@ -50,6 +50,7 @@ export NOX_LOBBY_HOST=nox.nwca.xyz
 export NOX_LOBBY_PORT=8088
 export NOX_LOBBY_PATH="/api/v0/games/list"
 
+export NOX_LOBBY_CONNECT_TIMEOUT=2000 # in milliseconds
 export NOX_SERVER_CACHE_TTL=30 # How long to cache internet game queries - minimum 30 seconds
 
 # If there are bad servers that crash the game they can be filtered using this list
