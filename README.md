@@ -105,6 +105,11 @@ export NOX_BAD_SERVER_IPS="127.1.1.1,127.1.1.2"
 export NOX_BAD_SERVER_NAMES="VeryBadServerName1,VeryBadServerName2"
 ```
 
+# Other env vars
+```
+export NOX_SKIP_INTRO_MOVIES=0 # skip the logo movies at the start of the game
+```
+
 # Known issues
 
 * All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.

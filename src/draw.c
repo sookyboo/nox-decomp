@@ -1286,6 +1286,27 @@ static int tex_w = 0, tex_h = 0;
 #endif
 
     SDL_GL_SwapWindow(dword_973FE0);
+    // --------------------------------------------------------------------
+    // Frame cap (prevents busy-loop + cuts vDSO/clock_gettime polling)
+    // Place EXACTLY here: after swap, before sub_48BE50(0).
+    // --------------------------------------------------------------------
+    {
+        // Set to 60 to start. You can try 120 if you want.
+        const uint32_t target_ms = 1000 / 60;
+
+        static uint32_t last_ms = 0;
+        uint32_t now_ms = SDL_GetTicks();
+
+        if (last_ms != 0) {
+            uint32_t frame_ms = now_ms - last_ms;
+            if (frame_ms < target_ms) {
+                SDL_Delay(target_ms - frame_ms);
+                // Re-sample so last_ms tracks the real end-of-frame time.
+                now_ms = SDL_GetTicks();
+            }
+        }
+        last_ms = now_ms;
+    }
 
     sub_48BE50(0);
 }
@@ -3779,6 +3800,13 @@ int sub_434CC0()
 //----- (004B0300) --------------------------------------------------------
 int __cdecl sub_4B0300(char *a1)
 {
+    /* Skip intro logo movies if requested */
+    const char *skip = getenv("NOX_SKIP_INTRO_MOVIES");
+    if (nox_env_truthy(skip) && a1 && strstr(a1, "Logo") != NULL) {
+        fprintf(stderr, "skip movie (NOX_SKIP_INTRO_MOVIES): %s\n", a1);
+        return *(_DWORD *)&byte_5D4594[1311928]; /* unchanged queue size / index */
+    }
+
     fprintf(stderr, "queue movie\n");
 	int result; // eax
 
