@@ -69,6 +69,7 @@ add_executable (
     cdrom.c
     draw.c
     imm.c
+    control_server.c
     input.c
     main.cpp
     movie.c
