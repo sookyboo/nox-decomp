@@ -90,7 +90,7 @@ static int csv_contains_exact(const char *csv, const char *value)
 }
 
 /* ----- env helpers ----- */
-static int nox_env_truthy(const char *s)
+int nox_env_truthy(const char *s)
 {
     if (!s) return 0;
     while (*s && (unsigned char)*s <= ' ') s++;
@@ -202,7 +202,7 @@ static const char *skip_ws(const char *p) {
     return p;
 }
 
-static void set_sock_timeouts(int fd, int ms)
+void set_sock_timeouts(int fd, int ms)
 {
     struct timeval tv;
     tv.tv_sec  = ms / 1000;

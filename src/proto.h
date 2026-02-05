@@ -7769,6 +7769,7 @@ int nox_env_int(const char *name, int defv);
 
 int nox_is_bad_server_ip(const char *ip);
 int nox_is_bad_server_name(const char *name);
+int nox_env_truthy(const char *s);
 
 #ifdef __cplusplus
 }
