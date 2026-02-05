@@ -60,11 +60,62 @@ DWORD last_error;
 DWORD last_socket_error;
 void *handles[1024];
 
+// ---- NET logging helpers ----
+static int g_netlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_NET_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+#define NETLOG(...) do { if (g_netlog()) fprintf(stderr, __VA_ARGS__); } while (0)
+
+static int g_packetlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_PACKET_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+#define PACKETLOG(...) do { if (g_packetlog()) fprintf(stderr, __VA_ARGS__); } while (0)
+
+static void net_dump_sockname(int fd, const char *tag)
+{
+#if defined(__arm__) || defined(__arm) || defined(__ARM_EABI__) || defined(__aarch64__)
+    (void)fd; (void)tag;
+    return;
+#else
+    struct sockaddr_in s;
+    socklen_t slen = sizeof(s);
+    char ipbuf[INET_ADDRSTRLEN] = "?";
+    unsigned port = 0;
+
+    if (getsockname(fd, (struct sockaddr *)&s, &slen) == 0 && s.sin_family == AF_INET) {
+        inet_ntop(AF_INET, &s.sin_addr, ipbuf, sizeof(ipbuf));
+        port = (unsigned)ntohs(s.sin_port);
+    }
+    NETLOG("compat_net: %s fd=%d local=%s:%u\n", tag, fd, ipbuf, port);
+#endif
+}
+
+static void net_dump_flags(int fd, const char *tag)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    NETLOG("compat_net: %s fd=%d fcntl_flags=0x%x %s\n",
+           tag, fd, flags,
+           (flags >= 0 && (flags & O_NONBLOCK)) ? "(NONBLOCK)" : "(blocking)");
+}
+
+
 /* forward decls you already have elsewhere */
 static char *dos_to_unix(const char *path);
 static int casepath(const char *path, char *r);
 static void fill_find_data(const char *path, LPWIN32_FIND_DATAA lpFindFileData);
 static int compat_do_stat(const char *path, struct stat *st);
+static int  wsa_from_errno(int e);
+static void wsa_set_last_from_errno(void);
 
 #ifndef FNM_CASEFOLD
 // GNU fnmatch has FNM_CASEFOLD; if missing, we’ll fall back to manual lowercasing below.
@@ -433,8 +484,12 @@ SOCKET WINAPI socket(int domain, int type, int protocol)
     // sookyboo
     //return socket(domain, type, protocol);
     int fd = socket(domain, type, protocol);
-    fprintf(stderr, "compat_net: socket(domain=%d, type=%d, proto=%d) = %d\n",
-            domain, type, protocol, fd);
+    NETLOG("compat_net: socket(domain=%d, type=%d, proto=%d) = %d\n",
+           domain, type, protocol, fd);
+
+    if (fd >= 0) {
+        net_dump_flags(fd, "after socket()");
+    }
 
     if (fd >= 0 && type == SOCK_DGRAM) {
         int yes = 1;
@@ -469,9 +524,16 @@ SOCKET WINAPI socket(int domain, int type, int protocol)
 
 int WINAPI closesocket(SOCKET s)
 {
-    fprintf(stderr, "compat_net: closesocket(fd=%d)\n", (int)s);
-    close(s);
-    return 0;
+    NETLOG("compat_net: closesocket(fd=%d)\n", (int)s);
+    net_dump_sockname((int)s, "closesocket local");
+    net_dump_flags((int)s, "closesocket flags");
+    int r = close(s);
+    if (r == 0) {
+        last_socket_error = 0;
+        return 0;
+    }
+    wsa_set_last_from_errno();
+    return -1;
 }
 
 char *WINAPI inet_ntoa(struct in_addr compat_addr)
@@ -515,9 +577,11 @@ int WINAPI setsockopt(SOCKET s, int level, int opt, const void *value, unsigned 
             fprintf(stderr,
                     "compat_net: treating unknown level=65535/opt=%d as success\n",
                     opt);
+            last_socket_error = 0;
             return 0;
         }
     } else {
+        last_socket_error = 0;
         fprintf(stderr,
                 "compat_net: setsockopt(fd=%d, level=%d, opt=%d) ok\n",
                 (int)s, level, opt);
@@ -552,6 +616,48 @@ int WINAPI setsockopt(SOCKET s, int level, int opt, const void *value, unsigned 
 //    return ret;
 //}
 // sookyboo
+
+static int wsa_from_errno(int e)
+{
+    switch (e) {
+#if defined(EWOULDBLOCK)
+        case EWOULDBLOCK:
+#endif
+#if defined(EAGAIN)
+# if !defined(EWOULDBLOCK) || (EAGAIN != EWOULDBLOCK)
+        case EAGAIN:
+# endif
+#endif
+            return 10035; /* WSAEWOULDBLOCK */
+        case EINPROGRESS:
+            return 10036; /* WSAEINPROGRESS */
+        case EALREADY:
+            return 10037; /* WSAEALREADY */
+        case EINTR:
+            return 10004; /* WSAEINTR */
+        case ECONNRESET:
+            return 10054; /* WSAECONNRESET */
+        case ECONNREFUSED:
+            return 10061; /* WSAECONNREFUSED */
+        case ETIMEDOUT:
+            return 10060; /* WSAETIMEDOUT */
+        case ENETUNREACH:
+            return 10051; /* WSAENETUNREACH */
+        case EHOSTUNREACH:
+            return 10065; /* WSAEHOSTUNREACH */
+        case EADDRINUSE:
+            return 10048; /* WSAEADDRINUSE */
+        default:
+            return 10000 + e; /* fallback */
+    }
+}
+
+
+static void wsa_set_last_from_errno(void)
+{
+    last_socket_error = (DWORD)wsa_from_errno(errno);
+}
+
 int WINAPI ioctlsocket(SOCKET s, long cmd, unsigned long *argp)
 {
     int ret;
@@ -561,29 +667,75 @@ int WINAPI ioctlsocket(SOCKET s, long cmd, unsigned long *argp)
     case 0x4004667f: // FIONREAD
 #ifdef __EMSCRIPTEN__
         ret = 0;
-        *argp = EM_ASM_INT({
-            return network.available($0);
-        }, s);
-//        chatty
-//        fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONREAD) => %lu (EMSCRIPTEN)\n",
-//                (int)s, *argp);
+        *argp = EM_ASM_INT({ return network.available($0); }, s);
 #else
         ret = ioctl(s, FIONREAD, argp);
-
-        // chatty
-//        if (ret < 0) {
-//            fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONREAD) FAILED errno=%d (%s)\n",
-//                    (int)s, errno, strerror(errno));
-//        } else {
-//            fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONREAD) => %lu\n",
-//                    (int)s, *argp);
-//        }
+        if (ret < 0) {
+            wsa_set_last_from_errno();
+            return -1;
+        }
+        last_socket_error = 0;
 #endif
         break;
+
+    case 0x8004667e: // FIONBIO (non-blocking)
+    {
+        if (!argp) {
+            errno = EINVAL;
+            last_socket_error = 10022u; /* WSAEINVAL */
+            return -1;
+        }
+
+#ifdef __EMSCRIPTEN__
+        /* If your JS networking is always nonblocking-ish, just accept. */
+        ret = 0;
+#else
+        int nonblock = (*argp != 0);
+
+        NETLOG("compat_net: ioctlsocket(FIONBIO) fd=%d request=%s\n",
+               (int)s, nonblock ? "NONBLOCK" : "BLOCK");
+        net_dump_sockname((int)s, "FIONBIO socket local");
+        net_dump_flags((int)s, "FIONBIO before");
+
+
+        /* Option A: fcntl (recommended, portable) */
+        int flags = fcntl((int)s, F_GETFL, 0);
+        if (flags < 0) {
+            last_socket_error = 10000u + errno;
+            return -1;
+        }
+        if (nonblock) flags |= O_NONBLOCK;
+        else          flags &= ~O_NONBLOCK;
+
+        ret = fcntl((int)s, F_SETFL, flags);
+        if (ret < 0) {
+            last_socket_error = 10000u + errno;
+            return -1;
+        }
+        ret = 0;
+        net_dump_flags((int)s, "FIONBIO after");
+
+
+        /* Option B (alternative): ioctl(FIONBIO) also works on Linux:
+           int nb = nonblock;
+           ret = ioctl((int)s, FIONBIO, &nb);
+        */
+#endif
+
+        // optional chatty log:
+        // fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONBIO=%lu) -> %s\n",
+        //         (int)s, *argp, (*argp ? "NONBLOCK" : "BLOCK"));
+
+        last_socket_error = 0;
+        break;
+    }
+
     default:
         fprintf(stderr, "compat_net: ioctlsocket(fd=%d, cmd=0x%lx) unsupported\n",
                 (int)s, cmd);
-        DebugBreak();
+        /* IMPORTANT: don't DebugBreak() here; callers may legitimately probe ioctls */
+        // DebugBreak();
+        last_socket_error = 10022u; /* WSAEINVAL */
         ret = -1;
         break;
     }
@@ -681,21 +833,21 @@ void build_server_info(void *arg)
 //    return NULL;
 //}
 
-//static void compat_hexdump(const char *tag, const void *buf, size_t len)
-//{
-//    const unsigned char *p = (const unsigned char *)buf;
-//    size_t i;
-//
-//    fprintf(stderr, "%s len=%zu", tag ? tag : "hexdump", len);
-//
-//    for (i = 0; i < len; ++i) {
-//        if ((i % 16) == 0) {
-//            fprintf(stderr, "\n  %04zx:", i);
-//        }
-//        fprintf(stderr, " %02x", p[i]);
-//    }
-//    fprintf(stderr, "\n");
-//}
+static void compat_hexdump(const char *tag, const void *buf, size_t len)
+{
+    const unsigned char *p = (const unsigned char *)buf;
+    size_t i;
+
+    fprintf(stderr, "%s len=%zu", tag ? tag : "hexdump", len);
+
+    for (i = 0; i < len; ++i) {
+        if ((i % 16) == 0) {
+            fprintf(stderr, "\n  %04zx:", i);
+        }
+        fprintf(stderr, " %02x", p[i]);
+    }
+    fprintf(stderr, "\n");
+}
 
 static void nox_log_server_info_packet(const unsigned char *pkt,
                                        size_t len,
@@ -769,6 +921,7 @@ static void nox_log_server_info_packet(const unsigned char *pkt,
 
 struct fake_srv_pkt {
     int used;
+    int sockfd;
     size_t len;
     unsigned char data[256];
     struct sockaddr_in from;
@@ -917,12 +1070,18 @@ static void nox_refresh_server_cache_once(void)
 static struct fake_srv_pkt *alloc_fake_slot(void)
 {
     for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
-        if (!g_fake_packets[i].used) return &g_fake_packets[i];
+        if (!g_fake_packets[i].used) {
+            /* wipe stale metadata from previous use */
+            g_fake_packets[i].sockfd = -1;
+            g_fake_packets[i].len = 0;
+            memset(&g_fake_packets[i].from, 0, sizeof(g_fake_packets[i].from));
+            return &g_fake_packets[i];
+        }
     }
     return NULL;
 }
 
-static void queue_internet_server_reply(const unsigned char *ping,
+static void queue_internet_server_reply(int sockfd, const unsigned char *ping,
                                         size_t ping_len)
 {
 #ifndef __EMSCRIPTEN__
@@ -1007,10 +1166,12 @@ static void queue_internet_server_reply(const unsigned char *ping,
             continue;
         }
 
+        slot->sockfd = sockfd;
+
         slot->used = 1;
         queued++;
 
-        fprintf(stderr, "compat_net: queued internet server '%s' (%s:%u) map=%s %u/%u\n",
+        NETLOG(stderr, "compat_net: queued internet server '%s' (%s:%u) map=%s %u/%u\n",
                 row->name, row->addr, (unsigned)row->port, row->map,
                 (unsigned)row->players_cur, (unsigned)row->players_max);
     }
@@ -1053,7 +1214,7 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         port = ntohs(in->sin_port);
         inet_ntop(AF_INET, &in->sin_addr, ipbuf, sizeof(ipbuf));
 
-        fprintf(stderr,
+        NETLOG(stderr,
                 "compat_net: bind(fd=%d, ip=%s, port=%u)\n",
                 sockfd, ipbuf, port);
 
@@ -1066,15 +1227,18 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         if (getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &sock_type, &optlen) == 0 &&
             sock_type == SOCK_DGRAM) {
             optlen = sizeof(int);
+            NETLOG("compat_net: bind requested fd=%d\n", sockfd);
+            net_dump_sockname(sockfd, "pre-bind getsockname");
+            net_dump_flags(sockfd, "pre-bind flags");
+
             if (getsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcast, &optlen) == 0 &&
                 broadcast && port == 0) {
 
                 tmp = *in;
                 tmp.sin_port = htons(18590);
 
-                fprintf(stderr,
-                        "compat_net:  -> forcing UDP broadcast socket fd=%d to port 18590\n",
-                        sockfd);
+                NETLOG("compat_net: FORCING bind fd=%d from port 0 -> 18590 (broadcast discovery heuristic)\n",
+                       sockfd);
 
                 addr = (const struct sockaddr *)&tmp;
             }
@@ -1086,11 +1250,14 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         if (errno == EADDRINUSE) {
             last_socket_error = 10048u; /* WSAEADDRINUSE */
         }
-        fprintf(stderr,
+        NETLOG(stderr,
                 "compat_net: bind(fd=%d) FAILED errno=%d (%s)\n",
                 sockfd, errno, strerror(errno));
         return -1;
     }
+    last_socket_error = 0;
+    net_dump_sockname(sockfd, "post-bind getsockname");
+    net_dump_flags(sockfd, "post-bind flags");
 
     /* Log the final bound address/port after bind succeeds.
        On some 32-bit ARM/glibc combos, the getsockname prototype
@@ -1101,7 +1268,7 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         struct sockaddr_in s;
         socklen_t slen = sizeof(s);
         if (getsockname(sockfd, (struct sockaddr *)&s, &slen) == 0) {
-            fprintf(stderr,
+            NETLOG(stderr,
                     "compat_net: bind(fd=%d) now at %s:%u\n",
                     sockfd,
                     inet_ntoa(s.sin_addr),
@@ -1140,28 +1307,55 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
     return ret;
 #else
     /* First, see if we have a fake server packet queued. */
-    if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
-        for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
-            struct fake_srv_pkt *slot = &g_fake_packets[i];
-            if (slot->used && slot->len <= length) {
-                memcpy(buffer, slot->data, slot->len);
+    for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
+        struct fake_srv_pkt *slot = &g_fake_packets[i];
+        if (!slot->used) continue;
+        if (slot->sockfd != sockfd) continue;
+        if (slot->len > length) continue;
+
+        memcpy(buffer, slot->data, slot->len);
+
+        /* Fill addr if caller provided a buffer; don't require it. */
+        if (addr && addrlen) {
+            unsigned int want = *addrlen;
+
+            if (want >= sizeof(struct sockaddr_in)) {
                 memcpy(addr, &slot->from, sizeof(struct sockaddr_in));
                 *addrlen = sizeof(struct sockaddr_in);
-                int ret = (int)slot->len;
-                slot->used = 0;
-
-                fprintf(stderr,
-                        "compat_net: returning fake internet server packet (%d bytes)\n",
-                        ret);
-
-                return ret;
+            } else {
+                /* Caller buffer too small (or 0): don't write it, just report size. */
+                *addrlen = sizeof(struct sockaddr_in);
             }
         }
+
+        int ret = (int)slot->len;
+        slot->used = 0;
+
+        NETLOG(stderr,
+                "compat_net: returning fake internet server packet (%d bytes) on fd=%d\n",
+                ret, sockfd);
+
+        return ret;
     }
 
     /* No fake packets waiting: fall back to real recvfrom. */
     int r = recvfrom(sockfd, buffer, length, flags,
                      (__SOCKADDR_ARG)addr, addrlen);
+    if (r >= 0) {
+        last_socket_error = 0;
+    } else {
+        wsa_set_last_from_errno();
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            NETLOG("compat_net: recvfrom(fd=%d) -> EAGAIN/EWOULDBLOCK (wsa=%u)\n",
+                   sockfd, last_socket_error);
+        } else {
+            NETLOG("compat_net: recvfrom(fd=%d) FAIL errno=%d(%s) wsa=%u\n",
+                   sockfd, errno, strerror(errno), last_socket_error);
+        }
+        net_dump_sockname(sockfd, "recvfrom error local");
+        net_dump_flags(sockfd, "recvfrom error flags");
+        return -1;
+    }
 
     if (r >= 0) {
         if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
@@ -1201,10 +1395,11 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
 //                    "compat_net: recvfrom(fd=%d) <= %d bytes (no addr)\n",
 //                    sockfd, r);
         }
-    } else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+//    } else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
 //        fprintf(stderr,
 //                "compat_net: recvfrom(fd=%d) FAILED errno=%d (%s)\n",
 //                sockfd, errno, strerror(errno));
+//    }
     }
 
     return r;
@@ -1261,7 +1456,7 @@ int WINAPI sendto(int sockfd, void *buffer, unsigned int length, int flags,
         const unsigned char *p = (const unsigned char *)buffer;
         if (p[2] == 0x0C) {
             /* Queue our hardcoded internet server reply. */
-            queue_internet_server_reply(p, length);
+            queue_internet_server_reply(sockfd, p, length);
         }
     }
 
@@ -1271,17 +1466,27 @@ int WINAPI sendto(int sockfd, void *buffer, unsigned int length, int flags,
     int r = sendto(sockfd, buffer, length, flags,
                    (__CONST_SOCKADDR_ARG)addr, addrlen);
     if (r < 0) {
-        last_socket_error = 10000 + errno;  /* crude mapping */
-//        fprintf(stderr, "compat_net: sendto(fd=%d -> %s:%u) FAILED errno=%d (%s)\n",
-//                sockfd, ipbuf, dest_port, errno, strerror(errno));
+        wsa_set_last_from_errno();
+        return -1;
     }
+    last_socket_error = 0;
     return r;
 #endif
 }
 
 int WINAPI WSAGetLastError()
 {
-    fprintf(stderr, "compat_net: WSAGetLastError() => %u\n", last_socket_error);
+    static int chatty = -1;
+    if (chatty < 0) {
+        /* default OFF; set NOX_WSA_LOG=1 to enable */
+        const char *e = getenv("NOX_WSA_LOG");
+        chatty = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+
+    if (chatty && last_socket_error != 0) {
+        NETLOG(stderr, "compat_net: WSAGetLastError() => %u\n", last_socket_error);
+    }
+
     return last_socket_error;
 }
 
