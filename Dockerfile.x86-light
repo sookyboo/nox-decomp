@@ -1,0 +1,57 @@
+FROM noxdecomp-build-x86
+
+COPY . /build/nox-decomp
+
+# -------------------------------------------------
+# Patches BEFORE configure/build
+# -------------------------------------------------
+
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-i386 \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_C_FLAGS="\
+        -U_FORTIFY_SOURCE \
+        -fno-strict-aliasing \
+        -fsigned-char \
+        -O0 \
+        -fno-tree-vectorize \
+        -fno-aggressive-loop-optimizations \
+        -m32 \
+      " \
+      -DCMAKE_CXX_FLAGS="\
+        -fno-strict-aliasing \
+        -fsigned-char \
+        -O0 \
+        -m32 \
+      " \
+      -DCMAKE_EXE_LINKER_FLAGS="-m32" \
+      -DCMAKE_SHARED_LINKER_FLAGS="-m32"
+
+#COPY draw.c /build/nox-decomp/src/draw.c
+#COPY win.c /build/nox-decomp/src/win.c
+#COPY compat.c /build/nox-decomp/src/compat.c
+#COPY string.c /build/nox-decomp/src/string.c
+#COPY GAME4.c /build/nox-decomp/src/GAME4.c
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake --build . -j $(nproc)
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/lib/libav*.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswscale.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswresample.so* /build/nox-decomp/build/src/lib/
+
+# -------------------------------------------------
+# Verify output
+# -------------------------------------------------
+RUN find /build/nox-decomp/build/
+RUN file /build/nox-decomp/build/src/out
+
+#RUN nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
+#RUN nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
