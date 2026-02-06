@@ -1147,89 +1147,49 @@ static int tex_w = 0, tex_h = 0;
 
         // Allocate a fresh texture of the correct size (contents undefined/empty).
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_w, tex_h, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
+                     GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
         // Optional: ensure clean black immediately (not strictly required if you fully upload every pixel)
         // You can skip this if your conv always fills w*h.
     }
 
 #ifndef __EMSCRIPTEN__
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    glCheckErrorAt("pixelstore alignment");
+    // 16-bit pixels, packed, no row padding assumptions yet
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
+    glCheckErrorAt("pixelstore alignment 2");
 #endif
 
-    // --------------------------------------------------------------------
-    // Convert 16-bit 1:5:5:5 (REV-style) source into RGBA8888 for GLES.
-    // Alpha is forced to 0xFF so "transparent" source pixels can't make
-    // the whole image invisible.
-    // --------------------------------------------------------------------
-    static uint32_t *conv     = NULL;
-    static int       conv_cap = 0;
-    int needed = w * h;
+    // If your surface pitch equals w*2, we can upload in one shot.
+    // If not, we must upload row-by-row.
+    const int expected_pitch = w * 2;
 
-    if (needed > conv_cap) {
-        free(conv);
-        conv = (uint32_t *)malloc(needed * sizeof(uint32_t));
-        conv_cap = needed;
-#ifdef SDL_DEBUG_FRAMES
-        FRAME_LOG(
-            "CONV realloc frame=%d needed=%d new_cap=%d ptr=%p\n",
-            s_frame_id, needed, conv_cap, (void *)conv);
-#endif
-    }
-
-    if (!conv) {
-        fprintf(stderr, "CONV allocation failed, aborting present\n");
-        sub_48BE50(0);
-        return;
-    }
-
-    for (int y = 0; y < h; ++y) {
-        uint16_t *row16 = (uint16_t *)((uint8_t *)srcsurf->pixels + y * pitch16);
-        uint32_t *row32 = conv + y * w;
-
-        for (int x = 0; x < w; ++x) {
-            uint16_t p = row16[x];
-
-            // Assume original is like GL_UNSIGNED_SHORT_1_5_5_5_REV:
-            // bit0:  A, bits1-5:  B, bits6-10: G, bits11-15: R
-            uint8_t r5, g5, b5;
-        if (!g_present_is_movie) {
-            // GAME: A1B5G5R5 (REV-style)
-            b5 = (uint8_t)((p >> 1)  & 0x1F);
-            g5 = (uint8_t)((p >> 6)  & 0x1F);
-            r5 = (uint8_t)((p >> 11) & 0x1F);
-        } else {
-            // MOVIE: RGB555 0RRRRRGGGGGBBBBB
-            r5 = (uint8_t)((p >> 10) & 0x1F);
-            g5 = (uint8_t)((p >> 5)  & 0x1F);
-            b5 = (uint8_t)((p >> 0)  & 0x1F);
-        }
-
-            uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
-            uint8_t g = (uint8_t)((g5 << 3) | (g5 >> 2));
-            uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
-
-            row32[x] = (uint32_t)r |
-                       ((uint32_t)g << 8) |
-                       ((uint32_t)b << 16) |
-                       0xFF000000u;   // force alpha
-        }
-    }
-
+    if (srcsurf->pitch == expected_pitch) {
 #ifndef __EMSCRIPTEN__
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, w);
-    glCheckErrorAt("pixelstore row length");
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0); // tightly packed
+        glCheckErrorAt("pixelstore row length 0");
 #endif
+        glTexSubImage2D(
+            GL_TEXTURE_2D, 0, 0, 0,
+            w, h,
+            GL_RGBA,
+            GL_UNSIGNED_SHORT_5_5_5_1,
+            srcsurf->pixels
+        );
+        glCheckErrorAt("texsubimage2d rgba5551");
+    } else {
+        // Row-by-row upload if pitch has padding
+        for (int y = 0; y < h; ++y) {
+            const void *row = (const uint8_t *)srcsurf->pixels + y * srcsurf->pitch;
+            glTexSubImage2D(
+                GL_TEXTURE_2D, 0, 0, y,
+                w, 1,
+                GL_RGBA,
+                GL_UNSIGNED_SHORT_5_5_5_1,
+                row
+            );
+        }
+        glCheckErrorAt("texsubimage2d rgba5551 rows");
+    }
 
-    glTexSubImage2D(
-        GL_TEXTURE_2D, 0, 0, 0,
-        w, h,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        conv
-    );
-    glCheckErrorAt("texsubimage2d rgba8888");
 
     // --------------------------------------------------------------------
     // Draw textured quad
@@ -2906,25 +2866,26 @@ void sub_4AD1E0()
             v4 = *v3;                                   // src row
             v5 = *(_DWORD *)&byte_5D4594[3801800];      // blocks per row (width / 16)
 
+            const WORD A = 1;
             while (v5 > 0)
             {
-                // unroll 16 pixels
-                v1[0]  = (WORD)(v4[0]  << 1);
-                v1[1]  = (WORD)(v4[1]  << 1);
-                v1[2]  = (WORD)(v4[2]  << 1);
-                v1[3]  = (WORD)(v4[3]  << 1);
-                v1[4]  = (WORD)(v4[4]  << 1);
-                v1[5]  = (WORD)(v4[5]  << 1);
-                v1[6]  = (WORD)(v4[6]  << 1);
-                v1[7]  = (WORD)(v4[7]  << 1);
-                v1[8]  = (WORD)(v4[8]  << 1);
-                v1[9]  = (WORD)(v4[9]  << 1);
-                v1[10] = (WORD)(v4[10] << 1);
-                v1[11] = (WORD)(v4[11] << 1);
-                v1[12] = (WORD)(v4[12] << 1);
-                v1[13] = (WORD)(v4[13] << 1);
-                v1[14] = (WORD)(v4[14] << 1);
-                v1[15] = (WORD)(v4[15] << 1);
+                // unroll 16 pixels -> RGBA5551 (alpha bit = 1)
+                v1[0]  = (WORD)((v4[0]  << 1) | A);
+                v1[1]  = (WORD)((v4[1]  << 1) | A);
+                v1[2]  = (WORD)((v4[2]  << 1) | A);
+                v1[3]  = (WORD)((v4[3]  << 1) | A);
+                v1[4]  = (WORD)((v4[4]  << 1) | A);
+                v1[5]  = (WORD)((v4[5]  << 1) | A);
+                v1[6]  = (WORD)((v4[6]  << 1) | A);
+                v1[7]  = (WORD)((v4[7]  << 1) | A);
+                v1[8]  = (WORD)((v4[8]  << 1) | A);
+                v1[9]  = (WORD)((v4[9]  << 1) | A);
+                v1[10] = (WORD)((v4[10] << 1) | A);
+                v1[11] = (WORD)((v4[11] << 1) | A);
+                v1[12] = (WORD)((v4[12] << 1) | A);
+                v1[13] = (WORD)((v4[13] << 1) | A);
+                v1[14] = (WORD)((v4[14] << 1) | A);
+                v1[15] = (WORD)((v4[15] << 1) | A);
 
                 v1 += 16;
                 v4 += 16;
@@ -3325,13 +3286,25 @@ BOOL sub_48BDE0()
 	*(_DWORD *)&byte_5D4594[1193592] = v0;
 	if (g_cursor_surf)
 	{
-#if USE_SDL
-        // FIXME use SDL_MapRGB instead?
-		//v0 = *(_DWORD *)&byte_5D4594[3799624] ? (unsigned __int16)v0 : (unsigned __int8)v0;
-        //SDL_SetColorKey(g_cursor_surf, SDL_TRUE, v0);
-        // Sookyboo
-        Uint32 key = SDL_MapRGB(g_cursor_surf->format, 255, 0, 255);
-        SDL_SetColorKey(g_cursor_surf, SDL_TRUE, key);
+#ifdef USE_SDL
+    // Engine key is in engine 16-bit format (RGB555 when 16-bit mode=1).
+    Uint16 key_engine = (Uint16)(*(_DWORD *)&byte_5D4594[1193592]);
+
+    Uint32 key_sdl = 0;
+    if (g_cursor_surf && g_cursor_surf->format) {
+        if (g_cursor_surf->format->format == SDL_PIXELFORMAT_RGBA5551) {
+            // RGB555 -> RGBA5551 (shift left + alpha=1)
+            key_sdl = (Uint16)((key_engine << 1) | 1);
+        } else if (g_cursor_surf->format->format == SDL_PIXELFORMAT_RGB565) {
+            // If you ever switch cursor surface to 565.
+            key_sdl = key_engine;
+        } else {
+            // Fallback for unexpected formats
+            key_sdl = SDL_MapRGB(g_cursor_surf->format, 255, 0, 255);
+        }
+        SDL_SetColorKey(g_cursor_surf, SDL_TRUE, key_sdl);
+        SDL_SetSurfaceBlendMode(g_cursor_surf, SDL_BLENDMODE_NONE);
+    }
 #else
         DDCOLORKEY v2; // [esp+0h] [ebp-8h]
 
