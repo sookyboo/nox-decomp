@@ -90,11 +90,11 @@ static double g_sleep_scale = 1.0;
 static double nox_sleep_scale(void)
 {
     if (!g_sleep_scale_init) {
-        g_sleep_scale = nox_env_double("NOX_CTRL_SLEEP_SCALE", 1.0);
+        g_sleep_scale = nox_env_double("NOX_CONTROL_SERVER_SLEEP_SCALE", 1.0);
         if (g_sleep_scale < 0.1) g_sleep_scale = 0.1;
         if (g_sleep_scale > 50.0) g_sleep_scale = 50.0;
         g_sleep_scale_init = 1;
-        NOX_CTRL_LOG("NOX_CTRL_SLEEP_SCALE=%f", g_sleep_scale);
+        NOX_CTRL_LOG("NOX_CONTROL_SERVER_SLEEP_SCALE=%f", g_sleep_scale);
     }
     return g_sleep_scale;
 }
@@ -619,7 +619,7 @@ static const NoxCtrlMacro g_macros[] = {
         "t \"racoiaws\"; sleep 1000;"
         "t \"set sysop ${NOX_SERVER_SYSOP:secret}\"; sleep 1500;"
         "t \"set lessons ${NOX_SERVER_LESSONS:15}\"; sleep 1000;"
-        "t \"set time ${NOX_SERVER_TIME:15}\"; sleep 2000;"
+        "t \"set time ${NOX_SERVER_TIME:0}\"; sleep 2000;"
         "t \"load ${NOX_SERVER_DEFAULT_MAP:capflag}\"; sleep 5000;"
         "key F1; sleep 1000;\n"
     },
