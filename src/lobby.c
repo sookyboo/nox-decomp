@@ -13,6 +13,29 @@
 #include <fcntl.h>
 #include <netdb.h>
 
+// ---- NET logging helpers ----
+static int g_netlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_NET_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+#define NETLOG(...) do { if (g_netlog()) fprintf(stderr, __VA_ARGS__); } while (0)
+
+static volatile uint16_t g_last_serverinfo_flags = 0;
+
+void nox_lobby_set_last_serverinfo_flags(uint16_t flags)
+{
+    g_last_serverinfo_flags = flags;
+}
+
+uint16_t nox_lobby_get_last_serverinfo_flags(void)
+{
+    return (uint16_t)g_last_serverinfo_flags;
+}
+
 /* env: comma-separated deny lists (defaults used when env missing) */
 #define NOX_ENV_BAD_IPS   "NOX_BAD_SERVER_IPS"
 #define NOX_ENV_BAD_NAMES "NOX_BAD_SERVER_NAMES"
@@ -586,6 +609,60 @@ static int nox_http_post_json(const char *host,
     return (status >= 200 && status < 300) ? 0 : -1;
 }
 
+// Game mode flags (from opennox/noxflags)
+#define NOX_GF_MODE_KOTR        0x0010
+#define NOX_GF_MODE_CTF         0x0020
+#define NOX_GF_MODE_FLAGBALL    0x0040
+#define NOX_GF_MODE_CHAT        0x0080
+#define NOX_GF_MODE_ARENA       0x0100
+#define NOX_GF_MODE_COOPTEAM    0x0200
+#define NOX_GF_MODE_ELIMINATION 0x0400
+#define NOX_GF_MODE_COOP        0x0800
+#define NOX_GF_MODE_QUEST       0x1000
+
+#define NOX_MODE_MASK (NOX_GF_MODE_KOTR|NOX_GF_MODE_CTF|NOX_GF_MODE_FLAGBALL|NOX_GF_MODE_CHAT|NOX_GF_MODE_ARENA|NOX_GF_MODE_COOPTEAM|NOX_GF_MODE_ELIMINATION|NOX_GF_MODE_COOP|NOX_GF_MODE_QUEST)
+
+static const char *nox_mode_from_flags(uint16_t flags)
+{
+    // If multiple bits are set, pick first match in priority order.
+    if (flags & NOX_GF_MODE_KOTR)        return "kotr";
+    if (flags & NOX_GF_MODE_CTF)         return "ctf";
+    if (flags & NOX_GF_MODE_FLAGBALL)    return "flagball";
+    if (flags & NOX_GF_MODE_CHAT)        return "chat";
+    if (flags & NOX_GF_MODE_ARENA)       return "arena";
+    if (flags & NOX_GF_MODE_ELIMINATION) return "elimination";
+    if (flags & NOX_GF_MODE_QUEST)       return "quest";
+    if (flags & NOX_GF_MODE_COOP)        return "coop";
+    if (flags & NOX_GF_MODE_COOPTEAM)    return "coopteam";
+
+    return NULL;
+}
+
+/* Normalize env mode strings to what lobby expects. */
+static const char *nox_mode_normalize(const char *mode)
+{
+    if (!mode || !*mode) return NULL;
+
+    /* trim leading spaces */
+    while (*mode && (unsigned char)*mode <= ' ') mode++;
+    if (!*mode) return NULL;
+
+    /* allow a couple common aliases */
+    if (!strcasecmp(mode, "capflag")) return "ctf";
+    if (!strcasecmp(mode, "kotr")) return "kotr";
+    if (!strcasecmp(mode, "ctf")) return "ctf";
+    if (!strcasecmp(mode, "flagball")) return "flagball";
+    if (!strcasecmp(mode, "chat")) return "chat";
+    if (!strcasecmp(mode, "arena")) return "arena";
+    if (!strcasecmp(mode, "elim")) return "elimination";
+    if (!strcasecmp(mode, "elimination")) return "elimination";
+    if (!strcasecmp(mode, "quest")) return "quest";
+    if (!strcasecmp(mode, "custom")) return "custom";
+
+    /* unknown string: keep it (server might accept it), but we prefer known ones */
+    return mode;
+}
+
 /* Build JSON and register.
    Note: Address can be omitted/empty because server overwrites it when trustAddr=false. */
 int nox_lobby_register_game(const char *name,
@@ -601,7 +678,17 @@ int nox_lobby_register_game(const char *name,
     // Provide required fields the Go server validates.
     // mode/vers may not be in the LAN packet; make them env-configurable.
     const char *vers = nox_env_str("NOX_SERVER_VERS", "1.2");
-    const char *mode = nox_env_str("NOX_SERVER_MODE", "ctf");
+
+    /* Prefer explicit env, otherwise derive from the serverinfo flags. */
+//    const char *mode_env = getenv("NOX_SERVER_MODE");
+//    const char *mode_norm = nox_mode_normalize(mode_env);
+
+    uint16_t flags = nox_lobby_get_last_serverinfo_flags();
+    const char *mode = nox_mode_from_flags(flags);
+    if (!mode) mode = "chat";
+    NETLOG( "compat_net: lobby register mode='%s' (flags=0x%04x)\n",
+            mode,
+            (unsigned)flags);
 
     // clamp
     if (max == 0) max = 31;
@@ -661,13 +748,14 @@ int nox_fetch_games_list_json(char *out, size_t out_cap)
 #include <stdlib.h>
 
 /* Minimal model for your endpoint */
-typedef struct {
-    char name[64];
-    char addr[32];     /* IPv4 string fits */
+typedef struct nox_server_row {
+    char     name[64];
+    char     addr[32];     /* IPv4 string */
     uint16_t port;
-    char map[32];
-    uint8_t players_cur;
-    uint8_t players_max;
+    char     map[32];
+    uint8_t  players_cur;
+    uint8_t  players_max;
+    char mode[16];
 } nox_server_row;
 
 /* ---- tiny helpers ---- */
@@ -764,6 +852,24 @@ static const char *find_key_value_range(const char *obj_begin, const char *obj_e
     return NULL;
 }
 
+
+uint16_t nox_mode_to_flagbit(const char *mode)
+{
+    mode = nox_mode_normalize(mode);
+    if (!mode) return 0;
+
+    if (!strcasecmp(mode, "kotr"))        return NOX_GF_MODE_KOTR;
+    if (!strcasecmp(mode, "ctf"))         return NOX_GF_MODE_CTF;
+    if (!strcasecmp(mode, "flagball"))    return NOX_GF_MODE_FLAGBALL;
+    if (!strcasecmp(mode, "chat"))        return NOX_GF_MODE_CHAT;
+    if (!strcasecmp(mode, "arena"))       return NOX_GF_MODE_ARENA;
+    if (!strcasecmp(mode, "elimination")) return NOX_GF_MODE_ELIMINATION;
+    if (!strcasecmp(mode, "quest"))       return NOX_GF_MODE_QUEST;
+    if (!strcasecmp(mode, "coop"))        return NOX_GF_MODE_COOP;
+    if (!strcasecmp(mode, "coopteam"))    return NOX_GF_MODE_COOPTEAM;
+    return 0;
+}
+
 /* ---- main parser ----
    Returns number of servers parsed into out[] (up to out_cap). */
 size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t out_cap)
@@ -840,6 +946,12 @@ size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t o
             {
                 const char *v = find_key_value_range(obj_begin, obj_end, "map");
                 if (v) parse_json_string(v, row.map, sizeof(row.map));
+            }
+
+            /* mode */
+            {
+                const char *v = find_key_value_range(obj_begin, obj_end, "mode");
+                if (v) parse_json_string(v, row.mode, sizeof(row.mode));
             }
 
             /* players.cur / players.max (object) */

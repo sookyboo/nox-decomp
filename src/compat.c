@@ -1148,9 +1148,28 @@ static void queue_internet_server_reply(int sockfd, const unsigned char *ping,
 
         /* map at offset 10 */
         if (row->map[0]) {
-            strncpy((char *)&out[10], row->map, 31);
-            out[10 + 31] = 0;
+            size_t mlen = strnlen(row->map, 31);
+            memcpy(&out[10], row->map, mlen);
+            out[10 + mlen] = 0;
         }
+
+        /* flags are little-endian at 28..29 */
+        uint16_t base = nox_lobby_get_last_serverinfo_flags();
+
+        /* If we haven't seen a real serverinfo yet, use a known-good baseline.
+           From your real packet: 0x2087, where the non-mode bits are 0x2007. */
+        if (base == 0) base = 0x2007;
+
+        uint16_t modebit = nox_mode_to_flagbit(row->mode);
+
+        /* preserve everything except mode bits, then apply mode */
+        uint16_t flags = (uint16_t)((base & (uint16_t)~NOX_MODE_MASK) | modebit);
+
+        /* write LE */
+        out[28] = (unsigned char)(flags & 0xFF);
+        out[29] = (unsigned char)((flags >> 8) & 0xFF);
+        NETLOG("compat_net: fake flags base=0x%04x mode='%s' modebit=0x%04x final=0x%04x\n",
+               base, row->mode, modebit, flags);
 
         /* echo ping cookie (bytes 8..11 from ping) at offset 44 */
         if (ping && ping_len >= 12) {
@@ -1169,6 +1188,10 @@ static void queue_internet_server_reply(int sockfd, const unsigned char *ping,
             size_t total_len = 72 + name_len + 1;
             if (total_len > sizeof(slot->data)) total_len = sizeof(slot->data);
             slot->len = total_len;
+        }
+
+        if (g_packetlog()) {
+            compat_hexdump("NET FAKE QUEUE", slot->data, slot->len);
         }
 
         /* sockaddr from JSON */
@@ -1230,7 +1253,7 @@ static void *lobby_register_thread(void *arg)
     if (rc != 0) {
         fprintf(stderr, "compat_net: lobby register FAILED name='%s' map='%s'\n", j->name, j->map);
     } else {
-        fprintf(stderr, "compat_net: lobby register OK name='%s' map='%s'\n", j->name, j->map);
+        NETLOG("compat_net: lobby register OK name='%s' map='%s'\n", j->name, j->map);
     }
 
     free(j);
@@ -1242,11 +1265,62 @@ static void *lobby_register_thread(void *arg)
     return NULL;
 }
 
+
+/* Cache latest flags seen in sub_554040 serverinfo packet (offset 28). */
+
+static void log_serverinfo_packet(const unsigned char *pkt, size_t len, const char *where)
+{
+    if (!g_packetlog()) {
+        return;
+    }
+
+    if (!pkt) return;
+
+
+
+    PACKETLOG("compat_net: %s serverinfo len=%zu type=0x%02x\n",
+            where ? where : "?", len, (len >= 3) ? pkt[2] : 0xff);
+
+    // We care about flags at offset 28..29 (little endian)
+    if (len >= 30) {
+        unsigned b28 = pkt[28];
+        unsigned b29 = pkt[29];
+        uint16_t flags = (uint16_t)b28 | ((uint16_t)b29 << 8);
+        PACKETLOG("compat_net: %s flags bytes: pkt[28]=0x%02x pkt[29]=0x%02x -> flags=0x%04x\n",
+                where ? where : "?", b28, b29, (unsigned)flags);
+    } else {
+        PACKETLOG("compat_net: %s too short for flags (need >=30)\n", where ? where : "?");
+    }
+
+    // Optional: log some other useful fields to sanity-check we’re parsing right packet
+    if (len >= 74) {
+        PACKETLOG("compat_net: %s players cur=%u max=%u map@10='%.20s' name@72='%.20s'\n",
+                where ? where : "?", (unsigned)pkt[3], (unsigned)pkt[4],
+                (const char *)&pkt[10], (const char *)&pkt[72]);
+    }
+
+    // Full hexdump (guarded by packet logging toggle)
+    if (g_packetlog()) {
+        compat_hexdump(where ? where : "serverinfo", pkt, len);
+    }
+}
+
+
 static void maybe_register_lobby_from_serverinfo(int sockfd, const unsigned char *pkt, size_t len)
 {
     if (!nox_should_register_lobby()) return;
     if (!pkt || len < 73) return;
     if (pkt[2] != 0x0D) return; // server info
+        log_serverinfo_packet(pkt, len, "maybe_register_lobby_from_serverinfo");
+        /* cache serverinfo flags (uint16 LE at offset 28) for later mode debugging */
+        if (len >= 30) {
+            uint16_t flags =
+                (uint16_t)((unsigned)pkt[28] | ((unsigned)pkt[29] << 8));
+            nox_lobby_set_last_serverinfo_flags(flags);
+            fprintf(stderr, "compat_net: serverinfo flags=0x%04x\n", (unsigned)flags);
+
+        }
+
 
     long now = nox_now_sec();
     const int period = nox_lobby_register_period_sec();
@@ -1353,10 +1427,13 @@ static void *lobby_poll_register_thread(void *arg)
         int len = sub_554040(dummy, sizeof(buf), (char *)buf);
 
         // Always log what sub_554040 returns
-        fprintf(stderr, "compat_net: sub_554040() -> len=%d\n", len);
+        PACKETLOG("compat_net: sub_554040() -> len=%d\n", len);
         if (len > 0) {
             unsigned type = (len >= 3) ? buf[2] : 0xff;
-            fprintf(stderr, "compat_net: sub_554040 packet type=0x%02x\n", type);
+            PACKETLOG("compat_net: sub_554040 packet type=0x%02x\n", type);
+            if (len >= 30 && buf[2] == 0x0D) {
+                log_serverinfo_packet(buf, (size_t)len, "lobby_poll_register_thread");
+            }
 
             // Hexdump if packet logging enabled
             if (g_packetlog()) {
@@ -1365,6 +1442,15 @@ static void *lobby_poll_register_thread(void *arg)
 
             // If it's a server-info packet (0x0D), register it.
             if (len >= 73 && buf[2] == 0x0D) {
+                /* cache serverinfo flags (uint16 LE at offset 28) */
+                if (len >= 30) {
+                    uint16_t flags =
+                        (uint16_t)((unsigned)buf[28] | ((unsigned)buf[29] << 8));
+                    nox_lobby_set_last_serverinfo_flags(flags);
+                    PACKETLOG("compat_net: serverinfo flags=0x%04x\n",
+                            (unsigned)flags);
+                }
+
                 // Extract fields (defensive)
                 char name[64] = {0};
                 char map[32]  = {0};
@@ -1394,8 +1480,7 @@ static void *lobby_poll_register_thread(void *arg)
                             "compat_net: lobby register FAILED name='%s' map='%s' %u/%u port=%u\n",
                             name, map, cur, max, port);
                 } else {
-                    fprintf(stderr,
-                            "compat_net: lobby register OK name='%s' map='%s' %u/%u port=%u\n",
+                    NETLOG("compat_net: lobby register OK name='%s' map='%s' %u/%u port=%u\n",
                             name, map, cur, max, port);
                 }
             }
@@ -1526,6 +1611,38 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
     return ret;
 }
 
+static void nox_log_rx_pkt(const char *tag,
+                           const void *buf, int len,
+                           const struct sockaddr_in *from)
+{
+    if (!buf || len < 0) return;
+
+    unsigned type = (len >= 3) ? ((const unsigned char *)buf)[2] : 0xFF;
+
+    if (from) {
+        char ipbuf[INET_ADDRSTRLEN] = {0};
+        inet_ntop(AF_INET, &from->sin_addr, ipbuf, sizeof(ipbuf));
+        PACKETLOG("compat_net: RX %s %d bytes from %s:%u type=0x%02x\n",
+                tag ? tag : "?", len, ipbuf, ntohs(from->sin_port), type);
+    } else {
+        PACKETLOG("compat_net: RX %s %d bytes (no addr) type=0x%02x\n",
+                tag ? tag : "?", len, type);
+    }
+
+    /* Useful for serverinfo: flags at 28..29 */
+    if (len >= 30) {
+        const unsigned char *p = (const unsigned char *)buf;
+        uint16_t f = (uint16_t)p[28] | ((uint16_t)p[29] << 8);
+        PACKETLOG("compat_net: RX %s flags=0x%04x (b28=0x%02x b29=0x%02x)\n",
+                tag ? tag : "?", (unsigned)f, (unsigned)p[28], (unsigned)p[29]);
+    }
+
+    /* Hexdump only when packet logging is enabled */
+    if (g_packetlog()) {
+        compat_hexdump(tag ? tag : "NET RX", buf, (size_t)len);
+    }
+}
+
 int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
                     struct sockaddr *addr, unsigned int *addrlen)
 #undef recvfrom
@@ -1560,6 +1677,7 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
         if (slot->len > length) continue;
 
         memcpy(buffer, slot->data, slot->len);
+        nox_log_rx_pkt("FAKE", buffer, (int)slot->len, &slot->from);
 
         /* Fill addr if caller provided a buffer; don't require it. */
         if (addr && addrlen) {
@@ -1605,7 +1723,7 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
     if (r >= 0) {
         if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
             struct sockaddr_in *in = (struct sockaddr_in *)addr;
-
+            nox_log_rx_pkt("REAL", buffer, r, in);
             uint16_t sport = ntohs(in->sin_port);
 
             /* Heuristic: only dump Nox UDP (18590) and only “non-server-info”
