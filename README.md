@@ -103,6 +103,49 @@ export NOX_SERVER_CACHE_TTL=30 # How long to cache internet game queries - minim
 # If there are bad servers that crash the game they can be filtered using this list
 export NOX_BAD_SERVER_IPS="127.1.1.1,127.1.1.2"
 export NOX_BAD_SERVER_NAMES="VeryBadServerName1,VeryBadServerName2"
+
+# these register the game on opennox lobby
+export NOX_LOBBY_REGISTER_ENABLE=0
+export NOX_LOBBY_REGISTER_PERIOD=20
+export NOX_LOBBY_REGISTER_PATH=/api/v0/games/register
+export NOX_SERVER_MODE=ctf
+export NOX_SERVER_VERS=1.2
+
+# this is to automatically open udp port 18590 when hosting games on a router that supports UPNP
+export NOX_UPNP_ENABLE=0
+export NOX_UPNP_DEBUG=0
+export NOX_UPNP_PORT=18590
+export NOX_UPNP_PROTO=udp
+export NOX_UPNP_TIMEOUT_MS=2000
+```
+
+# Control server and env vars
+The control server allows you to control nox with mouse clicks and keyboard presses
+It is useful for testing and also starting multiplayer games in an automated way.
+
+```
+export NOX_CONTROL_SERVER=1
+export NOX_CONTROL_SERVER_PASSWORD=secret
+export NOX_CONTROL_SERVER_BIND=127.0.0.1
+export NOX_CONTROL_SERVER_PORT=2323
+
+export NOX_SKIP_INTRO_MOVIES=1 # useful if issuing commands at boot
+export NOX_CONTROL_SERVER_SLEEP_SCALE=1 # some ennvironments might be slow so you can increase the sleep time between commands 
+export NOX_CONTROL_SERVER_BOOT="macro server;" # You can issue control server commands on start
+
+# The macro server uses some env vars and sets up a multiplayer game
+export NOX_SERVER_NAME=NoxDecompServer # when starting a game what the server is called 
+export NOX_SERVER_SYSOP=secret # set the sysop password to secret for multiplayer games
+export NOX_SERVER_LESSONS=15
+export NOX_SERVER_TIME:0
+export NOX_SERVER_DEFAULT_MAP:capflag # game type becomes whatever the map default is
+
+export NOX_CAPTURE_INPUT=0   # prints out real user mouse input but mostly useless too noisy 
+```
+
+# Other env vars
+```
+export NOX_SKIP_INTRO_MOVIES=0 # skip the logo movies at the start of the game
 ```
 
 # Known issues

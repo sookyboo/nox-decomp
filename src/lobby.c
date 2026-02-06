@@ -13,6 +13,29 @@
 #include <fcntl.h>
 #include <netdb.h>
 
+// ---- NET logging helpers ----
+static int g_netlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_NET_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+#define NETLOG(...) do { if (g_netlog()) fprintf(stderr, __VA_ARGS__); } while (0)
+
+static volatile uint16_t g_last_serverinfo_flags = 0;
+
+void nox_lobby_set_last_serverinfo_flags(uint16_t flags)
+{
+    g_last_serverinfo_flags = flags;
+}
+
+uint16_t nox_lobby_get_last_serverinfo_flags(void)
+{
+    return (uint16_t)g_last_serverinfo_flags;
+}
+
 /* env: comma-separated deny lists (defaults used when env missing) */
 #define NOX_ENV_BAD_IPS   "NOX_BAD_SERVER_IPS"
 #define NOX_ENV_BAD_NAMES "NOX_BAD_SERVER_NAMES"
@@ -90,7 +113,7 @@ static int csv_contains_exact(const char *csv, const char *value)
 }
 
 /* ----- env helpers ----- */
-static int nox_env_truthy(const char *s)
+int nox_env_truthy(const char *s)
 {
     if (!s) return 0;
     while (*s && (unsigned char)*s <= ' ') s++;
@@ -202,7 +225,7 @@ static const char *skip_ws(const char *p) {
     return p;
 }
 
-static void set_sock_timeouts(int fd, int ms)
+void set_sock_timeouts(int fd, int ms)
 {
     struct timeval tv;
     tv.tv_sec  = ms / 1000;
@@ -521,6 +544,181 @@ int nox_http_get_body(const char *host,
     return (int)out_len;
 }
 
+// lobby.c (add near nox_http_get_body)
+
+static const char *nox_lobby_register_path(void)
+{
+    return nox_env_str("NOX_LOBBY_REGISTER_PATH", "/api/v0/games/register");
+}
+
+static int nox_http_post_json(const char *host,
+                             uint16_t port,
+                             const char *path,
+                             const char *json_body)
+{
+    if (!host || !path || !json_body) return -1;
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%u", (unsigned)port);
+
+    int fd = connect_tcp(host, port_str);
+    if (fd < 0) return -1;
+
+    const size_t body_len = strlen(json_body);
+
+    char req[1024];
+    int req_len = snprintf(req, sizeof(req),
+        "POST %s HTTP/1.1\r\n"
+        "Host: %s:%u\r\n"
+        "User-Agent: nox-decomp/1\r\n"
+        "Accept: application/json\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: %u\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        path, host, (unsigned)port, (unsigned)body_len);
+
+    if (req_len <= 0 || (size_t)req_len >= sizeof(req)) {
+        close(fd);
+        return -1;
+    }
+
+    if (send_all(fd, req, (size_t)req_len) < 0) { close(fd); return -1; }
+    if (send_all(fd, json_body, body_len) < 0) { close(fd); return -1; }
+
+    // Read status line
+    char line[1024];
+    int rl = recv_line(fd, line, sizeof(line));
+    if (rl <= 0) { close(fd); return -1; }
+
+    int status = 0;
+    {
+        const char *p = strchr(line, ' ');
+        if (p) status = atoi(p + 1);
+    }
+
+    // Drain headers (don’t care about body)
+    for (;;) {
+        rl = recv_line(fd, line, sizeof(line));
+        if (rl <= 0) break;
+        if (strcmp(line, "\r\n") == 0) break;
+    }
+
+    close(fd);
+
+    return (status >= 200 && status < 300) ? 0 : -1;
+}
+
+// Game mode flags (from opennox/noxflags)
+#define NOX_GF_MODE_KOTR        0x0010
+#define NOX_GF_MODE_CTF         0x0020
+#define NOX_GF_MODE_FLAGBALL    0x0040
+#define NOX_GF_MODE_CHAT        0x0080
+#define NOX_GF_MODE_ARENA       0x0100
+#define NOX_GF_MODE_COOPTEAM    0x0200
+#define NOX_GF_MODE_ELIMINATION 0x0400
+#define NOX_GF_MODE_COOP        0x0800
+#define NOX_GF_MODE_QUEST       0x1000
+
+#define NOX_MODE_MASK (NOX_GF_MODE_KOTR|NOX_GF_MODE_CTF|NOX_GF_MODE_FLAGBALL|NOX_GF_MODE_CHAT|NOX_GF_MODE_ARENA|NOX_GF_MODE_COOPTEAM|NOX_GF_MODE_ELIMINATION|NOX_GF_MODE_COOP|NOX_GF_MODE_QUEST)
+
+static const char *nox_mode_from_flags(uint16_t flags)
+{
+    // If multiple bits are set, pick first match in priority order.
+    if (flags & NOX_GF_MODE_KOTR)        return "kotr";
+    if (flags & NOX_GF_MODE_CTF)         return "ctf";
+    if (flags & NOX_GF_MODE_FLAGBALL)    return "flagball";
+    if (flags & NOX_GF_MODE_CHAT)        return "chat";
+    if (flags & NOX_GF_MODE_ARENA)       return "arena";
+    if (flags & NOX_GF_MODE_ELIMINATION) return "elimination";
+    if (flags & NOX_GF_MODE_QUEST)       return "quest";
+    if (flags & NOX_GF_MODE_COOP)        return "coop";
+    if (flags & NOX_GF_MODE_COOPTEAM)    return "coopteam";
+
+    return NULL;
+}
+
+/* Normalize env mode strings to what lobby expects. */
+static const char *nox_mode_normalize(const char *mode)
+{
+    if (!mode || !*mode) return NULL;
+
+    /* trim leading spaces */
+    while (*mode && (unsigned char)*mode <= ' ') mode++;
+    if (!*mode) return NULL;
+
+    /* allow a couple common aliases */
+    if (!strcasecmp(mode, "capflag")) return "ctf";
+    if (!strcasecmp(mode, "kotr")) return "kotr";
+    if (!strcasecmp(mode, "ctf")) return "ctf";
+    if (!strcasecmp(mode, "flagball")) return "flagball";
+    if (!strcasecmp(mode, "chat")) return "chat";
+    if (!strcasecmp(mode, "arena")) return "arena";
+    if (!strcasecmp(mode, "elim")) return "elimination";
+    if (!strcasecmp(mode, "elimination")) return "elimination";
+    if (!strcasecmp(mode, "quest")) return "quest";
+    if (!strcasecmp(mode, "custom")) return "custom";
+
+    /* unknown string: keep it (server might accept it), but we prefer known ones */
+    return mode;
+}
+
+/* Build JSON and register.
+   Note: Address can be omitted/empty because server overwrites it when trustAddr=false. */
+int nox_lobby_register_game(const char *name,
+                           const char *map,
+                           unsigned cur,
+                           unsigned max,
+                           unsigned port)
+{
+    const char *host = nox_lobby_host();
+    uint16_t hp = nox_lobby_port();
+    const char *path = nox_lobby_register_path();
+
+    // Provide required fields the Go server validates.
+    // mode/vers may not be in the LAN packet; make them env-configurable.
+    const char *vers = nox_env_str("NOX_SERVER_VERS", "1.2");
+
+    /* Prefer explicit env, otherwise derive from the serverinfo flags. */
+//    const char *mode_env = getenv("NOX_SERVER_MODE");
+//    const char *mode_norm = nox_mode_normalize(mode_env);
+
+    uint16_t flags = nox_lobby_get_last_serverinfo_flags();
+    const char *mode = nox_mode_from_flags(flags);
+    if (!mode) mode = "chat";
+    NETLOG( "compat_net: lobby register mode='%s' (flags=0x%04x)\n",
+            mode,
+            (unsigned)flags);
+
+    // clamp
+    if (max == 0) max = 31;
+    if (cur > max) cur = max;
+    if (port == 0) port = 18590;
+
+    char body[512];
+    // IMPORTANT: keep this simple (no escaping). If you might have quotes in names,
+    // we can add a tiny JSON escaper later.
+    int n = snprintf(body, sizeof(body),
+        "{"
+          "\"name\":\"%s\","
+          "\"map\":\"%s\","
+          "\"mode\":\"%s\","
+          "\"vers\":\"%s\","
+          "\"port\":%u,"
+          "\"players\":{\"cur\":%u,\"max\":%u}"
+        "}",
+        name ? name : "",
+        map ? map : "",
+        mode,
+        vers,
+        port,
+        cur, max);
+
+    if (n <= 0 || (size_t)n >= sizeof(body)) return -1;
+
+    return nox_http_post_json(host, hp, path, body);
+}
+
 static int looks_like_json(const char *s)
 {
     if (!s) return 0;
@@ -550,13 +748,14 @@ int nox_fetch_games_list_json(char *out, size_t out_cap)
 #include <stdlib.h>
 
 /* Minimal model for your endpoint */
-typedef struct {
-    char name[64];
-    char addr[32];     /* IPv4 string fits */
+typedef struct nox_server_row {
+    char     name[64];
+    char     addr[32];     /* IPv4 string */
     uint16_t port;
-    char map[32];
-    uint8_t players_cur;
-    uint8_t players_max;
+    char     map[32];
+    uint8_t  players_cur;
+    uint8_t  players_max;
+    char mode[16];
 } nox_server_row;
 
 /* ---- tiny helpers ---- */
@@ -653,6 +852,24 @@ static const char *find_key_value_range(const char *obj_begin, const char *obj_e
     return NULL;
 }
 
+
+uint16_t nox_mode_to_flagbit(const char *mode)
+{
+    mode = nox_mode_normalize(mode);
+    if (!mode) return 0;
+
+    if (!strcasecmp(mode, "kotr"))        return NOX_GF_MODE_KOTR;
+    if (!strcasecmp(mode, "ctf"))         return NOX_GF_MODE_CTF;
+    if (!strcasecmp(mode, "flagball"))    return NOX_GF_MODE_FLAGBALL;
+    if (!strcasecmp(mode, "chat"))        return NOX_GF_MODE_CHAT;
+    if (!strcasecmp(mode, "arena"))       return NOX_GF_MODE_ARENA;
+    if (!strcasecmp(mode, "elimination")) return NOX_GF_MODE_ELIMINATION;
+    if (!strcasecmp(mode, "quest"))       return NOX_GF_MODE_QUEST;
+    if (!strcasecmp(mode, "coop"))        return NOX_GF_MODE_COOP;
+    if (!strcasecmp(mode, "coopteam"))    return NOX_GF_MODE_COOPTEAM;
+    return 0;
+}
+
 /* ---- main parser ----
    Returns number of servers parsed into out[] (up to out_cap). */
 size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t out_cap)
@@ -729,6 +946,12 @@ size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t o
             {
                 const char *v = find_key_value_range(obj_begin, obj_end, "map");
                 if (v) parse_json_string(v, row.map, sizeof(row.map));
+            }
+
+            /* mode */
+            {
+                const char *v = find_key_value_range(obj_begin, obj_end, "mode");
+                if (v) parse_json_string(v, row.mode, sizeof(row.mode));
             }
 
             /* players.cur / players.max (object) */

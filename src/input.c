@@ -8,6 +8,23 @@
 #ifdef USE_SDL
 #include "sdl2_scancode_to_dinput.h"
 
+static int g_ctrlinjlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_CONTROL_INJECT_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+
+#ifndef NOX_CTRL_INJECT_LOG
+#define NOX_CTRL_INJECT_LOG(fmt, ...)                                             \
+    do {                                                                   \
+        if (g_ctrlinjlog())                                                   \
+            fprintf(stderr, "[ctrl] " fmt "\n", ##__VA_ARGS__);            \
+    } while (0)
+#endif
+
 enum
 {
     MOUSE_MOTION,
@@ -53,6 +70,184 @@ static int seqnum;
 static int orientation;
 static int move_speed;
 static int jump;
+
+// ------------------------------------------------------------
+// Control server injection + capture (NOX_CAPTURE_INPUT)
+// ------------------------------------------------------------
+static int g_nox_capture_enabled = -1; // -1 unknown, 0/1 cached
+
+static int nox_capture_truthy(void)
+{
+    const char *s = getenv("NOX_CAPTURE_INPUT");
+    if (!s) return 0;
+    while (*s && (unsigned char)*s <= ' ') s++;
+    if (!*s) return 0;
+    if (s[0] == '1' && s[1] == 0) return 1;
+
+    char buf[8];
+    size_t n = 0;
+    while (s[n] && n + 1 < sizeof(buf)) {
+        buf[n] = (char)tolower((unsigned char)s[n]);
+        n++;
+    }
+    buf[n] = 0;
+
+    return (strcmp(buf, "true") == 0) || (strcmp(buf, "yes") == 0) || (strcmp(buf, "on") == 0);
+}
+
+int nox_ctrl_capture_enabled(void)
+{
+    if (g_nox_capture_enabled < 0) {
+        g_nox_capture_enabled = nox_capture_truthy() ? 1 : 0;
+        fprintf(stderr, "[cap] NOX_CAPTURE_INPUT='%s' => %d\n",
+                getenv("NOX_CAPTURE_INPUT") ? getenv("NOX_CAPTURE_INPUT") : "(null)",
+                g_nox_capture_enabled);
+        fflush(stderr);
+    }
+    return g_nox_capture_enabled;
+}
+
+static void nox_escape_and_print_type(const char *s)
+{
+    // Prints: type "....";
+    // Escapes " and \ only.
+    fputs("type \"", stderr);
+    for (const unsigned char *p = (const unsigned char*)s; p && *p; ++p) {
+        if (*p == '"' || *p == '\\') fputc('\\', stderr);
+        fputc((int)*p, stderr);
+    }
+    fputs("\";\n", stderr);
+}
+
+void nox_ctrl_capture_event(const SDL_Event *ev)
+{
+    if (!ev) return;
+    if (!nox_ctrl_capture_enabled()) return;
+
+    switch (ev->type) {
+    case SDL_MOUSEMOTION:
+        fprintf(stderr, "[cap] move %d %d;\n", (int)ev->motion.xrel, (int)ev->motion.yrel);
+        break;
+
+    case SDL_MOUSEBUTTONDOWN:
+    case SDL_MOUSEBUTTONUP: {
+        int down = (ev->button.state == SDL_PRESSED);
+        const char *cmd = NULL;
+
+        if (ev->button.button == SDL_BUTTON_LEFT)   cmd = down ? "ldown" : "lup";
+        if (ev->button.button == SDL_BUTTON_RIGHT)  cmd = down ? "rdown" : "rup";
+        if (ev->button.button == SDL_BUTTON_MIDDLE) cmd = down ? "mdown" : "mup";
+
+        fprintf(stderr, "[cap] mousebtn button=%d state=%d -> %s;\n",
+                (int)ev->button.button, (int)ev->button.state, cmd ? cmd : "(ignored)");
+        if (cmd) fprintf(stderr, "%s;\n", cmd);
+        break;
+    }
+
+    case SDL_KEYDOWN:
+    case SDL_KEYUP: {
+        int down = (ev->key.state == SDL_PRESSED);
+        fprintf(stderr, "[cap] key %s scancode=%d sym=%d mod=%d\n",
+                down ? "down" : "up",
+                (int)ev->key.keysym.scancode,
+                (int)ev->key.keysym.sym,
+                (int)ev->key.keysym.mod);
+
+        // still print your requested F1 command form
+        if (ev->key.keysym.scancode == SDL_SCANCODE_F1) {
+            fprintf(stderr, "%s F1;\n", down ? "keydown" : "keyup");
+        }
+        break;
+    }
+
+    case SDL_TEXTINPUT:
+        fprintf(stderr, "[cap] text '%s'\n", ev->text.text);
+        nox_escape_and_print_type(ev->text.text);
+        break;
+
+    default:
+        // prove we are seeing *some* events if needed
+        // fprintf(stderr, "[cap] event type=%d\n", (int)ev->type);
+        break;
+    }
+
+    fflush(stderr);
+}
+
+
+
+// Inject relative mouse move / wheel directly into the existing mouse_event_queue.
+void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
+{
+    NOX_CTRL_INJECT_LOG("[inj] mouse_move dx=%d dy=%d wheel=%d widx=%u\n", dx, dy, wheel, (unsigned)mouse_event_widx);
+//    fflush(stderr);
+
+    struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
+    me->type = MOUSE_MOTION;
+    me->x = dx;
+    me->y = dy;
+    me->z = wheel;
+    me->seq = seqnum++;
+    mouse_event_widx = (mouse_event_widx + 1) % 256;
+}
+
+
+void nox_ctrl_inject_mouse_button(int button, int down)
+{
+    NOX_CTRL_INJECT_LOG( "[inj] mouse_btn button=%d down=%d widx=%u\n", button, down, (unsigned)mouse_event_widx);
+//    fflush(stderr);
+
+    struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
+    switch (button) {
+    case 0: me->type = MOUSE_BUTTON0; break;
+    case 1: me->type = MOUSE_BUTTON1; break;
+    case 2: me->type = MOUSE_BUTTON2; break;
+    default: return;
+    }
+    me->state = down ? 1 : 0;
+    me->seq = seqnum++;
+    mouse_event_widx = (mouse_event_widx + 1) % 256;
+}
+
+
+void nox_ctrl_inject_key_scancode(int sdl_scancode, int down)
+{
+    NOX_CTRL_INJECT_LOG( "[inj] key scancode=%d down=%d widx=%u\n", sdl_scancode, down, (unsigned)keyboard_event_widx);
+//    fflush(stderr);
+
+    if (sdl_scancode < 0 || sdl_scancode >= (int)(sizeof(scanCodeToKeyNum)/sizeof(scanCodeToKeyNum[0])))
+        return;
+
+    struct keyboard_event *ke = &keyboard_event_queue[keyboard_event_widx];
+    ke->code = scanCodeToKeyNum[sdl_scancode];
+    ke->state = down ? 1 : 0;
+    ke->seq = seqnum++;
+    keyboard_event_widx = (keyboard_event_widx + 1) % 256;
+}
+
+void nox_ctrl_inject_text_utf8(const char *utf8)
+{
+    NOX_CTRL_INJECT_LOG( "[inj] text '%s'\n", utf8 ? utf8 : "(null)");
+//    fflush(stderr);
+
+    if (!utf8) return;
+
+    while (*utf8) {
+        SDL_TextInputEvent te;
+        memset(&te, 0, sizeof(te));
+        te.type = SDL_TEXTINPUT;
+
+        size_t n = 0;
+        while (utf8[n] && n + 1 < sizeof(te.text)) n++;
+        memcpy(te.text, utf8, n);
+        te.text[n] = 0;
+
+        process_textinput_event(&te);
+
+        utf8 += n;
+    }
+}
+
 
 void process_keyboard_event(const SDL_KeyboardEvent *event)
 {

@@ -1,0 +1,56 @@
+FROM noxdecomp-build
+
+COPY . /build/nox-decomp
+
+# -------------------------------------------------
+# Build (armhf)
+# -------------------------------------------------
+WORKDIR /build/nox-decomp/build
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake .. \
+      -DCMAKE_TOOLCHAIN_FILE=/toolchain-armhf.cmake \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-armhf \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_C_FLAGS="\
+        -U_FORTIFY_SOURCE \
+        -fno-strict-aliasing \
+        -fsigned-char \
+        -O0 \
+        -fno-tree-vectorize \
+        -fno-aggressive-loop-optimizations \
+      " \
+      -DCMAKE_CXX_FLAGS="\
+        -fno-strict-aliasing \
+        -fsigned-char \
+        -O0 \
+      "
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake --build . -j $(nproc)
+
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/lib/libav*.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswscale.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswresample.so* /build/nox-decomp/build/src/lib/
+# -------------------------------------------------
+# Verify output
+# -------------------------------------------------
+RUN find /build/nox-decomp/build/
+RUN file /build/nox-decomp/build/src/out
+
+#RUN arm-linux-gnueabihf-nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
+#RUN arm-linux-gnueabihf-nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
+
+RUN readelf -d /build/nox-decomp/build/src/out | grep NEEDED
+
+RUN find  /opt/ffmpeg-armhf/lib/ && ls -lah /opt/ffmpeg-armhf/lib/
+
+
+
+

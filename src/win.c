@@ -5,6 +5,11 @@
 #include "proto.h"
 
 #ifdef USE_SDL
+void nox_control_server_init(void);
+void nox_control_server_pump(void);
+#endif
+
+#ifdef USE_SDL
 #include <stdio.h>     // for fprintf
 SDL_Window *g_window;
 #else
@@ -97,6 +102,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		return 0;
 	}
+
+	#ifdef USE_SDL
+        nox_control_server_init();
+        fprintf(stderr, "[ctrl] win.c: nox_control_server_init() returned\n");
+        fflush(stderr);
+    #endif
 
 #ifdef __EMSCRIPTEN__
     if (EM_ASM_INT(return isMobile()))
@@ -202,12 +213,18 @@ void process_textinput_event(const SDL_TextInputEvent *event);
 
 void process_event(const SDL_Event *event)
 {
+    // Optional capture of user input into replayable telnet commands.
+    nox_ctrl_capture_event(event);
 	switch (event->type)
 	{
 //    case SDL_QUIT:
 //        // Make movie loops exit (sub_555510 reads this)
 //        sub_555500(1);
 //        break;
+    case SDL_QUIT:
+        // Immediate exit (brutal but reliable)
+        exit(0);
+        break;
     case SDL_TEXTEDITING:
         process_textediting_event(&event->edit);
         break;
@@ -380,6 +397,9 @@ int sub_4453A0()
 	while (SDL_PollEvent(&event))
 		process_event(&event);
 	//mm_timer_pump_mainthread();
+#ifdef USE_SDL
+    nox_control_server_pump();
+#endif
 	return 0;
 #else
 	struct tagMSG Msg; // [esp+4h] [ebp-1Ch]

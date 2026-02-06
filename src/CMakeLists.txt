@@ -69,6 +69,7 @@ add_executable (
     cdrom.c
     draw.c
     imm.c
+    control_server.c
     input.c
     main.cpp
     movie.c
@@ -76,6 +77,7 @@ add_executable (
     string.c
     win.c
     lobby.c
+    upnp.c
     "${COMPAT_SOURCES}"
 )
 

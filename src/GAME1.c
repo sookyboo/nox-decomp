@@ -51602,8 +51602,15 @@ LABEL_65:
       }
       else
       {
-        while ( !sub_416CD0() )
-          ;
+        while (!sub_416CD0()) {
+                  // Yield the CPU so we don't busy-spin.
+                  // 1ms is usually enough; bump to 2-5ms if you want even less CPU.
+                  SDL_Delay(1);
+
+                  // Optional but often smart: keep SDL responsive while waiting
+                  // (only if you have an SDL pump function; otherwise omit).
+                  // SDL_PumpEvents();
+        }
       }
       goto LABEL_70;
     }

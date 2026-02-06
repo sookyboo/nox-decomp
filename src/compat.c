@@ -60,11 +60,62 @@ DWORD last_error;
 DWORD last_socket_error;
 void *handles[1024];
 
+// ---- NET logging helpers ----
+static int g_netlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_NET_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+#define NETLOG(...) do { if (g_netlog()) fprintf(stderr, __VA_ARGS__); } while (0)
+
+static int g_packetlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_PACKET_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+#define PACKETLOG(...) do { if (g_packetlog()) fprintf(stderr, __VA_ARGS__); } while (0)
+
+static void net_dump_sockname(int fd, const char *tag)
+{
+#if defined(__arm__) || defined(__arm) || defined(__ARM_EABI__) || defined(__aarch64__)
+    (void)fd; (void)tag;
+    return;
+#else
+    struct sockaddr_in s;
+    socklen_t slen = sizeof(s);
+    char ipbuf[INET_ADDRSTRLEN] = "?";
+    unsigned port = 0;
+
+    if (getsockname(fd, (struct sockaddr *)&s, &slen) == 0 && s.sin_family == AF_INET) {
+        inet_ntop(AF_INET, &s.sin_addr, ipbuf, sizeof(ipbuf));
+        port = (unsigned)ntohs(s.sin_port);
+    }
+    NETLOG("compat_net: %s fd=%d local=%s:%u\n", tag, fd, ipbuf, port);
+#endif
+}
+
+static void net_dump_flags(int fd, const char *tag)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    NETLOG("compat_net: %s fd=%d fcntl_flags=0x%x %s\n",
+           tag, fd, flags,
+           (flags >= 0 && (flags & O_NONBLOCK)) ? "(NONBLOCK)" : "(blocking)");
+}
+
+
 /* forward decls you already have elsewhere */
 static char *dos_to_unix(const char *path);
 static int casepath(const char *path, char *r);
 static void fill_find_data(const char *path, LPWIN32_FIND_DATAA lpFindFileData);
 static int compat_do_stat(const char *path, struct stat *st);
+static int  wsa_from_errno(int e);
+static void wsa_set_last_from_errno(void);
 
 #ifndef FNM_CASEFOLD
 // GNU fnmatch has FNM_CASEFOLD; if missing, we’ll fall back to manual lowercasing below.
@@ -433,8 +484,12 @@ SOCKET WINAPI socket(int domain, int type, int protocol)
     // sookyboo
     //return socket(domain, type, protocol);
     int fd = socket(domain, type, protocol);
-    fprintf(stderr, "compat_net: socket(domain=%d, type=%d, proto=%d) = %d\n",
-            domain, type, protocol, fd);
+    NETLOG("compat_net: socket(domain=%d, type=%d, proto=%d) = %d\n",
+           domain, type, protocol, fd);
+
+    if (fd >= 0) {
+        net_dump_flags(fd, "after socket()");
+    }
 
     if (fd >= 0 && type == SOCK_DGRAM) {
         int yes = 1;
@@ -469,9 +524,16 @@ SOCKET WINAPI socket(int domain, int type, int protocol)
 
 int WINAPI closesocket(SOCKET s)
 {
-    fprintf(stderr, "compat_net: closesocket(fd=%d)\n", (int)s);
-    close(s);
-    return 0;
+    NETLOG("compat_net: closesocket(fd=%d)\n", (int)s);
+    net_dump_sockname((int)s, "closesocket local");
+    net_dump_flags((int)s, "closesocket flags");
+    int r = close(s);
+    if (r == 0) {
+        last_socket_error = 0;
+        return 0;
+    }
+    wsa_set_last_from_errno();
+    return -1;
 }
 
 char *WINAPI inet_ntoa(struct in_addr compat_addr)
@@ -515,9 +577,11 @@ int WINAPI setsockopt(SOCKET s, int level, int opt, const void *value, unsigned 
             fprintf(stderr,
                     "compat_net: treating unknown level=65535/opt=%d as success\n",
                     opt);
+            last_socket_error = 0;
             return 0;
         }
     } else {
+        last_socket_error = 0;
         fprintf(stderr,
                 "compat_net: setsockopt(fd=%d, level=%d, opt=%d) ok\n",
                 (int)s, level, opt);
@@ -552,6 +616,48 @@ int WINAPI setsockopt(SOCKET s, int level, int opt, const void *value, unsigned 
 //    return ret;
 //}
 // sookyboo
+
+static int wsa_from_errno(int e)
+{
+    switch (e) {
+#if defined(EWOULDBLOCK)
+        case EWOULDBLOCK:
+#endif
+#if defined(EAGAIN)
+# if !defined(EWOULDBLOCK) || (EAGAIN != EWOULDBLOCK)
+        case EAGAIN:
+# endif
+#endif
+            return 10035; /* WSAEWOULDBLOCK */
+        case EINPROGRESS:
+            return 10036; /* WSAEINPROGRESS */
+        case EALREADY:
+            return 10037; /* WSAEALREADY */
+        case EINTR:
+            return 10004; /* WSAEINTR */
+        case ECONNRESET:
+            return 10054; /* WSAECONNRESET */
+        case ECONNREFUSED:
+            return 10061; /* WSAECONNREFUSED */
+        case ETIMEDOUT:
+            return 10060; /* WSAETIMEDOUT */
+        case ENETUNREACH:
+            return 10051; /* WSAENETUNREACH */
+        case EHOSTUNREACH:
+            return 10065; /* WSAEHOSTUNREACH */
+        case EADDRINUSE:
+            return 10048; /* WSAEADDRINUSE */
+        default:
+            return 10000 + e; /* fallback */
+    }
+}
+
+
+static void wsa_set_last_from_errno(void)
+{
+    last_socket_error = (DWORD)wsa_from_errno(errno);
+}
+
 int WINAPI ioctlsocket(SOCKET s, long cmd, unsigned long *argp)
 {
     int ret;
@@ -561,29 +667,75 @@ int WINAPI ioctlsocket(SOCKET s, long cmd, unsigned long *argp)
     case 0x4004667f: // FIONREAD
 #ifdef __EMSCRIPTEN__
         ret = 0;
-        *argp = EM_ASM_INT({
-            return network.available($0);
-        }, s);
-//        chatty
-//        fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONREAD) => %lu (EMSCRIPTEN)\n",
-//                (int)s, *argp);
+        *argp = EM_ASM_INT({ return network.available($0); }, s);
 #else
         ret = ioctl(s, FIONREAD, argp);
-
-        // chatty
-//        if (ret < 0) {
-//            fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONREAD) FAILED errno=%d (%s)\n",
-//                    (int)s, errno, strerror(errno));
-//        } else {
-//            fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONREAD) => %lu\n",
-//                    (int)s, *argp);
-//        }
+        if (ret < 0) {
+            wsa_set_last_from_errno();
+            return -1;
+        }
+        last_socket_error = 0;
 #endif
         break;
+
+    case 0x8004667e: // FIONBIO (non-blocking)
+    {
+        if (!argp) {
+            errno = EINVAL;
+            last_socket_error = 10022u; /* WSAEINVAL */
+            return -1;
+        }
+
+#ifdef __EMSCRIPTEN__
+        /* If your JS networking is always nonblocking-ish, just accept. */
+        ret = 0;
+#else
+        int nonblock = (*argp != 0);
+
+        NETLOG("compat_net: ioctlsocket(FIONBIO) fd=%d request=%s\n",
+               (int)s, nonblock ? "NONBLOCK" : "BLOCK");
+        net_dump_sockname((int)s, "FIONBIO socket local");
+        net_dump_flags((int)s, "FIONBIO before");
+
+
+        /* Option A: fcntl (recommended, portable) */
+        int flags = fcntl((int)s, F_GETFL, 0);
+        if (flags < 0) {
+            last_socket_error = 10000u + errno;
+            return -1;
+        }
+        if (nonblock) flags |= O_NONBLOCK;
+        else          flags &= ~O_NONBLOCK;
+
+        ret = fcntl((int)s, F_SETFL, flags);
+        if (ret < 0) {
+            last_socket_error = 10000u + errno;
+            return -1;
+        }
+        ret = 0;
+        net_dump_flags((int)s, "FIONBIO after");
+
+
+        /* Option B (alternative): ioctl(FIONBIO) also works on Linux:
+           int nb = nonblock;
+           ret = ioctl((int)s, FIONBIO, &nb);
+        */
+#endif
+
+        // optional chatty log:
+        // fprintf(stderr, "compat_net: ioctlsocket(fd=%d, FIONBIO=%lu) -> %s\n",
+        //         (int)s, *argp, (*argp ? "NONBLOCK" : "BLOCK"));
+
+        last_socket_error = 0;
+        break;
+    }
+
     default:
         fprintf(stderr, "compat_net: ioctlsocket(fd=%d, cmd=0x%lx) unsupported\n",
                 (int)s, cmd);
-        DebugBreak();
+        /* IMPORTANT: don't DebugBreak() here; callers may legitimately probe ioctls */
+        // DebugBreak();
+        last_socket_error = 10022u; /* WSAEINVAL */
         ret = -1;
         break;
     }
@@ -681,21 +833,21 @@ void build_server_info(void *arg)
 //    return NULL;
 //}
 
-//static void compat_hexdump(const char *tag, const void *buf, size_t len)
-//{
-//    const unsigned char *p = (const unsigned char *)buf;
-//    size_t i;
-//
-//    fprintf(stderr, "%s len=%zu", tag ? tag : "hexdump", len);
-//
-//    for (i = 0; i < len; ++i) {
-//        if ((i % 16) == 0) {
-//            fprintf(stderr, "\n  %04zx:", i);
-//        }
-//        fprintf(stderr, " %02x", p[i]);
-//    }
-//    fprintf(stderr, "\n");
-//}
+static void compat_hexdump(const char *tag, const void *buf, size_t len)
+{
+    const unsigned char *p = (const unsigned char *)buf;
+    size_t i;
+
+    fprintf(stderr, "%s len=%zu", tag ? tag : "hexdump", len);
+
+    for (i = 0; i < len; ++i) {
+        if ((i % 16) == 0) {
+            fprintf(stderr, "\n  %04zx:", i);
+        }
+        fprintf(stderr, " %02x", p[i]);
+    }
+    fprintf(stderr, "\n");
+}
 
 static void nox_log_server_info_packet(const unsigned char *pkt,
                                        size_t len,
@@ -769,6 +921,7 @@ static void nox_log_server_info_packet(const unsigned char *pkt,
 
 struct fake_srv_pkt {
     int used;
+    int sockfd;
     size_t len;
     unsigned char data[256];
     struct sockaddr_in from;
@@ -855,6 +1008,21 @@ static size_t g_srv_rr = 0; /* round-robin index */
 static long g_srv_cache_last_ok = 0;   /* epoch seconds of last successful refresh */
 static long g_srv_cache_next_try = 0;  /* epoch seconds when we may retry after failure */
 
+static long g_last_lobby_reg = 0;      // epoch seconds
+static int  g_lobby_reg_inflight = 0;  // simple guard
+static pthread_mutex_t g_lobby_reg_mu = PTHREAD_MUTEX_INITIALIZER;
+
+static int nox_lobby_register_period_sec(void) {
+    int v = nox_env_int("NOX_LOBBY_REGISTER_PERIOD", 20);
+    if (v < 5) v = 5;
+    return v;
+}
+
+static int nox_should_register_lobby(void) {
+    // default OFF unless enabled
+    return nox_env_truthy(getenv("NOX_LOBBY_REGISTER_ENABLE"));
+}
+
 static long nox_now_sec(void)
 {
     struct timeval tv;
@@ -917,12 +1085,18 @@ static void nox_refresh_server_cache_once(void)
 static struct fake_srv_pkt *alloc_fake_slot(void)
 {
     for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
-        if (!g_fake_packets[i].used) return &g_fake_packets[i];
+        if (!g_fake_packets[i].used) {
+            /* wipe stale metadata from previous use */
+            g_fake_packets[i].sockfd = -1;
+            g_fake_packets[i].len = 0;
+            memset(&g_fake_packets[i].from, 0, sizeof(g_fake_packets[i].from));
+            return &g_fake_packets[i];
+        }
     }
     return NULL;
 }
 
-static void queue_internet_server_reply(const unsigned char *ping,
+static void queue_internet_server_reply(int sockfd, const unsigned char *ping,
                                         size_t ping_len)
 {
 #ifndef __EMSCRIPTEN__
@@ -974,9 +1148,28 @@ static void queue_internet_server_reply(const unsigned char *ping,
 
         /* map at offset 10 */
         if (row->map[0]) {
-            strncpy((char *)&out[10], row->map, 31);
-            out[10 + 31] = 0;
+            size_t mlen = strnlen(row->map, 31);
+            memcpy(&out[10], row->map, mlen);
+            out[10 + mlen] = 0;
         }
+
+        /* flags are little-endian at 28..29 */
+        uint16_t base = nox_lobby_get_last_serverinfo_flags();
+
+        /* If we haven't seen a real serverinfo yet, use a known-good baseline.
+           From your real packet: 0x2087, where the non-mode bits are 0x2007. */
+        if (base == 0) base = 0x2007;
+
+        uint16_t modebit = nox_mode_to_flagbit(row->mode);
+
+        /* preserve everything except mode bits, then apply mode */
+        uint16_t flags = (uint16_t)((base & (uint16_t)~NOX_MODE_MASK) | modebit);
+
+        /* write LE */
+        out[28] = (unsigned char)(flags & 0xFF);
+        out[29] = (unsigned char)((flags >> 8) & 0xFF);
+        NETLOG("compat_net: fake flags base=0x%04x mode='%s' modebit=0x%04x final=0x%04x\n",
+               base, row->mode, modebit, flags);
 
         /* echo ping cookie (bytes 8..11 from ping) at offset 44 */
         if (ping && ping_len >= 12) {
@@ -997,6 +1190,10 @@ static void queue_internet_server_reply(const unsigned char *ping,
             slot->len = total_len;
         }
 
+        if (g_packetlog()) {
+            compat_hexdump("NET FAKE QUEUE", slot->data, slot->len);
+        }
+
         /* sockaddr from JSON */
         memset(&slot->from, 0, sizeof(slot->from));
         slot->from.sin_family = AF_INET;
@@ -1007,10 +1204,12 @@ static void queue_internet_server_reply(const unsigned char *ping,
             continue;
         }
 
+        slot->sockfd = sockfd;
+
         slot->used = 1;
         queued++;
 
-        fprintf(stderr, "compat_net: queued internet server '%s' (%s:%u) map=%s %u/%u\n",
+        NETLOG("compat_net: queued internet server '%s' (%s:%u) map=%s %u/%u\n",
                 row->name, row->addr, (unsigned)row->port, row->map,
                 (unsigned)row->players_cur, (unsigned)row->players_max);
     }
@@ -1028,6 +1227,290 @@ static void queue_internet_server_reply(const unsigned char *ping,
 #endif
 // ---- end LAN broadcast code ----
 
+
+// compat.c (somewhere above sendto)
+typedef struct {
+    char name[64];
+    char map[32];
+    unsigned cur;
+    unsigned max;
+    unsigned port;
+} reg_job_t;
+
+// declare your lobby.c function
+int nox_lobby_register_game(const char *name, const char *map, unsigned cur, unsigned max, unsigned port);
+
+static void *lobby_register_thread(void *arg)
+{
+    reg_job_t *j = (reg_job_t *)arg;
+
+    // Best-effort UPnP mapping (runs in this background thread, not in sendto()).
+    // Controlled by NOX_UPNP_ENABLE and related NOX_UPNP_* env vars.
+    (void)nox_upnp_ensure_mapped_from_env();
+
+    // best-effort
+    int rc = nox_lobby_register_game(j->name, j->map, j->cur, j->max, j->port);
+    if (rc != 0) {
+        fprintf(stderr, "compat_net: lobby register FAILED name='%s' map='%s'\n", j->name, j->map);
+    } else {
+        NETLOG("compat_net: lobby register OK name='%s' map='%s'\n", j->name, j->map);
+    }
+
+    free(j);
+
+    pthread_mutex_lock(&g_lobby_reg_mu);
+    g_lobby_reg_inflight = 0;
+    pthread_mutex_unlock(&g_lobby_reg_mu);
+
+    return NULL;
+}
+
+
+/* Cache latest flags seen in sub_554040 serverinfo packet (offset 28). */
+
+static void log_serverinfo_packet(const unsigned char *pkt, size_t len, const char *where)
+{
+    if (!g_packetlog()) {
+        return;
+    }
+
+    if (!pkt) return;
+
+
+
+    PACKETLOG("compat_net: %s serverinfo len=%zu type=0x%02x\n",
+            where ? where : "?", len, (len >= 3) ? pkt[2] : 0xff);
+
+    // We care about flags at offset 28..29 (little endian)
+    if (len >= 30) {
+        unsigned b28 = pkt[28];
+        unsigned b29 = pkt[29];
+        uint16_t flags = (uint16_t)b28 | ((uint16_t)b29 << 8);
+        PACKETLOG("compat_net: %s flags bytes: pkt[28]=0x%02x pkt[29]=0x%02x -> flags=0x%04x\n",
+                where ? where : "?", b28, b29, (unsigned)flags);
+    } else {
+        PACKETLOG("compat_net: %s too short for flags (need >=30)\n", where ? where : "?");
+    }
+
+    // Optional: log some other useful fields to sanity-check we’re parsing right packet
+    if (len >= 74) {
+        PACKETLOG("compat_net: %s players cur=%u max=%u map@10='%.20s' name@72='%.20s'\n",
+                where ? where : "?", (unsigned)pkt[3], (unsigned)pkt[4],
+                (const char *)&pkt[10], (const char *)&pkt[72]);
+    }
+
+    // Full hexdump (guarded by packet logging toggle)
+    if (g_packetlog()) {
+        compat_hexdump(where ? where : "serverinfo", pkt, len);
+    }
+}
+
+
+static void maybe_register_lobby_from_serverinfo(int sockfd, const unsigned char *pkt, size_t len)
+{
+    if (!nox_should_register_lobby()) return;
+    if (!pkt || len < 73) return;
+    if (pkt[2] != 0x0D) return; // server info
+        log_serverinfo_packet(pkt, len, "maybe_register_lobby_from_serverinfo");
+        /* cache serverinfo flags (uint16 LE at offset 28) for later mode debugging */
+        if (len >= 30) {
+            uint16_t flags =
+                (uint16_t)((unsigned)pkt[28] | ((unsigned)pkt[29] << 8));
+            nox_lobby_set_last_serverinfo_flags(flags);
+            fprintf(stderr, "compat_net: serverinfo flags=0x%04x\n", (unsigned)flags);
+
+        }
+
+
+    long now = nox_now_sec();
+    const int period = nox_lobby_register_period_sec();
+
+    pthread_mutex_lock(&g_lobby_reg_mu);
+
+    if (g_lobby_reg_inflight) {
+        pthread_mutex_unlock(&g_lobby_reg_mu);
+        return;
+    }
+    if (g_last_lobby_reg != 0 && (now - g_last_lobby_reg) < period) {
+        pthread_mutex_unlock(&g_lobby_reg_mu);
+        return;
+    }
+
+    g_last_lobby_reg = now;
+    g_lobby_reg_inflight = 1;
+
+    pthread_mutex_unlock(&g_lobby_reg_mu);
+
+    // Extract fields from the *real* packet we’re sending
+    reg_job_t *j = (reg_job_t *)calloc(1, sizeof(*j));
+    if (!j) return;
+
+    j->cur = pkt[3];
+    j->max = pkt[4];
+
+    // map at offset 10 (your earlier code already does defensive reads)
+    strncpy(j->map, (const char *)&pkt[10], sizeof(j->map) - 1);
+    j->map[sizeof(j->map) - 1] = 0;
+
+    // name at offset 72
+    strncpy(j->name, (const char *)&pkt[72], sizeof(j->name) - 1);
+    j->name[sizeof(j->name) - 1] = 0;
+
+    // port: prefer bound local port of the socket if possible
+    j->port = 18590;
+#if !defined(__arm__) && !defined(__arm) && !defined(__ARM_EABI__)
+    {
+        struct sockaddr_in s;
+        socklen_t slen = sizeof(s);
+        if (getsockname(sockfd, (struct sockaddr *)&s, &slen) == 0 && s.sin_family == AF_INET) {
+            unsigned p = (unsigned)ntohs(s.sin_port);
+            if (p) j->port = p;
+        }
+    }
+#endif
+
+    // spawn background thread
+    pthread_t th;
+    if (pthread_create(&th, NULL, lobby_register_thread, j) == 0) {
+        pthread_detach(th);
+    } else {
+        free(j);
+        pthread_mutex_lock(&g_lobby_reg_mu);
+        g_lobby_reg_inflight = 0;
+        pthread_mutex_unlock(&g_lobby_reg_mu);
+    }
+}
+
+
+static int g_lobby_started = 0;
+
+static void lobby_kickoff_if_needed(int sockfd)
+{
+    if (!nox_should_register_lobby()) return;
+
+    if (__sync_lock_test_and_set(&g_lobby_started, 1) != 0)
+        return; // already started
+
+    // Build a server-info packet and register once immediately.
+    unsigned char buf[256];
+    int dummy[3] = {0,0,0};
+    int len = sub_554040(dummy, sizeof(buf), (char*)buf);
+    if (len > 0) {
+        // sub_554040 may produce either ping or serverinfo depending on context;
+        // but your log shows serverinfo is type 0x0D when it’s correct.
+        maybe_register_lobby_from_serverinfo(sockfd, buf, (size_t)len);
+    }
+}
+
+// ---- Lobby register polling thread (native) ----
+#ifndef __EMSCRIPTEN__
+
+static int g_lobby_poll_thread_started = 0;
+
+static void *lobby_poll_register_thread(void *arg)
+{
+    (void)arg;
+
+    for (;;)
+    {
+        int period = nox_lobby_register_period_sec();
+        if (period < 5) period = 5;
+
+        if (!nox_should_register_lobby()) {
+            // If disabled, don't hammer; just idle briefly and re-check.
+            SDL_Delay(1000);
+            continue;
+        }
+
+        unsigned char buf[256];
+        int dummy[3] = {0, 0, 0};
+        int len = sub_554040(dummy, sizeof(buf), (char *)buf);
+
+        // Always log what sub_554040 returns
+        PACKETLOG("compat_net: sub_554040() -> len=%d\n", len);
+        if (len > 0) {
+            unsigned type = (len >= 3) ? buf[2] : 0xff;
+            PACKETLOG("compat_net: sub_554040 packet type=0x%02x\n", type);
+            if (len >= 30 && buf[2] == 0x0D) {
+                log_serverinfo_packet(buf, (size_t)len, "lobby_poll_register_thread");
+            }
+
+            // Hexdump if packet logging enabled
+            if (g_packetlog()) {
+                compat_hexdump("NET sub_554040", buf, (size_t)len);
+            }
+
+            // If it's a server-info packet (0x0D), register it.
+            if (len >= 73 && buf[2] == 0x0D) {
+                /* cache serverinfo flags (uint16 LE at offset 28) */
+                if (len >= 30) {
+                    uint16_t flags =
+                        (uint16_t)((unsigned)buf[28] | ((unsigned)buf[29] << 8));
+                    nox_lobby_set_last_serverinfo_flags(flags);
+                    PACKETLOG("compat_net: serverinfo flags=0x%04x\n",
+                            (unsigned)flags);
+                }
+
+                // Extract fields (defensive)
+                char name[64] = {0};
+                char map[32]  = {0};
+
+                strncpy(map,  (const char *)&buf[10], sizeof(map)  - 1);
+                strncpy(name, (const char *)&buf[72], sizeof(name) - 1);
+
+                unsigned cur = buf[3];
+                unsigned max = buf[4];
+
+                // Port: default 18590; allow override if you ever add NOX_SERVER_PORT
+                unsigned port = 18590;
+                {
+                    const char *p = getenv("NOX_SERVER_PORT");
+                    if (p && *p) {
+                        int pv = atoi(p);
+                        if (pv > 0 && pv < 65536) port = (unsigned)pv;
+                    }
+                }
+
+                // Best-effort UPnP mapping in the background thread (optional)
+                (void)nox_upnp_ensure_mapped_from_env();
+
+                int rc = nox_lobby_register_game(name, map, cur, max, port);
+                if (rc != 0) {
+                    fprintf(stderr,
+                            "compat_net: lobby register FAILED name='%s' map='%s' %u/%u port=%u\n",
+                            name, map, cur, max, port);
+                } else {
+                    NETLOG("compat_net: lobby register OK name='%s' map='%s' %u/%u port=%u\n",
+                            name, map, cur, max, port);
+                }
+            }
+        }
+
+        SDL_Delay((Uint32)period * 1000);
+    }
+
+    return NULL;
+}
+
+static void lobby_poll_thread_start_once(void)
+{
+    // Start once, ever. If called again, do nothing.
+    if (__sync_lock_test_and_set(&g_lobby_poll_thread_started, 1) != 0)
+        return;
+
+    pthread_t th;
+    if (pthread_create(&th, NULL, lobby_poll_register_thread, NULL) == 0) {
+        pthread_detach(th);
+        fprintf(stderr, "compat_net: lobby polling thread started\n");
+    } else {
+        // If thread creation failed, allow retry on next bind()
+        __sync_lock_test_and_set(&g_lobby_poll_thread_started, 0);
+        fprintf(stderr, "compat_net: lobby polling thread FAILED to start\n");
+    }
+}
+
+#endif // !__EMSCRIPTEN__
+
 int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
 #undef bind
 {
@@ -1044,6 +1527,7 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
 
     ret = 0;
 #else
+    lobby_poll_thread_start_once();
     const struct sockaddr_in *in = (const struct sockaddr_in *)addr;
     struct sockaddr_in tmp;
     char ipbuf[INET_ADDRSTRLEN] = "0.0.0.0";
@@ -1053,7 +1537,7 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         port = ntohs(in->sin_port);
         inet_ntop(AF_INET, &in->sin_addr, ipbuf, sizeof(ipbuf));
 
-        fprintf(stderr,
+        NETLOG(
                 "compat_net: bind(fd=%d, ip=%s, port=%u)\n",
                 sockfd, ipbuf, port);
 
@@ -1066,15 +1550,18 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         if (getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &sock_type, &optlen) == 0 &&
             sock_type == SOCK_DGRAM) {
             optlen = sizeof(int);
+            NETLOG("compat_net: bind requested fd=%d\n", sockfd);
+            net_dump_sockname(sockfd, "pre-bind getsockname");
+            net_dump_flags(sockfd, "pre-bind flags");
+
             if (getsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcast, &optlen) == 0 &&
                 broadcast && port == 0) {
 
                 tmp = *in;
                 tmp.sin_port = htons(18590);
 
-                fprintf(stderr,
-                        "compat_net:  -> forcing UDP broadcast socket fd=%d to port 18590\n",
-                        sockfd);
+                NETLOG("compat_net: FORCING bind fd=%d from port 0 -> 18590 (broadcast discovery heuristic)\n",
+                       sockfd);
 
                 addr = (const struct sockaddr *)&tmp;
             }
@@ -1086,11 +1573,23 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         if (errno == EADDRINUSE) {
             last_socket_error = 10048u; /* WSAEADDRINUSE */
         }
-        fprintf(stderr,
-                "compat_net: bind(fd=%d) FAILED errno=%d (%s)\n",
+        NETLOG("compat_net: bind(fd=%d) FAILED errno=%d (%s)\n",
                 sockfd, errno, strerror(errno));
         return -1;
     }
+    if (ret == 0) {
+        /* We can decide kickoff purely from the bind address we passed in.
+           This avoids getsockname() prototype issues on some ARM/glibc + Win32 shim builds. */
+        if (addrlen >= sizeof(struct sockaddr_in)) {
+            const struct sockaddr_in *bin = (const struct sockaddr_in *)addr;
+            if (bin->sin_family == AF_INET && ntohs(bin->sin_port) == 18590) {
+                lobby_kickoff_if_needed(sockfd);
+            }
+        }
+    }
+    last_socket_error = 0;
+    net_dump_sockname(sockfd, "post-bind getsockname");
+    net_dump_flags(sockfd, "post-bind flags");
 
     /* Log the final bound address/port after bind succeeds.
        On some 32-bit ARM/glibc combos, the getsockname prototype
@@ -1101,8 +1600,7 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
         struct sockaddr_in s;
         socklen_t slen = sizeof(s);
         if (getsockname(sockfd, (struct sockaddr *)&s, &slen) == 0) {
-            fprintf(stderr,
-                    "compat_net: bind(fd=%d) now at %s:%u\n",
+            NETLOG("compat_net: bind(fd=%d) now at %s:%u\n",
                     sockfd,
                     inet_ntoa(s.sin_addr),
                     ntohs(s.sin_port));
@@ -1111,6 +1609,38 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
 #endif
 #endif
     return ret;
+}
+
+static void nox_log_rx_pkt(const char *tag,
+                           const void *buf, int len,
+                           const struct sockaddr_in *from)
+{
+    if (!buf || len < 0) return;
+
+    unsigned type = (len >= 3) ? ((const unsigned char *)buf)[2] : 0xFF;
+
+    if (from) {
+        char ipbuf[INET_ADDRSTRLEN] = {0};
+        inet_ntop(AF_INET, &from->sin_addr, ipbuf, sizeof(ipbuf));
+        PACKETLOG("compat_net: RX %s %d bytes from %s:%u type=0x%02x\n",
+                tag ? tag : "?", len, ipbuf, ntohs(from->sin_port), type);
+    } else {
+        PACKETLOG("compat_net: RX %s %d bytes (no addr) type=0x%02x\n",
+                tag ? tag : "?", len, type);
+    }
+
+    /* Useful for serverinfo: flags at 28..29 */
+    if (len >= 30) {
+        const unsigned char *p = (const unsigned char *)buf;
+        uint16_t f = (uint16_t)p[28] | ((uint16_t)p[29] << 8);
+        PACKETLOG("compat_net: RX %s flags=0x%04x (b28=0x%02x b29=0x%02x)\n",
+                tag ? tag : "?", (unsigned)f, (unsigned)p[28], (unsigned)p[29]);
+    }
+
+    /* Hexdump only when packet logging is enabled */
+    if (g_packetlog()) {
+        compat_hexdump(tag ? tag : "NET RX", buf, (size_t)len);
+    }
 }
 
 int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
@@ -1140,33 +1670,60 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
     return ret;
 #else
     /* First, see if we have a fake server packet queued. */
-    if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
-        for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
-            struct fake_srv_pkt *slot = &g_fake_packets[i];
-            if (slot->used && slot->len <= length) {
-                memcpy(buffer, slot->data, slot->len);
+    for (int i = 0; i < (int)(sizeof(g_fake_packets)/sizeof(g_fake_packets[0])); ++i) {
+        struct fake_srv_pkt *slot = &g_fake_packets[i];
+        if (!slot->used) continue;
+        if (slot->sockfd != sockfd) continue;
+        if (slot->len > length) continue;
+
+        memcpy(buffer, slot->data, slot->len);
+        nox_log_rx_pkt("FAKE", buffer, (int)slot->len, &slot->from);
+
+        /* Fill addr if caller provided a buffer; don't require it. */
+        if (addr && addrlen) {
+            unsigned int want = *addrlen;
+
+            if (want >= sizeof(struct sockaddr_in)) {
                 memcpy(addr, &slot->from, sizeof(struct sockaddr_in));
                 *addrlen = sizeof(struct sockaddr_in);
-                int ret = (int)slot->len;
-                slot->used = 0;
-
-                fprintf(stderr,
-                        "compat_net: returning fake internet server packet (%d bytes)\n",
-                        ret);
-
-                return ret;
+            } else {
+                /* Caller buffer too small (or 0): don't write it, just report size. */
+                *addrlen = sizeof(struct sockaddr_in);
             }
         }
+
+        int ret = (int)slot->len;
+        slot->used = 0;
+
+        NETLOG("compat_net: returning fake internet server packet (%d bytes) on fd=%d\n",
+                ret, sockfd);
+
+        return ret;
     }
 
     /* No fake packets waiting: fall back to real recvfrom. */
     int r = recvfrom(sockfd, buffer, length, flags,
                      (__SOCKADDR_ARG)addr, addrlen);
+    if (r >= 0) {
+        last_socket_error = 0;
+    } else {
+        wsa_set_last_from_errno();
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            NETLOG("compat_net: recvfrom(fd=%d) -> EAGAIN/EWOULDBLOCK (wsa=%u)\n",
+                   sockfd, last_socket_error);
+        } else {
+            NETLOG("compat_net: recvfrom(fd=%d) FAIL errno=%d(%s) wsa=%u\n",
+                   sockfd, errno, strerror(errno), last_socket_error);
+        }
+        net_dump_sockname(sockfd, "recvfrom error local");
+        net_dump_flags(sockfd, "recvfrom error flags");
+        return -1;
+    }
 
     if (r >= 0) {
         if (addr && addrlen && *addrlen >= sizeof(struct sockaddr_in)) {
             struct sockaddr_in *in = (struct sockaddr_in *)addr;
-
+            nox_log_rx_pkt("REAL", buffer, r, in);
             uint16_t sport = ntohs(in->sin_port);
 
             /* Heuristic: only dump Nox UDP (18590) and only “non-server-info”
@@ -1201,10 +1758,11 @@ int WINAPI recvfrom(int sockfd, void *buffer, unsigned int length, int flags,
 //                    "compat_net: recvfrom(fd=%d) <= %d bytes (no addr)\n",
 //                    sockfd, r);
         }
-    } else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+//    } else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
 //        fprintf(stderr,
 //                "compat_net: recvfrom(fd=%d) FAILED errno=%d (%s)\n",
 //                sockfd, errno, strerror(errno));
+//    }
     }
 
     return r;
@@ -1261,8 +1819,17 @@ int WINAPI sendto(int sockfd, void *buffer, unsigned int length, int flags,
         const unsigned char *p = (const unsigned char *)buffer;
         if (p[2] == 0x0C) {
             /* Queue our hardcoded internet server reply. */
-            queue_internet_server_reply(p, length);
+            queue_internet_server_reply(sockfd, p, length);
         }
+
+//        if (p[2] == 0x0D) {
+//            // optional: record / hexdump
+//            if (g_packetlog()) {
+//                compat_hexdump("NET sendto serverinfo", buffer, length);
+//            }
+//            // do rate-limited lobby register
+//            maybe_register_lobby_from_serverinfo(sockfd, p, (size_t)length);
+//        }
     }
 
 //    fprintf(stderr, "compat_net: sendto(fd=%d -> %s:%u, len=%u)\n",
@@ -1271,17 +1838,27 @@ int WINAPI sendto(int sockfd, void *buffer, unsigned int length, int flags,
     int r = sendto(sockfd, buffer, length, flags,
                    (__CONST_SOCKADDR_ARG)addr, addrlen);
     if (r < 0) {
-        last_socket_error = 10000 + errno;  /* crude mapping */
-//        fprintf(stderr, "compat_net: sendto(fd=%d -> %s:%u) FAILED errno=%d (%s)\n",
-//                sockfd, ipbuf, dest_port, errno, strerror(errno));
+        wsa_set_last_from_errno();
+        return -1;
     }
+    last_socket_error = 0;
     return r;
 #endif
 }
 
 int WINAPI WSAGetLastError()
 {
-    fprintf(stderr, "compat_net: WSAGetLastError() => %u\n", last_socket_error);
+    static int chatty = -1;
+    if (chatty < 0) {
+        /* default OFF; set NOX_WSA_LOG=1 to enable */
+        const char *e = getenv("NOX_WSA_LOG");
+        chatty = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+
+    if (chatty && last_socket_error != 0) {
+        NETLOG("compat_net: WSAGetLastError() => %u\n", last_socket_error);
+    }
+
     return last_socket_error;
 }
 

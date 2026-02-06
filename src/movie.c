@@ -586,7 +586,7 @@ void __cdecl sub_555430(HWND *a1)
         if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height) {
             if (g_movie_surf) SDL_FreeSurface(g_movie_surf);
             g_movie_surf = SDL_CreateRGBSurfaceWithFormat(
-                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_RGB555
+                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_RGBA5551
             );
             if (!g_movie_surf) {
                 dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed");
@@ -610,8 +610,13 @@ void __cdecl sub_555430(HWND *a1)
         // Clear movie surface to black so we don't show stale pixels
         if (SDL_MUSTLOCK(dst)) SDL_LockSurface(dst);
 
-        // RGB555 black is 0
-        memset(dst->pixels, 0, (size_t)dst->h * (size_t)dst->pitch);
+        // RGBA5551 black with alpha=1 => 0x0001
+        uint16_t *pix = (uint16_t *)dst->pixels;
+        int pitch_pix = dst->pitch / 2;
+        for (int y = 0; y < dst->h; ++y) {
+            uint16_t *row = pix + y * pitch_pix;
+            for (int x = 0; x < dst->w; ++x) row[x] = 0x0001;
+        }
 
         if (SDL_MUSTLOCK(dst)) SDL_UnlockSurface(dst);
 
@@ -728,6 +733,19 @@ void __cdecl sub_555430(HWND *a1)
                               (const uint8_t * const*)vfrm->data, vfrm->linesize,
                               0, vdec->height,
                               dst_data, dst_linesize);
+
+                    uint16_t *p = (uint16_t *)dst->pixels;
+                    int pitch_pix = dst->pitch / 2;
+
+                    // sws output is effectively 0RGB1555-ish in little-endian (RGB in low 15 bits).
+                    // We need RGBA5551: RGB in bits 15..1, alpha in bit0.
+                    for (int y = 0; y < dst->h; y++) {
+                        uint16_t *row = p + y * pitch_pix;
+                        for (int x = 0; x < dst->w; x++) {
+                            uint16_t v = row[x];
+                            row[x] = (uint16_t)(((v & 0x7FFF) << 1) | 1);
+                        }
+                    }
 
                     if (SDL_MUSTLOCK(dst))
                         SDL_UnlockSurface(dst);
