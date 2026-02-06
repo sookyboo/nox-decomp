@@ -23,8 +23,21 @@
 #include <SDL2/SDL.h>
 
 
+static int g_ctrllog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_CONTROL_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+
 #ifndef NOX_CTRL_LOG
-#define NOX_CTRL_LOG(fmt, ...) fprintf(stderr, "[ctrl] " fmt "\n", ##__VA_ARGS__)
+#define NOX_CTRL_LOG(fmt, ...)                                             \
+    do {                                                                   \
+        if (g_ctrllog())                                                   \
+            fprintf(stderr, "[ctrl] " fmt "\n", ##__VA_ARGS__);            \
+    } while (0)
 #endif
 
 static void handle_one_command(int fd, const char *cmd, int *authed, const char *pw);

@@ -8,6 +8,23 @@
 #ifdef USE_SDL
 #include "sdl2_scancode_to_dinput.h"
 
+static int g_ctrlinjlog(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("NOX_CONTROL_INJECT_LOG");
+        v = (e && *e && strcmp(e, "0") != 0) ? 1 : 0;
+    }
+    return v;
+}
+
+#ifndef NOX_CTRL_INJECT_LOG
+#define NOX_CTRL_INJECT_LOG(fmt, ...)                                             \
+    do {                                                                   \
+        if (g_ctrlinjlog())                                                   \
+            fprintf(stderr, "[ctrl] " fmt "\n", ##__VA_ARGS__);            \
+    } while (0)
+#endif
+
 enum
 {
     MOUSE_MOTION,
@@ -162,8 +179,8 @@ void nox_ctrl_capture_event(const SDL_Event *ev)
 // Inject relative mouse move / wheel directly into the existing mouse_event_queue.
 void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
 {
-    fprintf(stderr, "[inj] mouse_move dx=%d dy=%d wheel=%d widx=%u\n", dx, dy, wheel, (unsigned)mouse_event_widx);
-    fflush(stderr);
+    NOX_CTRL_INJECT_LOG("[inj] mouse_move dx=%d dy=%d wheel=%d widx=%u\n", dx, dy, wheel, (unsigned)mouse_event_widx);
+//    fflush(stderr);
 
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
     me->type = MOUSE_MOTION;
@@ -177,8 +194,8 @@ void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
 
 void nox_ctrl_inject_mouse_button(int button, int down)
 {
-    fprintf(stderr, "[inj] mouse_btn button=%d down=%d widx=%u\n", button, down, (unsigned)mouse_event_widx);
-    fflush(stderr);
+    NOX_CTRL_INJECT_LOG( "[inj] mouse_btn button=%d down=%d widx=%u\n", button, down, (unsigned)mouse_event_widx);
+//    fflush(stderr);
 
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
     switch (button) {
@@ -195,8 +212,8 @@ void nox_ctrl_inject_mouse_button(int button, int down)
 
 void nox_ctrl_inject_key_scancode(int sdl_scancode, int down)
 {
-    fprintf(stderr, "[inj] key scancode=%d down=%d widx=%u\n", sdl_scancode, down, (unsigned)keyboard_event_widx);
-    fflush(stderr);
+    NOX_CTRL_INJECT_LOG( "[inj] key scancode=%d down=%d widx=%u\n", sdl_scancode, down, (unsigned)keyboard_event_widx);
+//    fflush(stderr);
 
     if (sdl_scancode < 0 || sdl_scancode >= (int)(sizeof(scanCodeToKeyNum)/sizeof(scanCodeToKeyNum[0])))
         return;
@@ -210,8 +227,8 @@ void nox_ctrl_inject_key_scancode(int sdl_scancode, int down)
 
 void nox_ctrl_inject_text_utf8(const char *utf8)
 {
-    fprintf(stderr, "[inj] text '%s'\n", utf8 ? utf8 : "(null)");
-    fflush(stderr);
+    NOX_CTRL_INJECT_LOG( "[inj] text '%s'\n", utf8 ? utf8 : "(null)");
+//    fflush(stderr);
 
     if (!utf8) return;
 
