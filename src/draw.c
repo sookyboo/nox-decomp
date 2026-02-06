@@ -2791,6 +2791,80 @@ void sub_4AD180()
 }
 
 //----- (004AD1E0) --------------------------------------------------------
+//#ifdef USE_SDL
+//void sub_4AD1E0()
+//{
+//    int result;      // eax
+//    _WORD *v1;       // edi
+//    int v2;          // edx
+//    _WORD **v3;      // ebp
+//    _WORD *v4;       // esi
+//    int v5;          // ecx;
+//
+//    if (dword_973C70)
+//        return;
+//
+//#ifdef USE_SDL
+//    if (!g_backbuffer1)
+//        return;
+//
+//    // SDL path: lock the surface and get 16-bit pixel pointer
+//    result = SDL_LockSurface(g_backbuffer1);
+//    v1 = (_WORD *)g_backbuffer1->pixels;
+//#else
+//    DDSURFACEDESC v11; // [esp+Ch] [ebp-70h]
+//
+//    if (!g_backbuffer1)
+//        return;
+//
+//    v11.dwSize  = sizeof(v11);
+//    v11.dwFlags = 0;
+//    result = g_backbuffer1->lpVtbl->Lock(g_backbuffer1, 0, &v11, DDLOCK_WAIT | DDLOCK_NOSYSLOCK, 0);
+//    v1 = (_WORD *)v11.lpSurface;
+//#endif
+//
+//    if (!result)
+//    {
+//        v2 = *(_DWORD *)&byte_5D4594[3801788];          // height
+//        v3 = *(_WORD ***)&byte_5D4594[3798784];         // source row pointers
+//
+//        while (v2 > 0)
+//        {
+//            v4 = *v3;                                   // src row
+//            v5 = *(_DWORD *)&byte_5D4594[3801800];      // blocks per row (width / 16)
+//
+//            while (v5 > 0)
+//            {
+//                int i;
+//                for (i = 0; i < 16; i++)
+//                    *v1++ = *v4++ << 1;                 // expand to 1:5:5:5 (or similar)
+//                v5--;
+//            }
+//
+//            // advance to next dest row using pre-computed pitch delta
+//            v1 = (_WORD *)((char *)v1 + dword_974868);
+//            ++v3;
+//            v2--;
+//        }
+//
+//#ifdef USE_SDL
+//        // Optional: keep our wide-mode debug sample print (no pixel changes).
+//        //if (g_backbuffer1->w > 800) {
+//        //    uint16_t *p16 = (uint16_t *)g_backbuffer1->pixels;
+//        //    printf("sub_4AD1E0: first row samples = %04x %04x %04x %04x\n",
+//        //           p16[0], p16[1], p16[2], p16[3]);
+//        //}
+//
+//        SDL_UnlockSurface(g_backbuffer1);
+//#else
+//        g_backbuffer1->lpVtbl->Unlock(g_backbuffer1, v11.lpSurface);
+//#endif
+//
+//        ++*(_DWORD *)&byte_5D4594[3798652];
+//    }
+//}
+//#endif
+//sookyboo perf improvement
 #ifdef USE_SDL
 void sub_4AD1E0()
 {
@@ -2808,7 +2882,6 @@ void sub_4AD1E0()
     if (!g_backbuffer1)
         return;
 
-    // SDL path: lock the surface and get 16-bit pixel pointer
     result = SDL_LockSurface(g_backbuffer1);
     v1 = (_WORD *)g_backbuffer1->pixels;
 #else
@@ -2835,26 +2908,35 @@ void sub_4AD1E0()
 
             while (v5 > 0)
             {
-                int i;
-                for (i = 0; i < 16; i++)
-                    *v1++ = *v4++ << 1;                 // expand to 1:5:5:5 (or similar)
+                // unroll 16 pixels
+                v1[0]  = (WORD)(v4[0]  << 1);
+                v1[1]  = (WORD)(v4[1]  << 1);
+                v1[2]  = (WORD)(v4[2]  << 1);
+                v1[3]  = (WORD)(v4[3]  << 1);
+                v1[4]  = (WORD)(v4[4]  << 1);
+                v1[5]  = (WORD)(v4[5]  << 1);
+                v1[6]  = (WORD)(v4[6]  << 1);
+                v1[7]  = (WORD)(v4[7]  << 1);
+                v1[8]  = (WORD)(v4[8]  << 1);
+                v1[9]  = (WORD)(v4[9]  << 1);
+                v1[10] = (WORD)(v4[10] << 1);
+                v1[11] = (WORD)(v4[11] << 1);
+                v1[12] = (WORD)(v4[12] << 1);
+                v1[13] = (WORD)(v4[13] << 1);
+                v1[14] = (WORD)(v4[14] << 1);
+                v1[15] = (WORD)(v4[15] << 1);
+
+                v1 += 16;
+                v4 += 16;
                 v5--;
             }
 
-            // advance to next dest row using pre-computed pitch delta
             v1 = (_WORD *)((char *)v1 + dword_974868);
             ++v3;
             v2--;
         }
 
 #ifdef USE_SDL
-        // Optional: keep our wide-mode debug sample print (no pixel changes).
-        //if (g_backbuffer1->w > 800) {
-        //    uint16_t *p16 = (uint16_t *)g_backbuffer1->pixels;
-        //    printf("sub_4AD1E0: first row samples = %04x %04x %04x %04x\n",
-        //           p16[0], p16[1], p16[2], p16[3]);
-        //}
-
         SDL_UnlockSurface(g_backbuffer1);
 #else
         g_backbuffer1->lpVtbl->Unlock(g_backbuffer1, v11.lpSurface);
@@ -2864,6 +2946,7 @@ void sub_4AD1E0()
     }
 }
 #endif
+
 
 //----- (004AD2A0) --------------------------------------------------------
 void sub_4AD2A0()
