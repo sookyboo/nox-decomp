@@ -7771,6 +7771,20 @@ int nox_is_bad_server_ip(const char *ip);
 int nox_is_bad_server_name(const char *name);
 int nox_env_truthy(const char *s);
 
+int nox_lobby_register_game(const char *name,
+                           const char *map,
+                           unsigned cur,
+                           unsigned max,
+                           unsigned port);
+
+/* Best-effort: reads NOX_UPNP_* env vars and tries to map.
+  Safe to call repeatedly; internally rate-limited and cached.
+  Returns 0 on success (or already mapped), -1 on failure/disabled. */
+int nox_upnp_ensure_mapped_from_env(void);
+
+/* Best-effort cleanup (also registered via atexit on first success). */
+void nox_upnp_cleanup(void);
+
 #ifdef __cplusplus
 }
 #endif

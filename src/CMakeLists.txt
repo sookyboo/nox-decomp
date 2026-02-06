@@ -77,6 +77,7 @@ add_executable (
     string.c
     win.c
     lobby.c
+    upnp.c
     "${COMPAT_SOURCES}"
 )
 

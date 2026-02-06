@@ -521,6 +521,117 @@ int nox_http_get_body(const char *host,
     return (int)out_len;
 }
 
+// lobby.c (add near nox_http_get_body)
+
+static const char *nox_lobby_register_path(void)
+{
+    return nox_env_str("NOX_LOBBY_REGISTER_PATH", "/api/v0/games/register");
+}
+
+static int nox_http_post_json(const char *host,
+                             uint16_t port,
+                             const char *path,
+                             const char *json_body)
+{
+    if (!host || !path || !json_body) return -1;
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%u", (unsigned)port);
+
+    int fd = connect_tcp(host, port_str);
+    if (fd < 0) return -1;
+
+    const size_t body_len = strlen(json_body);
+
+    char req[1024];
+    int req_len = snprintf(req, sizeof(req),
+        "POST %s HTTP/1.1\r\n"
+        "Host: %s:%u\r\n"
+        "User-Agent: nox-decomp/1\r\n"
+        "Accept: application/json\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: %u\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        path, host, (unsigned)port, (unsigned)body_len);
+
+    if (req_len <= 0 || (size_t)req_len >= sizeof(req)) {
+        close(fd);
+        return -1;
+    }
+
+    if (send_all(fd, req, (size_t)req_len) < 0) { close(fd); return -1; }
+    if (send_all(fd, json_body, body_len) < 0) { close(fd); return -1; }
+
+    // Read status line
+    char line[1024];
+    int rl = recv_line(fd, line, sizeof(line));
+    if (rl <= 0) { close(fd); return -1; }
+
+    int status = 0;
+    {
+        const char *p = strchr(line, ' ');
+        if (p) status = atoi(p + 1);
+    }
+
+    // Drain headers (don’t care about body)
+    for (;;) {
+        rl = recv_line(fd, line, sizeof(line));
+        if (rl <= 0) break;
+        if (strcmp(line, "\r\n") == 0) break;
+    }
+
+    close(fd);
+
+    return (status >= 200 && status < 300) ? 0 : -1;
+}
+
+/* Build JSON and register.
+   Note: Address can be omitted/empty because server overwrites it when trustAddr=false. */
+int nox_lobby_register_game(const char *name,
+                           const char *map,
+                           unsigned cur,
+                           unsigned max,
+                           unsigned port)
+{
+    const char *host = nox_lobby_host();
+    uint16_t hp = nox_lobby_port();
+    const char *path = nox_lobby_register_path();
+
+    // Provide required fields the Go server validates.
+    // mode/vers may not be in the LAN packet; make them env-configurable.
+    const char *vers = nox_env_str("NOX_SERVER_VERS", "1.2");
+    const char *mode = nox_env_str("NOX_SERVER_MODE", "ctf");
+
+    // clamp
+    if (max == 0) max = 31;
+    if (cur > max) cur = max;
+    if (port == 0) port = 18590;
+
+    char body[512];
+    // IMPORTANT: keep this simple (no escaping). If you might have quotes in names,
+    // we can add a tiny JSON escaper later.
+    int n = snprintf(body, sizeof(body),
+        "{"
+          "\"name\":\"%s\","
+          "\"map\":\"%s\","
+          "\"mode\":\"%s\","
+          "\"vers\":\"%s\","
+          "\"port\":%u,"
+          "\"players\":{\"cur\":%u,\"max\":%u}"
+        "}",
+        name ? name : "",
+        map ? map : "",
+        mode,
+        vers,
+        port,
+        cur, max);
+
+    if (n <= 0 || (size_t)n >= sizeof(body)) return -1;
+
+    return nox_http_post_json(host, hp, path, body);
+}
+
 static int looks_like_json(const char *s)
 {
     if (!s) return 0;
