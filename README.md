@@ -145,7 +145,12 @@ export NOX_CAPTURE_INPUT=0   # prints out real user mouse input but mostly usele
 
 # Other env vars
 ```
-export NOX_SKIP_INTRO_MOVIES=0 # skip the logo movies at the start of the game
+export NOX_SKIP_INTRO_MOVIES=0 # default is 1 - skip the logo movies at the start of the game
+
+# NOX_LIMIT_RANGE_ON_RUN - useful for gamepads and steam deck 
+# limits the range of the mouse when running but only if starting close to center or passing through center
+export NOX_LIMIT_RANGE_ON_RUN=1 default is 0
+export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle   
 ```
 
 # Known issues

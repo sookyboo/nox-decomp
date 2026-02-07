@@ -57,6 +57,35 @@ struct finger_state
 
 extern int g_rotated;
 float input_sensitivity = 1.0;
+// ------------------------------------------------------------
+// Mouse range limiter (NOX_LIMIT_RANGE_ON_RUN)
+// ------------------------------------------------------------
+static int g_limit_range_enabled = -1;  // -1 unknown, 0/1 cached
+static int g_limit_range_radius  = -1;  // cached radius in game pixels
+
+static int nox_limit_range_enabled(void)
+{
+    if (g_limit_range_enabled < 0) {
+        g_limit_range_enabled = nox_env_truthy(getenv("NOX_LIMIT_RANGE_ON_RUN")) ? 1 : 0;
+//        fprintf(stderr, "[limit] NOX_LIMIT_RANGE_ON_RUN='%s' => %d\n",
+//                getenv("NOX_LIMIT_RANGE_ON_RUN") ? getenv("NOX_LIMIT_RANGE_ON_RUN") : "(null)",
+//                g_limit_range_enabled);
+//        fflush(stderr);
+    }
+    return g_limit_range_enabled;
+}
+
+static int nox_limit_range_radius(void)
+{
+    if (g_limit_range_radius < 0) {
+        g_limit_range_radius = nox_env_int("NOX_LIMIT_RANGE_ON_RUN_RADIUS", 110);
+        if (g_limit_range_radius < 0) g_limit_range_radius = 0;
+//        fprintf(stderr, "[limit] NOX_LIMIT_RANGE_ON_RUN_RADIUS=%d\n", g_limit_range_radius);
+//        fflush(stderr);
+    }
+    return g_limit_range_radius;
+}
+
 static struct keyboard_event keyboard_event_queue[256];
 static DWORD keyboard_event_ridx;
 static DWORD keyboard_event_widx;
@@ -66,6 +95,12 @@ static DWORD mouse_event_widx;
 static struct finger_state fingers[8];
 static int mouse0_state;
 static int mouse1_state;
+static int g_rmb_down_sdl;
+
+/* Once we enter the circle while RMB held, we latch and prevent leaving */
+static int g_limit_latched;
+static unsigned g_limit_clamp_count;
+
 static int seqnum;
 static int orientation;
 static int move_speed;
@@ -271,6 +306,73 @@ void process_mouse_event(const SDL_MouseButtonEvent *event)
         break;
     case SDL_BUTTON_RIGHT:
         me->type = MOUSE_BUTTON1;
+
+        /* Log ONLY on RMB transition to down */
+        if (event->state == SDL_PRESSED && !g_rmb_down_sdl) {
+            int mx, my;
+            SDL_GetMouseState(&mx, &my);
+
+            int2 *m = sub_4309F0(); /* nox_client_getMousePos */
+//            fprintf(stderr, "[MOUSE] sdl=(%d,%d) game=(%d,%d)\n",
+//                    mx, my,
+//                    m ? m->field_0 : -1,
+//                    m ? m->field_4 : -1);
+
+            /* viewport struct starts at byte_5D4594[811068] */
+            int *vp = (int *)sub_437250(); /* [0]=left [1]=top [2]=right [3]=bottom (typical) */
+            if (vp) {
+                int vw = vp[2] - vp[0];
+                int vh = vp[3] - vp[1];
+//                fprintf(stderr, "[VP] l=%d t=%d r=%d b=%d  w=%d h=%d\n",
+//                        vp[0], vp[1], vp[2], vp[3], vw, vh);
+            } else {
+//                fprintf(stderr, "[VP] (null)\n");
+            }
+
+//            fflush(stderr);
+        }
+
+        /* Track held state for transition detection */
+        g_rmb_down_sdl = (event->state == SDL_PRESSED) ? 1 : 0;
+
+        if (g_rmb_down_sdl) {
+            /* On RMB down: if we start inside the circle, latch immediately.
+               Only do this when viewport is valid (not menus). */
+            if (nox_limit_range_enabled()) {
+                int *vp = (int *)sub_437250();
+                if (vp) {
+                    int vw = vp[2] - vp[0];
+                    int vh = vp[3] - vp[1];
+                    if (vw > 0 && vh > 0) {
+                        int2 *gm = sub_4309F0();
+                        if (gm) {
+                            const double R = (double)nox_limit_range_radius();
+                            if (R > 0.0) {
+                                const double cx = (double)vp[0] + ((double)(vp[2] - vp[0] + 1)) * 0.5;
+                                const double cy = (double)vp[1] + ((double)(vp[3] - vp[1] + 1)) * 0.5;
+
+                                const double gx = (double)gm->field_0;
+                                const double gy = (double)gm->field_4;
+
+                                const double vx = gx - cx;
+                                const double vy = gy - cy;
+
+                                if (vx*vx + vy*vy <= R*R) {
+                                    g_limit_latched = 1;
+//                                    fprintf(stderr, "[limit] latched (started inside circle)\n");
+//                                    fflush(stderr);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            /* Reset latch when RMB is released */
+            g_limit_latched = 0;
+            g_limit_clamp_count = 0;
+        }
+
         break;
     case SDL_BUTTON_MIDDLE:
         me->type = MOUSE_BUTTON2;
@@ -289,9 +391,139 @@ void process_motion_event(const SDL_MouseMotionEvent *event)
 {
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
 
+    // Default: pass through scaled deltas
+    double dx = (double)input_sensitivity * (double)event->xrel;
+    double dy = (double)input_sensitivity * (double)event->yrel;
+
+    // If RMB not held, ensure latch is cleared (safety net)
+    if (!g_rmb_down_sdl) {
+        g_limit_latched = 0;
+    }
+
+    // Apply limiter only when:
+    //  - env enabled
+    //  - RMB held
+    //  - viewport valid (NOT zero/unset)
+    if ((dx != 0.0 || dy != 0.0) && g_rmb_down_sdl && nox_limit_range_enabled()) {
+        int *vp = (int *)sub_437250(); // [0]=l [1]=t [2]=r [3]=b
+        if (vp) {
+            int vw = vp[2] - vp[0];
+            int vh = vp[3] - vp[1];
+
+            // If viewport is zero/unset (menus), do NOT limit.
+            if (vw > 0 && vh > 0) {
+                int2 *gm = sub_4309F0(); // current game mouse position
+                if (gm) {
+                    const double R = (double)nox_limit_range_radius();
+                    if (R > 0.0) {
+                        // Center in game space
+                        const double cx = (double)vp[0] + ((double)(vp[2] - vp[0] + 1)) * 0.5;
+                        const double cy = (double)vp[1] + ((double)(vp[3] - vp[1] + 1)) * 0.5;
+
+                        const double gx = (double)gm->field_0;
+                        const double gy = (double)gm->field_4;
+
+                        const double R2 = R * R;
+
+                        // Current distance
+                        const double cvx = gx - cx;
+                        const double cvy = gy - cy;
+                        const double cdist2 = cvx * cvx + cvy * cvy;
+
+                        // Predicted next position (if we apply dx/dy)
+                        const double nx = gx + dx;
+                        const double ny = gy + dy;
+
+                        const double nvx = nx - cx;
+                        const double nvy = ny - cy;
+                        const double ndist2 = nvx * nvx + nvy * nvy;
+
+                        // New rule: if we transition from outside -> inside while RMB held,
+                        // latch the limiter so we cannot leave the circle again.
+                        if (!g_limit_latched) {
+                            if (cdist2 > R2 && ndist2 <= R2) {
+                                g_limit_latched = 1;
+//                                fprintf(stderr, "[limit] latched (entered circle) g=(%.1f,%.1f) c=(%.1f,%.1f) R=%.1f\n",
+//                                        gx, gy, cx, cy, R);
+//                                fflush(stderr);
+                            }
+                        }
+
+                        // If latched: always prevent leaving the circle.
+                        // If not latched: only clamp when currently inside (original behavior).
+                        if (g_limit_latched || (cdist2 <= R2)) {
+                            if (ndist2 > R2) {
+                                /* Instead of snapping to the boundary (which jitters after rounding),
+                                   remove only the outward radial component so motion slides along the circle. */
+                                const double odx = dx, ody = dy;
+
+                                double rlen = sqrt(cdist2);
+                                if (rlen > 1e-9) {
+                                    double urx = cvx / rlen;  // unit radial at current point
+                                    double ury = cvy / rlen;
+
+                                    // radial component of the attempted move
+                                    double radial = dx * urx + dy * ury;
+
+                                    // If we are trying to move outward, remove that outward component
+                                    if (radial > 0.0) {
+                                        dx -= radial * urx;
+                                        dy -= radial * ury;
+                                    }
+
+                                    // Safety: if we're still outside due to numeric/rounding, pull slightly inward.
+                                    {
+                                        double nnx = gx + dx;
+                                        double nny = gy + dy;
+                                        double dvx = nnx - cx;
+                                        double dvy = nny - cy;
+                                        double dd2 = dvx*dvx + dvy*dvy;
+                                        if (dd2 > R2) {
+                                            // pull inward by 1px along radial
+                                            dx -= urx;
+                                            dy -= ury;
+                                        }
+                                    }
+                                } else {
+                                    // At center: if move would go outside (huge dx/dy), just leave it; next frames will behave.
+                                    // (No meaningful radial direction here.)
+                                }
+
+                                /* Rate-limited debug to prove it’s clamping */
+                                g_limit_clamp_count++;
+                                if (g_limit_clamp_count <= 10 || (g_limit_clamp_count % 200) == 0) {
+//                                    fprintf(stderr,
+//                                            "[limit] clamp#%u latched=%d g=(%.1f,%.1f) n=(%.1f,%.1f) c=(%.1f,%.1f) R=%.1f d=(%.1f,%.1f)->(%.1f,%.1f)\n",
+//                                            g_limit_clamp_count,
+//                                            g_limit_latched,
+//                                            gx, gy, nx, ny, cx, cy, R,
+//                                            odx, ody, dx, dy);
+//                                    fflush(stderr);
+                                }
+
+
+                                // Rate-limited debug so we can prove it’s clamping
+                                g_limit_clamp_count++;
+                                if (g_limit_clamp_count <= 10 || (g_limit_clamp_count % 200) == 0) {
+//                                    fprintf(stderr,
+//                                            "[limit] clamp#%u latched=%d g=(%.1f,%.1f) n=(%.1f,%.1f) c=(%.1f,%.1f) R=%.1f d=(%.1f,%.1f)->(%.1f,%.1f)\n",
+//                                            g_limit_clamp_count,
+//                                            g_limit_latched,
+//                                            gx, gy, nx, ny, cx, cy, R,
+//                                            odx, ody, dx, dy);
+//                                    fflush(stderr);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     me->type = MOUSE_MOTION;
-    me->x = input_sensitivity * event->xrel;
-    me->y = input_sensitivity * event->yrel;
+    me->x = (int)lrint(dx);
+    me->y = (int)lrint(dy);
     me->z = 0;
     me->seq = seqnum++;
 
