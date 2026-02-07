@@ -55132,14 +55132,48 @@ int sub_442450()
   return 1;
 }
 
+static void nox_apply_spells_cheat_to_all(int enable)
+{
+    // keep the same "cheats allowed" gate used by god/spells
+    if (!sub_40A5C0(2048))
+        return;
+
+    if (enable)
+        byte_5D4594[2650636] |= NOX_CHEAT_SPELLS;
+    else
+        byte_5D4594[2650636] &= (unsigned char)~NOX_CHEAT_SPELLS;
+
+    // Re-apply tables to all active players.
+    // When enable=0, your existing functions will clear tables,
+    // and sub_4EFC80() will re-grant starter spells when 4096 is set.
+    for (char *p = sub_416EA0(); p; p = sub_416EE0((int)p)) {
+        sub_4EFD80((int)p);
+        sub_4EFC80((int)p);
+        sub_4EFE10((int)p);
+    }
+}
+
+// set sage
 //----- (00442480) --------------------------------------------------------
+//int sub_442480()
+//{
+//  wchar_t *v0; // eax
+//
+//  if ( !sub_40A5C0(4096) )
+//  {
+//    nullsub_26(1);
+//    v0 = sub_40F1D0((char *)&byte_587000[103900], 0, (const char *)&byte_587000[103860], 2585);
+//    sub_450C00(6u, v0);
+//  }
+//  return 1;
+//}
 int sub_442480()
 {
-  wchar_t *v0; // eax
+  wchar_t *v0;
 
   if ( !sub_40A5C0(4096) )
   {
-    nullsub_26(1);
+    nox_apply_spells_cheat_to_all(1);  // was nullsub_26(1)
     v0 = sub_40F1D0((char *)&byte_587000[103900], 0, (const char *)&byte_587000[103860], 2585);
     sub_450C00(6u, v0);
   }
@@ -55148,16 +55182,25 @@ int sub_442480()
 // 4EF4F0: using guessed type void __cdecl nullsub_26(_DWORD);
 
 //----- (004424C0) --------------------------------------------------------
+//int sub_4424C0()
+//{
+//  wchar_t *v0; // eax
+//
+//  nullsub_26(0);
+//  v0 = sub_40F1D0((char *)&byte_587000[103948], 0, (const char *)&byte_587000[103908], 2597);
+//  sub_450C00(6u, v0);
+//  return 1;
+//}
+// 4EF4F0: using guessed type void __cdecl nullsub_26(_DWORD);
 int sub_4424C0()
 {
-  wchar_t *v0; // eax
+  wchar_t *v0;
 
-  nullsub_26(0);
+  nox_apply_spells_cheat_to_all(0);    // was nullsub_26(0)
   v0 = sub_40F1D0((char *)&byte_587000[103948], 0, (const char *)&byte_587000[103908], 2597);
   sub_450C00(6u, v0);
   return 1;
 }
-// 4EF4F0: using guessed type void __cdecl nullsub_26(_DWORD);
 
 //----- (004424F0) --------------------------------------------------------
 int __cdecl sub_4424F0(int a1, char a2, int a3)
@@ -56068,6 +56111,7 @@ int __cdecl sub_4439B0(int a1, unsigned __int8 a2)
   return result;
 }
 
+// look up console commands?
 //----- (00443A20) --------------------------------------------------------
 int __cdecl sub_443A20(int a1, int a2, int a3, const wchar_t **a4, int a5)
 {

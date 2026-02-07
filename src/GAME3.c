@@ -59025,28 +59025,46 @@ void __cdecl sub_4EF410(int a1, unsigned __int8 a2)
     sub_57AF30(a1, 0);
 }
 
+
+// enable god
 //----- (004EF500) --------------------------------------------------------
+//char *__cdecl sub_4EF500(int a1)
+//{
+//  char *result; // eax
+//  int v2; // eax
+//  int i; // esi
+//
+//  result = (char *)sub_40A5C0(2048);
+//  if ( result )
+//  {
+//    if ( a1 == 1 ) byte_5D4594[2650636] |= 0x30; else byte_5D4594[2650636] &= 0xDF;
+//    result = sub_416EA0();
+//    for ( i = (int)result; result; i = (int)result )
+//    {
+//      sub_4EFD80(i);
+//      sub_4EFC80(i);
+//      sub_4EFE10(i);
+//      result = sub_416EE0(i);
+//    }
+//  }
+//  return result;
+//}
+
 char *__cdecl sub_4EF500(int a1)
 {
-  char *result; // eax
-  int v2; // eax
-  int i; // esi
+    // same gate
+    if (!sub_40A5C0(2048))
+        return 0;
 
-  result = (char *)sub_40A5C0(2048);
-  if ( result )
-  {
-    if ( a1 == 1 ) byte_5D4594[2650636] |= 0x30; else byte_5D4594[2650636] &= 0xDF;
-    result = sub_416EA0();
-    for ( i = (int)result; result; i = (int)result )
-    {
-      sub_4EFD80(i);
-      sub_4EFC80(i);
-      sub_4EFE10(i);
-      result = sub_416EE0(i);
-    }
-  }
-  return result;
+    if (a1 == 1)
+        byte_5D4594[2650636] |= NOX_CHEAT_GOD;         // ONLY god
+    else
+        byte_5D4594[2650636] &= (unsigned char)~NOX_CHEAT_GOD;
+
+    // IMPORTANT: no player iteration here, no spell-table writes.
+    return (char *)1;
 }
+
 
 //----- (004EF560) --------------------------------------------------------
 void sub_4EF560()

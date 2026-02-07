@@ -15,6 +15,11 @@ extern unsigned __int8 byte_5D4594[3844309];
 
 void init_data();
 
+// bitfield byte used elsewhere
+#define NOX_CHEAT_SPELLS 0x10
+#define NOX_CHEAT_GOD    0x20
+static void nox_apply_spells_cheat_to_all(int enable);
+
 int sub_401000();
 void sub_401010();
 wchar_t *sub_401020();
