@@ -154,6 +154,31 @@ export NOX_LIMIT_RANGE_ON_RUN=1 #default is 0
 export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle   
 ```
 
+# Server
+There are docker arm64 and amd64 images that run the 32bit version
+```
+amd64:
+docker run --pull always --rm --name nox-decomp-server --platform linux/amd64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest
+
+arm64:
+docker run --pull always --rm --name nox-decomp-server --platform linux/arm64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest
+
+if your device doesn't have 32bit cpu support you will need docker qemu (e.g. mac m1):
+docker run --privileged --rm tonistiigi/binfmt --install all
+
+You will need to set env vars and port forward from your router to the container host on port 18590 UDP
+
+If you want to register the game please make sure port forwarding is working and then:
+NOX_LOBBY_REGISTER_ENABLE=1
+Only register if port forwarding is enabled to reduce unusable servers in the list.
+
+I don't think you can broadcast udp from a docker container so you can't find this on a local lan only on internet with register enabled.
+
+The container runs as user 1001 for security and you need a copy of the game to run it.
+
+You can place the gog game installer in gamefiles dir and it will automatically extract it.
+```
+
 # Known issues
 
 * All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.
