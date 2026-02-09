@@ -61,7 +61,10 @@ int __cdecl sub_48A720(SDL_Surface *a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, int 
 void __cdecl sub_48A670(SDL_Surface *a1);
 void __cdecl sub_48A6B0(SDL_Surface *a1);
 
-SDL_Window *dword_973FE0;
+extern SDL_Window *dword_973FE0;
+/* Forward decls: used by sub_444AC0() before the globals are defined */
+extern SDL_GLContext g_ddraw;
+extern SDL_Surface  *g_backbuffer1;
 #else
 void __cdecl sub_435380(LPDIRECTDRAWGAMMACONTROL *a1);
 void __cdecl sub_4353A0(LPDIRECTDRAWPALETTE *a1);
@@ -111,7 +114,10 @@ int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
 	InitializeCriticalSection((LPCRITICAL_SECTION)&byte_5D4594[3799596]);
 	*(_DWORD *)&byte_5D4594[823780] = 1;
 #ifdef USE_SDL
-	dword_973FE0 = (SDL_Window *)a1;
+    // IMPORTANT: a1 is an HWND in the original game calling convention.
+    // In SDL builds, dword_973FE0 must be set when you create the SDL window,
+    // not from this HWND argument.
+    (void)a1;
 #else
 	dword_973FE0 = a1;
 #endif
@@ -1007,11 +1013,30 @@ void sdl_present()
 {
     if (!g_ddraw)
         return;
+    if (!dword_973FE0) {
+        fprintf(stderr, "sdl_present: no SDL window (dword_973FE0 is NULL)\n");
+        return;
+    }
+
+    // If the window isn't an OpenGL window, SDL will throw exactly the error you're seeing.
+    if ((SDL_GetWindowFlags(dword_973FE0) & SDL_WINDOW_OPENGL) == 0) {
+        fprintf(stderr, "sdl_present: window is not SDL_WINDOW_OPENGL (flags=0x%08x)\n",
+                (unsigned)SDL_GetWindowFlags(dword_973FE0));
+        return;
+    }
+
 
     SDL_Surface *srcsurf = g_present_src ? g_present_src : g_backbuffer1;
     if (!srcsurf)
         return;
-
+    if (SDL_GL_GetCurrentWindow() != dword_973FE0 ||
+        SDL_GL_GetCurrentContext() != g_ddraw)
+    {
+        if (SDL_GL_MakeCurrent(dword_973FE0, g_ddraw) != 0) {
+            fprintf(stderr, "sdl_present: SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
+            return;
+        }
+    }
     // --------------------------------------------------------------------
     // Frame + backbuffer tracking
     // --------------------------------------------------------------------
@@ -1567,8 +1592,8 @@ int sub_48B000()
     if (!gl_inited) {
 
         // ---- Enforce OpenGL 2.1 compatibility ----
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+//        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+//        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
         // ---------------- FIRST TIME: full GL init ----------------
         g_ddraw = SDL_GL_CreateContext(dword_973FE0);
@@ -1607,7 +1632,7 @@ int sub_48B000()
 
         SDL_GL_SetSwapInterval(1);
 
-#if defined(_WIN32) && !defined(USE_SDL)
+#if defined(_WIN32)
         err = glewInit();
         if (GLEW_OK != err)
         {
@@ -3897,6 +3922,24 @@ int __cdecl sub_4B0340(int a1)
 	*(_DWORD *)&byte_5D4594[1311932] = a1;
 #ifdef USE_SDL
      fprintf(stderr, "show movie\n");
+      /* Hard skip (useful for Wine/SDL bring-up): skip ALL movie/show path */
+         {
+             const char *skip_all = getenv("NOX_SKIP_MOVIES");
+             const char *skip_intro = getenv("NOX_SKIP_INTRO_MOVIES");
+             if (nox_env_truthy(skip_all) || nox_env_truthy(skip_intro)) {
+                 fprintf(stderr, "[movie] NOX_SKIP_MOVIES/NOX_SKIP_INTRO_MOVIES set -> skipping show path (queue=%d)\n",
+                         *(_DWORD *)&byte_5D4594[1311928]);
+                 /* Clear queue so we don't try again */
+                 *(_DWORD *)&byte_5D4594[1311928] = 0;
+
+                 g_present_src      = NULL;
+                 g_present_is_movie = 0;
+                 /* dword_6F7BA0 stays as-is */
+
+                 sub_4B05D0();
+                 return 1;
+             }
+         }
      v1 = 0;
 
     g_present_src      = NULL;   // let sub_555430 set it to g_movie_surf

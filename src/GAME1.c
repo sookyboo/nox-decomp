@@ -160,28 +160,62 @@ size_t *__cdecl sub_401070(int a1, int a2)
   int v28; // [esp+20h] [ebp-424h]
   char v30[1024]; // [esp+44h] [ebp-400h]
 
+  #include <stdio.h>
+  #include <string.h>
+  #include <stdlib.h>
+
+  #ifndef NOX_INIT_LOG
+  #define NOX_INIT_LOG(fmt, ...) do { \
+      fprintf(stderr, "[init] " fmt "\n", ##__VA_ARGS__); \
+      fflush(stderr); \
+  } while (0)
+  #endif
+
+  NOX_INIT_LOG("sub_401070 enter a1=%d a2=%p", a1, (void*)a2);
+
   v24 = 0;
   v27 = 0;
+
+  NOX_INIT_LOG("step 001: sub_416B20()");
   sub_416B20();
+
   *(_DWORD *)&byte_5D4594[2650640] = 0;
   *(_DWORD *)&byte_5D4594[2618916] = 0;
   *(_DWORD *)&byte_5D4594[2650672] = 0;
+
+  NOX_INIT_LOG("step 002: sub_43BDD0(10)");
   sub_43BDD0(10);
+
+  NOX_INIT_LOG("step 003: sub_40A540(-1)");
   sub_40A540(-1);
+
+  NOX_INIT_LOG("step 004: sub_40A4D0(3)");
   sub_40A4D0(3);
+
   *(_DWORD *)&byte_5D4594[2650636] = 1024;
   *(_DWORD *)&byte_5D4594[2650652] = 0;
+
+  NOX_INIT_LOG("step 005: sub_40A5C0(1)");
   v2 = sub_40A5C0(1);
+  NOX_INIT_LOG("step 005: sub_40A5C0 => %d", (int)v2);
+
   *(_DWORD *)&byte_5D4594[2649704] = 30;
   *(_DWORD *)&byte_5D4594[2598000] = v2;
+
+  NOX_INIT_LOG("step 006: sub_416D40()");
   sub_416D40();
+
   v3 = 0;
   if ( a1 <= 0 )
   {
 LABEL_5:
+    NOX_INIT_LOG("step 007: sub_416A10() (mutex/singleton?)");
     result = (size_t *)sub_416A10();
-    if ( !result )
+    NOX_INIT_LOG("step 007: sub_416A10 => %p", (void*)result);
+    if ( !result ) {
+      NOX_INIT_LOG("EARLY RETURN: sub_416A10 failed");
       return result;
+    }
   }
   else
   {
@@ -193,44 +227,53 @@ LABEL_5:
       if ( v3 >= a1 )
         goto LABEL_5;
     }
+    NOX_INIT_LOG("step 007: found special arg '%s' at index=%d (skipping sub_416A10?)",
+                 (const char *)&byte_587000[168], v3);
   }
+
+  NOX_INIT_LOG("step 008: sub_43DDF0/DE20/DE40 + sub_40A4D0(256)");
   sub_43DDF0(0);
   sub_43DE20(0);
   sub_43DE40(0);
   sub_40A4D0(256);
+
   v6 = 1;
   if ( a1 > 1 )
   {
     v7 = a2 + 4;
     do
     {
-      if ( _strcmpi((const char *)&byte_587000[200], *(const char **)v7) )
+      const char *arg = *(const char **)v7;
+      NOX_INIT_LOG("arg[%d]='%s'", v6, arg ? arg : "(null)");
+
+      if ( _strcmpi((const char *)&byte_587000[200], arg) )
       {
-        if ( _strcmpi((const char *)&byte_587000[212], *(const char **)v7) )
+        if ( _strcmpi((const char *)&byte_587000[212], arg) )
         {
-          if ( !_strcmpi((const char *)&byte_587000[224], *(const char **)v7) )
+          if ( !_strcmpi((const char *)&byte_587000[224], arg) )
           {
             v8 = *(_DWORD *)&byte_5D4594[2650636] | 0x40000000;
 LABEL_44:
             *(_DWORD *)&byte_5D4594[2650636] = v8;
             goto LABEL_45;
           }
-          if ( _strcmpi((const char *)&byte_587000[232], *(const char **)v7) )
+          if ( _strcmpi((const char *)&byte_587000[232], arg) )
           {
-            if ( !_strcmpi((const char *)&byte_587000[240], *(const char **)v7) )
+            if ( !_strcmpi((const char *)&byte_587000[240], arg) )
             {
               v8 = *(_DWORD *)&byte_5D4594[2650636] | 0x10000;
               goto LABEL_44;
             }
-            if ( _strcmpi((const char *)&byte_587000[248], *(const char **)v7) )
+            if ( _strcmpi((const char *)&byte_587000[248], arg) )
             {
-              if ( !_strcmpi((const char *)&byte_587000[256], *(const char **)v7) )
+              if ( !_strcmpi((const char *)&byte_587000[256], arg) )
               {
                 v8 = *(_DWORD *)&byte_5D4594[2650636] | 0x2000000;
                 goto LABEL_44;
               }
-              if ( !strcmp((const char *)&byte_587000[264], *(const char **)v7) )
+              if ( arg && !strcmp((const char *)&byte_587000[264], arg) )
               {
+                NOX_INIT_LOG("arg matched '%s' (special video mode setup?)", (const char *)&byte_587000[264]);
                 v11 = *(_DWORD *)&byte_5D4594[2650636];
                 BYTE1(v11) = BYTE1(v11) & 0xFB | 2;
                 *(_DWORD *)&byte_587000[80] = 0;
@@ -250,29 +293,29 @@ LABEL_44:
                 *(_DWORD *)&byte_587000[91800] = v12;
                 goto LABEL_45;
               }
-              if ( _strcmpi((const char *)&byte_587000[272], *(const char **)v7) )
+              if ( _strcmpi((const char *)&byte_587000[272], arg) )
               {
-                if ( _strcmpi((const char *)&byte_587000[284], *(const char **)v7) )
+                if ( _strcmpi((const char *)&byte_587000[284], arg) )
                 {
-                  if ( _strcmpi((const char *)&byte_587000[292], *(const char **)v7) )
+                  if ( _strcmpi((const char *)&byte_587000[292], arg) )
                   {
-                    if ( _strcmpi((const char *)&byte_587000[304], *(const char **)v7) )
+                    if ( _strcmpi((const char *)&byte_587000[304], arg) )
                     {
-                      if ( !_strcmpi((const char *)&byte_587000[312], *(const char **)v7) )
+                      if ( !_strcmpi((const char *)&byte_587000[312], arg) )
                       {
                         v8 = *(_DWORD *)&byte_5D4594[2650636] | 0x100000;
                         goto LABEL_44;
                       }
-                      if ( !_strcmpi((const char *)&byte_587000[324], *(const char **)v7) )
+                      if ( !_strcmpi((const char *)&byte_587000[324], arg) )
                       {
                         v8 = *(_DWORD *)&byte_5D4594[2650636] | 0x40000;
                         goto LABEL_44;
                       }
-                      if ( _strcmpi((const char *)&byte_587000[332], *(const char **)v7) )
+                      if ( _strcmpi((const char *)&byte_587000[332], arg) )
                       {
-                        if ( _strcmpi((const char *)&byte_587000[340], *(const char **)v7) )
+                        if ( _strcmpi((const char *)&byte_587000[340], arg) )
                         {
-                          if ( !_strcmpi((const char *)&byte_587000[352], *(const char **)v7) )
+                          if ( !_strcmpi((const char *)&byte_587000[352], arg) )
                           {
                             v8 = *(_DWORD *)&byte_5D4594[2650636];
                             BYTE1(v8) &= 0xFBu;
@@ -285,6 +328,7 @@ LABEL_44:
                           v7 += 4;
                           ++v6;
                           v17 = atoi(v16);
+                          NOX_INIT_LOG("arg consumes param '%s' -> sub_40A410(%d)", v16 ? v16 : "(null)", v17);
                           sub_40A410(v17);
                         }
                       }
@@ -294,6 +338,7 @@ LABEL_44:
                         v7 += 4;
                         ++v6;
                         v15 = atoi(v14);
+                        NOX_INIT_LOG("arg consumes param '%s' -> sub_40A3E0(%d)", v14 ? v14 : "(null)", v15);
                         sub_40A3E0(v15);
                       }
                     }
@@ -302,27 +347,32 @@ LABEL_44:
                       v13 = *(const char **)(v7 + 4);
                       v7 += 4;
                       ++v6;
+                      NOX_INIT_LOG("arg consumes param '%s' -> byte_587000[88]=%d", v13 ? v13 : "(null)", atoi(v13));
                       byte_587000[88] = atoi(v13);
                     }
                   }
                   else
                   {
+                    NOX_INIT_LOG("arg matched '%s' -> byte_587000[80804]=0", (const char *)&byte_587000[292]);
                     *(_DWORD *)&byte_587000[80804] = 0;
                   }
                 }
                 else
                 {
+                  NOX_INIT_LOG("arg matched '%s' -> byte_587000[80800]=0 + flag", (const char *)&byte_587000[284]);
                   *(_DWORD *)&byte_587000[80800] = 0;
                   *(_DWORD *)&byte_5D4594[805840] = 1;
                 }
               }
               else
               {
+                NOX_INIT_LOG("arg matched '%s' -> byte_587000[80]=0", (const char *)&byte_587000[272]);
                 *(_DWORD *)&byte_587000[80] = 0;
               }
             }
             else
             {
+              NOX_INIT_LOG("arg matched '%s' -> sub_413C00()", (const char *)&byte_587000[248]);
               sub_413C00();
             }
           }
@@ -332,11 +382,13 @@ LABEL_44:
             v7 += 4;
             ++v6;
             v10 = atoi(v9);
+            NOX_INIT_LOG("arg consumes param '%s' -> sub_552010(%d)", v9 ? v9 : "(null)", v10);
             sub_552010(v10);
           }
         }
         else
         {
+          NOX_INIT_LOG("arg matched '%s' -> force flags + sub_416B20()", (const char *)&byte_587000[212]);
           *(_DWORD *)&byte_587000[80] = 0;
           *(_DWORD *)&byte_5D4594[2650636] |= 0x40040000u;
           sub_416B20();
@@ -344,6 +396,7 @@ LABEL_44:
       }
       else
       {
+        NOX_INIT_LOG("arg matched '%s' -> sub_43DDE0(0) + byte_587000[84]=0", (const char *)&byte_587000[200]);
         sub_43DDE0(0);
         *(_DWORD *)&byte_587000[84] = 0;
       }
@@ -353,60 +406,132 @@ LABEL_45:
     }
     while ( v6 < a1 );
   }
+
+  memset(v30, 0, sizeof(v30));
   _getcwd(v30, 1023);
+  NOX_INIT_LOG("cwd='%s'", v30);
+
+  NOX_INIT_LOG("step 020: sub_409E20(cwd)");
   sub_409E20(v30);
+
+  NOX_INIT_LOG("step 021: sub_4D78C0()");
   sub_4D78C0();
+
+  NOX_INIT_LOG("step 022: _controlfp()");
   _controlfp(0x300u, 0x300u);
+
   *(_DWORD *)&byte_5D4594[3805496] = 0;
+
+  NOX_INIT_LOG("step 023: sub_409F80(32)");
   sub_409F80(32);
+
   *(_DWORD *)&byte_5D4594[2614260] = *(_DWORD *)&byte_5D4594[2649704] >> 1;
+
+  NOX_INIT_LOG("step 024: sub_4093A0()");
   sub_4093A0();
+
+  NOX_INIT_LOG("step 025: sub_40ABF0(...)");
   *(_DWORD *)&byte_5D4594[260] = sub_40ABF0((char *)&byte_587000[92], 7);
+  NOX_INIT_LOG("step 025: byte_5D4594[260]=%d", *(int *)&byte_5D4594[260]);
+
+  NOX_INIT_LOG("step 026: sub_40F300(...)");
   result = (size_t *)sub_40F300((char *)&byte_587000[104]);
+  NOX_INIT_LOG("step 026: sub_40F300 => %p", (void*)result);
   if ( result )
   {
+    NOX_INIT_LOG("step 027: sub_4D07F0()");
     sub_4D07F0();
+
+    NOX_INIT_LOG("step 028: sub_40AED0()");
     sub_40AED0();
+
+    NOX_INIT_LOG("step 029: sub_416500()");
     sub_416500();
+
+    NOX_INIT_LOG("step 030: sub_4317B0(...,0)");
     result = (size_t *)sub_4317B0((char *)&byte_587000[112], 0);
+    NOX_INIT_LOG("step 030: sub_4317B0 => %p", (void*)result);
     if ( result )
     {
-      if ( !*(_DWORD *)&byte_5D4594[805856] )
+      NOX_INIT_LOG("step 031: check byte_5D4594[805856]=%d", *(int *)&byte_5D4594[805856]);
+      if ( !*(_DWORD *)&byte_5D4594[805856] ) {
+        NOX_INIT_LOG("step 031b: sub_4445C0()");
         sub_4445C0();
+      }
+
+      NOX_INIT_LOG("step 032: sub_416190()");
       sub_416190();
+
+      NOX_INIT_LOG("step 033: sub_415F70()");
       sub_415F70();
+
+      NOX_INIT_LOG("step 034: sub_42EAE0()");
       sub_42EAE0();
+
+      NOX_INIT_LOG("step 035: sub_415D50()");
       sub_415D50();
+
+      NOX_INIT_LOG("step 036: sub_4158C0()");
       sub_4158C0();
+
+      NOX_INIT_LOG("step 037: sub_4444F0()");
       sub_4444F0();
+
+      NOX_INIT_LOG("step 038: sub_4D11A0()");
       sub_4D11A0();
+
+      NOX_INIT_LOG("step 039: sub_430BE0(0,0,16)");
       sub_430BE0(0, 0, 16);
+
+      NOX_INIT_LOG("step 040: sub_43BF10(1)");
       result = (size_t *)sub_43BF10(1);
+      NOX_INIT_LOG("step 040: sub_43BF10 => %p", (void*)result);
       if ( result )
       {
+        NOX_INIT_LOG("step 041: sub_434350(byte_5D4594[2650656]=%d)", *(int *)&byte_5D4594[2650656]);
         sub_434350(*(int *)&byte_5D4594[2650656]);
+
+        NOX_INIT_LOG("step 042: sub_440900()");
         sub_440900();
+
+        NOX_INIT_LOG("step 043: sub_42EE30(byte_5D4594[3804680]=%d)", *(int *)&byte_5D4594[3804680]);
         result = (size_t *)sub_42EE30(*(int *)&byte_5D4594[3804680]);
+        NOX_INIT_LOG("step 043: sub_42EE30 => %p", (void*)result);
         if ( result )
         {
+          NOX_INIT_LOG("step 044: sub_431370()");
           result = (size_t *)sub_431370();
+          NOX_INIT_LOG("step 044: sub_431370 => %p", (void*)result);
           if ( result )
           {
+            NOX_INIT_LOG("step 045: sub_4310B0(byte_587000[80]=%d)", *(int *)&byte_587000[80]);
             result = (size_t *)sub_4310B0(*(int *)&byte_587000[80]);
+            NOX_INIT_LOG("step 045: sub_4310B0 => %p (byte_587000[80]=%d)",
+                         (void*)result, *(int *)&byte_587000[80]);
+
             if ( result || !*(_DWORD *)&byte_587000[80] )
             {
+              NOX_INIT_LOG("step 046: sub_415470('thing.bin')");
               result = sub_415470("thing.bin");
+              NOX_INIT_LOG("step 046: sub_415470 => %p", (void*)result);
               if ( result )
               {
+                NOX_INIT_LOG("step 047: sub_430190()");
                 result = (size_t *)sub_430190();
+                NOX_INIT_LOG("step 047: sub_430190 => %p", (void*)result);
                 if ( result )
                 {
+                  NOX_INIT_LOG("step 048: sub_4101D0()");
                   result = (size_t *)sub_4101D0();
+                  NOX_INIT_LOG("step 048: sub_4101D0 => %p", (void*)result);
                   if ( result )
                   {
+                    NOX_INIT_LOG("step 049: sub_410F60()");
                     result = (size_t *)sub_410F60();
+                    NOX_INIT_LOG("step 049: sub_410F60 => %p", (void*)result);
                     if ( result )
                     {
+                      NOX_INIT_LOG("step 050: post-init chain begin");
                       sub_414C90();
                       sub_4D0A30();
                       sub_4D0E00();
@@ -414,31 +539,78 @@ LABEL_45:
                       sub_40B890(32);
                       sub_40B170(32);
                       sub_4134D0();
+
+                      NOX_INIT_LOG("step 051: mode byte_587000[26048]=%d", *(int *)&byte_587000[26048]);
                       if ( *(_DWORD *)&byte_587000[26048] == 6 || *(_DWORD *)&byte_587000[26048] == 8 )
                         sub_43F680(0);
+
+                      NOX_INIT_LOG("step 052: sub_413920()");
                       sub_413920();
+
+                      NOX_INIT_LOG("step 053: sub_431390()");
                       result = (size_t *)sub_431390();
+                      NOX_INIT_LOG("step 053: sub_431390 => %p", (void*)result);
                       if ( result )
                       {
+                        NOX_INIT_LOG("step 054: sub_4147E0(sub_401FD0())");
                         sub_4147E0(sub_401FD0());
+
+                        NOX_INIT_LOG("step 055: set globals g_a1/g_a2 etc then f(0)");
                         g_a1 = a1;
                         g_a2 = a2;
                         g_v20 = 0;
                         g_v21 = 0;
                         f(0);
+                        NOX_INIT_LOG("step 055: f(0) returned (unexpected?)");
+                      }
+                      else {
+                        NOX_INIT_LOG("EARLY RETURN: sub_431390 failed");
                       }
                     }
+                    else {
+                      NOX_INIT_LOG("EARLY RETURN: sub_410F60 failed");
+                    }
+                  }
+                  else {
+                    NOX_INIT_LOG("EARLY RETURN: sub_4101D0 failed");
                   }
                 }
+                else {
+                  NOX_INIT_LOG("EARLY RETURN: sub_430190 failed");
+                }
+              }
+              else {
+                NOX_INIT_LOG("EARLY RETURN: sub_415470('thing.bin') failed (cwd='%s')", v30);
               }
             }
+            else {
+              NOX_INIT_LOG("EARLY RETURN: sub_4310B0 failed AND byte_587000[80]!=0");
+            }
+          }
+          else {
+            NOX_INIT_LOG("EARLY RETURN: sub_431370 failed");
           }
         }
+        else {
+          NOX_INIT_LOG("EARLY RETURN: sub_42EE30 failed");
+        }
+      }
+      else {
+        NOX_INIT_LOG("EARLY RETURN: sub_43BF10 failed");
       }
     }
+    else {
+      NOX_INIT_LOG("EARLY RETURN: sub_4317B0 failed");
+    }
   }
+  else {
+    NOX_INIT_LOG("EARLY RETURN: sub_40F300 failed");
+  }
+
+  NOX_INIT_LOG("sub_401070 exit returning %p", (void*)result);
   return result;
 }
+
 // 4015E2: variable 'v18' is possibly undefined
 // 4017F7: variable 'v22' is possibly undefined
 // 4093D0: using guessed type int sub_4093D0(void);
@@ -49322,6 +49494,13 @@ int __cdecl sub_43BEF0(int a1, int a2, int a3)
   return result;
 }
 
+#ifdef USE_SDL
+#include <SDL2/SDL.h>
+
+// These are defined in the WinMain/SDL module; declare them here.
+extern SDL_Window *g_window;
+extern SDL_Window *dword_973FE0;
+#endif
 //----- (0043BF10) --------------------------------------------------------
 int __cdecl sub_43BF10(int a1)
 {
@@ -49330,6 +49509,10 @@ int __cdecl sub_43BF10(int a1)
   int v3; // ebx
   int result; // eax
 
+  #ifdef USE_SDL
+    // Keep a stable window pointer across video mode switches (menu->game).
+    SDL_Window *keep_win = g_window ? g_window : dword_973FE0;
+  #endif
   if ( a1 == 1 )
   {
     v1 = *(_DWORD *)&byte_587000[91792];
@@ -49343,6 +49526,15 @@ int __cdecl sub_43BF10(int a1)
     v3 = *(_DWORD *)&byte_587000[91788];
   }
   sub_430BE0(v1, v2, v3);
+  #ifdef USE_SDL
+    // sub_430BE0() may clear the shared window pointer (dword_973FE0) as part of mode reset.
+    if (keep_win && dword_973FE0 != keep_win) {
+        dword_973FE0 = keep_win;
+    }
+    if (keep_win && g_window != keep_win) {
+        g_window = keep_win;
+    }
+  #endif
   *(_DWORD *)&byte_5D4594[805872] = 0;
   if ( v1 == *(_DWORD *)&byte_5D4594[3801784]
     && v2 == *(_DWORD *)&byte_5D4594[3801788]
@@ -49351,9 +49543,23 @@ int __cdecl sub_43BF10(int a1)
     return 1;
   }
   sub_48BE50(1);
+  #ifdef USE_SDL
+    // sub_48BE50(1) often does teardown (surfaces/ctx) and can stomp dword_973FE0.
+    if (keep_win && dword_973FE0 != keep_win) {
+        dword_973FE0 = keep_win;
+    }
+    if (keep_win && g_window != keep_win) {
+        g_window = keep_win;
+    }
+  #endif
   if ( v3 == *(_DWORD *)&byte_5D4594[3799568] || (result = sub_42F370(*(int *)&byte_5D4594[3804680])) != 0 )
   {
     result = sub_430BA0();
+#ifdef USE_SDL
+    // sub_430BA0() triggers the new surface/context creation; ensure window pointer is valid now.
+    if (!dword_973FE0 && keep_win) dword_973FE0 = keep_win;
+    if (!g_window && keep_win) g_window = keep_win;
+#endif
     if ( result )
     {
       sub_4A96C0("default.pal");

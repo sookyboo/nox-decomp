@@ -5,6 +5,13 @@
 #include "proto.h"
 
 #ifdef USE_SDL
+#include <SDL2/SDL.h>
+#ifdef _WIN32
+#include <SDL2/SDL_syswm.h>
+#endif
+#endif
+
+#ifdef USE_SDL
 void nox_control_server_init(void);
 void nox_control_server_pump(void);
 void nox_gamepad_update(void);
@@ -12,7 +19,72 @@ void nox_gamepad_update(void);
 
 #ifdef USE_SDL
 #include <stdio.h>     // for fprintf
+#include <stdarg.h>    // for va_list
 SDL_Window *g_window;
+
+#ifdef USE_SDL
+static void nox_dbgf(const char *tag, const char *fmt, ...)
+{
+    va_list ap;
+    fprintf(stderr, "%s", tag ? tag : "[dbg] ");
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    fflush(stderr);
+}
+#define NOX_DBG(...) nox_dbgf("[win] ", __VA_ARGS__)
+#else
+#define NOX_DBG(...) do {} while (0)
+#endif
+
+/* Shared window handle used by draw.c (GL, grab, swap, etc) */
+SDL_Window *dword_973FE0 = NULL;
+
+static void nox_sdl_set_window(SDL_Window *w, const char *why)
+{
+    if (g_window != w || dword_973FE0 != w) {
+        NOX_DBG("nox_sdl_set_window(%p) reason=%s (was g_window=%p dword_973FE0=%p)",
+                (void*)w, why ? why : "(null)", (void*)g_window, (void*)dword_973FE0);
+    }
+    g_window = w;
+    dword_973FE0 = w;
+}
+
+static void nox_sdl_assert_window(const char *where)
+{
+    if (!g_window && dword_973FE0) {
+        NOX_DBG("SDL window missing at %s: g_window=NULL dword_973FE0=%p (HEAL g_window)",
+                where ? where : "(null)", (void*)dword_973FE0);
+        nox_sdl_set_window(dword_973FE0, "heal g_window NULL");
+        return;
+    }
+
+    if (!dword_973FE0 && g_window) {
+        NOX_DBG("SDL window missing at %s: g_window=%p dword_973FE0=NULL (HEAL dword_973FE0)",
+                where ? where : "(null)", (void*)g_window);
+        nox_sdl_set_window(g_window, "heal dword_973FE0 NULL");
+        return;
+    }
+
+    if (!dword_973FE0 || !g_window) {
+        NOX_DBG("SDL window missing at %s: g_window=%p dword_973FE0=%p",
+                where ? where : "(null)", (void*)g_window, (void*)dword_973FE0);
+        return;
+    }
+
+    if (g_window != dword_973FE0) {
+        NOX_DBG("SDL window mismatch at %s: g_window=%p dword_973FE0=%p (HEAL)",
+                where ? where : "(null)", (void*)g_window, (void*)dword_973FE0);
+        nox_sdl_set_window(g_window, "heal mismatch");
+    }
+}
+
+
+SDL_Window *nox_sdl_get_window(void)
+{
+    return dword_973FE0 ? dword_973FE0 : g_window;
+}
 #else
 WNDCLASSEXA g_wnd_class;
 HWND g_hwnd;
@@ -22,6 +94,8 @@ int g_fullscreen;
 
 const char *g_argv[21];
 unsigned int g_argc;
+
+
 
 //----- (00401C70) --------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
@@ -34,12 +108,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND v13; // eax
 	int v14; // eax
 
+    NOX_DBG("WinMain enter hInstance=%p hPrevInstance=%p lpCmdLine='%s' nShowCmd=%d",
+            (void*)hInstance, (void*)hPrevInstance,
+            lpCmdLine ? lpCmdLine : "(null)", nShowCmd);
+
 	init_data();
+    NOX_DBG("after init_data");
 
 	g_argv[0] = "nox.exe";
 	g_argc = 1;
 
 	sub_43BEF0(0, 0, 0);
+    NOX_DBG("after sub_43BEF0");
 
 	for (v4 = strtok(lpCmdLine, " \t"); v4; v4 = strtok(0, " \t"))
 	{
@@ -47,22 +127,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			*(_DWORD *)&byte_587000[80848] = 0;
 			*(_DWORD *)&byte_5D4594[805860] = 0;
+            NOX_DBG("arg -window");
 		}
 		else if (!strcmp("-swindow", v4))
 		{
 			*(_DWORD *)&byte_587000[80848] = 0;
 			*(_DWORD *)&byte_5D4594[805860] = 1;
+            NOX_DBG("arg -swindow");
 		}
 		else if (!strcmp("-minimize", v4))
 		{
 			*(_DWORD *)&byte_5D4594[805864] = 1;
+            NOX_DBG("arg -minimize");
 		}
 		else
 		{
 			g_argv[g_argc++] = v4;
+            NOX_DBG("arg passthrough '%s' (argc=%u)", v4, g_argc);
 		}
 	}
 	g_argv[g_argc] = NULL;
+
 	v7 = 0;
 	v10 = 0;
 	while (v7 < g_argc)
@@ -73,12 +158,32 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			break;
 		}
 	}
+    NOX_DBG("parsed args argc=%u serveronly=%d", g_argc, v10);
 
 #ifdef USE_SDL
 	// ---------------------------------------------------------------------
 	// SDL path: FORCE CLASSIC 640x480, NO WIDESCREEN
 	// ---------------------------------------------------------------------
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
+    NOX_DBG("SDL_Init starting");
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0) {
+        NOX_DBG("SDL_Init failed: %s", SDL_GetError());
+        return 0;
+    }
+    NOX_DBG("SDL_Init OK");
+
+    int w = *(int *)&byte_5D4594[3805496];
+    int h = *(int *)&byte_5D4594[3807120];
+    NOX_DBG("engine globals before clamp w=%d h=%d", w, h);
+
+    // Wine/early init can leave these as 0. Clamp to sane classic default.
+    if (w <= 0) w = 640;
+    if (h <= 0) h = 480;
+
+    // Keep engine globals consistent with what we actually create.
+    *(int *)&byte_5D4594[3805496] = w;
+    *(int *)&byte_5D4594[3807120] = h;
+
+    NOX_DBG("requested window %dx%d (after clamp)", w, h);
 
 	// Hard clamp to 640x480 to avoid widescreen / wide backbuffer modes.
 	// Also overwrite the original global resolution variables so the rest
@@ -89,7 +194,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 //	*(int *)&byte_5D4594[3805496] = width;   // original width global
 //	*(int *)&byte_5D4594[3807120] = height;  // original height global
 
-	g_window = SDL_CreateWindow(
+    // --- MUST be set BEFORE SDL_CreateWindow when using SDL_WINDOW_OPENGL ---
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
+
+    NOX_DBG("SDL_CreateWindow starting");
+	SDL_Window *win = SDL_CreateWindow(
 		"Nox Game Window",
 		SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED,
@@ -98,16 +211,31 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		SDL_WINDOW_OPENGL      // NOTE: no SDL_WINDOW_RESIZABLE here
 	);
 
-	if (!g_window)
-	{
-		fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-		return 0;
-	}
+
+
+    /* Make draw.c see the same SDL_Window* */
+    nox_sdl_set_window(win, "WinMain SDL_CreateWindow");
+        if (!win)
+        {
+            NOX_DBG("SDL_CreateWindow failed: %s", SDL_GetError());
+            return 0;
+        }
+        nox_sdl_set_window(win, "WinMain SDL_CreateWindow");
+
+        NOX_DBG("SDL_CreateWindow OK g_window=%p", (void*)g_window);
+
+    {
+        Uint32 wf = SDL_GetWindowFlags(g_window);
+        int ww = 0, wh = 0;
+        SDL_GetWindowSize(g_window, &ww, &wh);
+        NOX_DBG("window flags=0x%08x size=%dx%d", (unsigned)wf, ww, wh);
+    }
+
 
 	#ifdef USE_SDL
+        NOX_DBG("calling nox_control_server_init()");
         nox_control_server_init();
-        fprintf(stderr, "[ctrl] win.c: nox_control_server_init() returned\n");
-        fflush(stderr);
+        NOX_DBG("nox_control_server_init() returned");
     #endif
 
 #ifdef __EMSCRIPTEN__
@@ -117,16 +245,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_IGNORE);
         SDL_EventState(SDL_MOUSEBUTTONUP, SDL_IGNORE);
         SDL_EventState(SDL_MOUSEWHEEL, SDL_IGNORE);
+        NOX_DBG("emscripten: mobile -> ignoring mouse events");
     }
     else
     {
         SDL_EventState(SDL_FINGERDOWN, SDL_IGNORE);
         SDL_EventState(SDL_FINGERUP, SDL_IGNORE);
         SDL_EventState(SDL_FINGERMOTION, SDL_IGNORE);
+        NOX_DBG("emscripten: desktop -> ignoring touch events");
     }
 #endif
 
+    NOX_DBG("calling sub_401070(argc=%u,...)", g_argc);
 	sub_401070(g_argc, g_argv);
+    NOX_DBG("sub_401070 returned (unexpected; usually exits elsewhere)");
+
 #else
 	if (v10 || !(v11 = FindWindowA("Nox Game Window", 0)))
 	{
@@ -168,6 +301,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ShowWindow(v11, SW_RESTORE);
 	}
 #endif
+    NOX_DBG("WinMain return 1");
 	return 1;
 }
 
@@ -175,9 +309,41 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 HWND sub_401FD0()
 {
 #ifdef USE_SDL
-	return (HWND)g_window;
+#ifdef _WIN32
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+
+    // If window isn't ready yet, don't spam; return a safe fallback HWND.
+    if (!g_window) {
+        HWND fb = GetActiveWindow();
+        if (!fb) fb = GetForegroundWindow();
+        if (!fb) fb = GetDesktopWindow();
+        NOX_DBG("sub_401FD0: g_window NULL -> fallback HWND=%p", (void*)fb);
+        return fb;
+    }
+
+    if (SDL_GetWindowWMInfo(g_window, &info)) {
+        HWND hwnd = info.info.win.window;
+        NOX_DBG("sub_401FD0: SDL_GetWindowWMInfo OK hwnd=%p", (void*)hwnd);
+        if (hwnd) return hwnd;
+        NOX_DBG("sub_401FD0: WMInfo OK but hwnd NULL");
+    } else {
+        NOX_DBG("sub_401FD0: SDL_GetWindowWMInfo failed: %s", SDL_GetError());
+    }
+
+    // SDL window exists but WMInfo didn't give an HWND (can happen under Wine init races)
+    {
+        HWND fb = GetActiveWindow();
+        if (!fb) fb = GetForegroundWindow();
+        if (!fb) fb = GetDesktopWindow();
+        NOX_DBG("sub_401FD0: returning fallback HWND=%p", (void*)fb);
+        return fb;
+    }
 #else
-	return g_hwnd;
+    return (HWND)g_window;
+#endif
+#else
+    return g_hwnd;
 #endif
 }
 
@@ -214,8 +380,11 @@ void process_textinput_event(const SDL_TextInputEvent *event);
 
 void process_event(const SDL_Event *event)
 {
+    if (!event) return;
+
     // Optional capture of user input into replayable telnet commands.
     nox_ctrl_capture_event(event);
+
 	switch (event->type)
 	{
 //    case SDL_QUIT:
@@ -223,6 +392,7 @@ void process_event(const SDL_Event *event)
 //        sub_555500(1);
 //        break;
     case SDL_QUIT:
+        NOX_DBG("SDL_QUIT received -> exit(0)");
         // Immediate exit (brutal but reliable)
         //        nox_gamepad_shutdown();
         exit(0);
@@ -261,134 +431,6 @@ void process_event(const SDL_Event *event)
 		break;
 	}
 }
-#else
-//----- (00444FF0) --------------------------------------------------------
-int __stdcall sub_444FF0(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
-{
-	LPARAM v4; // ebx
-	WPARAM v5; // esi
-	UINT v6; // edi
-	int result; // eax
-	WPARAM v8; // esi
-
-	v4 = lParam;
-	v5 = wParam;
-	v6 = Msg;
-	if (Msg > 0x102)
-	{
-		if (Msg > 0x3B9)
-		{
-			if (Msg == 1040)
-			{
-                // character from IME
-				v8 = wParam;
-				sub_488BD0(wParam);
-				return DefWindowProcA(hWnd, 0x410u, v8, v4);
-			}
-			if (Msg == 3024)
-			{
-				sub_414690((unsigned int *)wParam, (void(__stdcall *)(char *))lParam);
-				if (sub_414800())
-				{
-				LABEL_41:
-					PostQuitMessage(0);
-					sub_43DDD0(0);
-					sub_43DE60();
-					return DefWindowProcA(hWnd, v6, v5, v4);
-				}
-			}
-			return DefWindowProcA(hWnd, v6, v5, v4);
-		}
-		switch (Msg)
-		{
-		case 0x3B9u:
-			sub_413870(wParam);
-			return 1;
-		case 0x201u:
-			if (*(_DWORD *)&byte_5D4594[823776])
-				sub_4B0610(0);
-			break;
-		case 0x30Fu:
-			goto LABEL_34;
-		case 0x311u:
-			v5 = wParam;
-			if ((HWND)wParam == hWnd)
-				return DefWindowProcA(hWnd, v6, v5, v4);
-		LABEL_34:
-			sub_4348C0();
-			return 1;
-		}
-	LABEL_23:
-		v5 = wParam;
-		return DefWindowProcA(hWnd, v6, v5, v4);
-	}
-	if (Msg == WM_CHAR)
-	{
-		v5 = wParam;
-		Msg = wParam;
-		wParam = 0;
-		if (MultiByteToWideChar(0, 0, (LPCSTR)&Msg, -1, (LPWSTR)&wParam, 2) > 0)
-		{
-			sub_488BD0(wParam);
-			return DefWindowProcA(hWnd, 0x102u, v5, v4);
-		}
-		return DefWindowProcA(hWnd, v6, v5, v4);
-	}
-	switch (Msg)
-	{
-	case WM_DESTROY:
-		goto LABEL_41;
-	case WM_ACTIVATE:
-		v5 = (_WORD)wParam == 1 || (_WORD)wParam == 2;
-		goto LABEL_13;
-	case WM_SETFOCUS:
-		if (*(_DWORD *)&byte_5D4594[823776])
-			sub_48A820(0);
-		goto LABEL_23;
-	case WM_ACTIVATEAPP:
-	LABEL_13:
-		*(_DWORD *)&byte_5D4594[823792] = v5;
-		if (v5)
-		{
-			if (*(_DWORD *)&byte_5D4594[823776])
-			{
-				if (sub_48A2A0())
-					dword_974854 = 0;
-			}
-			sub_42ED20();
-			result = DefWindowProcA(hWnd, v6, v5, v4);
-		}
-		else
-		{
-			if (*(_DWORD *)&byte_5D4594[823776])
-				sub_48A9C0(1);
-			sub_42ED70();
-			result = DefWindowProcA(hWnd, v6, 0, v4);
-		}
-		return result;
-	case WM_SETCURSOR:
-		SetCursor(0);
-		return 1;
-	case WM_KEYDOWN:
-		if (!*(_DWORD *)&byte_5D4594[823776])
-			goto LABEL_23;
-		v5 = wParam;
-		if (wParam == 27)
-		{
-			sub_4B0610(1);
-			return DefWindowProcA(hWnd, v6, 0x1Bu, v4);
-		}
-		sub_4B0610(0);
-		if (v5 != 19)
-			return DefWindowProcA(hWnd, v6, v5, v4);
-		sub_48A9C0(0);
-		result = DefWindowProcA(hWnd, v6, 0x13u, v4);
-		break;
-	default:
-		return DefWindowProcA(hWnd, v6, v5, v4);
-	}
-	return result;
-}
 #endif
 
 //----- (004453A0) --------------------------------------------------------
@@ -396,12 +438,18 @@ int sub_4453A0()
 {
 #ifdef USE_SDL
 	SDL_Event event;
-	while (SDL_PollEvent(&event))
+	int n = 0;
+	nox_sdl_assert_window("sub_4453A0 (event pump entry)");
+	while (SDL_PollEvent(&event)) {
+        n++;
 		process_event(&event);
+    }
+    // NOX_DBG("sub_4453A0: polled %d events", n);
 	//mm_timer_pump_mainthread();
 #ifdef USE_SDL
     nox_gamepad_update();
     nox_control_server_pump();
+    nox_sdl_assert_window("sub_4453A0 (event pump exit)");
 #endif
 	return 0;
 #else
@@ -450,7 +498,12 @@ void sub_4516C0(wchar_t *a1, ...)
 	fflush(*(FILE **)&byte_5D4594[839880]);
 	v3 = sub_40F1D0("FatalError", 0, (int)"C:\\NoxPost\\src\\Client\\Io\\Console.c", 324);
 	v2 = sub_401FD0();
-	nullsub_4(v2, &byte_5D4594[833752], v3, 0);
+    NOX_DBG("FatalError: sub_401FD0() hwnd=%p", (void*)v2);
+	if (v2) {
+        nullsub_4(v2, &byte_5D4594[833752], v3, 0);
+    } else {
+        NOX_DBG("FatalError: skipping nullsub_4 (no hwnd)");
+    }
 	fprintf(*(FILE **)&byte_5D4594[839880], "exiting..\n");
 	fclose(*(FILE **)&byte_5D4594[839880]);
 	if (*(_DWORD *)&byte_5D4594[823776])
