@@ -1174,7 +1174,7 @@ static int tex_w = 0, tex_h = 0;
 
         // Allocate a fresh texture of the correct size (contents undefined/empty).
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_w, tex_h, 0,
-                     GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+                     GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
         // Optional: ensure clean black immediately (not strictly required if you fully upload every pixel)
         // You can skip this if your conv always fills w*h.
     }
@@ -1198,7 +1198,7 @@ static int tex_w = 0, tex_h = 0;
             GL_TEXTURE_2D, 0, 0, 0,
             w, h,
             GL_RGBA,
-            GL_UNSIGNED_SHORT_5_5_5_1,
+            GL_UNSIGNED_SHORT_1_5_5_5_REV,
             srcsurf->pixels
         );
         glCheckErrorAt("texsubimage2d rgba5551");
@@ -1210,7 +1210,7 @@ static int tex_w = 0, tex_h = 0;
                 GL_TEXTURE_2D, 0, 0, y,
                 w, 1,
                 GL_RGBA,
-                GL_UNSIGNED_SHORT_5_5_5_1,
+                GL_UNSIGNED_SHORT_1_5_5_5_REV,
                 row
             );
         }
