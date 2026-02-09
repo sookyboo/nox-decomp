@@ -1357,6 +1357,7 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         const NoxCtrlMacro *m = find_macro(p);
         if (!m) { send_str_maybe(fd, "ERR unknown macro\r\n"); return; }
 
+        fprintf(stderr, "[ctrl] '%s' \n", m->name);
         send_str_maybe(fd, "Running macro: ");
         send_str_maybe(fd, m->name);
         send_str_maybe(fd, "\r\n");
