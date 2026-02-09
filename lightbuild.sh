@@ -13,7 +13,7 @@ docker rm noxdecomp_tmp-x86-light || true
 docker load -i ../noxdecomp-build-arm64.tar
 docker load -i ../noxdecomp-build-x86.tar
 
-docker buildx build --platform=linux/arm64 --progress=plain -f Dockerfile.arm64-light -t noxdecomp-build-light . && \
+docker buildx build --load --platform=linux/arm64 --progress=plain -f Dockerfile.arm64-light -t noxdecomp-build-light . && \
 docker create --name noxdecomp_tmp-light noxdecomp-build-light && \
 docker cp noxdecomp_tmp-light:/build/nox-decomp/build/src/out ../noxd.armhf
 # mkdir -p ../gl4es.armhf && \
@@ -22,7 +22,7 @@ docker cp noxdecomp_tmp-light:/build/nox-decomp/build/src/out ../noxd.armhf
 # docker cp noxdecomp_tmp-light:/opt/ffmpeg-armhf/lib/. ../ffmpeg.armhf/ && \
 docker rm noxdecomp_tmp-light
 
-docker buildx build --platform=linux/amd64 --progress=plain -f Dockerfile.x86-light -t noxdecomp-build-x86-light . &&  \
+docker buildx build --load --platform=linux/amd64 --progress=plain -f Dockerfile.x86-light -t noxdecomp-build-x86-light . &&  \
 docker create --name noxdecomp_tmp-x86-light noxdecomp-build-x86-light && \
 docker cp noxdecomp_tmp-x86-light:/build/nox-decomp/build/src/out ../noxd.i386
 #docker cp noxdecomp_tmp-x86-light:/opt/ffmpeg-i386/lib/. ../ffmpeg.i386/ && \

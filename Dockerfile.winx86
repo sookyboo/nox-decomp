@@ -1,0 +1,379 @@
+FROM ubuntu:20.04
+
+# Run with: docker buildx build --platform=linux/amd64 --progress=plain -f Dockerfile.i386 -t noxdecomp-build-x86 . && docker create --name noxdecomp_tmp-x86 noxdecomp-build-x86 && docker cp noxdecomp_tmp-x86:/build/nox-decomp/build/src/out ./noxd.x86 && docker rm noxdecomp_tmp-x86
+#
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /build
+
+# -------------------------------------------------
+# Enable i386 architecture + multilib toolchain + i386 dev libs
+# -------------------------------------------------
+RUN apt-get update && apt -y install ca-certificates --fix-missing
+
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+ && sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+
+#RUN dpkg --add-architecture i386 && \
+#    apt-get update && apt -y install ca-certificates
+
+RUN apt-get update && apt-get install -y \
+      build-essential \
+      ccache \
+      cmake \
+      ninja-build \
+      git \
+      pkg-config \
+      wget \
+      ca-certificates \
+      autoconf \
+      automake \
+      libtool \
+      python3 \
+      \
+      make \
+      yasm \
+      nasm \
+      gettext \
+      texinfo \
+      \
+      zip \
+      unzip \
+      \
+      mingw-w64 \
+      mingw-w64-tools \
+      \
+      innoextract && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# Ensure pkg-config resolves i386 (prevents host/x86_64 contamination)
+ENV PKG_CONFIG_PATH=/opt/ffmpeg-win32/lib/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/opt/ffmpeg-win32/lib/pkgconfig
+ENV PKG_CONFIG_SYSROOT_DIR=
+
+# gl4es lib
+
+WORKDIR /build
+# (Windows/MinGW build) gl4es is Linux-specific; keep section but skip.
+# RUN git clone https://github.com/ptitSeb/gl4es.git
+
+# RUN apt-get update && apt-get install -y \
+#           build-essential \
+#           ccache \
+#           cmake \
+#           ninja-build \
+#           git \
+#           pkg-config \
+#           wget \
+#           ca-certificates \
+#           libegl1-mesa-dev:i386 \
+#           libgles2-mesa-dev:i386 \
+#           libgbm-dev:i386 \
+#           libdrm-dev:i386 \
+#           mesa-common-dev:i386 \
+#           \
+#           libx11-dev:i386 \
+#           libxext-dev:i386 \
+#           libxfixes-dev:i386 \
+#           libxdamage-dev:i386 \
+#           libxxf86vm-dev:i386
+
+# gl4es: fix CMake module + function usage (CMake 3.16 compatible)
+# RUN sed -i \
+#     -e 's/include(CheckCompilerFlag)/include(CheckCCompilerFlag)/' \
+#     -e 's/check_compiler_flag(C /check_c_compiler_flag(/g' \
+#     /build/gl4es/CMakeLists.txt
+
+# Sanity check
+# RUN grep -n "CheckCCompilerFlag" /build/gl4es/CMakeLists.txt && \
+#     grep -n "check_c_compiler_flag" /build/gl4es/CMakeLists.txt
+
+#RUN cd gl4es && mkdir -p build && cd build && \
+#    cmake .. \
+#      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+#      -DNOX11=ON -DGLX_STUBS=ON -DEGL_WRAPPER=ON -DGBM=ON \
+#      -DCMAKE_INSTALL_PREFIX=/usr \
+#      -DCMAKE_C_FLAGS="-m32" \
+#      -DCMAKE_CXX_FLAGS="-m32" \
+#      -DCMAKE_SHARED_LINKER_FLAGS="-m32" \
+#      -DCMAKE_EXE_LINKER_FLAGS="-m32"
+
+#RUN cd gl4es/build && \
+#    make -j"$(nproc)"
+
+# RUN file /build/gl4es-armhf/usr/lib*/libGL.so* || true
+
+# ffmpeg for videos
+
+# -------------------------------------------------
+# Build FFmpeg (armhf) from git with VQA3 support
+# -------------------------------------------------
+ARG FFMPEG_GIT_REF=n7.1.1
+# You can switch to "master" if you want latest:
+# ARG FFMPEG_GIT_REF=master
+
+
+ARG FFMPEG_PREFIX=/opt/ffmpeg-win32
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
+
+WORKDIR /build
+
+
+RUN git clone https://git.ffmpeg.org/ffmpeg.git /build/ffmpeg && \
+    cd /build/ffmpeg && \
+    git checkout ${FFMPEG_GIT_REF}
+
+ENV CC="ccache i686-w64-mingw32-gcc"
+ENV CXX="ccache i686-w64-mingw32-g++"
+ENV AR="i686-w64-mingw32-ar"
+ENV RANLIB="i686-w64-mingw32-ranlib"
+ENV STRIP="i686-w64-mingw32-strip"
+ENV WINDRES="i686-w64-mingw32-windres"
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && \
+    ./configure \
+      --prefix=${FFMPEG_PREFIX} \
+      --arch=x86 \
+      --cpu=i686 \
+      --target-os=mingw32 \
+      --cross-prefix=i686-w64-mingw32- \
+      --enable-cross-compile \
+      --enable-shared \
+      --disable-static \
+      --disable-programs \
+      --disable-doc \
+      --disable-debug \
+      --enable-pic \
+      --disable-openssl --disable-gnutls --disable-bzlib --disable-zlib
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && make -j"$(nproc)" \
+    && make install
+
+RUN ls -l /opt/ffmpeg-win32/bin/av*.dll || true && \
+    ls -l /opt/ffmpeg-win32/lib/pkgconfig/libavformat.pc || true
+
+#RUN exit 1
+
+# back to nox
+
+# -------------------------------------------------
+# Build SDL2 for Windows (MinGW i686) so <SDL2/SDL.h> exists
+# -------------------------------------------------
+ARG SDL2_VERSION=release-2.30.11
+ARG SDL2_PREFIX=/opt/sdl2-win32
+ENV SDL2_PREFIX=${SDL2_PREFIX}
+
+RUN git clone https://github.com/libsdl-org/SDL.git /build/SDL && \
+    cd /build/SDL && \
+    git checkout ${SDL2_VERSION}
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cmake -S /build/SDL -B /build/SDL/build \
+      -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${SDL2_PREFIX} \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+      -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+      -DSDL_SHARED=ON \
+      -DSDL_STATIC=OFF \
+      -DSDL_TEST=OFF && \
+    cmake --build /build/SDL/build -j"$(nproc)" && \
+    cmake --install /build/SDL/build
+
+
+RUN ls -l ${SDL2_PREFIX}/include/SDL2/SDL.h && \
+    (ls -l ${SDL2_PREFIX}/lib/pkgconfig/sdl2.pc || true)
+
+ENV PKG_CONFIG_PATH=/opt/ffmpeg-win32/lib/pkgconfig:/opt/sdl2-win32/lib/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/opt/ffmpeg-win32/lib/pkgconfig:/opt/sdl2-win32/lib/pkgconfig
+ENV PKG_CONFIG_SYSROOT_DIR=
+
+# -------------------------------------------------
+# OpenAL for Windows (prebuilt binaries)  ✅ option B
+# -------------------------------------------------
+ARG OPENAL_VERSION=1.22.2
+ARG OPENAL_PREFIX=/opt/openal-win32
+ENV OPENAL_PREFIX=${OPENAL_PREFIX}
+
+RUN mkdir -p ${OPENAL_PREFIX} /tmp/openal && \
+    wget -q -O /tmp/openal/openal.zip https://openal-soft.org/openal-binaries/openal-soft-${OPENAL_VERSION}-bin.zip && \
+    unzip -q /tmp/openal/openal.zip -d /tmp/openal && \
+    echo "[openal] extracted:" && \
+    find /tmp/openal -maxdepth 3 -type d -print
+
+# Typical layout inside the zip:
+#   openal-soft-<ver>/
+#     include/AL/...
+#     bin/Win32/soft_oal.dll
+#     libs/Win32/libOpenAL32.a  (and/or OpenAL32.lib)
+
+RUN set -eux; \
+    OA_DIR="$(find /tmp/openal -maxdepth 2 -type d -name 'openal-soft-*' | head -n1)"; \
+    echo "[openal] OA_DIR=$OA_DIR"; \
+    mkdir -p "${OPENAL_PREFIX}/include" "${OPENAL_PREFIX}/bin" "${OPENAL_PREFIX}/lib"; \
+    cp -av "${OA_DIR}/include/AL" "${OPENAL_PREFIX}/include/"; \
+    \
+    # MinGW import libs (prefer Win32)
+    if [ -d "${OA_DIR}/libs/Win32" ]; then \
+      cp -av "${OA_DIR}/libs/Win32/"* "${OPENAL_PREFIX}/lib/" || true; \
+    elif [ -d "${OA_DIR}/libs" ]; then \
+      cp -av "${OA_DIR}/libs/"* "${OPENAL_PREFIX}/lib/" || true; \
+    fi; \
+    \
+    # DLL: rename soft_oal.dll -> OpenAL32.dll for conventional loading
+    if [ -f "${OA_DIR}/bin/Win32/soft_oal.dll" ]; then \
+      cp -av "${OA_DIR}/bin/Win32/soft_oal.dll" "${OPENAL_PREFIX}/bin/OpenAL32.dll"; \
+    elif [ -f "${OA_DIR}/bin/soft_oal.dll" ]; then \
+      cp -av "${OA_DIR}/bin/soft_oal.dll" "${OPENAL_PREFIX}/bin/OpenAL32.dll"; \
+    fi; \
+    \
+    ls -la "${OPENAL_PREFIX}/include/AL" || true; \
+    ls -la "${OPENAL_PREFIX}/lib" || true; \
+    ls -la "${OPENAL_PREFIX}/bin" || true
+
+
+ENV PKG_CONFIG_PATH=/opt/ffmpeg-win32/lib/pkgconfig:/opt/sdl2-win32/lib/pkgconfig:/opt/openal-win32/lib/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/opt/ffmpeg-win32/lib/pkgconfig:/opt/sdl2-win32/lib/pkgconfig:/opt/openal-win32/lib/pkgconfig
+
+# -------------------------------------------------
+# Build GLEW for Windows (MinGW i686) so modern GL symbols link
+# -------------------------------------------------
+ARG GLEW_PREFIX=/opt/glew-win32
+ENV GLEW_PREFIX=${GLEW_PREFIX}
+
+# Use a release/snapshot archive (contains generated src/ + include/)
+# (Git tags often don't ship the generated files required by CMake.)
+ARG GLEW_TARBALL_URL=https://sourceforge.net/projects/glew/files/glew/2.1.0/glew-2.1.0.tgz/download
+
+RUN set -eux; \
+    mkdir -p /tmp/glew && cd /tmp/glew; \
+    wget -q -O glew.tgz "${GLEW_TARBALL_URL}"; \
+    tar -xzf glew.tgz; \
+    GDIR="$(find . -maxdepth 1 -type d -name 'glew-*' | head -n1)"; \
+    test -n "$GDIR"; \
+    mv "$GDIR" /build/glew; \
+    \
+    cmake -S /build/glew/build/cmake -B /build/glew/build-win32 \
+      -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+      -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+      -DCMAKE_INSTALL_PREFIX="${GLEW_PREFIX}" \
+      -DBUILD_SHARED_LIBS=ON; \
+    cmake --build /build/glew/build-win32 -j"$(nproc)"; \
+    cmake --install /build/glew/build-win32; \
+    \
+    test -f "${GLEW_PREFIX}/include/GL/glew.h"; \
+    ls -la "${GLEW_PREFIX}/include/GL/glew.h"; \
+    ls -la "${GLEW_PREFIX}/lib" || true; \
+    ls -la "${GLEW_PREFIX}/bin" || true
+
+
+
+RUN test -f /opt/glew-win32/include/GL/glew.h && echo "GLEW header OK"
+
+# -------------------------------------------------
+# Fetch sources
+# -------------------------------------------------
+#RUN git clone https://github.com/neuromancer/nox-decomp.git
+COPY . /build/nox-decomp
+
+# -------------------------------------------------
+# Patches BEFORE configure/build
+# -------------------------------------------------
+
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-win32 \
+      -DCMAKE_PREFIX_PATH="/opt/sdl2-win32;/opt/openal-win32;/opt/glew-win32;/opt/ffmpeg-win32" \
+      -DOPENAL_INCLUDE_DIR=/opt/openal-win32/include \
+      -DOPENAL_LIBRARY=/opt/openal-win32/lib/libOpenAL32.dll.a \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+      -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+      -DUSE_SDL=ON \
+      -DUSE_DIRECTX=OFF \
+      -DCMAKE_C_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include -U_FORTIFY_SOURCE -fno-strict-aliasing -fsigned-char -O0 -fno-tree-vectorize -fno-aggressive-loop-optimizations" \
+      -DCMAKE_CXX_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include -fno-strict-aliasing -fsigned-char -O0" \
+      -DCMAKE_EXE_LINKER_FLAGS="-L/opt/sdl2-win32/lib -L/opt/openal-win32/lib -L/opt/glew-win32/lib -L/opt/ffmpeg-win32/lib"
+
+
+
+
+#COPY draw.c /build/nox-decomp/src/draw.c
+#COPY win.c /build/nox-decomp/src/win.c
+#COPY compat.c /build/nox-decomp/src/compat.c
+#COPY string.c /build/nox-decomp/src/string.c
+#COPY GAME4.c /build/nox-decomp/src/GAME4.c
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake --build . -j $(nproc)
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/bin/av*.dll /build/nox-decomp/build/src/lib/ || true
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${SDL2_PREFIX}/bin/SDL2.dll /build/nox-decomp/build/src/lib/ || true
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${OPENAL_PREFIX}/bin/OpenAL32.dll /build/nox-decomp/build/src/lib/ || true
+
+
+# -------------------------------------------------
+# Verify output
+# -------------------------------------------------
+RUN find /build/nox-decomp/build/
+RUN file /build/nox-decomp/build/src/out* || true
+
+#RUN nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
+#RUN nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
+
+
+# -------------------------------------------------
+# Bundle: noxd.win32 (exe + all non-system DLL deps)
+# -------------------------------------------------
+RUN set -eux; \
+    OUTDIR=/build/nox-decomp/build/src/noxd.win32; \
+    mkdir -p "$OUTDIR"; \
+    \
+    # 1) binary
+    cp -av /build/nox-decomp/build/src/out.exe "$OUTDIR/"; \
+    \
+    # 2) ffmpeg runtime dlls (from your objdump list)
+    cp -av /opt/ffmpeg-win32/bin/avcodec-61.dll   "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/avformat-61.dll  "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/avutil-59.dll    "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/swresample-5.dll "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/swscale-8.dll    "$OUTDIR/"; \
+    \
+    # 3) SDL/OpenAL/GLEW
+    cp -av /opt/sdl2-win32/bin/SDL2.dll           "$OUTDIR/"; \
+    cp -av /opt/openal-win32/bin/OpenAL32.dll     "$OUTDIR/"; \
+    cp -av /opt/glew-win32/bin/glew32.dll         "$OUTDIR/" 2>/dev/null || true; \
+    \
+    # 4) MinGW runtime (required per objdump: libgcc_s_sjlj-1.dll)
+    GCCDLL="$(find /usr -type f -name 'libgcc_s_sjlj-1.dll' -print | head -n1)"; \
+    test -n "${GCCDLL:-}"; \
+    cp -av "$GCCDLL" "$OUTDIR/"; \
+    \
+    # 5) sanity: print what we bundled + verify imports that should be shipped
+    echo "[bundle] contents:"; ls -la "$OUTDIR"; \
+    echo "[bundle] dependency check:"; \
+    i686-w64-mingw32-objdump -p "$OUTDIR/out.exe" | sed -n 's/^[[:space:]]*DLL Name:[[:space:]]*//p' | while IFS= read -r dll; do \
+      case "$dll" in \
+        KERNEL32.dll|USER32.dll|GDI32.dll|ADVAPI32.dll|SHELL32.dll|WINMM.DLL|WS2_32.dll|OPENGL32.DLL|msvcrt.dll) echo "SYS  $dll" ;; \
+        *) test -f "$OUTDIR/$dll" && echo "OK   $dll" || echo "MISS $dll" ;; \
+      esac; \
+    done

@@ -78,7 +78,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// ---------------------------------------------------------------------
 	// SDL path: FORCE CLASSIC 640x480, NO WIDESCREEN
 	// ---------------------------------------------------------------------
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
 
 	// Hard clamp to 640x480 to avoid widescreen / wide backbuffer modes.
 	// Also overwrite the original global resolution variables so the rest
@@ -224,6 +224,7 @@ void process_event(const SDL_Event *event)
 //        break;
     case SDL_QUIT:
         // Immediate exit (brutal but reliable)
+        //        nox_gamepad_shutdown();
         exit(0);
         break;
     case SDL_TEXTEDITING:

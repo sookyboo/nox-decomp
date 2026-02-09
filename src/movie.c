@@ -27,6 +27,14 @@
 
 #include <SDL2/SDL.h>
 
+#ifdef _WIN32
+// Use the real WinMM + CRT APIs on Windows
+#include <windows.h>
+#include <mmsystem.h>   // timeBeginPeriod/timeSetEvent/etc
+#include <io.h>         // _lseek/_filelength
+#pragma comment(lib, "winmm")
+#endif
+
 #ifdef __APPLE__
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
@@ -98,8 +106,17 @@ void AIL_unlock(void) {
 typedef uint32_t MMRESULT;
 
 /* Signature WinMM expects: */
-typedef void (*LPTIMECALLBACK)(uint32_t uTimerID, uint32_t uMsg,
-                              uintptr_t dwUser, uintptr_t dw1, uintptr_t dw2);
+#ifdef _WIN32
+  #include <windows.h>
+  #include <mmsystem.h>
+  /* WinMM already defines LPTIMECALLBACK and MMRESULT. Use those. */
+#else
+  typedef uint32_t MMRESULT;
+
+  /* Signature WinMM expects: */
+  typedef void (*LPTIMECALLBACK)(uint32_t uTimerID, uint32_t uMsg,
+                                uintptr_t dwUser, uintptr_t dw1, uintptr_t dw2);
+#endif
 
 static SDL_TimerID g_movie_timer_id = 0;
 static LPTIMECALLBACK g_movie_timer_cb = NULL;
@@ -175,7 +192,8 @@ static struct sdl_time_event *timeev_take(SDL_TimerID tid) {
     return ev;
 }
 
-/* WinMM timer functions */
+#ifndef _WIN32
+
 MMRESULT timeBeginPeriod(uint32_t uPeriod) {
  (void)uPeriod;
  return 0; /* no-op on SDL */
@@ -198,6 +216,7 @@ MMRESULT timeSetEvent(uint32_t uDelay, uint32_t uResolution,
     g_mm_next_fire   = SDL_GetTicks() + g_mm_interval_ms;
     return g_mm_id;
 }
+
 MMRESULT timeKillEvent(MMRESULT uTimerID)
 {
     (void)uTimerID;
@@ -207,6 +226,8 @@ MMRESULT timeKillEvent(MMRESULT uTimerID)
     g_mm_user        = 0;
     return 0;
 }
+
+#endif /* !_WIN32 */
 
 // Call this ONLY from the main thread, frequently (each loop iteration is fine)
 void mm_timer_pump_mainthread(void)
@@ -227,6 +248,7 @@ void mm_timer_pump_mainthread(void)
  * -------------------------- */
 
 /* Windows-style names used by the original code */
+#ifndef _WIN32
 static int _lseek(int fd, int offset, int origin) {
     off_t r = lseek(fd, (off_t)offset, origin);
     return (r == (off_t)-1) ? -1 : (int)r;
@@ -237,6 +259,7 @@ static int _filelength(int fd) {
     if (fstat(fd, &st) != 0) return -1;
     return (int)st.st_size;
 }
+#endif /* !_WIN32 */
 
 #endif /* USE_SDL */
 
@@ -481,19 +504,19 @@ int movie_resolve_path(const char *in, char *out, size_t out_sz)
     }
     out[n] = 0;
 
-    // 2) try case-correcting (use YOUR existing helper name here)
-    // If you have something like: int compat_casepath(const char *in, char *out)
-    // then do:
+#ifndef _WIN32
+    // 2) try case-correcting (not needed on Windows)
     {
         char tmp[1024];
-        if (external_compat_casepath(out, tmp, sizeof(tmp))) {            // <-- rename to your actual function
+        if (external_compat_casepath(out, tmp, sizeof(tmp))) {
             strncpy(out, tmp, out_sz - 1);
             out[out_sz - 1] = 0;
             return 1;
         }
     }
+#endif
 
-    // If no helper, still usable (after slash normalization), but may fail on case
+    // If no helper (or on Windows), still usable (after slash normalization)
     return 1;
 }
 
