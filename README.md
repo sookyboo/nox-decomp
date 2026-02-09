@@ -1,3 +1,4 @@
+![](https://github.com/sookyboo/nox-decomp/blob/main/logos/nox-decomp.png)
 # Nox-Decomp
 
 This is a fork of https://github.com/neuromancer/nox-decomp
@@ -20,10 +21,10 @@ Nox-Decomp requires an original copy of Nox. None of the Nox game assets are pro
 
 # Screenshots
 
-![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/game1.png)
-![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/handheld.jpeg)
-![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/movie1.png)
-![](https://github.com/sookyboo/nox-decomp/blob/master/screenshots/movie2.png)
+![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/game1.png)
+![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/handheld.jpeg)
+![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/movie1.png)
+![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/movie2.png)
 
 # Building from source
 
