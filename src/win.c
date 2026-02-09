@@ -85,6 +85,36 @@ SDL_Window *nox_sdl_get_window(void)
 {
     return dword_973FE0 ? dword_973FE0 : g_window;
 }
+
+static void nox_sdl_apply_mouse_capture(int enable)
+{
+    SDL_Window *w = nox_sdl_get_window();
+    if (!w) return;
+
+    if (enable) {
+        SDL_SetRelativeMouseMode(SDL_TRUE);
+
+        SDL_SetWindowGrab(w, SDL_TRUE);
+#if SDL_VERSION_ATLEAST(2,0,4)
+        SDL_CaptureMouse(SDL_TRUE);
+#endif
+        SDL_ShowCursor(SDL_DISABLE);
+    } else {
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+#if SDL_VERSION_ATLEAST(2,0,4)
+        SDL_CaptureMouse(SDL_FALSE);
+#endif
+        SDL_SetWindowGrab(w, SDL_FALSE);
+        SDL_ShowCursor(SDL_ENABLE);
+    }
+
+    NOX_DBG("mouse: show=%d rel=%d grab=%d",
+            SDL_ShowCursor(SDL_QUERY),
+            SDL_GetRelativeMouseMode(),
+            (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_GRABBED) != 0);
+}
+
+
 #else
 WNDCLASSEXA g_wnd_class;
 HWND g_hwnd;
@@ -176,8 +206,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     NOX_DBG("engine globals before clamp w=%d h=%d", w, h);
 
     // Wine/early init can leave these as 0. Clamp to sane classic default.
-    if (w <= 0) w = 640;
-    if (h <= 0) h = 480;
+    if (w <= 0) w = 1024;
+    if (h <= 0) h = 768;
 
     // Keep engine globals consistent with what we actually create.
     *(int *)&byte_5D4594[3805496] = w;
@@ -203,26 +233,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     NOX_DBG("SDL_CreateWindow starting");
 	SDL_Window *win = SDL_CreateWindow(
-		"Nox Game Window",
-		SDL_WINDOWPOS_UNDEFINED,
-		SDL_WINDOWPOS_UNDEFINED,
-		*(int *)&byte_5D4594[3805496],
-		*(int *)&byte_5D4594[3807120],
-		SDL_WINDOW_OPENGL      // NOTE: no SDL_WINDOW_RESIZABLE here
-	);
+        "Nox Game Window",
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        *(int *)&byte_5D4594[3805496],
+        *(int *)&byte_5D4594[3807120],
+        SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN_DESKTOP     // NOTE: no SDL_WINDOW_RESIZABLE here
+    );
 
+
+    if (!win)
+    {
+        NOX_DBG("SDL_CreateWindow failed: %s", SDL_GetError());
+        return 0;
+    }
 
 
     /* Make draw.c see the same SDL_Window* */
     nox_sdl_set_window(win, "WinMain SDL_CreateWindow");
-        if (!win)
-        {
-            NOX_DBG("SDL_CreateWindow failed: %s", SDL_GetError());
-            return 0;
-        }
-        nox_sdl_set_window(win, "WinMain SDL_CreateWindow");
 
-        NOX_DBG("SDL_CreateWindow OK g_window=%p", (void*)g_window);
+
+    // (optional but often helps) make sure it's foreground
+    SDL_RaiseWindow(win);
+
+    nox_sdl_apply_mouse_capture(1);
+
+    NOX_DBG("SDL_CreateWindow OK g_window=%p", (void*)g_window);
+
+
 
     {
         Uint32 wf = SDL_GetWindowFlags(g_window);
@@ -336,6 +374,7 @@ HWND sub_401FD0()
         HWND fb = GetActiveWindow();
         if (!fb) fb = GetForegroundWindow();
         if (!fb) fb = GetDesktopWindow();
+        nox_sdl_apply_mouse_capture(1);
         NOX_DBG("sub_401FD0: returning fallback HWND=%p", (void*)fb);
         return fb;
     }
@@ -391,6 +430,18 @@ void process_event(const SDL_Event *event)
 //        // Make movie loops exit (sub_555510 reads this)
 //        sub_555500(1);
 //        break;
+    case SDL_WINDOWEVENT:
+        if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED ||
+            event->window.event == SDL_WINDOWEVENT_ENTER ||
+            event->window.event == SDL_WINDOWEVENT_SHOWN ||
+            event->window.event == SDL_WINDOWEVENT_RESTORED) {
+            nox_sdl_apply_mouse_capture(1);
+        } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
+                   event->window.event == SDL_WINDOWEVENT_LEAVE ||
+                   event->window.event == SDL_WINDOWEVENT_MINIMIZED) {
+            nox_sdl_apply_mouse_capture(0);
+        }
+        break;
     case SDL_QUIT:
         NOX_DBG("SDL_QUIT received -> exit(0)");
         // Immediate exit (brutal but reliable)
