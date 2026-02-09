@@ -1,0 +1,98 @@
+FROM noxdecomp-build-winx86
+
+COPY . /build/nox-decomp
+
+# -------------------------------------------------
+# Patches BEFORE configure/build
+# -------------------------------------------------
+
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-win32 \
+      -DCMAKE_PREFIX_PATH="/opt/sdl2-win32;/opt/openal-win32;/opt/glew-win32;/opt/ffmpeg-win32" \
+      -DOPENAL_INCLUDE_DIR=/opt/openal-win32/include \
+      -DOPENAL_LIBRARY=/opt/openal-win32/lib/libOpenAL32.dll.a \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+      -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+      -DUSE_SDL=ON \
+      -DUSE_DIRECTX=OFF \
+      -DCMAKE_C_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include -U_FORTIFY_SOURCE -fno-strict-aliasing -fsigned-char -O0 -fno-tree-vectorize -fno-aggressive-loop-optimizations" \
+      -DCMAKE_CXX_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include -fno-strict-aliasing -fsigned-char -O0" \
+      -DCMAKE_EXE_LINKER_FLAGS="-L/opt/sdl2-win32/lib -L/opt/openal-win32/lib -L/opt/glew-win32/lib -L/opt/ffmpeg-win32/lib"
+
+
+
+
+#COPY draw.c /build/nox-decomp/src/draw.c
+#COPY win.c /build/nox-decomp/src/win.c
+#COPY compat.c /build/nox-decomp/src/compat.c
+#COPY string.c /build/nox-decomp/src/string.c
+#COPY GAME4.c /build/nox-decomp/src/GAME4.c
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake --build . -j $(nproc)
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/bin/av*.dll /build/nox-decomp/build/src/lib/ || true
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${SDL2_PREFIX}/bin/SDL2.dll /build/nox-decomp/build/src/lib/ || true
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${OPENAL_PREFIX}/bin/OpenAL32.dll /build/nox-decomp/build/src/lib/ || true
+
+
+# -------------------------------------------------
+# Verify output
+# -------------------------------------------------
+RUN find /build/nox-decomp/build/
+RUN file /build/nox-decomp/build/src/out* || true
+
+#RUN nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
+#RUN nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
+
+
+# -------------------------------------------------
+# Bundle: noxd.win32 (exe + all non-system DLL deps)
+# -------------------------------------------------
+RUN set -eux; \
+    OUTDIR=/build/nox-decomp/build/src/noxd.win32; \
+    mkdir -p "$OUTDIR"; \
+    \
+    # 1) binary
+    cp -av /build/nox-decomp/build/src/out.exe "$OUTDIR/"; \
+    \
+    # 2) ffmpeg runtime dlls (from your objdump list)
+    cp -av /opt/ffmpeg-win32/bin/avcodec-61.dll   "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/avformat-61.dll  "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/avutil-59.dll    "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/swresample-5.dll "$OUTDIR/"; \
+    cp -av /opt/ffmpeg-win32/bin/swscale-8.dll    "$OUTDIR/"; \
+    \
+    # 3) SDL/OpenAL/GLEW
+    cp -av /opt/sdl2-win32/bin/SDL2.dll           "$OUTDIR/"; \
+    cp -av /opt/openal-win32/bin/OpenAL32.dll     "$OUTDIR/"; \
+    cp -av /opt/glew-win32/bin/glew32.dll         "$OUTDIR/" 2>/dev/null || true; \
+    \
+    # 4) MinGW runtime (required per objdump: libgcc_s_sjlj-1.dll)
+    GCCDLL="$(find /usr -type f -name 'libgcc_s_sjlj-1.dll' -print | head -n1)"; \
+    test -n "${GCCDLL:-}"; \
+    cp -av "$GCCDLL" "$OUTDIR/"; \
+    \
+    # 5) sanity: print what we bundled + verify imports that should be shipped
+    echo "[bundle] contents:"; ls -la "$OUTDIR"; \
+    echo "[bundle] dependency check:"; \
+    i686-w64-mingw32-objdump -p "$OUTDIR/out.exe" | sed -n 's/^[[:space:]]*DLL Name:[[:space:]]*//p' | while IFS= read -r dll; do \
+      case "$dll" in \
+        KERNEL32.dll|USER32.dll|GDI32.dll|ADVAPI32.dll|SHELL32.dll|WINMM.DLL|WS2_32.dll|OPENGL32.DLL|msvcrt.dll) echo "SYS  $dll" ;; \
+        *) test -f "$OUTDIR/$dll" && echo "OK   $dll" || echo "MISS $dll" ;; \
+      esac; \
+    done

@@ -6,6 +6,8 @@
 #define GL_GLEXT_PROTOTYPES
 #endif
 
+
+
 //#define SDL_DEBUG_FRAMES=0
 
 #ifdef __APPLE__
@@ -1605,11 +1607,10 @@ int sub_48B000()
 
         SDL_GL_SetSwapInterval(1);
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USE_SDL)
         err = glewInit();
         if (GLEW_OK != err)
         {
-            /* Problem: glewInit failed, something is seriously wrong. */
             dprintf("Error: %s\n", glewGetErrorString(err));
         }
 #endif

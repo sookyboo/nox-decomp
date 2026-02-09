@@ -7,11 +7,72 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <netdb.h>
+#ifdef _WIN32
+  #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+  #endif
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #include <windows.h>
+
+  #ifndef SHUT_RDWR
+  #define SHUT_RDWR SD_BOTH
+  #endif
+
+  #define close closesocket
+  typedef int socklen_t;
+
+  // MinGW doesn't always provide strcasecmp
+  #ifndef strcasecmp
+  #define strcasecmp _stricmp
+  #endif
+
+  // Provide gettimeofday-compatible struct + impl for timeouts
+  #ifndef _TIMEVAL_DEFINED
+  #define _TIMEVAL_DEFINED
+  #endif
+
+  static int g_wsa_inited = 0;
+  static void nox_wsa_init_once(void)
+  {
+      if (!g_wsa_inited) {
+          WSADATA w;
+          if (WSAStartup(MAKEWORD(2, 2), &w) == 0) g_wsa_inited = 1;
+      }
+  }
+
+  // fcntl/O_NONBLOCK compatibility
+  static int nox_set_nonblock(int fd, int on)
+  {
+      u_long mode = on ? 1UL : 0UL;
+      return ioctlsocket((SOCKET)fd, FIONBIO, &mode) == 0 ? 0 : -1;
+  }
+
+  static int nox_sock_last_err(void) { return WSAGetLastError(); }
+
+  static void nox_errno_from_wsa(int wsa)
+  {
+      // minimal mapping used by this file
+      if (wsa == WSAEINTR)        errno = EINTR;
+      else if (wsa == WSAEWOULDBLOCK) errno = EWOULDBLOCK;
+      else if (wsa == WSAEINPROGRESS) errno = EINPROGRESS;
+      else if (wsa == WSAETIMEDOUT)   errno = ETIMEDOUT;
+      else if (wsa == WSAECONNRESET)  errno = ECONNRESET;
+      else if (wsa == WSAEADDRINUSE)  errno = EADDRINUSE;
+      else if (wsa == WSAENETUNREACH) errno = ENETUNREACH;
+      else if (wsa == WSAEHOSTUNREACH)errno = EHOSTUNREACH;
+      else if (wsa == WSAECONNREFUSED)errno = ECONNREFUSED;
+      else errno = EIO;
+  }
+
+#else
+  #include <unistd.h>
+  #include <sys/types.h>
+  #include <sys/socket.h>
+  #include <fcntl.h>
+  #include <netdb.h>
+  #include <sys/time.h>
+#endif
 
 // ---- NET logging helpers ----
 static int g_netlog(void) {
@@ -60,6 +121,7 @@ static const char *csv_next_token(const char *s, char *tok, size_t tok_sz)
     /* copy until comma/end */
     size_t n = 0;
     const char *start = s;
+    (void)start;
     while (*s && *s != ',') {
         if (n + 1 < tok_sz) tok[n++] = *s;
         s++;
@@ -227,15 +289,73 @@ static const char *skip_ws(const char *p) {
 
 void set_sock_timeouts(int fd, int ms)
 {
+#ifdef _WIN32
+    nox_wsa_init_once();
+    DWORD tv = (DWORD)ms;
+    setsockopt((SOCKET)fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, (int)sizeof(tv));
+    setsockopt((SOCKET)fd, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, (int)sizeof(tv));
+#else
     struct timeval tv;
     tv.tv_sec  = ms / 1000;
     tv.tv_usec = (ms % 1000) * 1000;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, (socklen_t)sizeof(tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, (socklen_t)sizeof(tv));
+#endif
 }
 
 static int connect_with_timeout(int fd, const struct sockaddr *sa, socklen_t slen, int ms)
 {
+#ifdef _WIN32
+    nox_wsa_init_once();
+
+    // nonblocking connect
+    if (nox_set_nonblock(fd, 1) < 0) return -1;
+
+    int rc = connect((SOCKET)fd, sa, (int)slen);
+    if (rc == 0) {
+        (void)nox_set_nonblock(fd, 0);
+        return 0;
+    }
+
+    int wsa = nox_sock_last_err();
+    if (wsa != WSAEWOULDBLOCK && wsa != WSAEINPROGRESS && wsa != WSAEALREADY) {
+        nox_errno_from_wsa(wsa);
+        (void)nox_set_nonblock(fd, 0);
+        return -1;
+    }
+
+    fd_set wfds;
+    FD_ZERO(&wfds);
+    FD_SET((SOCKET)fd, &wfds);
+
+    struct timeval tv;
+    tv.tv_sec  = ms / 1000;
+    tv.tv_usec = (ms % 1000) * 1000;
+
+    rc = select(fd + 1, NULL, &wfds, NULL, &tv);
+    if (rc <= 0) {
+        (void)nox_set_nonblock(fd, 0);
+        if (rc == 0) errno = ETIMEDOUT;
+        return -1;
+    }
+
+    int soerr = 0;
+    socklen_t soerrlen = sizeof(soerr);
+    if (getsockopt((SOCKET)fd, SOL_SOCKET, SO_ERROR, (char*)&soerr, &soerrlen) < 0) {
+        (void)nox_set_nonblock(fd, 0);
+        return -1;
+    }
+
+    (void)nox_set_nonblock(fd, 0);
+
+    if (soerr != 0) {
+        // SO_ERROR returns a WSA error code on Windows
+        nox_errno_from_wsa(soerr);
+        return -1;
+    }
+    return 0;
+
+#else
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0) return -1;
 
@@ -280,10 +400,15 @@ static int connect_with_timeout(int fd, const struct sockaddr *sa, socklen_t sle
         return -1;
     }
     return 0;
+#endif
 }
 
 static int connect_tcp(const char *host, const char *port_str)
 {
+#ifdef _WIN32
+    nox_wsa_init_once();
+#endif
+
     struct addrinfo hints;
     struct addrinfo *res = NULL, *it = NULL;
     int fd = -1;
@@ -322,9 +447,15 @@ static int send_all(int fd, const void *buf, size_t len)
 {
     const unsigned char *p = (const unsigned char *)buf;
     while (len) {
-        ssize_t n = send(fd, p, len, 0);
+        ssize_t n = send((SOCKET)fd, (const char*)p, (int)len, 0);
         if (n < 0) {
+#ifdef _WIN32
+            int wsa = nox_sock_last_err();
+            if (wsa == WSAEINTR) continue;
+            nox_errno_from_wsa(wsa);
+#else
             if (errno == EINTR) continue;
+#endif
             return -1;
         }
         p   += (size_t)n;
@@ -340,13 +471,19 @@ static int recv_line(int fd, char *linebuf, size_t cap)
     size_t n = 0;
     while (n + 1 < cap) {
         unsigned char c;
-        ssize_t r = recv(fd, &c, 1, 0);
+        ssize_t r = recv((SOCKET)fd, (char*)&c, 1, 0);
         if (r == 0) {
             linebuf[n] = 0;
             return 0;
         }
         if (r < 0) {
+#ifdef _WIN32
+            int wsa = nox_sock_last_err();
+            if (wsa == WSAEINTR) continue;
+            nox_errno_from_wsa(wsa);
+#else
             if (errno == EINTR) continue;
+#endif
             return -1;
         }
         linebuf[n++] = (char)c;
@@ -468,10 +605,16 @@ int nox_http_get_body(const char *host,
             while (chunk_sz) {
                 char buf[2048];
                 size_t want = chunk_sz < sizeof(buf) ? (size_t)chunk_sz : sizeof(buf);
-                ssize_t r = recv(fd, buf, want, 0);
+                ssize_t r = recv((SOCKET)fd, buf, (int)want, 0);
                 if (r == 0) { close(fd); return -1; }
                 if (r < 0) {
+#ifdef _WIN32
+                    int wsa = nox_sock_last_err();
+                    if (wsa == WSAEINTR) continue;
+                    nox_errno_from_wsa(wsa);
+#else
                     if (errno == EINTR) continue;
+#endif
                     close(fd);
                     return -1;
                 }
@@ -498,10 +641,16 @@ int nox_http_get_body(const char *host,
         while (remain > 0) {
             char buf[2048];
             size_t want = (remain < (long)sizeof(buf)) ? (size_t)remain : sizeof(buf);
-            ssize_t r = recv(fd, buf, want, 0);
+            ssize_t r = recv((SOCKET)fd, buf, (int)want, 0);
             if (r == 0) break;
             if (r < 0) {
+#ifdef _WIN32
+                int wsa = nox_sock_last_err();
+                if (wsa == WSAEINTR) continue;
+                nox_errno_from_wsa(wsa);
+#else
                 if (errno == EINTR) continue;
+#endif
                 close(fd);
                 return -1;
             }
@@ -518,10 +667,16 @@ int nox_http_get_body(const char *host,
         /* Fallback: read until close */
         for (;;) {
             char buf[2048];
-            ssize_t r = recv(fd, buf, sizeof(buf), 0);
+            ssize_t r = recv((SOCKET)fd, buf, (int)sizeof(buf), 0);
             if (r == 0) break;
             if (r < 0) {
+#ifdef _WIN32
+                int wsa = nox_sock_last_err();
+                if (wsa == WSAEINTR) continue;
+                nox_errno_from_wsa(wsa);
+#else
                 if (errno == EINTR) continue;
+#endif
                 close(fd);
                 return -1;
             }
@@ -678,10 +833,6 @@ int nox_lobby_register_game(const char *name,
     // Provide required fields the Go server validates.
     // mode/vers may not be in the LAN packet; make them env-configurable.
     const char *vers = nox_env_str("NOX_SERVER_VERS", "1.2");
-
-    /* Prefer explicit env, otherwise derive from the serverinfo flags. */
-//    const char *mode_env = getenv("NOX_SERVER_MODE");
-//    const char *mode_norm = nox_mode_normalize(mode_env);
 
     uint16_t flags = nox_lobby_get_last_serverinfo_flags();
     const char *mode = nox_mode_from_flags(flags);

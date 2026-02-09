@@ -39,9 +39,62 @@ message(STATUS "FFMPEG_LIBRARY_DIRS=${FFMPEG_LIBRARY_DIRS}")
 message(STATUS "FFMPEG_LIBRARIES=${FFMPEG_LIBRARIES}")
 message(STATUS "FFMPEG_LDFLAGS=${FFMPEG_LDFLAGS}")
 
+# ---- SDL2 ----
+# Prefer pkg-config (works with your /opt/sdl2-win32/lib/pkgconfig/sdl2.pc)
+pkg_check_modules(SDL2PC QUIET sdl2)
+if (SDL2PC_FOUND)
+    message(STATUS "SDL2 via pkg-config: ${SDL2PC_LIBRARIES}")
+    set(SDL2_INCLUDE_DIRS ${SDL2PC_INCLUDE_DIRS})
+    set(SDL2_LIBRARY_DIRS ${SDL2PC_LIBRARY_DIRS})
+    set(SDL2_LIBRARIES    ${SDL2PC_LIBRARIES})
+    set(SDL2_LDFLAGS      ${SDL2PC_LDFLAGS_OTHER})
+else()
+    # fallback (still works if you pass -L via CMAKE_EXE_LINKER_FLAGS)
+    set(SDL2_INCLUDE_DIRS "")
+    set(SDL2_LIBRARY_DIRS "")
+    set(SDL2_LIBRARIES SDL2)
+    set(SDL2_LDFLAGS "")
+endif()
+
+# ---- OpenAL / OpenGL platform libs ----
 if (WIN32)
-    set (OPENAL_LIBRARIES openal)
-    set (OPENGL_LIBRARIES glew32 opengl32)
+    # OpenAL import lib on Windows is almost always OpenAL32
+    set (OPENAL_LIBRARIES OpenAL32)
+
+    # OpenGL base
+    set (OPENGL_LIBRARIES opengl32)
+
+    # GLEW headers are required because draw.c includes <GL/glew.h>
+    # Hard-wire the prefix used by the Dockerfile to avoid CMake find quirks in cross builds.
+    if (EXISTS "/opt/glew-win32/include/GL/glew.h")
+        message(STATUS "Using GLEW headers: /opt/glew-win32/include")
+        include_directories("/opt/glew-win32/include")
+    endif()
+
+    # Try to locate GLEW include + lib (so <GL/glew.h> compiles and gl* symbols link)
+    find_path(GLEW_INCLUDE_DIR
+        NAMES GL/glew.h
+        PATH_SUFFIXES include
+    )
+    find_library(GLEW32_LIB
+        NAMES glew32 libglew32.dll.a glew32.dll.a
+        PATH_SUFFIXES lib
+    )
+
+    if (GLEW_INCLUDE_DIR)
+        message(STATUS "Found GLEW include: ${GLEW_INCLUDE_DIR}")
+        include_directories(${GLEW_INCLUDE_DIR})
+    else()
+        message(STATUS "GLEW headers not found; <GL/glew.h> will fail")
+    endif()
+
+    if (GLEW32_LIB)
+        message(STATUS "Found GLEW lib: ${GLEW32_LIB}")
+        list(APPEND OPENGL_LIBRARIES glew32)
+    else()
+        message(STATUS "GLEW lib not found; building without -lglew32")
+    endif()
+
     set (WIN32_LIBRARIES ws2_32 winmm)
 elseif (APPLE)
     set (OPENAL_LIBRARIES "-framework OpenAL")
@@ -82,36 +135,31 @@ add_executable (
     "${COMPAT_SOURCES}"
 )
 
-# Rename only the definition in GAME3.c: its sub_4F4E50 body becomes sub_4F4E50__abi_raw.
-#set_source_files_properties(GAME3.c PROPERTIES
-#    COMPILE_DEFINITIONS "sub_4F4E50=sub_4F4E50__abi_raw"
-#)
-
-# Rename only the definitions in GAME4.c so the bodies become *_abi_raw.
-#set_source_files_properties(GAME4.c PROPERTIES
-#    COMPILE_DEFINITIONS
-#      "sub_50A5C0=sub_50A5C0__abi_raw;sub_531E20=sub_531E20__abi_raw"
-#)
-
-# Rename only the definition in GAME5.c: its sub_549380 body becomes sub_549380__abi_raw.
-#set_source_files_properties(GAME5.c PROPERTIES
-#    COMPILE_DEFINITIONS
-#      "sub_549220=sub_549220__abi_raw;sub_549380=sub_549380__abi_raw"
-#)
-
 # ---- ABI wrapper integration ----
 add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)
 set_target_properties(abi_wrappers PROPERTIES C_STANDARD 99)
 
+# SDL2 include/link dirs (from pkg-config when available)
+if (SDL2_INCLUDE_DIRS)
+    target_include_directories(out PRIVATE ${SDL2_INCLUDE_DIRS})
+endif()
+if (SDL2_LIBRARY_DIRS)
+    target_link_directories(out PRIVATE ${SDL2_LIBRARY_DIRS})
+endif()
+
 # Base libs
 target_link_libraries(out PRIVATE
-    SDL2
+    ${SDL2_LIBRARIES}
     ${OPENAL_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${PTHREAD_LIBRARIES}
     ${WIN32_LIBRARIES}
     abi_wrappers
 )
+
+if (SDL2_LDFLAGS)
+    target_link_options(out PRIVATE ${SDL2_LDFLAGS})
+endif()
 
 # FFmpeg from pkg-config
 target_include_directories(out PRIVATE ${FFMPEG_INCLUDE_DIRS})
