@@ -1,4 +1,4 @@
-FROM noxdecomp-build-winx86
+FROM noxdecomp-build-winx86:latest
 
 COPY . /build/nox-decomp
 
@@ -61,38 +61,28 @@ RUN file /build/nox-decomp/build/src/out* || true
 
 
 # -------------------------------------------------
-# Bundle: noxd.win32 (exe + all non-system DLL deps)
+# Bundle: create /build/nox-decomp/build/src/noxd.win32 with exe + DLLs
 # -------------------------------------------------
 RUN set -eux; \
     OUTDIR=/build/nox-decomp/build/src/noxd.win32; \
     mkdir -p "$OUTDIR"; \
-    \
-    # 1) binary
     cp -av /build/nox-decomp/build/src/out.exe "$OUTDIR/"; \
     \
-    # 2) ffmpeg runtime dlls (from your objdump list)
-    cp -av /opt/ffmpeg-win32/bin/avcodec-61.dll   "$OUTDIR/"; \
-    cp -av /opt/ffmpeg-win32/bin/avformat-61.dll  "$OUTDIR/"; \
-    cp -av /opt/ffmpeg-win32/bin/avutil-59.dll    "$OUTDIR/"; \
-    cp -av /opt/ffmpeg-win32/bin/swresample-5.dll "$OUTDIR/"; \
-    cp -av /opt/ffmpeg-win32/bin/swscale-8.dll    "$OUTDIR/"; \
+    # game/vendor DLLs
+    cp -av /build/nox-decomp/build/src/lib/. "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/ffmpeg-win32/bin/av*.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/ffmpeg-win32/bin/sw*.dll      "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/ffmpeg-win32/bin/postproc*.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/sdl2-win32/bin/SDL2.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/openal-win32/bin/OpenAL32.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/glew-win32/bin/*.dll "$OUTDIR/" 2>/dev/null || true; \
     \
-    # 3) SDL/OpenAL/GLEW
-    cp -av /opt/sdl2-win32/bin/SDL2.dll           "$OUTDIR/"; \
-    cp -av /opt/openal-win32/bin/OpenAL32.dll     "$OUTDIR/"; \
-    cp -av /opt/glew-win32/bin/glew32.dll         "$OUTDIR/" 2>/dev/null || true; \
+    # toolchain runtime DLLs (MinGW i686)
+    ( test -f /usr/i686-w64-mingw32/lib/libwinpthread-1.dll && cp -av /usr/i686-w64-mingw32/lib/libwinpthread-1.dll "$OUTDIR/" ) \
+      || ( f="$(find /usr -type f -name 'libwinpthread-1.dll' | grep -E '/i686-w64-mingw32/' | head -n1)"; test -n "$f" && cp -av "$f" "$OUTDIR/" ) \
+      || true; \
     \
-    # 4) MinGW runtime (required per objdump: libgcc_s_sjlj-1.dll)
-    GCCDLL="$(find /usr -type f -name 'libgcc_s_sjlj-1.dll' -print | head -n1)"; \
-    test -n "${GCCDLL:-}"; \
-    cp -av "$GCCDLL" "$OUTDIR/"; \
+    ( f="$(find /usr/lib/gcc -type f -name 'libgcc_s_sjlj-1.dll' | grep -E '/i686-w64-mingw32/' | head -n1)"; test -n "$f" && cp -av "$f" "$OUTDIR/" ) || true; \
+    ( f="$(find /usr/lib/gcc -type f -name 'libstdc++-6.dll'   | grep -E '/i686-w64-mingw32/' | head -n1)"; test -n "$f" && cp -av "$f" "$OUTDIR/" ) || true; \
     \
-    # 5) sanity: print what we bundled + verify imports that should be shipped
-    echo "[bundle] contents:"; ls -la "$OUTDIR"; \
-    echo "[bundle] dependency check:"; \
-    i686-w64-mingw32-objdump -p "$OUTDIR/out.exe" | sed -n 's/^[[:space:]]*DLL Name:[[:space:]]*//p' | while IFS= read -r dll; do \
-      case "$dll" in \
-        KERNEL32.dll|USER32.dll|GDI32.dll|ADVAPI32.dll|SHELL32.dll|WINMM.DLL|WS2_32.dll|OPENGL32.DLL|msvcrt.dll) echo "SYS  $dll" ;; \
-        *) test -f "$OUTDIR/$dll" && echo "OK   $dll" || echo "MISS $dll" ;; \
-      esac; \
-    done
+    ls -la "$OUTDIR"
