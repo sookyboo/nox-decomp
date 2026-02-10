@@ -7,6 +7,8 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include "netextras_types.h"
+
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
   #define WIN32_LEAN_AND_MEAN
@@ -764,19 +766,6 @@ static int nox_http_post_json(const char *host,
     return (status >= 200 && status < 300) ? 0 : -1;
 }
 
-// Game mode flags (from opennox/noxflags)
-#define NOX_GF_MODE_KOTR        0x0010
-#define NOX_GF_MODE_CTF         0x0020
-#define NOX_GF_MODE_FLAGBALL    0x0040
-#define NOX_GF_MODE_CHAT        0x0080
-#define NOX_GF_MODE_ARENA       0x0100
-#define NOX_GF_MODE_COOPTEAM    0x0200
-#define NOX_GF_MODE_ELIMINATION 0x0400
-#define NOX_GF_MODE_COOP        0x0800
-#define NOX_GF_MODE_QUEST       0x1000
-
-#define NOX_MODE_MASK (NOX_GF_MODE_KOTR|NOX_GF_MODE_CTF|NOX_GF_MODE_FLAGBALL|NOX_GF_MODE_CHAT|NOX_GF_MODE_ARENA|NOX_GF_MODE_COOPTEAM|NOX_GF_MODE_ELIMINATION|NOX_GF_MODE_COOP|NOX_GF_MODE_QUEST)
-
 static const char *nox_mode_from_flags(uint16_t flags)
 {
     // If multiple bits are set, pick first match in priority order.
@@ -898,16 +887,6 @@ int nox_fetch_games_list_json(char *out, size_t out_cap)
 #include <ctype.h>
 #include <stdlib.h>
 
-/* Minimal model for your endpoint */
-typedef struct nox_server_row {
-    char     name[64];
-    char     addr[32];     /* IPv4 string */
-    uint16_t port;
-    char     map[32];
-    uint8_t  players_cur;
-    uint8_t  players_max;
-    char mode[16];
-} nox_server_row;
 
 /* ---- tiny helpers ---- */
 

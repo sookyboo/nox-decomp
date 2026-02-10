@@ -26,6 +26,8 @@
 
 #include <SDL2/SDL_stdinc.h>
 
+#include "netextras_types.h"
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
