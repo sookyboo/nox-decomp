@@ -1173,8 +1173,14 @@ static int tex_w = 0, tex_h = 0;
         tex_h = h;
 
         // Allocate a fresh texture of the correct size (contents undefined/empty).
+        // Alternate fix might be adding GL_TEXTURE_SWIZZLE_RGBA after glBindTexture:
+        // {
+//               GLint swz[] = { GL_BLUE, GL_GREEN, GL_RED, GL_ALPHA };
+//               glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swz);
+//               glCheckError();
+//           }
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_w, tex_h, 0,
-                     GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
+                     GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
         // Optional: ensure clean black immediately (not strictly required if you fully upload every pixel)
         // You can skip this if your conv always fills w*h.
     }
@@ -1197,7 +1203,7 @@ static int tex_w = 0, tex_h = 0;
         glTexSubImage2D(
             GL_TEXTURE_2D, 0, 0, 0,
             w, h,
-            GL_RGBA,
+            GL_BGRA,
             GL_UNSIGNED_SHORT_1_5_5_5_REV,
             srcsurf->pixels
         );
@@ -1209,7 +1215,7 @@ static int tex_w = 0, tex_h = 0;
             glTexSubImage2D(
                 GL_TEXTURE_2D, 0, 0, y,
                 w, 1,
-                GL_RGBA,
+                GL_BGRA,
                 GL_UNSIGNED_SHORT_1_5_5_5_REV,
                 row
             );
@@ -1671,7 +1677,7 @@ int sub_48B000()
             tex_w,
             tex_h,
             0,
-            GL_RGBA,
+            GL_BGRA,
             GL_UNSIGNED_BYTE,
             NULL
         );
@@ -1806,7 +1812,7 @@ int sub_48B000()
             tex_w,
             tex_h,
             0,
-            GL_RGBA,
+            GL_BGRA,
             GL_UNSIGNED_BYTE,
             NULL
         );
