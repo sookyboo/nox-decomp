@@ -28718,6 +28718,68 @@ char *sub_420110()
 {
   return (char *)&byte_5D4594[534780];
 }
+#ifdef _WIN32
+
+typedef struct compat_hkey {
+    char *path;
+} compat_hkey;
+
+LSTATUS WINAPI compatMsRegOpenKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD ulOptions, REGSAM samDesired, PHKEY phkResult)
+{
+    (void)ulOptions;
+    (void)samDesired;
+
+    const char *root = (hKey == HKEY_LOCAL_MACHINE) ? "HKEY_LOCAL_MACHINE" : "HKEY_UNKNOWN";
+    const char *sub  = lpSubKey ? lpSubKey : "";
+
+    compat_hkey *hkResult = (compat_hkey *)calloc(1, sizeof(*hkResult));
+    hkResult->path = (char *)malloc(strlen(root) + strlen(sub) + 2);
+    sprintf(hkResult->path, "%s\\%s", root, sub);
+
+    *phkResult = (HKEY)hkResult;
+    return 0;
+}
+
+LSTATUS WINAPI compatMsRegQueryValueExA(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData)
+{
+    (void)lpReserved;
+
+    compat_hkey *k = (compat_hkey *)hKey;
+    const char *path = (k && k->path) ? k->path : "(null)";
+
+    dprintf("%s: key=\"%s\", value=\"%s\"", __FUNCTION__, path, lpValueName);
+
+    if (k && k->path &&
+        strcmp(k->path, "HKEY_LOCAL_MACHINE\\SOFTWARE\\Westwood\\Nox") == 0 &&
+        lpValueName && strcmp(lpValueName, "Serial") == 0)
+    {
+        int i, lim = 0;
+        if (lpcbData && *lpcbData > 0)
+            lim = (int)(*lpcbData - 1);
+
+        for (i = 0; i < lim; i++)
+            lpData[i] = (rand() % 10) + '0';
+        if (lpcbData && *lpcbData > 0)
+            lpData[i] = 0;
+
+        if (lpType) *lpType = 1; // REG_SZ
+        return 0;
+    }
+
+    return 3;
+}
+
+static void compatMsRegCloseKey(HKEY hKey)
+{
+    compat_hkey *k = (compat_hkey *)hKey;
+    if (k) {
+        free(k->path);
+        free(k);
+    }
+}
+
+#endif /* _WIN32 */
+
 
 //----- (00420120) --------------------------------------------------------
 int __cdecl sub_420120(LPBYTE lpData)
@@ -28731,11 +28793,28 @@ int __cdecl sub_420120(LPBYTE lpData)
   strcpy(SubKey, "SOFTWARE\\Westwood\\Nox");
   v1 = 0;
   cbData = 23;
-  if ( !RegOpenKeyExA(HKEY_LOCAL_MACHINE, SubKey, 0, 0xF003Fu, &phkResult) )
+
+#ifdef _WIN32
+  LONG ro = compatMsRegOpenKeyExA(HKEY_LOCAL_MACHINE, SubKey, 0, 0xF003Fu, &phkResult);
+#else
+  LONG ro = RegOpenKeyExA(HKEY_LOCAL_MACHINE, SubKey, 0, 0xF003Fu, &phkResult);
+#endif
+
+  if ( !ro )
   {
-    if ( !RegQueryValueExA(phkResult, (LPCSTR)&byte_587000[60144], 0, &Type, lpData, &cbData) && Type == 1 )
+#ifdef _WIN32
+    LONG rq = compatMsRegQueryValueExA(phkResult, "Serial", 0, &Type, lpData, &cbData);
+#else
+    LONG rq = RegQueryValueExA(phkResult, (LPCSTR)&byte_587000[60144], 0, &Type, lpData, &cbData);
+#endif
+    if ( !rq && Type == 1 )
       v1 = 1;
+
+#ifdef _WIN32
+    compatMsRegCloseKey(phkResult);
+#else
     RegCloseKey(phkResult);
+#endif
   }
   return v1;
 }
@@ -47542,6 +47621,9 @@ int sub_438A90()
   u_short v5; // [esp-10h] [ebp-74h]
   char buf[100]; // [esp+0h] [ebp-64h]
 
+//  int have_serial = sub_420120((LPBYTE)&buf[56]);
+//  fprintf(stderr, "[join] sub_438A90: have_serial=%d\n", have_serial);
+
   if ( sub_420120((LPBYTE)&buf[56]) )
   {
     if ( !*(_DWORD *)&byte_587000[87404] )
@@ -47558,10 +47640,13 @@ int sub_438A90()
     *(_QWORD *)&byte_5D4594[814956] = sub_416BB0() + 20000;
     v5 = sub_43B320();
     v4 = sub_43B300();
+//    fprintf(stderr, "[join] sub_438A90: calling sub_5550A0 (join/handshake)\n");
     result = sub_5550A0(v4, v5, buf);
+//    fprintf(stderr, "[join] sub_438A90: sub_5550A0 returned %d\n", result);
   }
   else
   {
+//    fprintf(stderr, "[join] sub_438A90: NO SERIAL -> showing error dialog path\n");
     v0 = sub_40F1D0((char *)&byte_587000[89028], 0, (const char *)&byte_587000[88988], 541);
     sub_449E00((int)v0);
     v1 = sub_40F1D0((char *)&byte_587000[89076], 0, (const char *)&byte_587000[89036], 542);
