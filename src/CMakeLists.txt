@@ -149,6 +149,21 @@ if (SDL2_LIBRARY_DIRS)
     target_link_directories(out PRIVATE ${SDL2_LIBRARY_DIRS})
 endif()
 
+#if (WIN32 AND MINGW)
+#  target_sources(out PRIVATE
+#    ${CMAKE_CURRENT_SOURCE_DIR}/win_trace_wrap.c
+#  )
+#
+#  target_link_options(out PRIVATE
+#    "-Wl,--wrap=fopen"
+#
+    # stdcall-decorated on i686
+  #"-Wl,--wrap=__imp__RegOpenKeyExA@20"
+  #"-Wl,--wrap=__imp__RegQueryValueExA@24"
+  #"-Wl,--wrap=__imp__RegCloseKey@4"
+#  )
+#endif()
+
 # Base libs
 target_link_libraries(out PRIVATE
     ${SDL2_LIBRARIES}
