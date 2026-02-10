@@ -12,6 +12,13 @@ A build is or will be available for [portmaster](https://portmaster.games/).
 Other notable projects:
 [Opennox](https://github.com/opennox/opennox/tree/v1.9.0-alpha13) - This was difficult to get working on 32bit ARM which is why this fork started
 
+Why is this different than Opennox:
+This fork has fully complete-able single player campaigns and the server version can host any style of game without crashing.
+The releases also have gamepad support.
+It can join and host public internet games listed on the Opennox lobby servers. 
+It also works on $50 ARM based game consoles see the port master version below.
+It is fast and very close to the original game. It is still 32bit.
+
 Neuromancers original comments:
 **The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
 
