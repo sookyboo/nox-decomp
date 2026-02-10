@@ -1,0 +1,191 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /work
+
+# ---------------------------
+# Tools for packaging
+# ---------------------------
+RUN dpkg --add-architecture i386 && \
+    apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl wget xz-utils file \
+      python3 \
+      # Flatpak tooling
+      flatpak ostree \
+      # AppImage tooling
+      libfuse2 squashfs-tools \
+      # For generating a simple placeholder icon
+      imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------
+# Flatpak runtime selection
+# ---------------------------
+# Keep this aligned with Flatpak multiarch docs examples; bump if needed.
+# NOTE: the Compat.i386/GL32 extension versions MUST match runtime-version. :contentReference[oaicite:3]{index=3}
+ARG RUNTIME=org.freedesktop.Platform
+ARG SDK=org.freedesktop.Sdk
+ARG RUNTIME_VER=24.08
+
+# Add Flathub (system install inside the container)
+RUN flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+# Install runtime+sdk so build-init doesn't complain
+RUN flatpak install -y --noninteractive flathub \
+      ${RUNTIME}//${RUNTIME_VER} \
+      ${SDK}//${RUNTIME_VER}
+
+# ---------------------------
+# AppImage tool (appimagetool)
+# ---------------------------
+ARG APPIMAGETOOL_VER=1.9.1
+# Direct download URL pattern is commonly used in build systems. :contentReference[oaicite:4]{index=4}
+RUN wget -O /usr/local/bin/appimagetool-i686.AppImage \
+      https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VER}/appimagetool-i686.AppImage && \
+    chmod +x /usr/local/bin/appimagetool-i686.AppImage
+
+# Make AppImage self-extract/run inside containers more reliable
+ENV APPIMAGE_EXTRACT_AND_RUN=1
+
+# ---------------------------
+# Bring in your prebuilt 32-bit outputs
+# ---------------------------
+# You provide these in the build context under package-input/
+COPY package-input/ /input/
+
+# Basic sanity checks
+RUN test -x /input/bin/noxd && file /input/bin/noxd
+
+# ---------------------------
+# Output directory
+# ---------------------------
+RUN mkdir -p /out
+
+# ============================================================
+# 1) Build AppImage (i686)
+# ============================================================
+RUN set -eux; \
+    APPDIR=/work/Nox-decomp.AppDir; \
+    rm -rf "$APPDIR"; \
+    mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib" "$APPDIR/usr/share/icons/hicolor/256x256/apps"; \
+    \
+    # payload
+    install -Dm755 /input/bin/noxd "$APPDIR/usr/bin/noxd"; \
+    if [ -d /input/lib ]; then cp -av /input/lib/* "$APPDIR/usr/lib/" || true; fi; \
+    \
+    # AppRun
+    cat > "$APPDIR/AppRun" <<'EOF'; \
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH}"
+exec "$HERE/usr/bin/noxd" "$@"
+EOF
+    chmod +x "$APPDIR/AppRun"; \
+    \
+    # desktop file
+    cat > "$APPDIR/io.github.noxdecomp.NoxDecomp.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Nox-decomp
+Comment=Nox-decomp (i386 build) packaged as AppImage
+Exec=noxd
+Icon=io.github.noxdecomp.NoxDecomp
+Categories=Game;
+Terminal=false
+EOF
+    \
+    # placeholder icon (you can replace later)
+    convert -size 256x256 xc:black -fill white -gravity center -pointsize 42 -annotate 0 "Nox" \
+      "$APPDIR/io.github.noxdecomp.NoxDecomp.png"; \
+    install -Dm644 "$APPDIR/io.github.noxdecomp.NoxDecomp.png" \
+      "$APPDIR/usr/share/icons/hicolor/256x256/apps/io.github.noxdecomp.NoxDecomp.png"; \
+    \
+    # Build AppImage
+    ARCH=i686 /usr/local/bin/appimagetool-i686.AppImage "$APPDIR" /out/Nox-decomp-i686.AppImage
+
+# ============================================================
+# 2) Build Flatpak bundle (x86_64 Flatpak that runs i386 binary)
+# ============================================================
+# Flathub doesn't ship an i386 runtime anymore (x86_64 + aarch64 only). :contentReference[oaicite:5]{index=5}
+# So we ship x86_64 + enable multiarch + request Compat.i386/GL32 extension points. :contentReference[oaicite:6]{index=6}
+RUN set -eux; \
+    ID=io.github.noxdecomp.NoxDecomp; \
+    BUILDDIR=/work/flatpak-build; \
+    REPO=/out/flatpak-repo; \
+    rm -rf "$BUILDDIR" "$REPO"; \
+    mkdir -p "$REPO"; \
+    \
+    flatpak build-init "$BUILDDIR" "$ID" ${SDK} ${RUNTIME} ${RUNTIME_VER}; \
+    \
+    # Create mount points for extension directories (required by multiarch docs) :contentReference[oaicite:7]{index=7}
+    mkdir -p "$BUILDDIR/files/lib/i386-linux-gnu" \
+             "$BUILDDIR/files/lib/i386-linux-gnu/GL" \
+             "$BUILDDIR/files/lib/debug/lib/i386-linux-gnu"; \
+    \
+    # Install payload into /app (i.e. BUILDDIR/files)
+    install -Dm755 /input/bin/noxd "$BUILDDIR/files/bin/noxd"; \
+    if [ -d /input/lib ]; then mkdir -p "$BUILDDIR/files/lib32"; cp -av /input/lib/* "$BUILDDIR/files/lib32/" || true; fi; \
+    \
+    # Wrapper so "command=" is stable
+    cat > "$BUILDDIR/files/bin/nox-decomp" <<'EOF'; \
+#!/bin/sh
+export LD_LIBRARY_PATH="/app/lib:/app/lib32:/app/lib/i386-linux-gnu:${LD_LIBRARY_PATH}"
+exec /app/bin/noxd "$@"
+EOF
+    chmod +x "$BUILDDIR/files/bin/nox-decomp"; \
+    \
+    # Desktop + icon
+    mkdir -p "$BUILDDIR/files/share/applications" "$BUILDDIR/files/share/icons/hicolor/256x256/apps"; \
+    cat > "$BUILDDIR/files/share/applications/${ID}.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Nox-decomp
+Comment=Nox-decomp (i386 binary) packaged as Flatpak
+Exec=nox-decomp
+Icon=${ID}
+Categories=Game;
+Terminal=false
+EOF
+    cp -av /work/Nox-decomp.AppDir/io.github.noxdecomp.NoxDecomp.png \
+      "$BUILDDIR/files/share/icons/hicolor/256x256/apps/${ID}.png"; \
+    \
+    # Finish permissions (+ multiarch) :contentReference[oaicite:8]{index=8}
+    flatpak build-finish "$BUILDDIR" \
+      --command=nox-decomp \
+      --share=ipc \
+      --share=network \
+      --socket=x11 \
+      --socket=wayland \
+      --socket=pulseaudio \
+      --device=dri \
+      --allow=multiarch \
+      --env=LD_LIBRARY_PATH=/app/lib:/app/lib32:/app/lib/i386-linux-gnu; \
+    \
+    # Add extension points (Compat.i386 + GL32) into metadata
+    # This mirrors the documented/real-world metadata layout. :contentReference[oaicite:9]{index=9}
+    cat >> "$BUILDDIR/metadata" <<EOF
+[Extension org.freedesktop.Platform.Compat.i386]
+directory=lib/i386-linux-gnu
+version=${RUNTIME_VER}
+
+[Extension org.freedesktop.Platform.Compat.i386.Debug]
+directory=lib/debug/lib/i386-linux-gnu
+no-autodownload=true
+version=${RUNTIME_VER}
+
+[Extension org.freedesktop.Platform.GL32]
+directory=lib/i386-linux-gnu/GL
+no-autodownload=true
+subdirectories=true
+add-ld-path=lib
+download-if=active-gl-driver
+enable-if=active-gl-driver
+merge-dirs=vulkan/icd.d;glvnd/egl_vendor.d;egl/egl_external_platform.d;OpenCL/vendors;lib/dri;lib/d3d;lib/gbm;vulkan/explicit_layer.d;vulkan/implicit_layer.d
+version=1.4
+EOF
+    \
+    # Export + single-file bundle
+    flatpak build-export "$REPO" "$BUILDDIR"; \
+    flatpak build-bundle "$REPO" "/out/${ID}.flatpak" "$ID"
+
+CMD ["/bin/bash", "-lc", "ls -lah /out && echo 'Done'"]

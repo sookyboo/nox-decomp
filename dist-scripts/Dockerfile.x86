@@ -1,0 +1,57 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt -y install ca-certificates --fix-missing
+
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+ && sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      bash \
+      file \
+      binutils \
+      libc6:i386 \
+      libstdc++6:i386 \
+      zlib1g:i386 \
+      libgcc-s1:i386 \
+      libasound2:i386 \
+      libpulse0:i386 \
+      libsdl2-2.0-0:i386 \
+      libx11-6:i386 \
+      libxext6:i386 \
+      libxrandr2:i386 \
+      libxi6:i386 \
+      libxcursor1:i386 \
+      libxinerama1:i386 \
+      libgl1:i386 \
+      xvfb libgl1-mesa-dri libglx-mesa0 libegl1-mesa \
+      mesa-utils \
+      libopenal1:i386  \
+      && rm -rf /var/lib/apt/lists/* && apt-get clean
+
+# Nox is 32bit so might need this on Apple M1:
+# docker run --privileged --rm tonistiigi/binfmt --install all
+
+# create an app user with a stable uid/gid
+RUN groupadd -g 10001 app \
+ && useradd  -u 10001 -g 10001 -m -s /usr/sbin/nologin app
+
+WORKDIR /opt/nox-decomp
+
+RUN chown -R 10001:10001 /opt/nox-decomp
+
+#COPY --chown=10001:10001 openal.i386 /opt/nox-decomp/openal.i386
+COPY --chown=10001:10001 ffmpeg.i386 /opt/nox-decomp/ffmpeg.i386
+COPY --chown=10001:10001 noxd.i386 /opt/nox-decomp/noxd.i386
+COPY --chown=10001:10001 server.sh /opt/nox-decomp/server.sh
+
+RUN chmod +x /opt/nox-decomp/server.sh
+RUN chmod +x /opt/nox-decomp/noxd.i386
+
+USER 10001:10001
+
+ENTRYPOINT ["/opt/nox-decomp/server.sh"]
