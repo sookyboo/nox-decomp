@@ -360,15 +360,58 @@ DXDEC void AILCALL AIL_digital_configuration (HDIGDRIVER dig, S32 FAR *rate, S32
 
 DXDEC S32 AILCALL AIL_digital_handle_release(HDIGDRIVER drvr)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
-    DebugBreak();
+    if (!drvr)
+        return 0;
+
+    /* stop audio so Miles-style "release" actually quiets the system */
+    SDL_LockMutex(drvr->mutex);
+
+    for (HSAMPLE s = drvr->sample_head; s; s = s->next) {
+        if (s->source) {
+            alSourceStop(s->source);
+        }
+        s->playing = 0;
+        /* optional: drain queued buffers so next play starts clean */
+        if (s->source) {
+            sample_drain_buffers(s);
+        }
+    }
+
+    for (HSTREAM st = drvr->stream_head; st; st = st->next) {
+        if (st->source) {
+            alSourceStop(st->source);
+        }
+        st->playing = 0;
+        /* optional: unqueue anything we can */
+        if (st->source) {
+            /* drain: unqueue queued buffers (mirrors sample_drain_buffers) */
+            ALint queued = 0;
+            alGetSourcei(st->source, AL_BUFFERS_QUEUED, &queued);
+            if (queued > 2) queued = 2;
+            if (queued > 0) {
+                ALuint tmp[2];
+                alSourceUnqueueBuffers(st->source, queued, tmp);
+                for (int i = 0; i < queued; i++) {
+                    if (st->hwready < 2) st->hwbuf[st->hwready++] = tmp[i];
+                }
+            }
+        }
+    }
+
+    SDL_UnlockMutex(drvr->mutex);
+
+    /* swallow errors; this is a compatibility shim */
+    (void)alGetError();
     return 0;
 }
 
-DXDEC S32 AILCALL AIL_digital_handle_reacquire (HDIGDRIVER drvr)
+DXDEC S32 AILCALL AIL_digital_handle_reacquire(HDIGDRIVER drvr)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
-    DebugBreak();
+    if (!drvr)
+        return 0;
+
+    /* Nothing to do in this backend; we never actually released the device/context.
+       Returning success + clearing the game's "released" flag is what it expects. */
     return 0;
 }
 
