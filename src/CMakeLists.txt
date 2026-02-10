@@ -117,6 +117,7 @@ add_executable (
     GAME2.c
     GAME3.c
     GAME4.c
+    netextras.c
     GAME5.c
     GAME_ABI.c
     GAME_data.c
