@@ -384,3 +384,22 @@ typedef struct struc_35
 } struc_35;
 
 #endif
+
+#pragma once
+
+#if defined(_WIN32) && defined(USE_SDL)
+#include <stdio.h>
+
+void nox_dbgbreak_impl(const char *file, int line, const char *func);
+
+#if defined(DebugBreak)
+#  undef DebugBreak
+#endif
+
+#if defined(__FUNCTION__)
+#  define DebugBreak() nox_dbgbreak_impl(__FILE__, __LINE__, __FUNCTION__)
+#else
+#  define DebugBreak() nox_dbgbreak_impl(__FILE__, __LINE__, __func__)
+#endif
+#endif
+
