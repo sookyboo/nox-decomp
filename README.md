@@ -154,6 +154,73 @@ export NOX_LIMIT_RANGE_ON_RUN=1 #default is 0
 export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle   
 ```
 
+# Steam deck 
+Download the flatpak from releases section.
+It requries access to a directory in your home directory called nox-decomp 
+It also needs access to your devices to emulate the mouse and keyboard ( a future release might remove this requirement).
+
+Dependencies:
+```
+flatpak install --user -y flathub \
+org.freedesktop.Platform//24.08 \
+org.freedesktop.Platform.Compat.i386//24.08 \
+org.freedesktop.Platform.GL32.default//24.08
+```
+
+Install:
+```
+# assuming io.github.sookyboo.NoxDecomp.flatpak is in the current dir
+flatpak install -y --user --reinstall io.github.sookyboo.NoxDecomp.flatpak
+```
+
+Create a launcher for steam:
+Using Dolphin file browser
+Go to Home/.local/share/flatpak/exports/share/applications
+Right click `io.github.sookyboo.NoxDecomp.desktop`
+Click Add to Steam
+
+
+Setup Controller (These instructions may differ as Valve changes steam):
+Get out of desktop mode by restarting 
+Go to your library, Non-Steam collection
+Click NoxDecomp
+Click Controller settings button
+Click using template:
+Under Layouts created by Valve:
+Choose Gamepad with Mouse Trackpad
+Press X to apply the layout
+
+# Windows
+
+Download the zip from releases.
+
+Unpack it and copy the files into your nox directory. 
+
+You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+
+
+Run noxd.exe inside the nox directory.
+
+(Source code is available in the windows branch for now)
+
+# Mac
+This works with crossover/wine.
+
+Download the zip from releases.
+
+Unpack it and copy the files into your nox directory.
+
+You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here (GoG Nox)[https://www.gog.com/en/game/nox]
+
+Make a crossover bottle. Right click hit option open a shell and navigate to your directory with nox.
+
+Run noxd.exe inside the nox directory with `wine noxd.exe`.
+
+# PortMaster
+Open the PortMaster app on your device and install NoxDecomp and follow the readme on [PortMaster](https://portmaster.games/games.html)
+
+The file is also included in releases here. 
+
 # Server
 There are docker arm64 and amd64 images that run the 32bit version
 ```
@@ -181,10 +248,9 @@ You can place the gog game installer in gamefiles dir and it will automatically 
 
 # Known issues
 
-* All graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode.
+* Minor - all graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode (16bit is better anyway).
 * Minor glitch on the last column of pixels on text only on some characters - barely noticeable - all text is legible.
 * Minor glitch on death rays appearing in shadows when they should be hidden from view.
-* Slightly slow when there are dozens of enemies on screen but this doesn't happen frequently and not noticeable on powerful hardware.
 * Some slow downs in fade outs and fade ins and not noticeable on powerful hardware. (This is due to the way that the game is being drawn and was present in the original game I think)
 
 # License
