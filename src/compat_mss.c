@@ -14,6 +14,16 @@
 
 #include "defs.h"
 
+#if defined(_WIN32) && defined(USE_SDL)
+#include <stdio.h>
+
+void nox_dbgbreak_impl(const char *file, int line, const char *func)
+{
+    fprintf(stderr, "[AIL] DebugBreak suppressed at %s:%d (%s)\n", file, line, func);
+    fflush(stderr);
+}
+#endif
+
 struct _DIG_DRIVER
 {
     ALCdevice *device;
@@ -243,12 +253,14 @@ static unsigned int decode_adpcm_stereo(int16_t *out, const BYTE *data, unsigned
 
 static void checkError()
 {
-    ALenum error;
-    error = alGetError();
+    ALenum error = alGetError();
     if (error != AL_NO_ERROR)
     {
-        dprintf("AL error: 0x%x\n", error);
-        DebugBreak();
+        const ALchar *estr = alGetString(error);
+        fprintf(stderr, "[AIL] OpenAL error: 0x%x (%s)\n", (unsigned)error, estr ? estr : "unknown");
+        fflush(stderr);
+        /* Do not hard-break under Wine/SDL; keep going so we can see follow-up failures */
+        /* DebugBreak(); */
     }
 }
 
@@ -790,8 +802,35 @@ error:
 
 DXDEC void AILCALL AIL_pause_stream(HSTREAM stream, S32 onoff)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
-    DebugBreak();
+    if (!stream)
+        return;
+
+    SDL_LockMutex(stream->dig->mutex);
+
+    if (onoff)
+    {
+        /* pause */
+        stream->playing = 0;
+        if (stream->source)
+            alSourcePause(stream->source);
+    }
+    else
+    {
+        /* resume */
+        stream->playing = 1;
+        if (stream->source)
+        {
+            ALint state = 0;
+            alGetSourcei(stream->source, AL_SOURCE_STATE, &state);
+            if (state != AL_PLAYING)
+                alSourcePlay(stream->source);
+        }
+    }
+
+    SDL_UnlockMutex(stream->dig->mutex);
+
+    /* Don’t fatal-break on OpenAL issues under Wine; just report via checkError */
+    checkError();
 }
 
 DXDEC AILSAMPLECB AILCALL AIL_register_EOB_callback (HSAMPLE S, AILSAMPLECB EOB)
