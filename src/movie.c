@@ -520,6 +520,33 @@ int movie_resolve_path(const char *in, char *out, size_t out_sz)
     return 1;
 }
 
+
+static void movie_sws_apply_colorspace(struct SwsContext *sws, const AVFrame *frm)
+{
+    int cs = frm->colorspace;
+    if (cs == AVCOL_SPC_UNSPECIFIED) cs = AVCOL_SPC_BT470BG; // common default for SD MPEG-era content (BT.601)
+
+    const int *coeffs = sws_getCoefficients(cs);
+
+    // srcRange: 1 if full-range (JPEG), 0 if limited (MPEG)
+    int srcRange = (frm->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+
+    // dstRange for RGB should be full-range
+    int dstRange = 1;
+
+    // brightness/contrast/saturation defaults
+    int brightness = 0;
+    int contrast   = 1 << 16;
+    int saturation = 1 << 16;
+
+    sws_setColorspaceDetails(
+        sws,
+        coeffs, srcRange,
+        coeffs, dstRange,
+        brightness, contrast, saturation
+    );
+}
+
 volatile int g_movie_skip_requested = 0;
 
 /*
@@ -612,8 +639,11 @@ void __cdecl sub_555430(HWND *a1)
         if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height) {
             if (g_movie_surf) SDL_FreeSurface(g_movie_surf);
             g_movie_surf = SDL_CreateRGBSurfaceWithFormat(
-                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_RGBA5551
+                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_ARGB1555
             );
+//            SDL_PixelFormat *f = g_movie_surf->format;
+//            fprintf(stderr, "movie surf fmt=%s R=%04x G=%04x B=%04x A=%04x\n",
+//                    SDL_GetPixelFormatName(f->format), f->Rmask, f->Gmask, f->Bmask, f->Amask);
             if (!g_movie_surf) {
                 dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed");
                 goto done;
@@ -636,25 +666,21 @@ void __cdecl sub_555430(HWND *a1)
         // Clear movie surface to black so we don't show stale pixels
         if (SDL_MUSTLOCK(dst)) SDL_LockSurface(dst);
 
-        // RGBA5551 black with alpha=1 => 0x0001
-        uint16_t *pix = (uint16_t *)dst->pixels;
+        // ARGB1555 black with alpha=1 => 0x8000
+        uint16_t *p16 = (uint16_t *)dst->pixels;
         int pitch_pix = dst->pitch / 2;
-        for (int y = 0; y < dst->h; ++y) {
-            uint16_t *row = pix + y * pitch_pix;
-            for (int x = 0; x < dst->w; ++x) row[x] = 0x0001;
+
+        for (int y = 0; y < dst->h; y++) {
+            uint16_t *row = p16 + y * pitch_pix;
+            for (int x = 0; x < dst->w; x++) {
+                row[x] = 0x8000;
+            }
         }
 
         if (SDL_MUSTLOCK(dst)) SDL_UnlockSurface(dst);
 
         /* Present black once */
         sub_48A290();
-
-
-//        enum AVPixelFormat out_fmt = sdl_to_avpix(dst->format);
-//        sws = sws_getContext(
-//            vdec->width, vdec->height, vdec->pix_fmt,
-//            dst->w, dst->h, out_fmt,
-//            SWS_BILINEAR, NULL, NULL, NULL);
 
         enum AVPixelFormat out_fmt = AV_PIX_FMT_RGB555LE;
         sws = sws_getContext(
@@ -721,8 +747,6 @@ void __cdecl sub_555430(HWND *a1)
         }
     }
 
-
-
     vfrm = av_frame_alloc();
     afrm = av_frame_alloc();
     pkt  = av_packet_alloc();
@@ -763,6 +787,15 @@ void __cdecl sub_555430(HWND *a1)
                     uint8_t *dst_data[4] = { (uint8_t *)dst->pixels, NULL, NULL, NULL };
                     int dst_linesize[4]  = { dst->pitch, 0, 0, 0 };
 
+                    static int sws_cs_set = 0;
+                    if (!sws_cs_set) {
+                        dprintf("movie: pix_fmt=%d cs=%d range=%d prim=%d trc=%d",
+                                vfrm->format, vfrm->colorspace, vfrm->color_range,
+                                vfrm->color_primaries, vfrm->color_trc);
+                        movie_sws_apply_colorspace(sws, vfrm);
+                        sws_cs_set = 1;
+                    }
+
                     sws_scale(sws,
                               (const uint8_t * const*)vfrm->data, vfrm->linesize,
                               0, vdec->height,
@@ -771,31 +804,22 @@ void __cdecl sub_555430(HWND *a1)
                     uint16_t *p = (uint16_t *)dst->pixels;
                     int pitch_pix = dst->pitch / 2;
 
-                    // sws output is effectively 0RGB1555-ish in little-endian (RGB in low 15 bits).
-                    // We need RGBA5551: RGB in bits 15..1, alpha in bit0.
+                    /* sws output is RGB555LE: xRRRRRGGGGGBBBBB (little-endian 16-bit).
+                       We want ARGB1555: ARRRRRGGGGGBBBBB (A in bit15).
+                       So keep the 15 color bits and force alpha on. */
                     for (int y = 0; y < dst->h; y++) {
                         uint16_t *row = p + y * pitch_pix;
                         for (int x = 0; x < dst->w; x++) {
-                            uint16_t v = row[x];
-                            row[x] = (uint16_t)(((v & 0x7FFF) << 1) | 1);
+                            row[x] = (uint16_t)((row[x] & 0x7FFF) | 0x8000);
                         }
                     }
 
                     if (SDL_MUSTLOCK(dst))
                         SDL_UnlockSurface(dst);
 
-                    // PRESENT:
-                    // If your SDL renderer path uses textures, you may need an explicit “flip”.
-                    // In your codebase you often blit backbuffer->screen elsewhere; for movies we at least update the window:
-//                    SDL_UpdateWindowSurface(SDL_GetWindowFromID(1)); // safe-ish fallback
 #ifdef USE_SDL
-                    // Make sure we're writing to the current active backbuffer (engine may swap pointers)
-//                    if (g_backbuffer1) dst = g_backbuffer1;
-
-                    // Call the engine's real present (uploads backbuffer -> GL + swaps)
                     sub_48A290();
 #endif
-                    // If you have a known SDL_Window*, replace with SDL_UpdateWindowSurface(window).
 
                     // Pacing
                     int64_t pts = (vfrm->best_effort_timestamp != AV_NOPTS_VALUE) ? vfrm->best_effort_timestamp : vfrm->pts;
@@ -890,6 +914,7 @@ done:
     if (audio_ok)
         movieal_shutdown(&alx);
 }
+
 // FFMPEG end
 
 //----- (00555500) --------------------------------------------------------
