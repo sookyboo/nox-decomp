@@ -1,6 +1,8 @@
 ![](https://github.com/sookyboo/nox-decomp/blob/main/logos/nox-decomp.png)
 # Nox-Decomp
 
+If you enjoy this please consider giving me a tip on [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y61U19WK)
+
 This is a fork of https://github.com/neuromancer/nox-decomp
 
 Fixed most of the known bugs for Neuromancer's version and adds movie and LAN support and compiles for ARMHF devices.
@@ -163,8 +165,11 @@ export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the ci
 
 # Steam deck 
 Download the flatpak from releases section.
-It requries access to a directory in your home directory called nox-decomp 
+
+It requries access to a directory in your home directory called nox-decomp
+
 It also needs access to your devices to emulate the mouse and keyboard ( a future release might remove this requirement).
+
 
 Dependencies:
 ```
@@ -181,20 +186,32 @@ flatpak install -y --user --reinstall io.github.sookyboo.NoxDecomp.flatpak
 ```
 
 Create a launcher for steam:
+
 Using Dolphin file browser
+
 Go to Home/.local/share/flatpak/exports/share/applications
+
 Right click `io.github.sookyboo.NoxDecomp.desktop`
+
 Click Add to Steam
 
 
 Setup Controller (These instructions may differ as Valve changes steam):
-Get out of desktop mode by restarting 
+
+Get out of desktop mode by restarting
+
 Go to your library, Non-Steam collection
+
 Click NoxDecomp
+
 Click Controller settings button
+
 Click using template:
+
 Under Layouts created by Valve:
+
 Choose Gamepad with Mouse Trackpad
+
 Press X to apply the layout
 
 # Windows
