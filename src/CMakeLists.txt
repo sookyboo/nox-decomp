@@ -70,6 +70,7 @@ add_executable (
     draw.c
     imm.c
     control_server.c
+    gamepad.c
     input.c
     main.cpp
     movie.c

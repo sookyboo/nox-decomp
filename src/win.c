@@ -7,6 +7,7 @@
 #ifdef USE_SDL
 void nox_control_server_init(void);
 void nox_control_server_pump(void);
+void nox_gamepad_update(void);
 #endif
 
 #ifdef USE_SDL
@@ -77,7 +78,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// ---------------------------------------------------------------------
 	// SDL path: FORCE CLASSIC 640x480, NO WIDESCREEN
 	// ---------------------------------------------------------------------
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
 
 	// Hard clamp to 640x480 to avoid widescreen / wide backbuffer modes.
 	// Also overwrite the original global resolution variables so the rest
@@ -398,6 +399,7 @@ int sub_4453A0()
 		process_event(&event);
 	//mm_timer_pump_mainthread();
 #ifdef USE_SDL
+    nox_gamepad_update();
     nox_control_server_pump();
 #endif
 	return 0;
