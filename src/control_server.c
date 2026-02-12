@@ -1618,7 +1618,9 @@ void nox_control_server_pump(void)
              int ms = a.a;
              if (ms < 0) ms = 0;
              if (ms > 60000) ms = 60000;
-             NOX_CTRL_LOG("Sleep for %d ms", ms);
+             if (ms > 100) {
+                NOX_CTRL_LOG("Sleep for %d ms", ms);
+             }
              g_sleep_until = SDL_GetTicks() + (Uint32)ms;
              return; // stop processing more actions this frame
          }
