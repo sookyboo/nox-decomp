@@ -21,3 +21,5 @@ docker buildx imagetools create \
   -t ghcr.io/nox-decomp/nox-decomp-server:latest \
   ghcr.io/nox-decomp/nox-decomp-server:amd64 \
   ghcr.io/nox-decomp/nox-decomp-server:arm64
+
+docker context use default
