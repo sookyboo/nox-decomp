@@ -2,7 +2,6 @@
 #include "defs.h"
 
 #ifdef USE_SDL
-#include <SDL.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
