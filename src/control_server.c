@@ -213,7 +213,8 @@ typedef enum {
     ACT_SLEEP_MS,       // delay
     ACT_HOME,           // slam to top-left
     ACT_TRHOME,         // slam to top-right (best-effort)
-    ACT_QUIT_GAME
+    ACT_QUIT_GAME,
+    ACT_LOG
 //    ACT_MACRO_START_SERVER
 } ActionType;
 
@@ -442,6 +443,16 @@ static void enqueue_quit_game(void)
     ControlAction a;
     memset(&a, 0, sizeof(a));
     a.type = ACT_QUIT_GAME;
+    q_push(&a);
+}
+
+static void enqueue_log(const char *msg)
+{
+    ControlAction a;
+    memset(&a, 0, sizeof(a));
+    a.type = ACT_LOG;
+    strncpy(a.text, msg ? msg : "", sizeof(a.text) - 1);
+    a.text[sizeof(a.text) - 1] = 0;
     q_push(&a);
 }
 
@@ -1357,13 +1368,19 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         const NoxCtrlMacro *m = find_macro(p);
         if (!m) { send_str_maybe(fd, "ERR unknown macro\r\n"); return; }
 
-        fprintf(stderr, "[ctrl] '%s' \n", m->name);
         send_str_maybe(fd, "Running macro: ");
         send_str_maybe(fd, m->name);
         send_str_maybe(fd, "\r\n");
 
+        char buf[300];
+        snprintf(buf, sizeof(buf), "macro begin: %s", m->name);
+        enqueue_log(buf);
+
         run_script_as_commands(fd, m->script, authed, pw);
         send_str_maybe(fd, "OK\r\n");
+
+        snprintf(buf, sizeof(buf), "macro end: %s", m->name);
+        enqueue_log(buf);
         return;
     }
 
@@ -1601,6 +1618,7 @@ void nox_control_server_pump(void)
              int ms = a.a;
              if (ms < 0) ms = 0;
              if (ms > 60000) ms = 60000;
+             NOX_CTRL_LOG("Sleep for %d ms", ms);
              g_sleep_until = SDL_GetTicks() + (Uint32)ms;
              return; // stop processing more actions this frame
          }
@@ -1633,6 +1651,9 @@ void nox_control_server_pump(void)
             SDL_PushEvent(&ev);
             return; // stop processing more actions this frame
         }
+        case ACT_LOG:
+            NOX_CTRL_LOG("%s", a.text);
+            break;
 
 //         case ACT_MACRO_START_SERVER:
 //             enqueue_macro_start_server();
