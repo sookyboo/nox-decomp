@@ -798,8 +798,8 @@ static void do_mouse_movement(Uint32 now_ms)
     int slow = mouse_slow_active();
 
     if (slow && g_cfg.mouse_slow_scale > 0) {
-        dx = (dx * 100) / g_cfg.mouse_slow_scale;
-        dy = (dy * 100) / g_cfg.mouse_slow_scale;
+        dx = (dx * g_cfg.mouse_slow_scale) / 100;
+        dy = (dy * g_cfg.mouse_slow_scale) / 100;
         if (dx == 0 && dy == 0) return;
     }
 
