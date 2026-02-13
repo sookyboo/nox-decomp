@@ -21,7 +21,7 @@ static int g_gamepad_log_enabled(void);
 extern void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel);
 extern void nox_ctrl_inject_mouse_button(int button, int down);
 extern void nox_ctrl_inject_key_scancode(int sdl_scancode, int down);
-extern void nox_ctrl_inject_text_utf8(const char *utf8);
+//extern void nox_ctrl_inject_text_utf8(const char *utf8);
 
 // --------------------------
 // Small portability helpers
@@ -180,7 +180,7 @@ struct wordset {
     int word_count;
 
     int index;       // current selection
-    int preview_len; // last injected codepoint count
+    int preview_len; // number of characters we typed (ASCII bytes)
 };
 
 struct layer {
@@ -534,17 +534,17 @@ static int resolve_wordset_idx(void)
 // --------------------------
 // Wordset operations
 // --------------------------
-static int utf8_count_codepoints(const char *s)
-{
-    if (!s) return 0;
-    int n = 0;
-    const unsigned char *p = (const unsigned char*)s;
-    while (*p) {
-        if ((*p & 0xC0) != 0x80) n++;
-        p++;
-    }
-    return n;
-}
+//static int utf8_count_codepoints(const char *s)
+//{
+//    if (!s) return 0;
+//    int n = 0;
+//    const unsigned char *p = (const unsigned char*)s;
+//    while (*p) {
+//        if ((*p & 0xC0) != 0x80) n++;
+//        p++;
+//    }
+//    return n;
+//}
 
 static void inject_key_tap(int sc)
 {
@@ -557,8 +557,68 @@ static void inject_backspaces(int n)
     for (int i = 0; i < n; ++i) inject_key_tap(SDL_SCANCODE_BACKSPACE);
 }
 
+static void inject_tap_with_shift(int sc)
+{
+    nox_ctrl_inject_key_scancode(SDL_SCANCODE_LSHIFT, 1);
+    inject_key_tap(sc);
+    nox_ctrl_inject_key_scancode(SDL_SCANCODE_LSHIFT, 0);
+}
+
+static void inject_type_via_keys(const char *text)
+{
+    if (!text) return;
+
+    for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
+        unsigned char c = *p;
+
+        if (c == ' ') { inject_key_tap(SDL_SCANCODE_SPACE); continue; }
+
+        if (c >= '0' && c <= '9') {
+            int sc = (c == '0') ? SDL_SCANCODE_0 : (SDL_SCANCODE_1 + (c - '1'));
+            inject_key_tap(sc);
+            continue;
+        }
+
+        if (c >= 'a' && c <= 'z') { inject_key_tap(SDL_SCANCODE_A + (c - 'a')); continue; }
+
+        if (c >= 'A' && c <= 'Z') { inject_tap_with_shift(SDL_SCANCODE_A + (c - 'A')); continue; }
+
+        // punctuation (US layout assumptions)
+        switch (c) {
+            case '-': inject_key_tap(SDL_SCANCODE_MINUS); break;
+            case '_': inject_tap_with_shift(SDL_SCANCODE_MINUS); break;
+            case '=': inject_key_tap(SDL_SCANCODE_EQUALS); break;
+            case '+': inject_tap_with_shift(SDL_SCANCODE_EQUALS); break;
+            case '.': inject_key_tap(SDL_SCANCODE_PERIOD); break;
+            case ',': inject_key_tap(SDL_SCANCODE_COMMA); break;
+            case '/': inject_key_tap(SDL_SCANCODE_SLASH); break;
+            case ';': inject_key_tap(SDL_SCANCODE_SEMICOLON); break;
+            case ':': inject_tap_with_shift(SDL_SCANCODE_SEMICOLON); break;
+            case '\'': inject_key_tap(SDL_SCANCODE_APOSTROPHE); break;
+            case '"': inject_tap_with_shift(SDL_SCANCODE_APOSTROPHE); break;
+            default:
+                break;
+        }
+    }
+}
+
+static Uint32 g_wordset_next_allowed_ms = 0;
+
+static int wordset_cycle_delay_ms(void)
+{
+    // tune at runtime; default 120ms feels good
+    return nox_env_int_default("NOX_GAMEPAD_WORDSET_CYCLE_MS", 120);
+}
+
+
 static void wordset_cycle(int dir)
 {
+    Uint32 now = SDL_GetTicks();
+    if (now < g_wordset_next_allowed_ms)
+        return;
+
+    g_wordset_next_allowed_ms = now + (Uint32)wordset_cycle_delay_ms();
+
     int wsi = resolve_wordset_idx();
     if (wsi < 0 || wsi >= g_wordset_count) return;
 
@@ -576,8 +636,8 @@ static void wordset_cycle(int dir)
 
     const char *phrase = ws->words[ws->index] ? ws->words[ws->index] : "";
     if (*phrase) {
-        nox_ctrl_inject_text_utf8(phrase);
-        ws->preview_len = utf8_count_codepoints(phrase);
+        inject_type_via_keys(phrase);              // <--- instead of nox_ctrl_inject_text_utf8
+        ws->preview_len = (int)strlen(phrase);     // <--- now backspaces should count chars we typed
     }
 }
 
