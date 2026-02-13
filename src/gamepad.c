@@ -717,6 +717,44 @@ static int apply_deadzone(int v, int dz)
     return sign * (av - dz);
 }
 
+static int phys_is_down(enum phys_input in)
+{
+    switch (in) {
+        case IN_A:      return g_cur.a;
+        case IN_B:      return g_cur.b;
+        case IN_X:      return g_cur.x;
+        case IN_Y:      return g_cur.y;
+        case IN_START:  return g_cur.start;
+        case IN_SELECT: return g_cur.select;
+        case IN_GUIDE:  return g_cur.guide;
+        case IN_L1:     return g_cur.l1;
+        case IN_R1:     return g_cur.r1;
+        case IN_L2:     return g_cur.l2_btn;
+        case IN_R2:     return g_cur.r2_btn;
+        case IN_UP:     return g_cur.dpad_up;
+        case IN_DOWN:   return g_cur.dpad_down;
+        case IN_LEFT:   return g_cur.dpad_left;
+        case IN_RIGHT:  return g_cur.dpad_right;
+        case IN_RU:     return (g_cur.ry < -AXIS_DIGITAL_THRESHOLD);
+        case IN_RD:     return (g_cur.ry >  AXIS_DIGITAL_THRESHOLD);
+        case IN_RL:     return (g_cur.rx < -AXIS_DIGITAL_THRESHOLD);
+        case IN_RR:     return (g_cur.rx >  AXIS_DIGITAL_THRESHOLD);
+        default:        return 0;
+    }
+}
+
+static int mouse_slow_active(void)
+{
+    for (int in = 0; in < IN__COUNT; ++in) {
+        if (!phys_is_down((enum phys_input)in)) continue;
+
+        struct action a = resolve_binding((enum phys_input)in);
+        if (a.type == ACT_MOUSE_SLOW) return 1;
+    }
+    return 0;
+}
+
+
 static void do_mouse_movement(Uint32 now_ms)
 {
     static Uint32 last_mouse_ms = 0;
@@ -757,9 +795,7 @@ static void do_mouse_movement(Uint32 now_ms)
 
     if (!dx && !dy) return;
 
-    int slow = 0;
-    struct action l2_act = resolve_binding(IN_L2);
-    if (l2_act.type == ACT_MOUSE_SLOW) slow = 1;
+    int slow = mouse_slow_active();
 
     if (slow && g_cfg.mouse_slow_scale > 0) {
         dx = (dx * 100) / g_cfg.mouse_slow_scale;
