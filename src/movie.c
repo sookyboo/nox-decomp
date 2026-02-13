@@ -497,7 +497,7 @@ int movie_resolve_path(const char *in, char *out, size_t out_sz)
     return 1;
 }
 
-
+volatile int g_movie_skip_requested = 0;
 
 /*
  * DROP-IN replacement. Keep signature.
@@ -513,6 +513,9 @@ void __cdecl sub_555430(HWND *a1)
 
     if (!movie_path || !movie_path[0])
         return;
+
+    /* reset skip for THIS playback */
+    g_movie_skip_requested = 0;
 
     // Make sure SDL pumps events while movie plays
     SDL_Event e;
@@ -714,6 +717,14 @@ void __cdecl sub_555430(HWND *a1)
         {
             if (e.type == SDL_QUIT) running = 0;
             if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) running = 0;
+        }
+        // Pump controller polling (your input system is polling-based)
+        nox_gamepad_update();
+
+        // Add a global/atomic flag that your pad code sets when "skip" is pressed
+        if (g_movie_skip_requested) {
+            g_movie_skip_requested = 0;
+            running = 0;
         }
 
         if (pkt->stream_index == vstream)

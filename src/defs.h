@@ -384,3 +384,5 @@ typedef struct struc_35
 } struc_35;
 
 #endif
+
+extern volatile int g_movie_skip_requested;

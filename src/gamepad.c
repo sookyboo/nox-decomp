@@ -1194,6 +1194,15 @@ static void maybe_exit_combo(void)
 // --------------------------
 void nox_gamepad_update(void)
 {
+//    static int once = 0;
+//    if (!once) {
+//        once = 1;
+//        fprintf(stderr,
+//            "[pad] update() entered. NOX_GAMEPAD=%s NOX_GAMEPAD_LOG=%s\n",
+//            getenv("NOX_GAMEPAD") ? getenv("NOX_GAMEPAD") : "(null)",
+//            getenv("NOX_GAMEPAD_LOG") ? getenv("NOX_GAMEPAD_LOG") : "(null)");
+//        fflush(stderr);
+//    }
     if (!nox_gamepad_enabled()) return;
 
     nox_gamepad_open_if_needed();
@@ -1203,6 +1212,19 @@ void nox_gamepad_update(void)
     poll_snapshot(&g_cur);
 
     maybe_exit_combo();
+
+    // ---- MOVIE SKIP REQUEST ----
+        if (edge_down(g_cur.select, g_prev.select)) {
+            g_movie_skip_requested = 1;
+
+//            // Optional: also inject ESC so the movie loop exits immediately
+//            SDL_Event ev;
+//            memset(&ev, 0, sizeof(ev));
+//            ev.type = SDL_KEYDOWN;
+//            ev.key.keysym.sym = SDLK_ESCAPE;
+//            SDL_PushEvent(&ev);
+        }
+        // ---- end movie skip request ----
 
     struct {
         enum phys_input in;
