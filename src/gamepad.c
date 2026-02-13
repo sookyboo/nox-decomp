@@ -494,10 +494,9 @@ static struct action resolve_binding(enum phys_input in)
 {
     struct action none = { ACT_NONE, 0 };
 
-    // Try from top-most active slot down. For each slot, follow its parent chain
-    // only if overlay=parent. overlay=clear stops at that layer.
     for (int start = g_active_count - 1; start >= 0; --start) {
         int slot = start;
+
         while (slot >= 0) {
             int li = g_active_stack[slot].layer_idx;
             if (li < 0 || li >= g_layer_count) break;
@@ -506,10 +505,15 @@ static struct action resolve_binding(enum phys_input in)
             struct action a = L->binds[in];
             if (a.type != ACT_NONE) return a;
 
-            if (L->overlay == OVERLAY_CLEAR) break; // stop chain
-            slot = g_active_stack[slot].parent_slot; // follow explicit parent
+            if (L->overlay == OVERLAY_CLEAR) {
+                // IMPORTANT: clear blocks everything below this active layer
+                return none;
+            }
+
+            slot = g_active_stack[slot].parent_slot;
         }
     }
+
     return none;
 }
 
@@ -517,6 +521,7 @@ static int resolve_wordset_idx(void)
 {
     for (int start = g_active_count - 1; start >= 0; --start) {
         int slot = start;
+
         while (slot >= 0) {
             int li = g_active_stack[slot].layer_idx;
             if (li < 0 || li >= g_layer_count) break;
@@ -524,12 +529,17 @@ static int resolve_wordset_idx(void)
             struct layer *L = &g_layers[li];
             if (L->wordset_idx >= 0) return L->wordset_idx;
 
-            if (L->overlay == OVERLAY_CLEAR) break;
+            if (L->overlay == OVERLAY_CLEAR) {
+                // clear blocks everything below
+                return -1;
+            }
+
             slot = g_active_stack[slot].parent_slot;
         }
     }
     return -1;
 }
+
 
 // --------------------------
 // Wordset operations
