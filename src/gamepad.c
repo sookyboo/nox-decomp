@@ -204,6 +204,8 @@ static struct cfg g_cfg;
 // layers: [0] is base [controls]
 static struct layer g_layers[MAX_LAYERS];
 static int g_layer_count = 0;
+// Which layer is currently being held by each physical input (or -1).
+static int g_hold_layer_for_in[IN__COUNT];
 
 // wordsets
 static struct wordset g_wordsets[MAX_WORDSETS];
@@ -892,6 +894,14 @@ static void stack_remove_slot_and_children(int slot_to_remove)
     /* copy only what we built (cleaner + avoids copying garbage) */
     memcpy(g_active_stack, newstk, (size_t)newcount * sizeof(newstk[0]));
     g_active_count = newcount;
+
+    // Clear any held mappings that point to layers no longer active
+    for (int in = 0; in < IN__COUNT; ++in) {
+        int li = g_hold_layer_for_in[in];
+        if (li >= 0 && !stack_contains_layer(li)) {
+            g_hold_layer_for_in[in] = -1;
+        }
+    }
 }
 
 static void stack_remove_layer(int layer_idx)
@@ -976,6 +986,9 @@ static void reset_mappings(void)
     g_cfg.deadzone_y = 2000;
     g_cfg.deadzone_triggers = 3000;
     g_cfg.dpad_mouse_normalize = 1;
+
+    for (int i = 0; i < IN__COUNT; ++i) g_hold_layer_for_in[i] = -1;
+
 }
 
 static void parse_wordset_line(const char *rhs)
@@ -1162,6 +1175,7 @@ void nox_gamepad_shutdown(void)
     /* also clear hysteresis so a later open starts clean */
     g_l2_state = 0;
     g_r2_state = 0;
+    for (int i = 0; i < IN__COUNT; ++i) g_hold_layer_for_in[i] = -1;
 }
 
 // --------------------------
@@ -1377,15 +1391,27 @@ void nox_gamepad_update(void)
         int up_edge   = edge_up(buttons[i].cur, buttons[i].prev);
         if (!down_edge && !up_edge) continue;
 
-        struct action a = resolve_binding(buttons[i].in);
-        if (a.type == ACT_HOLD_STATE) {
-            if (down_edge) {
-                // Parent is the currently top active slot at activation time
-                int parent_slot = (g_active_count > 0) ? (g_active_count - 1) : -1;
-                stack_push_with_parent(a.payload, parent_slot);
+        enum phys_input pin = buttons[i].in;
+
+        if (down_edge) {
+            struct action a = resolve_binding(pin);
+            if (a.type == ACT_HOLD_STATE) {
+                // Only push once per physical hold
+                if (g_hold_layer_for_in[pin] < 0) {
+                    int parent_slot = (g_active_count > 0) ? (g_active_count - 1) : -1;
+                    stack_push_with_parent(a.payload, parent_slot);
+                    g_hold_layer_for_in[pin] = a.payload;
+                }
             }
-            if (up_edge) {
-                stack_remove_layer(a.payload);
+        }
+
+        if (up_edge) {
+            // Pop whatever this physical input originally pushed,
+            // even if overlays now hide the binding.
+            int li = g_hold_layer_for_in[pin];
+            if (li >= 0) {
+                stack_remove_layer(li);
+                g_hold_layer_for_in[pin] = -1;
             }
         }
     }
