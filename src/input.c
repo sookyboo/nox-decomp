@@ -209,7 +209,80 @@ void nox_ctrl_capture_event(const SDL_Event *ev)
     fflush(stderr);
 }
 
+static void nox_apply_radial_limit(double *pdx, double *pdy)
+{
+    double dx = *pdx, dy = *pdy;
 
+    if ((dx == 0.0 && dy == 0.0)) return;
+    if (!g_rmb_down_sdl) { g_limit_latched = 0; return; }
+    if (!nox_limit_range_enabled()) return;
+
+    int *vp = (int *)sub_437250();
+    if (!vp) return;
+
+    int vw = vp[2] - vp[0];
+    int vh = vp[3] - vp[1];
+    if (vw <= 0 || vh <= 0) return; /* menus / invalid */
+
+    int2 *gm = sub_4309F0();
+    if (!gm) return;
+
+    const double R = (double)nox_limit_range_radius();
+    if (R <= 0.0) return;
+
+    const double cx = (double)vp[0] + ((double)(vp[2] - vp[0] + 1)) * 0.5;
+    const double cy = (double)vp[1] + ((double)(vp[3] - vp[1] + 1)) * 0.5;
+
+    const double gx = (double)gm->field_0;
+    const double gy = (double)gm->field_4;
+
+    const double R2 = R * R;
+
+    const double cvx = gx - cx;
+    const double cvy = gy - cy;
+    const double cdist2 = cvx*cvx + cvy*cvy;
+
+    const double nx = gx + dx;
+    const double ny = gy + dy;
+
+    const double nvx = nx - cx;
+    const double nvy = ny - cy;
+    const double ndist2 = nvx*nvx + nvy*nvy;
+
+    if (!g_limit_latched) {
+        if (cdist2 > R2 && ndist2 <= R2)
+            g_limit_latched = 1;
+    }
+
+    if (g_limit_latched || (cdist2 <= R2)) {
+        if (ndist2 > R2) {
+            double rlen = sqrt(cdist2);
+            if (rlen > 1e-9) {
+                double urx = cvx / rlen;
+                double ury = cvy / rlen;
+                double radial = dx*urx + dy*ury;
+                if (radial > 0.0) {
+                    dx -= radial * urx;
+                    dy -= radial * ury;
+                }
+                /* safety inward nudge if still outside */
+                {
+                    double nnx = gx + dx;
+                    double nny = gy + dy;
+                    double dvx = nnx - cx;
+                    double dvy = nny - cy;
+                    if (dvx*dvx + dvy*dvy > R2) {
+                        dx -= urx;
+                        dy -= ury;
+                    }
+                }
+            }
+        }
+    }
+
+    *pdx = dx;
+    *pdy = dy;
+}
 
 // Inject relative mouse move / wheel directly into the existing mouse_event_queue.
 void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
@@ -217,10 +290,15 @@ void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
     NOX_CTRL_INJECT_LOG("[inj] mouse_move dx=%d dy=%d wheel=%d widx=%u\n", dx, dy, wheel, (unsigned)mouse_event_widx);
 //    fflush(stderr);
 
+    double ddx = (double)dx * (double)input_sensitivity;
+    double ddy = (double)dy * (double)input_sensitivity;
+
+    nox_apply_radial_limit(&ddx, &ddy);
+
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
     me->type = MOUSE_MOTION;
-    me->x = dx;
-    me->y = dy;
+    me->x = (int)lrint(ddx);
+    me->y = (int)lrint(ddy);
     me->z = wheel;
     me->seq = seqnum++;
     mouse_event_widx = (mouse_event_widx + 1) % 256;
@@ -229,8 +307,45 @@ void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
 
 void nox_ctrl_inject_mouse_button(int button, int down)
 {
-    NOX_CTRL_INJECT_LOG( "[inj] mouse_btn button=%d down=%d widx=%u\n", button, down, (unsigned)mouse_event_widx);
-//    fflush(stderr);
+    NOX_CTRL_INJECT_LOG("[inj] mouse_btn button=%d down=%d widx=%u\n",
+                        button, down, (unsigned)mouse_event_widx);
+
+    /* Mirror RMB held state for limiter, even when events are injected */
+    if (button == 1) { /* 1 == RMB in your inject API */
+        int was = g_rmb_down_sdl;
+        g_rmb_down_sdl = down ? 1 : 0;
+
+        if (!g_rmb_down_sdl) {
+            /* Reset latch when RMB released */
+            g_limit_latched = 0;
+            g_limit_clamp_count = 0;
+        } else if (!was) {
+            /* OPTIONAL: on RMB-down, try to latch if already inside circle */
+            if (nox_limit_range_enabled()) {
+                int *vp = (int *)sub_437250();
+                if (vp) {
+                    int vw = vp[2] - vp[0];
+                    int vh = vp[3] - vp[1];
+                    if (vw > 0 && vh > 0) {
+                        int2 *gm = sub_4309F0();
+                        if (gm) {
+                            const double R = (double)nox_limit_range_radius();
+                            if (R > 0.0) {
+                                const double cx = (double)vp[0] + ((double)(vp[2] - vp[0] + 1)) * 0.5;
+                                const double cy = (double)vp[1] + ((double)(vp[3] - vp[1] + 1)) * 0.5;
+                                const double gx = (double)gm->field_0;
+                                const double gy = (double)gm->field_4;
+                                const double vx = gx - cx;
+                                const double vy = gy - cy;
+                                if (vx*vx + vy*vy <= R*R)
+                                    g_limit_latched = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
     switch (button) {
@@ -389,141 +504,16 @@ void process_mouse_event(const SDL_MouseButtonEvent *event)
 
 void process_motion_event(const SDL_MouseMotionEvent *event)
 {
+    double ddx = (double)event->xrel * (double)input_sensitivity;
+    double ddy = (double)event->yrel * (double)input_sensitivity;
+
+    nox_apply_radial_limit(&ddx, &ddy);
+
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
 
-    // Default: pass through scaled deltas
-    double dx = (double)input_sensitivity * (double)event->xrel;
-    double dy = (double)input_sensitivity * (double)event->yrel;
-
-    // If RMB not held, ensure latch is cleared (safety net)
-    if (!g_rmb_down_sdl) {
-        g_limit_latched = 0;
-    }
-
-    // Apply limiter only when:
-    //  - env enabled
-    //  - RMB held
-    //  - viewport valid (NOT zero/unset)
-    if ((dx != 0.0 || dy != 0.0) && g_rmb_down_sdl && nox_limit_range_enabled()) {
-        int *vp = (int *)sub_437250(); // [0]=l [1]=t [2]=r [3]=b
-        if (vp) {
-            int vw = vp[2] - vp[0];
-            int vh = vp[3] - vp[1];
-
-            // If viewport is zero/unset (menus), do NOT limit.
-            if (vw > 0 && vh > 0) {
-                int2 *gm = sub_4309F0(); // current game mouse position
-                if (gm) {
-                    const double R = (double)nox_limit_range_radius();
-                    if (R > 0.0) {
-                        // Center in game space
-                        const double cx = (double)vp[0] + ((double)(vp[2] - vp[0] + 1)) * 0.5;
-                        const double cy = (double)vp[1] + ((double)(vp[3] - vp[1] + 1)) * 0.5;
-
-                        const double gx = (double)gm->field_0;
-                        const double gy = (double)gm->field_4;
-
-                        const double R2 = R * R;
-
-                        // Current distance
-                        const double cvx = gx - cx;
-                        const double cvy = gy - cy;
-                        const double cdist2 = cvx * cvx + cvy * cvy;
-
-                        // Predicted next position (if we apply dx/dy)
-                        const double nx = gx + dx;
-                        const double ny = gy + dy;
-
-                        const double nvx = nx - cx;
-                        const double nvy = ny - cy;
-                        const double ndist2 = nvx * nvx + nvy * nvy;
-
-                        // New rule: if we transition from outside -> inside while RMB held,
-                        // latch the limiter so we cannot leave the circle again.
-                        if (!g_limit_latched) {
-                            if (cdist2 > R2 && ndist2 <= R2) {
-                                g_limit_latched = 1;
-//                                fprintf(stderr, "[limit] latched (entered circle) g=(%.1f,%.1f) c=(%.1f,%.1f) R=%.1f\n",
-//                                        gx, gy, cx, cy, R);
-//                                fflush(stderr);
-                            }
-                        }
-
-                        // If latched: always prevent leaving the circle.
-                        // If not latched: only clamp when currently inside (original behavior).
-                        if (g_limit_latched || (cdist2 <= R2)) {
-                            if (ndist2 > R2) {
-                                /* Instead of snapping to the boundary (which jitters after rounding),
-                                   remove only the outward radial component so motion slides along the circle. */
-                                const double odx = dx, ody = dy;
-
-                                double rlen = sqrt(cdist2);
-                                if (rlen > 1e-9) {
-                                    double urx = cvx / rlen;  // unit radial at current point
-                                    double ury = cvy / rlen;
-
-                                    // radial component of the attempted move
-                                    double radial = dx * urx + dy * ury;
-
-                                    // If we are trying to move outward, remove that outward component
-                                    if (radial > 0.0) {
-                                        dx -= radial * urx;
-                                        dy -= radial * ury;
-                                    }
-
-                                    // Safety: if we're still outside due to numeric/rounding, pull slightly inward.
-                                    {
-                                        double nnx = gx + dx;
-                                        double nny = gy + dy;
-                                        double dvx = nnx - cx;
-                                        double dvy = nny - cy;
-                                        double dd2 = dvx*dvx + dvy*dvy;
-                                        if (dd2 > R2) {
-                                            // pull inward by 1px along radial
-                                            dx -= urx;
-                                            dy -= ury;
-                                        }
-                                    }
-                                } else {
-                                    // At center: if move would go outside (huge dx/dy), just leave it; next frames will behave.
-                                    // (No meaningful radial direction here.)
-                                }
-
-                                /* Rate-limited debug to prove it’s clamping */
-                                g_limit_clamp_count++;
-                                if (g_limit_clamp_count <= 10 || (g_limit_clamp_count % 200) == 0) {
-//                                    fprintf(stderr,
-//                                            "[limit] clamp#%u latched=%d g=(%.1f,%.1f) n=(%.1f,%.1f) c=(%.1f,%.1f) R=%.1f d=(%.1f,%.1f)->(%.1f,%.1f)\n",
-//                                            g_limit_clamp_count,
-//                                            g_limit_latched,
-//                                            gx, gy, nx, ny, cx, cy, R,
-//                                            odx, ody, dx, dy);
-//                                    fflush(stderr);
-                                }
-
-
-                                // Rate-limited debug so we can prove it’s clamping
-                                g_limit_clamp_count++;
-                                if (g_limit_clamp_count <= 10 || (g_limit_clamp_count % 200) == 0) {
-//                                    fprintf(stderr,
-//                                            "[limit] clamp#%u latched=%d g=(%.1f,%.1f) n=(%.1f,%.1f) c=(%.1f,%.1f) R=%.1f d=(%.1f,%.1f)->(%.1f,%.1f)\n",
-//                                            g_limit_clamp_count,
-//                                            g_limit_latched,
-//                                            gx, gy, nx, ny, cx, cy, R,
-//                                            odx, ody, dx, dy);
-//                                    fflush(stderr);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     me->type = MOUSE_MOTION;
-    me->x = (int)lrint(dx);
-    me->y = (int)lrint(dy);
+    me->x = (int)lrint(ddx);
+    me->y = (int)lrint(ddy);
     me->z = 0;
     me->seq = seqnum++;
 
