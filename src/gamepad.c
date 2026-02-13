@@ -795,6 +795,12 @@ static void do_mouse_movement(Uint32 now_ms)
 
     if (!dx && !dy) return;
 
+    int base = mouse_base_percent();
+    if (base > 0 && base != 100) {
+        dx = (dx * base) / 100;
+        dy = (dy * base) / 100;
+    }
+
     int slow = mouse_slow_active();
 
     if (slow && g_cfg.mouse_slow_scale > 0) {
@@ -1293,6 +1299,11 @@ static void maybe_exit_combo(void)
         SDL_PushEvent(&ev);
         NOX_GAMEPAD_LOG("[pad] exit combo start+select => SDL_QUIT\n");
     }
+}
+
+int mouse_base_percent(void) {
+    // 100 = current baseline, 250 ≈ what you liked (because 100/40 = 2.5x)
+    return nox_env_int_default("NOX_GAMEPAD_MOUSE_BASE", 250);
 }
 
 // --------------------------
