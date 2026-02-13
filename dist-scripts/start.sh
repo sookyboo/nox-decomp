@@ -7,10 +7,12 @@ PKG_BASE="/app/lib/${APP_ID}"
 PKG_NOXD="${PKG_BASE}/noxd.i386"
 PKG_STEAM_DIR="${PKG_BASE}/steam"
 PKG_FFMPEG_DIR="${PKG_BASE}/ffmpeg.i386"
-PKG_GPTK2="${PKG_BASE}/gptokeyb2.x86_64"
-PKG_INTERPOSE64="${PKG_STEAM_DIR}/libinterpose.x86_64.so"
 PKG_GPTK2_INI="${PKG_BASE}/nox.gptk2.ini"
+: "${NOX_GAMEPAD_INI:=${PKG_GPTK2_INI}}"
+export NOX_GAMEPAD_INI
 
+: "${NOX_GAMEPAD_EXIT:=1}"
+export NOX_GAMEPAD_EXIT
 
 
 # Host-writable dirs
@@ -174,165 +176,14 @@ fi
 export NOX_LIMIT_RANGE_ON_RUN
 # export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle
 
-# ---------------------------
-# Optional: run gptokeyb2 in the background (native x86_64 helper)
-# ---------------------------
-: "${NOX_GPTK2_ENABLE:=1}"
-: "${NOX_GPTK2_DEBUG:=1}"   # 1 = print more + keep logs
-: "${NOX_GPTK2_PRELOAD_INTERPOSE:=1}"  # 1 = use Steam libinterpose if present
+: "${NOX_GAMEPAD:=1}"
+export NOX_GAMEPAD
 
-GPTK2_PID=""
-GPTK2_LOG="${NOX_ASSET_DIR}/gptokeyb2.log"
+: "${NOX_GAMEPAD_LOG:=1}"
+export NOX_GAMEPAD_LOG
 
-if [[ "${NOX_GPTK2_ENABLE}" == "0" ]]; then
-  [[ "${NOX_GPTK2_DEBUG}" != "0" ]] && echo "[gptk2] disabled (NOX_GPTK2_ENABLE=0)" >&2
-elif [[ ! -e "${PKG_GPTK2}" ]]; then
-  echo "[gptk2] not started: missing ${PKG_GPTK2}" >&2
-elif [[ ! -x "${PKG_GPTK2}" ]]; then
-  echo "[gptk2] not started: not executable: ${PKG_GPTK2}" >&2
-else
-  : "${NOX_GPTK2_CFG:=${PKG_GPTK2_INI}}"
+export # for debug
 
-  # Build optional LD_PRELOAD just for gptokeyb2
-  GPTK2_PRELOAD=""
-  if [[ "${NOX_GPTK2_PRELOAD_INTERPOSE}" != "0" ]]; then
-    if [[ -f "${PKG_INTERPOSE64}" ]]; then
-      GPTK2_PRELOAD="${PKG_INTERPOSE64}"
-    else
-      echo "[gptk2] NOTE: interpose missing: ${PKG_INTERPOSE64} (continuing without LD_PRELOAD)" >&2
-    fi
-  fi
-
-  # Run and capture logs so we can see failures.
-  if [[ -f "${NOX_GPTK2_CFG}" ]]; then
-    env ${GPTK2_PRELOAD:+LD_PRELOAD="${GPTK2_PRELOAD}"} \
-      "${PKG_GPTK2}" -1 noxd -c "${NOX_GPTK2_CFG}" >"${GPTK2_LOG}" 2>&1 &
-  else
-    echo "[gptk2] config missing: ${NOX_GPTK2_CFG} (running without -c)" >&2
-    env ${GPTK2_PRELOAD:+LD_PRELOAD="${GPTK2_PRELOAD}"} \
-      "${PKG_GPTK2}" >"${GPTK2_LOG}" 2>&1 &
-  fi
-
-  GPTK2_PID="$!"
-
-  sleep 0.2
-  if kill -0 "${GPTK2_PID}" 2>/dev/null; then
-    echo "[gptk2] running pid=${GPTK2_PID} log=${GPTK2_LOG}${GPTK2_PRELOAD:+ preload=${GPTK2_PRELOAD}}" >&2
-  else
-    echo "[gptk2] failed to stay running (pid=${GPTK2_PID} exited). log=${GPTK2_LOG}" >&2
-    if [[ -s "${GPTK2_LOG}" ]]; then
-      echo "[gptk2] last log lines:" >&2
-      tail -n 80 "${GPTK2_LOG}" | sed 's/^/[gptk2] /' >&2
-    else
-      echo "[gptk2] log is empty (likely immediate exec failure or no output)" >&2
-    fi
-    GPTK2_PID=""
-  fi
-
-  cleanup_gptk2() {
-    [[ -n "${GPTK2_PID}" ]] || return 0
-    kill "${GPTK2_PID}" >/dev/null 2>&1 || true
-    wait "${GPTK2_PID}" >/dev/null 2>&1 || true
-    [[ "${NOX_GPTK2_DEBUG}" != "0" ]] || rm -f "${GPTK2_LOG}" >/dev/null 2>&1 || true
-  }
-#  trap cleanup_gptk2 EXIT INT TERM
-fi
-
-
-
-## ---------------------------
-## Run game (do NOT exec) so we can cleanup gptokeyb2 when it exits
-## ---------------------------
-#"${LOADER}" --library-path "${LIBPATH}" "${PKG_NOXD}"
-#GAME_RC=$?
-#
-## If the game exited, stop gptokeyb2 too (even if gptokeyb2 can kill by name)
-#if [[ -n "${GPTK2_PID:-}" ]]; then
-#  kill "${GPTK2_PID}" >/dev/null 2>&1 || true
-#  wait "${GPTK2_PID}" >/dev/null 2>&1 || true
-#fi
-#
-#exit "${GAME_RC}"
-
-
-
-# ---------------------------
-# Run game + gptokeyb2, and if either exits, stop the other (and clean up)
-# ---------------------------
-NOXD_PID=""
-GPTK2_PID="${GPTK2_PID:-}"   # you already set this earlier if started
-WATCH_A_PID=""
-WATCH_B_PID=""
-
-cleanup_all() {
-  # Stop watchers first (avoid races)
-  for p in "${WATCH_A_PID}" "${WATCH_B_PID}"; do
-    if [[ -n "${p}" ]] && kill -0 "${p}" 2>/dev/null; then
-      kill "${p}" >/dev/null 2>&1 || true
-      wait "${p}" 2>/dev/null || true
-    fi
-  done
-
-  # Stop noxd
-  if [[ -n "${NOXD_PID}" ]] && kill -0 "${NOXD_PID}" 2>/dev/null; then
-    kill "${NOXD_PID}" >/dev/null 2>&1 || true
-    wait "${NOXD_PID}" 2>/dev/null || true
-  fi
-
-  # Stop gptokeyb2
-  if [[ -n "${GPTK2_PID}" ]] && kill -0 "${GPTK2_PID}" 2>/dev/null; then
-    kill "${GPTK2_PID}" >/dev/null 2>&1 || true
-    wait "${GPTK2_PID}" 2>/dev/null || true
-  fi
-}
-trap cleanup_all EXIT INT TERM
-
-# for debugging
-export
-
-# Start noxd
-"${LOADER}" --library-path "${LIBPATH}" "${PKG_NOXD}" &
-NOXD_PID="$!"
-echo "[noxd] running pid=${NOXD_PID}" >&2
-
-# If gptokeyb2 is running, set up cross-kill watchers
-if [[ -n "${GPTK2_PID}" ]] && kill -0 "${GPTK2_PID}" 2>/dev/null; then
-  echo "[gptk2] running pid=${GPTK2_PID}" >&2
-
-  # A) gptokeyb2 exits -> stop noxd (polling, no wait)
-  (
-    while kill -0 "${GPTK2_PID}" 2>/dev/null; do
-      sleep 0.2
-    done
-    echo "[watch] gptokeyb2 exited; stopping noxd pid=${NOXD_PID}" >&2
-    kill "${NOXD_PID}" >/dev/null 2>&1 || true
-  ) &
-  WATCH_A_PID="$!"
-
-  # B) noxd exits -> stop gptokeyb2 (polling, no wait)
-  (
-    while kill -0 "${NOXD_PID}" 2>/dev/null; do
-      sleep 0.2
-    done
-    echo "[watch] noxd exited; stopping gptokeyb2 pid=${GPTK2_PID}" >&2
-    kill "${GPTK2_PID}" >/dev/null 2>&1 || true
-  ) &
-  WATCH_B_PID="$!"
-
-else
-  # If gptokeyb2 didn't start, just run noxd and exit with its code
-  GPTK2_PID=""
-fi
-
-# Wait for noxd to finish, and return its exit code
-wait "${NOXD_PID}" 2>/dev/null
+"${LOADER}" --library-path "${LIBPATH}" "${PKG_NOXD}"
 GAME_RC=$?
-NOXD_PID=""
-
-# Ensure gptokeyb2 is stopped too (in case it’s still alive)
-if [[ -n "${GPTK2_PID}" ]] && kill -0 "${GPTK2_PID}" 2>/dev/null; then
-  kill "${GPTK2_PID}" >/dev/null 2>&1 || true
-  wait "${GPTK2_PID}" 2>/dev/null || true
-fi
-
 exit "${GAME_RC}"
