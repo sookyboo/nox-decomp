@@ -1,4 +1,7 @@
+#if !defined(PROTO_DISABLE_PACK)
 #pragma pack(push, 1)
+#endif
+
 #include "defs.h"
 /* ---- Linux socket ABI compatibility (post-glibc) ---- */
 
@@ -7813,5 +7816,6 @@ uint16_t nox_mode_to_flagbit(const char *mode);
 }
 #endif
 
-
+#if !defined(PROTO_DISABLE_PACK)
 #pragma pack(pop)
+#endif

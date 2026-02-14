@@ -2,61 +2,106 @@
 #include <stdint.h>
 #include <string.h>
 
-
 /* If _DWORD is already defined somewhere else and you include that, drop this. */
 typedef uint32_t _DWORD;
+
+/*
+ * Detect ARM hard-float ABI (AAPCS-VFP). Only on that ABI do we need the
+ * pointer→float shims. On i386, routing pointer bits through a C 'float'
+ * can get NaN-canonicalized by x87 (e.g. 0xffxxxxxx -> 0x7fxxxxxx), which
+ * corrupts high-bit pointers (like stack addresses) and can crash when the
+ * callee does LODWORD(a1) and dereferences it.
+ */
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+#define NOX_ARM_HARDFLOAT 1
+#else
+#define NOX_ARM_HARDFLOAT 0
+#endif
 
 /* Helper: reinterpret pointer bits as float */
 static inline float ptr_to_float(void *p)
 {
     float f;
+    /*
+     * NOTE: we only build 32-bit today. If/when a 64-bit build happens,
+     * this must use a 32-bit temp (uint32_t) or be redesigned to avoid
+     * truncation/ABI issues.
+     */
     uintptr_t u = (uintptr_t)p;
     memcpy(&f, &u, sizeof(f));
     return f;
 }
 
 /* ===== GAME3: sub_4F4E50 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_4F4E50__abi_raw(float);
-
 int sub_4F4E50(void *p)
 {
     /* Pure bit-level reinterpretation; no extra logic */
     return sub_4F4E50__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_4F4E50__abi_raw(void *);
+int sub_4F4E50(void *p)
+{
+    return sub_4F4E50__abi_raw(p);
+}
+#endif
 
 /* ===== GAME4: sub_50A5C0 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_50A5C0__abi_raw(float);
-
 int sub_50A5C0(void *p)
 {
     /* Same: just bridge ABI, don’t change semantics */
     return sub_50A5C0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_50A5C0__abi_raw(void *);
+int sub_50A5C0(void *p)
+{
+    return sub_50A5C0__abi_raw(p);
+}
+#endif
 
 /* ===== GAME4: sub_531E20 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_531E20__abi_raw(float);
-
 int sub_531E20(void *p)
 {
     /* Same pattern: pointer bits as float */
     return sub_531E20__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_531E20__abi_raw(void *);
+int sub_531E20(void *p)
+{
+    return sub_531E20__abi_raw(p);
+}
+#endif
 
 /* ===== GAME4: sub_52E850 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_52E850__abi_raw(float a1);
-
 int sub_52E850(void *p)
 {
     return sub_52E850__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_52E850__abi_raw(void *a1);
+int sub_52E850(void *p)
+{
+    return sub_52E850__abi_raw(p);
+}
+#endif
 
 /* ===== GAME4: sub_52DD50 pointer→float ABI shim (multi-arg) ===== */
 /* Likely real raw signature on ARM hard-float:
    int sub_52DD50(int a1, float a2, float a3, float a4, int a5);
 */
 /* ===== GAME4: sub_52DD50 pointer→float ABI shim (last-arg float) ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_52DD50__abi_raw(int a1, int a2, int a3, int a4, float a5);
-
 int sub_52DD50(int a1, int a2, int a3, int a4, void *p5)
 {
     return sub_52DD50__abi_raw(
@@ -67,45 +112,77 @@ int sub_52DD50(int a1, int a2, int a3, int a4, void *p5)
         ptr_to_float(p5)
     );
 }
-
+#else
+int sub_52DD50__abi_raw(int a1, int a2, int a3, int a4, void *p5);
+int sub_52DD50(int a1, int a2, int a3, int a4, void *p5)
+{
+    return sub_52DD50__abi_raw(a1, a2, a3, a4, p5);
+}
+#endif
 
 // Fix greater heal
 /* ===== GAME4: sub_52F2E0 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_52F2E0__abi_raw(float a1);
-
 int sub_52F2E0(void *p)
 {
     return sub_52F2E0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_52F2E0__abi_raw(void *a1);
+int sub_52F2E0(void *p)
+{
+    return sub_52F2E0__abi_raw(p);
+}
+#endif
 
 // fix channel life
-
 /* ===== GAME4: sub_52F460 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_52F460__abi_raw(float a1);
-
 int sub_52F460(void *p)
 {
     return sub_52F460__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_52F460__abi_raw(void *a1);
+int sub_52F460(void *p)
+{
+    return sub_52F460__abi_raw(p);
+}
+#endif
 
 // fix drain mana
 /* ===== GAME4: sub_52E210 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_52E210__abi_raw(float a1);
-
 int sub_52E210(void *p)
 {
     return sub_52E210__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_52E210__abi_raw(void *a1);
+int sub_52E210(void *p)
+{
+    return sub_52E210__abi_raw(p);
+}
+#endif
 
 // fix lightning
-
 /* ===== GAME4: sub_52F8A0 pointer→float ABI shim ===== */
+#if NOX_ARM_HARDFLOAT
 int sub_52F8A0__abi_raw(float a1);
-
 int sub_52F8A0(void *p)
 {
     return sub_52F8A0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_52F8A0__abi_raw(void *a1);
+int sub_52F8A0(void *p)
+{
+    return sub_52F8A0__abi_raw(p);
+}
+#endif
 
 // Fix picking up boots of running (alignment-safe float load)
 // Forward declaration of the raw symbol from GAME2.c
@@ -132,15 +209,23 @@ int sub_48EA70(int a1, unsigned int a2, int a3)
  * Semantics: a1 is actually a pointer; the code does LODWORD(a1)
  * and uses it as an address, just like other spell/AI funcs.
  */
+#if NOX_ARM_HARDFLOAT
 int sub_549BC0__abi_raw(float a1);
-
 int sub_549BC0(void *p)
 {
     return sub_549BC0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549BC0__abi_raw(void *a1);
+int sub_549BC0(void *p)
+{
+    return sub_549BC0__abi_raw(p);
+}
+#endif
 
 /* ===================== GAME5 ===================== */
 
+#if NOX_ARM_HARDFLOAT
 int sub_549220__abi_raw(float a1);
 int sub_549380__abi_raw(float a1);
 
@@ -153,6 +238,20 @@ int sub_549380(void *p)
 {
     return sub_549380__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549220__abi_raw(void *a1);
+int sub_549380__abi_raw(void *a1);
+
+int sub_549220(void *p)
+{
+    return sub_549220__abi_raw(p);
+}
+
+int sub_549380(void *p)
+{
+    return sub_549380__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_549980 pointer→float ABI shim ===== */
 /*
@@ -165,12 +264,19 @@ int sub_549380(void *p)
  * and expose a pointer-taking wrapper that reinterprets the pointer
  * bits as a float and forwards them.
  */
+#if NOX_ARM_HARDFLOAT
 int sub_549980__abi_raw(float a1);
-
 int sub_549980(void *p)
 {
     return sub_549980__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549980__abi_raw(void *a1);
+int sub_549980(void *p)
+{
+    return sub_549980__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_5495B0 pointer→float ABI shim ===== */
 /*
@@ -183,36 +289,57 @@ int sub_549980(void *p)
  * and expose a pointer-taking wrapper that reinterprets the pointer bits
  * as a float and forwards them.
  */
+#if NOX_ARM_HARDFLOAT
 int sub_5495B0__abi_raw(float a1);
-
 int sub_5495B0(void *p)
 {
     return sub_5495B0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_5495B0__abi_raw(void *a1);
+int sub_5495B0(void *p)
+{
+    return sub_5495B0__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_549A60 pointer→float ABI shim (ghost touch/appear) ===== */
 /* Called via GAME4::sub_532440 when ghosts touch/appear.
    On ARM hard-float the first argument is really a pointer, but the
    decomp signature is float. We reinterpret the pointer bits as float
    and forward to the original body to avoid the ghost SIGSEGV. */
+#if NOX_ARM_HARDFLOAT
 int sub_549A60__abi_raw(float a1);
-
 int sub_549A60(void *p)
 {
     return sub_549A60__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549A60__abi_raw(void *a1);
+int sub_549A60(void *p)
+{
+    return sub_549A60__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_549CA0 pointer→float ABI shim (spider bite) ===== */
 /* Called via GAME4::sub_532440 when the player is bitten/poisoned by a spider.
    On ARM hard-float the first argument is really a pointer, but the decomp
    signature is float. We reinterpret the pointer bits as float and forward
    to the original body to avoid the spider-bite SIGSEGV. */
+#if NOX_ARM_HARDFLOAT
 int sub_549CA0__abi_raw(float a1);
-
 int sub_549CA0(void *p)
 {
     return sub_549CA0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549CA0__abi_raw(void *a1);
+int sub_549CA0(void *p)
+{
+    return sub_549CA0__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_5497E0 pointer→float ABI shim (stone golem hit) ===== */
 /* Called from the damage-effect table via sub_532440 when a stone golem hits.
@@ -220,13 +347,19 @@ int sub_549CA0(void *p)
    but on ARM hard-float the pointer is passed in s0 and the bits get mangled.
    We fix that by taking a real void* at the ABI boundary and reinterpreting
    its bits as a float before calling the original implementation. */
-
+#if NOX_ARM_HARDFLOAT
 int sub_5497E0__abi_raw(float a1);
-
 int sub_5497E0(void *p)
 {
     return sub_5497E0__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_5497E0__abi_raw(void *a1);
+int sub_5497E0(void *p)
+{
+    return sub_5497E0__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_549860 pointer→float ABI shim (stone golem hit) ===== */
 /* Trigger: when a stone golem hits you, sub_549800 schedules a delayed
@@ -236,13 +369,19 @@ int sub_5497E0(void *p)
    (LODWORD(a2)). On ARM hard-float, passing a real float breaks this.
    So we expose a wrapper that takes a real void* pointer and reinterprets
    its bits as a float before calling the original implementation. */
-
+#if NOX_ARM_HARDFLOAT
 void sub_549860__abi_raw(int a1, float a2);
-
 void sub_549860(int a1, void *p2)
 {
     sub_549860__abi_raw(a1, ptr_to_float(p2));
 }
+#else
+void sub_549860__abi_raw(int a1, void *a2);
+void sub_549860(int a1, void *p2)
+{
+    sub_549860__abi_raw(a1, p2);
+}
+#endif
 
 /* ===== GAME5: sub_549700 pointer→float ABI shim (chapter 9 zombie hit) ===== */
 /* Trigger: when a chapter 9 zombie hits you, sub_532440 pulls this handler
@@ -251,13 +390,19 @@ void sub_549860(int a1, void *p2)
    pointer via LODWORD(a1). On ARM hard-float that breaks and we crash.
    This wrapper exposes the correct pointer ABI and reinterprets its bits
    as a float for the original implementation. */
-
+#if NOX_ARM_HARDFLOAT
 int sub_549700__abi_raw(float a1);
-
 int sub_549700(void *p)
 {
     return sub_549700__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549700__abi_raw(void *a1);
+int sub_549700(void *p)
+{
+    return sub_549700__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_549800 pointer→float ABI shim (stone/mechanical golem hit) ===== */
 /*
@@ -274,12 +419,19 @@ int sub_549700(void *p)
  *  - Here, expose sub_549800(void *p) and reinterpret the pointer bits as float
  *    before calling the raw implementation.
  */
+#if NOX_ARM_HARDFLOAT
 int sub_549800__abi_raw(float a1);
-
 int sub_549800(void *p)
 {
     return sub_549800__abi_raw(ptr_to_float(p));
 }
+#else
+int sub_549800__abi_raw(void *a1);
+int sub_549800(void *p)
+{
+    return sub_549800__abi_raw(p);
+}
+#endif
 
 /* ===== GAME5: sub_549960 pointer→float ABI shim (mechanical golem hit variant) ===== */
 /*
@@ -293,10 +445,16 @@ int sub_549800(void *p)
  *  - Rename the original implementation in GAME5.c to sub_549960__abi_raw(float a1).
  *  - Expose sub_549960(void *p) here and bridge pointer→float bits.
  */
+#if NOX_ARM_HARDFLOAT
 int sub_549960__abi_raw(float a1);
-
 int sub_549960(void *p)
 {
     return sub_549960__abi_raw(ptr_to_float(p));
 }
-
+#else
+int sub_549960__abi_raw(void *a1);
+int sub_549960(void *p)
+{
+    return sub_549960__abi_raw(p);
+}
+#endif
