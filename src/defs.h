@@ -68,6 +68,27 @@ typedef struct __m64 __m64;
 #define HIDWORD(x) (((_DWORD*)(&x))[1])
 #define SHIDWORD(x) (((int*)(&x))[1])
 
+/*
+ * NOX_CROSS_PTR(x):
+ *  - ARM32 hard-float: x is a float carrying pointer bits (passed in VFP regs),
+ *    so we must extract the raw 32-bit payload from the float object.
+ *  - i386 (and everything else we build today): the argument is a real pointer.
+ *
+ * NOTE: we only build 32-bit today. This assumes pointers fit in 32 bits.
+ */
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+static inline void *NOX_CROSS_PTR_FROM_FLOAT(float x)
+{
+    uint32_t u;
+    memcpy(&u, &x, sizeof(u));
+    return (void *)(uintptr_t)u;
+}
+#define NOX_CROSS_PTR(x) NOX_CROSS_PTR_FROM_FLOAT((x))
+#else
+static inline void *NOX_CROSS_PTR_FROM_PTR(void *p) { return p; }
+#define NOX_CROSS_PTR(x) NOX_CROSS_PTR_FROM_PTR((x))
+#endif
+
 #define __PAIR64__(x,y) ((((_QWORD)(x)) << 32) | ((_DWORD)(y)))
 #define __SPAIR64__(x,y) ((__int64)((((_QWORD)(x)) << 32) | ((_DWORD)(y))))
 

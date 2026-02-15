@@ -65,6 +65,7 @@ add_executable (
     GAME3.c
     GAME4.c
     GAME5.c
+    GAME_ABI.c
     GAME_data.c
     cdrom.c
     draw.c
