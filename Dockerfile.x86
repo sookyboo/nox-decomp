@@ -205,12 +205,14 @@ RUN --mount=type=cache,target=/root/.ccache \
         -fno-tree-vectorize \
         -fno-aggressive-loop-optimizations \
         -m32 \
+        -DPROTO_DISABLE_PACK \
       " \
       -DCMAKE_CXX_FLAGS="\
         -fno-strict-aliasing \
         -fsigned-char \
         -O0 \
         -m32 \
+        -DPROTO_DISABLE_PACK \
       " \
       -DCMAKE_EXE_LINKER_FLAGS="-m32" \
       -DCMAKE_SHARED_LINKER_FLAGS="-m32"
