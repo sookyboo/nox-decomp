@@ -288,3 +288,42 @@ int sub_549960(void *p)
 {
     return sub_549960__abi_raw(nox_to_ptrslot(p));
 }
+
+// Fix summoning on i386
+/* raw ABI entrypoint: a1 = self ptrslot, a2 = out float2 ptrslot */
+int sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2);
+
+/* bit-cast float -> u32 without aliasing UB */
+static inline uint32_t nox_u32_from_float(float f)
+{
+    uint32_t u;
+    memcpy(&u, &f, sizeof(u));
+    return u;
+}
+
+/*
+ * KEEP THIS SIGNATURE: call sites pass (int self_ptr, float packed_ptr)
+ * where packed_ptr was produced via COERCE_FLOAT(&something).
+ */
+int sub_500F40(int a1, float a2)
+{
+    /* This codebase is currently 32-bit only (arm32/x86). Enforce assumptions. */
+#if UINTPTR_MAX != 0xFFFFFFFFu
+# error "sub_500F40 wrapper expects 32-bit pointers (arm32/x86)."
+#endif
+#if !defined(__STDC_IEC_559__) /* optional: IEEE-754 */
+    /* Not strictly required, but most toolchains here are IEEE-754. */
+#endif
+
+    /* a1 is a pointer value in an int */
+    void *self = (void *)(uintptr_t)(uint32_t)a1;
+
+    /*
+     * a2 is NOT a numeric float. It is a pointer’s raw bits carried in a float.
+     * COERCE_FLOAT(&v17[2]) makes the float bit-pattern == (uint32_t)&v17[2].
+     */
+    uint32_t out_u32 = nox_u32_from_float(a2);
+    void *out_ptr = (void *)(uintptr_t)out_u32;
+
+    return sub_500F40__abi_raw(nox_to_ptrslot(self), nox_to_ptrslot(out_ptr));
+}

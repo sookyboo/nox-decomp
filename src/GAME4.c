@@ -8969,93 +8969,93 @@ LABEL_22:
 // 500E24: variable 'v5' is possibly undefined
 
 //----- (00500F40) --------------------------------------------------------
-int __cdecl sub_500F40(int a1, float a2)
-{
-  _DWORD *v2; // esi
-  int v3; // eax
-  float v4; // edi
-  float v5; // edx
-  float v6; // ecx
-  double v7; // st7
-  double v8; // st6
-  long double v9; // st6
-  float v10; // edx
-  int result; // eax
-  int v12; // esi
-  int v13; // esi
-  float v14; // edx
-  float v15; // eax
-  float v16; // ecx
-  int v17; // eax
-  int v18; // edx
-  float4 v19; // [esp+8h] [ebp-10h]
-
-  v2 = (_DWORD *)a1;
-  if ( *(float *)&a1 == 0.0 )
-    return 0;
-  v3 = *(_DWORD *)(a1 + 16);
-  if ( !v3 )
-    return 0;
-  v4 = a2;
-  if ( a2 == 0.0 )
-    return 0;
-  if ( *(_BYTE *)(v3 + 8) & 4 )
-  {
-    v19.field_0 = *(float *)(v3 + 56);
-    v5 = *(float *)(v3 + 60);
-    v6 = *(float *)(a1 + 56);
-    v19.field_8 = *(float *)(a1 + 52);
-    v19.field_C = v6;
-    v7 = v19.field_8 - v19.field_0;
-    v19.field_4 = v5;
-    v8 = v6 - v5;
-    *(float *)&a1 = v8;
-    v9 = sqrt(v8 * *(float *)&a1 + v7 * v7);
-    a2 = v9;
-    if ( v9 > 50.0 )
-    {
-      v19.field_8 = v7 * 50.0 / a2 + v19.field_0;
-      v19.field_C = *(float *)&a1 * 50.0 / a2 + v19.field_4;
-    }
-    if ( sub_535250(&v19, 0, 0, 9) && !sub_411A90((float2 *)&v19.field_8) )
-    {
-      v10 = v19.field_C;
-      *(_DWORD *)LODWORD(v4) = LODWORD(v19.field_8);
-      *(float *)(LODWORD(v4) + 4) = v10;
-      return 1;
-    }
-    v12 = v2[4];
-    if ( *(_BYTE *)(v12 + 8) & 4 )
-    {
-      v13 = *(_DWORD *)(v12 + 748);
-      a1 = 2;
-      sub_4DA0F0(*(unsigned __int8 *)(*(_DWORD *)(v13 + 276) + 2064), 0, &a1);
-    }
-    return 0;
-  }
-  v19.field_0 = *(float *)(v3 + 56);
-  v14 = *(float *)(v3 + 60);
-  v15 = *(float *)(a1 + 52);
-  v16 = *(float *)(a1 + 56);
-  v19.field_4 = v14;
-  v19.field_8 = v15;
-  v19.field_C = v16;
-  if ( sub_535250(&v19, 0, 0, 9) )
-  {
-    *(_DWORD *)LODWORD(v4) = v2[13];
-    *(_DWORD *)(LODWORD(v4) + 4) = v2[14];
-    result = 1;
-  }
-  else
-  {
-    v17 = v2[4];
-    *(_DWORD *)LODWORD(v4) = *(_DWORD *)(v17 + 56);
-    v18 = *(_DWORD *)(v17 + 60);
-    result = 1;
-    *(_DWORD *)(LODWORD(v4) + 4) = v18;
-  }
-  return result;
-}
+//int __cdecl sub_500F40(int a1, float a2)
+//{
+//  _DWORD *v2; // esi
+//  int v3; // eax
+//  float v4; // edi
+//  float v5; // edx
+//  float v6; // ecx
+//  double v7; // st7
+//  double v8; // st6
+//  long double v9; // st6
+//  float v10; // edx
+//  int result; // eax
+//  int v12; // esi
+//  int v13; // esi
+//  float v14; // edx
+//  float v15; // eax
+//  float v16; // ecx
+//  int v17; // eax
+//  int v18; // edx
+//  float4 v19; // [esp+8h] [ebp-10h]
+//
+//  v2 = (_DWORD *)a1;
+//  if ( *(float *)&a1 == 0.0 )
+//    return 0;
+//  v3 = *(_DWORD *)(a1 + 16);
+//  if ( !v3 )
+//    return 0;
+//  v4 = a2;
+//  if ( a2 == 0.0 )
+//    return 0;
+//  if ( *(_BYTE *)(v3 + 8) & 4 )
+//  {
+//    v19.field_0 = *(float *)(v3 + 56);
+//    v5 = *(float *)(v3 + 60);
+//    v6 = *(float *)(a1 + 56);
+//    v19.field_8 = *(float *)(a1 + 52);
+//    v19.field_C = v6;
+//    v7 = v19.field_8 - v19.field_0;
+//    v19.field_4 = v5;
+//    v8 = v6 - v5;
+//    *(float *)&a1 = v8;
+//    v9 = sqrt(v8 * *(float *)&a1 + v7 * v7);
+//    a2 = v9;
+//    if ( v9 > 50.0 )
+//    {
+//      v19.field_8 = v7 * 50.0 / a2 + v19.field_0;
+//      v19.field_C = *(float *)&a1 * 50.0 / a2 + v19.field_4;
+//    }
+//    if ( sub_535250(&v19, 0, 0, 9) && !sub_411A90((float2 *)&v19.field_8) )
+//    {
+//      v10 = v19.field_C;
+//      *(_DWORD *)LODWORD(v4) = LODWORD(v19.field_8);
+//      *(float *)(LODWORD(v4) + 4) = v10;
+//      return 1;
+//    }
+//    v12 = v2[4];
+//    if ( *(_BYTE *)(v12 + 8) & 4 )
+//    {
+//      v13 = *(_DWORD *)(v12 + 748);
+//      a1 = 2;
+//      sub_4DA0F0(*(unsigned __int8 *)(*(_DWORD *)(v13 + 276) + 2064), 0, &a1);
+//    }
+//    return 0;
+//  }
+//  v19.field_0 = *(float *)(v3 + 56);
+//  v14 = *(float *)(v3 + 60);
+//  v15 = *(float *)(a1 + 52);
+//  v16 = *(float *)(a1 + 56);
+//  v19.field_4 = v14;
+//  v19.field_8 = v15;
+//  v19.field_C = v16;
+//  if ( sub_535250(&v19, 0, 0, 9) )
+//  {
+//    *(_DWORD *)LODWORD(v4) = v2[13]; // this is line 9045
+//    *(_DWORD *)(LODWORD(v4) + 4) = v2[14];
+//    result = 1;
+//  }
+//  else
+//  {
+//    v17 = v2[4];
+//    *(_DWORD *)LODWORD(v4) = *(_DWORD *)(v17 + 56);
+//    v18 = *(_DWORD *)(v17 + 60);
+//    result = 1;
+//    *(_DWORD *)(LODWORD(v4) + 4) = v18;
+//  }
+//  return result;
+//}
 
 //----- (005010D0) --------------------------------------------------------
 int __cdecl sub_5010D0(int a1)
