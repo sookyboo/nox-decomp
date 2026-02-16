@@ -174,7 +174,8 @@ fi
 # limits the range of the mouse when running but only if starting close to center or passing through center
 : "${NOX_LIMIT_RANGE_ON_RUN:=1}"
 export NOX_LIMIT_RANGE_ON_RUN
-# export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle
+: "${NOX_LIMIT_RANGE_ON_RUN_RADIUS:=120}"
+export NOX_LIMIT_RANGE_ON_RUN_RADIUS
 
 : "${NOX_GAMEPAD:=1}"
 export NOX_GAMEPAD
