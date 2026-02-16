@@ -844,6 +844,7 @@ LABEL_31:
 //      }
 //    }
 //  }
+// nox_xxx_unitUpdateSightMB_5281F0
 void __cdecl sub_5281F0(nox_abi_ptrslot_t a1)
 {
   int v2; // eax
@@ -861,18 +862,20 @@ void __cdecl sub_5281F0(nox_abi_ptrslot_t a1)
   int v14; // eax
   int v15; // eax
   int v16; // esi
-  int v17; // [esp+10h] [ebp-10h]
-  float v18; // [esp+10h] [ebp-10h]
-  int v19; // [esp+14h] [ebp-Ch]
+
+  int v17;   // was [esp+10h] aliasing in decomp; keep as normal local
+  float v18; // was [esp+10h] aliasing in decomp; keep as normal local
+
+  int v19;   // [esp+14h] [ebp-Ch]
   float v20; // [esp+18h] [ebp-8h]
   float v21; // [esp+24h] [ebp+4h]
 
-  const int self = NOX_PTR(a1);
+  const uintptr_t self = (uintptr_t)NOX_PTR(a1);
 
   v17 = 0;
-  v2 = *(_DWORD *)(self + 16);
-  v3 = *(_DWORD *)(self + 748);
-  if ( (v2 & 0x8000) != 0 && !sub_534A40(self) )
+  v2 = *(_DWORD *)((uintptr_t)self + 16);
+  v3 = *(_DWORD *)((uintptr_t)self + 748);
+  if ( (v2 & 0x8000) != 0 && !sub_534A40((int)self) )
     return;
 
   if ( sub_40A5C0(4096) )
@@ -902,17 +905,17 @@ void __cdecl sub_5281F0(nox_abi_ptrslot_t a1)
     do
     {
       if ( *(_DWORD *)(*v6 + 16) & 0x8020
-        || !sub_536FB0(self, *v6, 0)
-        || (v7 = *(float *)(self + 56) - *(float *)(*v6 + 56),
-            v8 = *(float *)(self + 60) - *(float *)(*v6 + 60),
+        || !sub_536FB0((int)self, *v6, 0)
+        || (v7 = *(float *)((uintptr_t)self + 56) - *(float *)(*v6 + 56),
+            v8 = *(float *)((uintptr_t)self + 60) - *(float *)(*v6 + 60),
             v20 = (v21 + 30.0f) * (v21 + 30.0f),
             (float)(v8 * v8 + v7 * v7) > v20)
-        || (v9 = *(float *)(self + 56) - *(float *)(self + 72),
-            v10 = *(float *)(self + 60) - *(float *)(self + 76),
+        || (v9 = *(float *)((uintptr_t)self + 56) - *(float *)((uintptr_t)self + 72),
+            v10 = *(float *)((uintptr_t)self + 60) - *(float *)((uintptr_t)self + 76),
             (float)(v10 * v10 + v9 * v9) > 1000.0f)
-        || v19 && !sub_5370E0(self, *v6, 0) )
+        || (v19 && !sub_5370E0((int)self, *v6, 0)) )
       {
-        sub_528560(self, v5--);
+        sub_528560((int)self, v5--);
         v17 = 1;
         --v6;
       }
@@ -931,7 +934,11 @@ void __cdecl sub_5281F0(nox_abi_ptrslot_t a1)
     && (*(_DWORD *)(v3 + 1208) <= *(int *)&byte_5D4594[2598000]
      || *(_DWORD *)&byte_5D4594[2598000] == *(_DWORD *)&byte_5D4594[2487684]) )
   {
-    sub_517F90((float2 *)(self + 56), v21, (void *)sub_5286D0, self);
+    /* Prefer a real function-pointer type over (void*) if you know the signature.
+       If not known yet, keep the minimal cast but at least isolate it here. */
+    typedef void (__cdecl *sub_517F90_cb_t)(int);
+    sub_517F90((float2 *)((uintptr_t)self + 56), v21, (sub_517F90_cb_t)sub_5286D0, (int)self);
+
     *(_DWORD *)(v3 + 1204) = *(_DWORD *)&byte_5D4594[2598000];
     *(_DWORD *)(v3 + 1212) = *(_DWORD *)&byte_5D4594[2598000];
     goto LABEL_31;
@@ -945,7 +952,9 @@ LABEL_31:
       v13 = *(_DWORD *)(v12 + 36);
     else
       v13 = 0;
-    sub_528610(self);
+
+    sub_528610((int)self);
+
     v14 = *(_DWORD *)(v3 + 1196);
     if ( v14 && v13 && v13 != *(_DWORD *)(v14 + 36) )
       *(_DWORD *)(v3 + 1200) = v13;
@@ -961,8 +970,9 @@ LABEL_31:
     else
     {
       v16 = 5 * *(_DWORD *)&byte_5D4594[2649704];
-      v18 = (float)sub_5336D0(self);
+      v18 = (float)sub_5336D0((int)self);
       *(float *)(v3 + 524) = v18;
+
       if ( v18 < 0.0f )
       {
         *(_DWORD *)(v3 + 1208) = v16 + *(_DWORD *)&byte_5D4594[2598000];
