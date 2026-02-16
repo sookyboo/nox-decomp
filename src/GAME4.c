@@ -8911,8 +8911,14 @@ int __cdecl sub_500DA0(int a1)
       sub_4DA2C0(*(_DWORD *)(a1 + 16), (const char *)&byte_587000[218128], 0);
       return 1;
     }
-    LOBYTE(v5) = sub_500D70(*(_DWORD *)(a1 + 16), v2);
-    if ( !v5 )
+//  Fix unlimited summon
+//    LOBYTE(v5) = sub_500D70(*(_DWORD *)(a1 + 16), v2);
+//    if ( !v5 )
+//    {
+//      sub_4DA2C0(*(_DWORD *)(a1 + 16), (const char *)&byte_587000[218156], 0);
+//      return 1;
+//    }
+    if (!sub_500D70(*(_DWORD *)(a1 + 16), v2))
     {
       sub_4DA2C0(*(_DWORD *)(a1 + 16), (const char *)&byte_587000[218156], 0);
       return 1;
