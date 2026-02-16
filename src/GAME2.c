@@ -48401,6 +48401,7 @@ _DWORD *__cdecl sub_48E970(int a1, unsigned int a2, int a3, int a4)
 // 48E97E: variable 'v4' is possibly undefined
 
 //----- (0048EA70) --------------------------------------------------------
+//nox_xxx_netOnPacketRecvCli_48EA70
 int __cdecl sub_48EA70__abi_raw(int a1, unsigned int a2, int a3)
 {
   unsigned int v3; // ebp

@@ -50,6 +50,7 @@ static inline nox_abi_ptrslot_t nox_to_ptrslot(void *p)   { return p; }
 /* ============================================================
  * GAME3: sub_4F4E50
  * ============================================================ */
+ // nox_xxx_unitTriggerXfer_4F4E50
 int sub_4F4E50__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_4F4E50(void *p)
@@ -61,6 +62,7 @@ int sub_4F4E50(void *p)
 /* ============================================================
  * GAME4: sub_50A5C0
  * ============================================================ */
+ // nox_xxx_unitUpdateMonster_50A5C0
 int sub_50A5C0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_50A5C0(void *p)
@@ -72,6 +74,7 @@ int sub_50A5C0(void *p)
 /* ============================================================
  * GAME4: sub_531E20
  * ============================================================ */
+ //nox_xxx_mobActionFightStart_531E20
 int sub_531E20__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_531E20(void *p)
@@ -83,6 +86,7 @@ int sub_531E20(void *p)
 /* ============================================================
  * GAME4: sub_52E850
  * ============================================================ */
+ //nox_xxx_spellEnergyBoltTick_52E850
 int sub_52E850__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_52E850(void *p)
@@ -95,6 +99,7 @@ int sub_52E850(void *p)
  * GAME4: sub_52DD50
  * Note: last arg is actually a pointer passed through the “slot”.
  * ============================================================ */
+ // something to do with spells - maybe lesser heal
 int sub_52DD50__abi_raw(int a1, int a2, int a3, int a4, nox_abi_ptrslot_t a5);
 
 int sub_52DD50(int a1, int a2, int a3, int a4, void *p5)
@@ -106,6 +111,7 @@ int sub_52DD50(int a1, int a2, int a3, int a4, void *p5)
 /* ============================================================
  * GAME4: sub_52F2E0
  * ============================================================ */
+// something to do with spells -
 int sub_52F2E0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_52F2E0(void *p)
@@ -117,6 +123,7 @@ int sub_52F2E0(void *p)
 /* ============================================================
  * GAME4: sub_52F460
  * ============================================================ */
+ // something to do with spells -
 int sub_52F460__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_52F460(void *p)
@@ -128,6 +135,7 @@ int sub_52F460(void *p)
 /* ============================================================
  * GAME4: sub_52E210
  * ============================================================ */
+ //nox_xxx_spellDrainMana_52E210
 int sub_52E210__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_52E210(void *p)
@@ -139,6 +147,7 @@ int sub_52E210(void *p)
 /* ============================================================
  * GAME4: sub_52F8A0
  * ============================================================ */
+// Get_nox_xxx_onFrameLightning_52F8A0
 int sub_52F8A0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_52F8A0(void *p)
@@ -153,6 +162,7 @@ int sub_52F8A0(void *p)
  * This wrapper currently does nothing except call the raw function.
  * Keep it if you rely on the symbol existing in the wrapper archive.
  * ============================================================ */
+ // nox_xxx_netOnPacketRecvCli_48EA70
 int sub_48EA70__abi_raw(int a1, unsigned int a2, int a3);
 
 int sub_48EA70(int a1, unsigned int a2, int a3)
@@ -166,6 +176,7 @@ int sub_48EA70(int a1, unsigned int a2, int a3)
 /* ============================================================
  * GAME5: sub_549BC0
  * ============================================================ */
+ // nox_xxx_strikeSpider_549BC0
 int sub_549BC0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549BC0(void *p)
@@ -177,7 +188,9 @@ int sub_549BC0(void *p)
 /* ============================================================
  * GAME5: sub_549220 / sub_549380
  * ============================================================ */
+ // nox_xxx_strikeOgre_549220
 int sub_549220__abi_raw(nox_abi_ptrslot_t a1);
+// nox_xxx_strikeMonsterDefault_549380
 int sub_549380__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549220(void *p)
@@ -194,6 +207,7 @@ int sub_549380(void *p)
 /* ============================================================
  * GAME5: sub_549980
  * ============================================================ */
+ // nox_xxx_strikeWasp_549980
 int sub_549980__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549980(void *p)
@@ -205,6 +219,7 @@ int sub_549980(void *p)
 /* ============================================================
  * GAME5: sub_5495B0
  * ============================================================ */
+ // nox_xxx_strikeScorpion_5495B0
 int sub_5495B0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_5495B0(void *p)
@@ -216,6 +231,7 @@ int sub_5495B0(void *p)
 /* ============================================================
  * GAME5: sub_549A60
  * ============================================================ */
+ //nox_xxx_strikeGhost_549A60
 int sub_549A60__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549A60(void *p)
@@ -227,6 +243,7 @@ int sub_549A60(void *p)
 /* ============================================================
  * GAME5: sub_549CA0
  * ============================================================ */
+ // nox_xxx_strikeSpittingSpider_549CA0
 int sub_549CA0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549CA0(void *p)
@@ -238,6 +255,7 @@ int sub_549CA0(void *p)
 /* ============================================================
  * GAME5: sub_5497E0
  * ============================================================ */
+// nox_xxx_strikeStoneGolem_5497E0
 int sub_5497E0__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_5497E0(void *p)
@@ -249,6 +267,7 @@ int sub_5497E0(void *p)
 /* ============================================================
  * GAME5: sub_549860 (callback arg is the pointer-slot)
  * ============================================================ */
+// nox_xxx_monsterAttackAreaDamage_549860
 void sub_549860__abi_raw(int a1, nox_abi_ptrslot_t a2);
 
 void sub_549860(int a1, void *p2)
@@ -260,6 +279,7 @@ void sub_549860(int a1, void *p2)
 /* ============================================================
  * GAME5: sub_549700
  * ============================================================ */
+// nox_xxx_strikeVileZombie_549700(
 int sub_549700__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549700(void *p)
@@ -271,6 +291,7 @@ int sub_549700(void *p)
 /* ============================================================
  * GAME5: sub_549800
  * ============================================================ */
+// nox_xxx_sendEquakeAfterGolem_549800
 int sub_549800__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549800(void *p)
@@ -282,6 +303,7 @@ int sub_549800(void *p)
 /* ============================================================
  * GAME5: sub_549960
  * ============================================================ */
+// nox_xxx_strikeMechGolem_549960
 int sub_549960__abi_raw(nox_abi_ptrslot_t a1);
 
 int sub_549960(void *p)

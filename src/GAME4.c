@@ -8871,6 +8871,7 @@ int __cdecl sub_500D50(int a1)
 }
 
 //----- (00500D70) --------------------------------------------------------
+// nox_xxx_checkSummonedCreaturesLimit_500D70
 bool __cdecl sub_500D70(int a1, int a2)
 {
   int v2; // ebx
@@ -9213,6 +9214,7 @@ LABEL_20:
 }
 
 //----- (005013E0) --------------------------------------------------------
+// nox_xxx_charmCreatureFinish_5013E0
 int __cdecl sub_5013E0(int *a1)
 {
   int v1; // eax
@@ -9345,6 +9347,7 @@ int __cdecl sub_501690(int a1)
 }
 
 //----- (005016C0) --------------------------------------------------------
+//nox_xxx_unitDoSummonAt_5016C0
 _DWORD *__cdecl sub_5016C0(int a1, int *a2, int a3, unsigned __int8 a4)
 {
   _DWORD *result; // eax
@@ -9358,6 +9361,7 @@ _DWORD *__cdecl sub_5016C0(int a1, int *a2, int a3, unsigned __int8 a4)
   v5 = result;
   if ( !result )
     return result;
+//  sub_4DAA50((int)result, a3, *(float *)a2, *((float *)a2 + 1));
   float f0, f1; memcpy(&f0, (const void *)a2, 4); memcpy(&f1, (const void *)((const char *)a2 + 4), 4); sub_4DAA50((int)result, a3, f0, f1);
   v6 = v5[187];
   *((_WORD *)v5 + 63) = a4;
@@ -38602,6 +38606,7 @@ int __cdecl sub_523670(int a1, float *a2)
 }
 
 //----- (005236F0) --------------------------------------------------------
+//nox_xxx_sendSummonStartFX_5236F0
 int __cdecl sub_5236F0(__int16 a1, float *a2, char a3, __int16 a4, __int16 a5)
 {
   double v5; // st7
@@ -38612,9 +38617,11 @@ int __cdecl sub_5236F0(__int16 a1, float *a2, char a3, __int16 a4, __int16 a5)
   v9[0] = 126;
   *(_WORD *)&v9[5] = a1;
   *(_WORD *)&v9[7] = a4;
+//    v5 = *a2;
   float f0, f1; memcpy(&f0, (const void *)a2, 4); memcpy(&f1, (const void *)((const char *)a2 + 4), 4); v5 = f0;
   v9[9] = a3;
   v6 = (__int64)v5;
+  // v7 = a2[1];
   v7 = f1;
   *(_WORD *)&v9[1] = v6;
   *(_WORD *)&v9[3] = (__int64)v7;
@@ -60955,6 +60962,7 @@ LABEL_13:
 }
 
 //----- (0053F290) --------------------------------------------------------
+// nox_xxx_useLesserFireballStaff_53F290
 int __cdecl sub_53F290(int a1, _DWORD *a2)
 {
   int v2; // esi
@@ -61055,6 +61063,7 @@ _DWORD *__cdecl sub_53F480(int a1, int a2, int *a3, _DWORD *a4)
 }
 
 //----- (0053F4F0) --------------------------------------------------------
+// nox_xxx_useWandCastSpell_53F4F0
 int __cdecl sub_53F4F0(int a1, _DWORD *a2)
 {
   int v2; // esi
