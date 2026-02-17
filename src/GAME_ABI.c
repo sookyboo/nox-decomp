@@ -30,24 +30,6 @@
 //typedef struct shape  { _BYTE _pad[1]; } shape;
 
 /* ============================================================
- * ABI pointer-slot type
- * ============================================================ */
-#if defined(__arm__) && defined(__ARM_PCS_VFP)
-typedef float nox_abi_ptrslot_t;
-static inline void *nox_from_ptrslot(nox_abi_ptrslot_t x)
-{
-    uint32_t u;
-    memcpy(&u, &x, sizeof(u));
-    return (void *)(uintptr_t)u;
-}
-#else
-typedef void *nox_abi_ptrslot_t;
-static inline void *nox_from_ptrslot(nox_abi_ptrslot_t x) { return x; }
-#endif
-
-#define NOX_PTR(x) ((int)(uintptr_t)nox_from_ptrslot((x)))
-
-/* ============================================================
  * Externals (must exist elsewhere in your project)
  * ============================================================ */
 //extern _BYTE byte_5D4594[];
@@ -434,6 +416,7 @@ int __cdecl sub_4F4E50__abi_raw(nox_abi_ptrslot_t a1)
 /* ============================================================
  * sub_50A5C0__abi_raw
  * ============================================================ */
+// nox_xxx_unitUpdateMonster_50A5C0
 //int __cdecl sub_50A5C0__abi_raw(float a1)
 //{
 //  int v1; // esi
@@ -651,7 +634,7 @@ int __cdecl sub_50A5C0__abi_raw(nox_abi_ptrslot_t a1)
         }
       }
 
-      sub_5281F0(a1);
+      sub_5281F0((void*)self);
       sub_547210(self);
       sub_546A70(self);
       sub_50A850(self);
@@ -845,7 +828,7 @@ LABEL_31:
 //    }
 //  }
 // nox_xxx_unitUpdateSightMB_5281F0
-void __cdecl sub_5281F0(nox_abi_ptrslot_t a1)
+void __cdecl sub_5281F0__abi_raw(nox_abi_ptrslot_t a1)
 {
   int v2; // eax
   int v3; // ebp
@@ -3618,8 +3601,176 @@ int __cdecl sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2)
   {
     v17   = v2[4];
     out[0] = *(uint32_t *)(v17 + 56);
-    v18   = *(_DWORD *)(v17 + 60);
-    out[1] = (uint32_t)v18;
+    out[1] = *(uint32_t *)(v17 + 60); /* FIX: store raw bits exactly like original */
+    (void)v18;                        /* keep decls stable/minimal-diff */
     return 1;
   }
+}
+
+
+//----- (0040F120) --------------------------------------------------------
+// seg fault archer in wiz campaign sequence
+//unsigned __int8 *__cdecl sub_40F120(int a1, _DWORD *a2)
+//{
+//  int ***v2; // ebp
+//  int v3; // ebx
+//  int **v4; // eax
+//  unsigned int v5; // edx
+//  unsigned __int8 *v6; // edi
+//  unsigned __int8 *result; // eax
+//
+//  v2 = *(int ****)&byte_5D4594[4 * a1 + 210292];
+//  v3 = 0;
+//  memset(&byte_5D4594[207988], 0, 0x800u);
+//  v4 = sub_420A90(v2, &a1);
+//  if ( v4 )
+//  {
+//    v5 = a1;
+//    while ( 1 )
+//    {
+//      qmemcpy(&byte_5D4594[v3 + 207988], v4, 4 * (v5 >> 2));
+//      v6 = &byte_5D4594[4 * (v5 >> 2) + 207988 + v3];
+//      v3 += v5;
+//      qmemcpy(v6, &v4[v5 >> 2], v5 & 3);
+//      v4 = sub_420A90(v2, &a1);
+//      if ( !v4 )
+//        break;
+//      v5 = a1;
+//      if ( (unsigned int)(a1 + v3) > 0x800 )
+//      {
+//        sub_420940((int)v2, (int)v4, a1, 0);
+//        result = &byte_5D4594[207988];
+//        *a2 = v3;
+//        return result;
+//      }
+//    }
+//    *a2 = v3;
+//    result = &byte_5D4594[207988];
+//  }
+//  else
+//  {
+//    *a2 = 0;
+//    result = &byte_5D4594[207988];
+//  }
+//  return result;
+//}
+//unsigned __int8 *__cdecl sub_40F120(int a1, _DWORD *a2)
+//{
+//    int ***v2 = *(int ****)&byte_5D4594[4 * a1 + 210292];
+//    int v3 = 0;
+//    unsigned __int8 *dst = &byte_5D4594[207988];
+//
+//    memset(dst, 0, 0x800u);
+//
+//    int **v4 = sub_420A90(v2, &a1);
+//    if (!v4) {
+//        *a2 = 0;
+//        return dst;
+//    }
+//
+//    unsigned int v5 = (unsigned)a1;
+//
+//    for (;;)
+//    {
+//        // Safety: prevent current chunk from overflowing (original assumes it won't)
+//        if ((unsigned int)(v3 + (int)v5) > 0x800u) {
+//            sub_420940((int)v2, (int)v4, (int)v5, 0);
+//            *a2 = v3;
+//            return dst;
+//        }
+//
+//        memcpy(dst + v3, (const unsigned __int8 *)v4, v5);
+//        v3 += (int)v5;
+//
+//        // Fetch next chunk (this is what the original does next)
+//        v4 = sub_420A90(v2, &a1);
+//        if (!v4) {
+//            *a2 = v3;
+//            return dst;
+//        }
+//
+//        v5 = (unsigned)a1;
+//
+//        // Original "lookahead" overflow check happens here (on the *next* chunk)
+//        if ((unsigned int)(v3 + (int)v5) > 0x800u) {
+//            sub_420940((int)v2, (int)v4, (int)v5, 0);
+//            *a2 = v3;
+//            return dst;
+//        }
+//    }
+//}
+
+// Drop-in, semantics-preserving (as close as possible) replacement.
+//
+// Goal:
+// - Keep the original "lookahead" overflow behavior (overflow check applies to the *next* chunk).
+// - Prevent segfaults if a chunk would overflow the 0x800 scratch buffer.
+// - If the *current* chunk itself is too large to fit, copy what we can (to preserve prefix semantics),
+//   then consume/advance the remainder via sub_420940 and return.
+//
+// Notes:
+// - byte_5D4594 layout/offsets are kept identical to the original decomp.
+// - a1 is used as both: (1) incoming table index, and (2) out-param for chunk size from sub_420A90.
+//
+// Signature must match callers.
+unsigned __int8 *__cdecl sub_40F120(int a1, _DWORD *a2)
+{
+    int ***v2 = *(int ****)&byte_5D4594[4 * a1 + 210292];
+    int v3 = 0;
+    unsigned __int8 *dst = &byte_5D4594[207988];
+
+    // Original clears the whole 0x800 scratch area every call.
+    memset(dst, 0, 0x800u);
+
+    // sub_420A90 returns a pointer to a chunk and writes chunk length back into a1.
+    int **v4 = sub_420A90(v2, &a1);
+    if (!v4) {
+        *a2 = 0;
+        return dst;
+    }
+
+    unsigned int v5 = (unsigned int)a1;
+
+    for (;;)
+    {
+        // --- SAFETY: If THIS chunk won't fit, do a bounded copy (preserve prefix),
+        //             then consume/advance the chunk the same way overflow handling does.
+        unsigned int remaining = 0x800u - (unsigned int)v3;
+        if (v5 > remaining)
+        {
+            if (remaining)
+            {
+                memcpy(dst + v3, (const unsigned __int8 *)v4, remaining);
+                v3 += (int)remaining;
+            }
+
+            // Consume/advance the oversized chunk we couldn't fully copy.
+            sub_420940((int)v2, (int)v4, (int)v5, 0);
+
+            *a2 = v3;
+            return dst;
+        }
+
+        // Normal copy (safe: v5 <= remaining).
+        memcpy(dst + v3, (const unsigned __int8 *)v4, v5);
+        v3 += (int)v5;
+
+        // Fetch next chunk (original behavior).
+        v4 = sub_420A90(v2, &a1);
+        if (!v4) {
+            *a2 = v3;
+            return dst;
+        }
+
+        v5 = (unsigned int)a1;
+
+        // Original lookahead overflow check happens here (on the *next* chunk).
+        // If it won't fit, we do NOT copy it; we consume/advance it and return what we already built.
+        if ((unsigned int)(v3 + (int)v5) > 0x800u)
+        {
+            sub_420940((int)v2, (int)v4, (int)v5, 0);
+            *a2 = v3;
+            return dst;
+        }
+    }
 }

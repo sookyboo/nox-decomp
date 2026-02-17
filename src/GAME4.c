@@ -50940,9 +50940,17 @@ char __cdecl sub_532610(int a1)
         }
         else
         {
-          v8 = *((float *)v4 + 2);
-          v22.field_0 = *(float *)(v4 + 4);
-          v22.field_4 = v8;
+//          v8 = *((float *)v4 + 2);
+          // FIX: correctly interpret the fallback path data.
+          // Old buggy code:
+          //   v8 = *((float *)v4 + 2);
+          //   v22.field_0 = *(float *)(v4 + 4);
+          //   v22.field_4 = v8;
+          //
+          // New: read X/Y from the same entry as floats.
+          v22.field_0 = ((float *)v4)[1];  // X from v4[1]
+          // v22.field_4 = v8;
+          v22.field_4 = ((float *)v4)[2];  // Y from v4[2]
         }
         v9 = v22.field_0 - *(float *)(a1 + 56);
         v10 = v22.field_4 - *(float *)(a1 + 60);

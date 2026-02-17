@@ -349,3 +349,12 @@ int sub_500F40(int a1, float a2)
 
     return sub_500F40__abi_raw(nox_to_ptrslot(self), nox_to_ptrslot(out_ptr));
 }
+
+// fix arrow wrong direction wiz chpt 3
+void sub_5281F0__abi_raw(nox_abi_ptrslot_t a1);
+
+// abi_wrappers.c (or a central place)
+void sub_5281F0(void *self)
+{
+    sub_5281F0__abi_raw(nox_to_ptrslot(self));
+}

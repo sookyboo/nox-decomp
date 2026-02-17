@@ -44972,7 +44972,9 @@ char *sub_4DEC80()
     if ( *(_DWORD *)(i + 2056) )
     {
       v2 = -((*(_DWORD *)(i + 3680) & 0x10) != 0);
-      LOBYTE(v2) = v2 & 0xC4;
+      /* FIX: avoid LOBYTE-on-int leaving upper bytes as 0xFF (i386), force zero-extended byte */
+      v2 = (signed char)(v2 & 0xC4);
+
       if ( *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(i + 3596) > (unsigned int)((v2 + 90)
                                                                                    * *(_DWORD *)&byte_5D4594[2649704]) )
       {

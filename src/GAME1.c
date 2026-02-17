@@ -13323,50 +13323,51 @@ void __cdecl sub_40F0F0(int a1, int (__cdecl *a2)(_DWORD, int), int a3)
 }
 
 //----- (0040F120) --------------------------------------------------------
-unsigned __int8 *__cdecl sub_40F120(int a1, _DWORD *a2)
-{
-  int ***v2; // ebp
-  int v3; // ebx
-  int **v4; // eax
-  unsigned int v5; // edx
-  unsigned __int8 *v6; // edi
-  unsigned __int8 *result; // eax
-
-  v2 = *(int ****)&byte_5D4594[4 * a1 + 210292];
-  v3 = 0;
-  memset(&byte_5D4594[207988], 0, 0x800u);
-  v4 = sub_420A90(v2, &a1);
-  if ( v4 )
-  {
-    v5 = a1;
-    while ( 1 )
-    {
-      qmemcpy(&byte_5D4594[v3 + 207988], v4, 4 * (v5 >> 2));
-      v6 = &byte_5D4594[4 * (v5 >> 2) + 207988 + v3];
-      v3 += v5;
-      qmemcpy(v6, &v4[v5 >> 2], v5 & 3);
-      v4 = sub_420A90(v2, &a1);
-      if ( !v4 )
-        break;
-      v5 = a1;
-      if ( (unsigned int)(a1 + v3) > 0x800 )
-      {
-        sub_420940((int)v2, (int)v4, a1, 0);
-        result = &byte_5D4594[207988];
-        *a2 = v3;
-        return result;
-      }
-    }
-    *a2 = v3;
-    result = &byte_5D4594[207988];
-  }
-  else
-  {
-    *a2 = 0;
-    result = &byte_5D4594[207988];
-  }
-  return result;
-}
+// seg fault archer in wiz campaign sequence
+//unsigned __int8 *__cdecl sub_40F120(int a1, _DWORD *a2)
+//{
+//  int ***v2; // ebp
+//  int v3; // ebx
+//  int **v4; // eax
+//  unsigned int v5; // edx
+//  unsigned __int8 *v6; // edi
+//  unsigned __int8 *result; // eax
+//
+//  v2 = *(int ****)&byte_5D4594[4 * a1 + 210292];
+//  v3 = 0;
+//  memset(&byte_5D4594[207988], 0, 0x800u);
+//  v4 = sub_420A90(v2, &a1);
+//  if ( v4 )
+//  {
+//    v5 = a1;
+//    while ( 1 )
+//    {
+//      qmemcpy(&byte_5D4594[v3 + 207988], v4, 4 * (v5 >> 2));
+//      v6 = &byte_5D4594[4 * (v5 >> 2) + 207988 + v3];
+//      v3 += v5;
+//      qmemcpy(v6, &v4[v5 >> 2], v5 & 3);
+//      v4 = sub_420A90(v2, &a1);
+//      if ( !v4 )
+//        break;
+//      v5 = a1;
+//      if ( (unsigned int)(a1 + v3) > 0x800 )
+//      {
+//        sub_420940((int)v2, (int)v4, a1, 0);
+//        result = &byte_5D4594[207988];
+//        *a2 = v3;
+//        return result;
+//      }
+//    }
+//    *a2 = v3;
+//    result = &byte_5D4594[207988];
+//  }
+//  else
+//  {
+//    *a2 = 0;
+//    result = &byte_5D4594[207988];
+//  }
+//  return result;
+//}
 
 //----- (0040F1D0) --------------------------------------------------------
 wchar_t *__cdecl sub_40F1D0(char *a1, _DWORD *a2, const char *a3, int a4)

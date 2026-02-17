@@ -6462,7 +6462,7 @@ __int16 __cdecl sub_528030(int a1);
 int __cdecl sub_528190(int a1);
 int sub_5281D0();
 int sub_5281E0();
-void __cdecl sub_5281F0(void *a1);
+void __cdecl sub_5281F0__abi_raw(nox_abi_ptrslot_t a1);
 int __cdecl sub_528560(int a1, int a2);
 void __cdecl sub_528610(int a1);
 void __cdecl sub_5286D0(int a1, int a2);
