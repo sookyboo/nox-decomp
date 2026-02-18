@@ -547,6 +547,110 @@ static void movie_sws_apply_colorspace(struct SwsContext *sws, const AVFrame *fr
     );
 }
 
+
+static Uint32 nox_movie_sdl_5551_format_cached(void)
+{
+    static int inited = 0;
+    static Uint32 sdl_fmt = 0;
+
+    if (inited) return sdl_fmt;
+
+    /* Values:
+       - "rgba"  => SDL_PIXELFORMAT_RGBA5551  (alpha bit0)   [Linux-style]
+       - "bgra"  => SDL_PIXELFORMAT_ARGB1555  (alpha bit15)  [Windows-style]
+       - "auto" or unset => platform default (win=bgra, else=rgba)
+       Also accept: "linux"->rgba, "windows"->bgra, "rev"->bgra
+    */
+    const char *e = getenv("NOX_GL_5551");
+    if (!e || !*e || !strcasecmp(e, "auto")) {
+#ifdef _WIN32
+        sdl_fmt = SDL_PIXELFORMAT_ARGB1555;
+#else
+        sdl_fmt = SDL_PIXELFORMAT_RGBA5551;
+#endif
+    } else if (!strcasecmp(e, "rgba") || !strcasecmp(e, "linux")) {
+        sdl_fmt = SDL_PIXELFORMAT_RGBA5551;
+    } else if (!strcasecmp(e, "bgra") || !strcasecmp(e, "windows") || !strcasecmp(e, "rev")) {
+        sdl_fmt = SDL_PIXELFORMAT_ARGB1555;
+    } else {
+        /* Unknown value -> fall back to platform default */
+#ifdef _WIN32
+        sdl_fmt = SDL_PIXELFORMAT_ARGB1555;
+#else
+        sdl_fmt = SDL_PIXELFORMAT_RGBA5551;
+#endif
+    }
+
+    inited = 1;
+    return sdl_fmt;
+}
+
+static uint16_t nox_movie_alpha_mask_cached(void)
+{
+    static int inited = 0;
+    static uint16_t mask = 0;
+
+    if (inited) return mask;
+
+    const char *e = getenv("NOX_GL_5551");
+    if (!e || !*e || !strcasecmp(e, "auto")) {
+#ifdef _WIN32
+        mask = 0x8000; /* ARGB1555 */
+#else
+        mask = 0x0001; /* RGBA5551 */
+#endif
+    } else if (!strcasecmp(e, "rgba") || !strcasecmp(e, "linux")) {
+        mask = 0x0001;
+    } else if (!strcasecmp(e, "bgra") || !strcasecmp(e, "windows") || !strcasecmp(e, "rev")) {
+        mask = 0x8000;
+    } else {
+#ifdef _WIN32
+        mask = 0x8000;
+#else
+        mask = 0x0001;
+#endif
+    }
+
+    inited = 1;
+    return mask;
+}
+
+typedef enum {
+    NOX_5551_PACK_RGBA,  // RGB<<1, alpha bit0
+    NOX_5551_PACK_ARGB   // alpha bit15, no shift
+} nox_5551_pack_t;
+
+static nox_5551_pack_t nox_movie_5551_pack_cached(void)
+{
+    static int inited = 0;
+    static nox_5551_pack_t pack;
+
+    if (inited) return pack;
+
+    const char *e = getenv("NOX_GL_5551");
+    if (!e || !*e || !strcasecmp(e, "auto")) {
+#ifdef _WIN32
+        pack = NOX_5551_PACK_ARGB;
+#else
+        pack = NOX_5551_PACK_RGBA;
+#endif
+    } else if (!strcasecmp(e, "rgba") || !strcasecmp(e, "linux")) {
+        pack = NOX_5551_PACK_RGBA;
+    } else if (!strcasecmp(e, "bgra") || !strcasecmp(e, "windows") || !strcasecmp(e, "rev")) {
+        pack = NOX_5551_PACK_ARGB;
+    } else {
+#ifdef _WIN32
+        pack = NOX_5551_PACK_ARGB;
+#else
+        pack = NOX_5551_PACK_RGBA;
+#endif
+    }
+
+    inited = 1;
+    return pack;
+}
+
+
 volatile int g_movie_skip_requested = 0;
 
 /*
@@ -618,6 +722,7 @@ void __cdecl sub_555430(HWND *a1)
         dprintf("movie: no video stream in %s", movie_path);
         goto done;
     }
+    uint16_t a = nox_movie_alpha_mask_cached();
 
     // Video init
     {
@@ -636,20 +741,16 @@ void __cdecl sub_555430(HWND *a1)
         if (avcodec_open2(vdec, codec, NULL) < 0) goto done;
 
         // Ensure stable movie surface exists and matches the video
-        if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height) {
+        Uint32 want_fmt = nox_movie_sdl_5551_format_cached();
+        if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height ||
+            g_movie_surf->format->format != want_fmt)
+        {
             if (g_movie_surf) SDL_FreeSurface(g_movie_surf);
-            g_movie_surf = SDL_CreateRGBSurfaceWithFormat(
-                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_ARGB1555
-            );
-//            SDL_PixelFormat *f = g_movie_surf->format;
-//            fprintf(stderr, "movie surf fmt=%s R=%04x G=%04x B=%04x A=%04x\n",
-//                    SDL_GetPixelFormatName(f->format), f->Rmask, f->Gmask, f->Bmask, f->Amask);
-            if (!g_movie_surf) {
-                dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed");
-                goto done;
-            }
+            g_movie_surf = SDL_CreateRGBSurfaceWithFormat(0, vdec->width, vdec->height, 16, want_fmt);
+            if (!g_movie_surf) { dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed"); goto done; }
         }
         dst = g_movie_surf;
+        g_present_src = g_movie_surf;
 
         // present from the stable movie surface
         g_present_src = g_movie_surf;
@@ -673,7 +774,7 @@ void __cdecl sub_555430(HWND *a1)
         for (int y = 0; y < dst->h; y++) {
             uint16_t *row = p16 + y * pitch_pix;
             for (int x = 0; x < dst->w; x++) {
-                row[x] = 0x8000;
+                row[x] = (uint16_t)((row[x] & 0x7FFF) | a);
             }
         }
 
@@ -681,6 +782,13 @@ void __cdecl sub_555430(HWND *a1)
 
         /* Present black once */
         sub_48A290();
+
+
+//        enum AVPixelFormat out_fmt = sdl_to_avpix(dst->format);
+//        sws = sws_getContext(
+//            vdec->width, vdec->height, vdec->pix_fmt,
+//            dst->w, dst->h, out_fmt,
+//            SWS_BILINEAR, NULL, NULL, NULL);
 
         enum AVPixelFormat out_fmt = AV_PIX_FMT_RGB555LE;
         sws = sws_getContext(
@@ -747,6 +855,8 @@ void __cdecl sub_555430(HWND *a1)
         }
     }
 
+
+
     vfrm = av_frame_alloc();
     afrm = av_frame_alloc();
     pkt  = av_packet_alloc();
@@ -803,23 +913,44 @@ void __cdecl sub_555430(HWND *a1)
 
                     uint16_t *p = (uint16_t *)dst->pixels;
                     int pitch_pix = dst->pitch / 2;
+                    uint16_t a = nox_movie_alpha_mask_cached();
 
-                    /* sws output is RGB555LE: xRRRRRGGGGGBBBBB (little-endian 16-bit).
-                       We want ARGB1555: ARRRRRGGGGGBBBBB (A in bit15).
-                       So keep the 15 color bits and force alpha on. */
-                    for (int y = 0; y < dst->h; y++) {
-                        uint16_t *row = p + y * pitch_pix;
-                        for (int x = 0; x < dst->w; x++) {
-                            row[x] = (uint16_t)((row[x] & 0x7FFF) | 0x8000);
+                    nox_5551_pack_t pack = nox_movie_5551_pack_cached();
+
+                    if (pack == NOX_5551_PACK_RGBA) {
+                        // sws output: 0RGB1555-ish in low 15 bits -> RGBA5551 wants RGB in bits 15..1, A in bit0
+                        for (int y = 0; y < dst->h; y++) {
+                            uint16_t *row = p + y * pitch_pix;
+                            for (int x = 0; x < dst->w; x++) {
+                                uint16_t v = row[x] & 0x7FFF;
+                                row[x] = (uint16_t)((v << 1) | 0x0001);  // alpha bit0
+                            }
+                        }
+                    } else {
+                        // sws output: xRRRRRGGGGGBBBBB -> ARGB1555 wants A in bit15
+                        for (int y = 0; y < dst->h; y++) {
+                            uint16_t *row = p + y * pitch_pix;
+                            for (int x = 0; x < dst->w; x++) {
+                                row[x] = (uint16_t)((row[x] & 0x7FFF) | a); // alpha bit15
+                            }
                         }
                     }
 
                     if (SDL_MUSTLOCK(dst))
                         SDL_UnlockSurface(dst);
 
+                    // PRESENT:
+                    // If your SDL renderer path uses textures, you may need an explicit “flip”.
+                    // In your codebase you often blit backbuffer->screen elsewhere; for movies we at least update the window:
+//                    SDL_UpdateWindowSurface(SDL_GetWindowFromID(1)); // safe-ish fallback
 #ifdef USE_SDL
+                    // Make sure we're writing to the current active backbuffer (engine may swap pointers)
+//                    if (g_backbuffer1) dst = g_backbuffer1;
+
+                    // Call the engine's real present (uploads backbuffer -> GL + swaps)
                     sub_48A290();
 #endif
+                    // If you have a known SDL_Window*, replace with SDL_UpdateWindowSurface(window).
 
                     // Pacing
                     int64_t pts = (vfrm->best_effort_timestamp != AV_NOPTS_VALUE) ? vfrm->best_effort_timestamp : vfrm->pts;
@@ -914,7 +1045,6 @@ done:
     if (audio_ok)
         movieal_shutdown(&alx);
 }
-
 // FFMPEG end
 
 //----- (00555500) --------------------------------------------------------

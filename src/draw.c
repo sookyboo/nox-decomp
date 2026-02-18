@@ -6,8 +6,6 @@
 #define GL_GLEXT_PROTOTYPES
 #endif
 
-
-
 //#define SDL_DEBUG_FRAMES=0
 
 #ifdef __APPLE__
@@ -1009,6 +1007,57 @@ static void glCheckErrorAt(const char *where)
 #define FRAME_LOG(...) do {} while (0)
 #endif
 
+static int nox_strieq(const char *a, const char *b)
+{
+    if (!a || !b) return 0;
+    while (*a && *b) {
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0;
+        a++; b++;
+    }
+    return *a == 0 && *b == 0;
+}
+
+static void nox_choose_5551_cached(GLenum *out_format, GLenum *out_type)
+{
+    static int inited = 0;
+    static GLenum cached_format = 0;
+    static GLenum cached_type = 0;
+
+    if (!inited) {
+        const char *v = getenv("NOX_TEX5551_FMT");
+
+        if (v && *v) {
+            if (nox_strieq(v, "rgba5551") || nox_strieq(v, "rgba")) {
+                cached_format = GL_RGBA;
+                cached_type   = GL_UNSIGNED_SHORT_5_5_5_1;
+            } else if (nox_strieq(v, "bgra1555rev") || nox_strieq(v, "bgra")) {
+                cached_format = GL_BGRA;
+                cached_type   = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+            } else if (nox_strieq(v, "auto")) {
+                /* fall through to platform default */
+            } else {
+                /* unknown value -> platform default */
+            }
+        }
+
+        if (cached_format == 0) {
+#ifdef _WIN32
+            cached_format = GL_BGRA;
+            cached_type   = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+#else
+            cached_format = GL_RGBA;
+            cached_type   = GL_UNSIGNED_SHORT_5_5_5_1;
+#endif
+        }
+
+        inited = 1;
+    }
+
+    *out_format = cached_format;
+    *out_type   = cached_type;
+}
+
+
 void sdl_present()
 {
     if (!g_ddraw)
@@ -1052,6 +1101,8 @@ void sdl_present()
     // --------------------------------------------------------------------
     static SDL_GLContext s_main_ctx = NULL;
     SDL_GLContext cur_ctx = SDL_GL_GetCurrentContext();
+    GLenum fmt, type;
+    nox_choose_5551_cached(&fmt, &type);
     if (!s_main_ctx) {
         s_main_ctx = cur_ctx;
         fprintf(stderr, "GLCTX: main_ctx=%p\n", (void *)s_main_ctx);
@@ -1180,7 +1231,7 @@ static int tex_w = 0, tex_h = 0;
 //               glCheckError();
 //           }
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_w, tex_h, 0,
-                     GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
+                     fmt, type, NULL);
         // Optional: ensure clean black immediately (not strictly required if you fully upload every pixel)
         // You can skip this if your conv always fills w*h.
     }
@@ -1203,8 +1254,8 @@ static int tex_w = 0, tex_h = 0;
         glTexSubImage2D(
             GL_TEXTURE_2D, 0, 0, 0,
             w, h,
-            GL_BGRA,
-            GL_UNSIGNED_SHORT_1_5_5_5_REV,
+            fmt,
+            type,
             srcsurf->pixels
         );
         glCheckErrorAt("texsubimage2d rgba5551");
@@ -1215,8 +1266,8 @@ static int tex_w = 0, tex_h = 0;
             glTexSubImage2D(
                 GL_TEXTURE_2D, 0, 0, y,
                 w, 1,
-                GL_BGRA,
-                GL_UNSIGNED_SHORT_1_5_5_5_REV,
+                fmt,
+                type,
                 row
             );
         }
@@ -1594,6 +1645,8 @@ int sub_48B000()
     g_rotate = 0;
 #endif
     g_format = SDL_PIXELFORMAT_RGBA5551;
+    GLenum fmt, type;
+    nox_choose_5551_cached(&fmt, &type);
 
     if (!gl_inited) {
 
@@ -1677,7 +1730,7 @@ int sub_48B000()
             tex_w,
             tex_h,
             0,
-            GL_BGRA,
+            fmt,
             GL_UNSIGNED_BYTE,
             NULL
         );
@@ -1812,7 +1865,7 @@ int sub_48B000()
             tex_w,
             tex_h,
             0,
-            GL_BGRA,
+            fmt,
             GL_UNSIGNED_BYTE,
             NULL
         );
