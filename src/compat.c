@@ -156,24 +156,53 @@ int compat_open(const char *filename, int oflag, ...)
         va_end(ap);
     }
 
-    char *converted = dos_to_unix(filename);
+    char *converted_ptr = dos_to_unix(filename);
+    char *converted = converted_ptr;
     if (!converted) {
         errno = ENOMEM;
         return -1;
     }
 
+    /* Match compat_fopen behavior:
+       - strip accidental cwd prefix
+       - case-fold path via casepath() where possible
+    */
+    char *cdir = get_current_dir_name();
+    if (cdir && converted && strncmp(converted, cdir, strlen(cdir)) == 0) {
+        size_t clen = strlen(cdir);
+        if (converted[clen] == '/')
+            converted = converted + clen + 1;
+    }
+    if (cdir) free(cdir);
+
+    char *r = alloca(strlen(converted) + 2);
+    const char *use = converted;
+
+    if (casepath(converted, r))
+        use = r;
+
     int fd;
     if (oflag & O_CREAT) {
-        fd = open(converted, oflag, mode);
+        fd = open(use, oflag, mode);
     } else {
-        fd = open(converted, oflag);
+        fd = open(use, oflag);
     }
 
-    /* Optional logging if you want */
-    // fprintf(stderr, "compat_open: '%s' -> '%s' flags=0x%x => %d (errno=%d)\n",
-    //         filename, converted, oflag, fd, errno);
+    /* Optional fallback like compat_fopen (kept minimal):
+       If casepath didn't help, try the original filename as-is.
+       This can matter if filename was already a valid unix path. */
+    if (fd < 0) {
+        int saved = errno;
+        if (oflag & O_CREAT) {
+            fd = open(filename, oflag, mode);
+        } else {
+            fd = open(filename, oflag);
+        }
+        if (fd < 0)
+            errno = saved; /* preserve errno from the primary attempt */
+    }
 
-    free(converted);
+    free(converted_ptr);
     return fd;
 }
 
