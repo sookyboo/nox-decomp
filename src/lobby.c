@@ -76,6 +76,13 @@
   #include <sys/time.h>
 #endif
 
+
+#ifdef _WIN32
+  #define NOX_SOCKFD(fd) ((SOCKET)(fd))
+#else
+  #define NOX_SOCKFD(fd) (fd)
+#endif
+
 // ---- NET logging helpers ----
 static int g_netlog(void) {
     static int v = -1;
@@ -449,7 +456,7 @@ static int send_all(int fd, const void *buf, size_t len)
 {
     const unsigned char *p = (const unsigned char *)buf;
     while (len) {
-        ssize_t n = send((SOCKET)fd, (const char*)p, (int)len, 0);
+        ssize_t n = send(NOX_SOCKFD(fd), (const char*)p, (int)len, 0);
         if (n < 0) {
 #ifdef _WIN32
             int wsa = nox_sock_last_err();
@@ -473,7 +480,7 @@ static int recv_line(int fd, char *linebuf, size_t cap)
     size_t n = 0;
     while (n + 1 < cap) {
         unsigned char c;
-        ssize_t r = recv((SOCKET)fd, (char*)&c, 1, 0);
+        ssize_t r = recv(NOX_SOCKFD(fd), (char*)&c, 1, 0);
         if (r == 0) {
             linebuf[n] = 0;
             return 0;
@@ -607,7 +614,7 @@ int nox_http_get_body(const char *host,
             while (chunk_sz) {
                 char buf[2048];
                 size_t want = chunk_sz < sizeof(buf) ? (size_t)chunk_sz : sizeof(buf);
-                ssize_t r = recv((SOCKET)fd, buf, (int)want, 0);
+                ssize_t r = recv(NOX_SOCKFD(fd), buf, (int)want, 0);
                 if (r == 0) { close(fd); return -1; }
                 if (r < 0) {
 #ifdef _WIN32
@@ -643,7 +650,7 @@ int nox_http_get_body(const char *host,
         while (remain > 0) {
             char buf[2048];
             size_t want = (remain < (long)sizeof(buf)) ? (size_t)remain : sizeof(buf);
-            ssize_t r = recv((SOCKET)fd, buf, (int)want, 0);
+            ssize_t r = recv(NOX_SOCKFD(fd), buf, (int)want, 0);
             if (r == 0) break;
             if (r < 0) {
 #ifdef _WIN32
@@ -669,7 +676,7 @@ int nox_http_get_body(const char *host,
         /* Fallback: read until close */
         for (;;) {
             char buf[2048];
-            ssize_t r = recv((SOCKET)fd, buf, (int)sizeof(buf), 0);
+            ssize_t r = recv(NOX_SOCKFD(fd), buf, (int)sizeof(buf), 0);
             if (r == 0) break;
             if (r < 0) {
 #ifdef _WIN32
