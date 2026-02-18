@@ -771,8 +771,22 @@ static void do_mouse_movement(Uint32 now_ms)
     int dx = 0, dy = 0;
 
     if (dpad_act.type == ACT_MOUSE_MOVEMENT) {
-        int mx = (g_cur.dpad_right ? 1 : 0) - (g_cur.dpad_left ? 1 : 0);
-        int my = (g_cur.dpad_down  ? 1 : 0) - (g_cur.dpad_up   ? 1 : 0);
+        struct action au = resolve_binding(IN_UP);
+        struct action ad = resolve_binding(IN_DOWN);
+        struct action al = resolve_binding(IN_LEFT);
+        struct action ar = resolve_binding(IN_RIGHT);
+
+        /* Direction is "claimed" if it has ANY non-none, non-mouse binding. */
+        int up_claimed    = (au.type != ACT_NONE && au.type != ACT_MOUSE_MOVEMENT);
+        int down_claimed  = (ad.type != ACT_NONE && ad.type != ACT_MOUSE_MOVEMENT);
+        int left_claimed  = (al.type != ACT_NONE && al.type != ACT_MOUSE_MOVEMENT);
+        int right_claimed = (ar.type != ACT_NONE && ar.type != ACT_MOUSE_MOVEMENT);
+
+        /* Build mx/my only from directions that are NOT claimed. */
+        int mx = (g_cur.dpad_right && !right_claimed ? 1 : 0)
+               - (g_cur.dpad_left  && !left_claimed  ? 1 : 0);
+        int my = (g_cur.dpad_down  && !down_claimed  ? 1 : 0)
+               - (g_cur.dpad_up    && !up_claimed    ? 1 : 0);
 
         if (mx || my) {
             double fx = (double)mx;
