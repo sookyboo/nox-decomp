@@ -46,6 +46,15 @@ static int g_ctrllog(void) {
 static void handle_one_command(int fd, const char *cmd, int *authed, const char *pw);
 static void send_str_maybe(int fd, const char *s);
 
+#ifndef _WIN32
+static int recv_line_telnet(int fd, char *out, size_t cap);
+#endif
+
+static int split_commands(char *buf, char **cmds, int max_cmds);
+static void strip_hash_comment(char *s);
+static void enqueue_key_press(int scancode);
+
+
 // ------------------------------------------------------------
 // Small env helpers (copied pattern from lobby.c, self-contained)
 // ------------------------------------------------------------
@@ -127,7 +136,6 @@ static void set_sock_timeouts(int fd, int ms)
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, (socklen_t)sizeof(tv));
 }
 
-static int recv_line_telnet(int fd, char *out, size_t cap) { ... }
 
 // ------------------------------------------------------------
 // Server state
@@ -426,7 +434,6 @@ static int recv_line_telnet(int fd, char *out, size_t cap)
         }
     }
 }
-
 
 // ------------------------------------------------------------
 // Control action queue (network thread -> main thread)
