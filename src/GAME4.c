@@ -3462,7 +3462,7 @@ int __cdecl sub_4FAB20(_DWORD *a1)
       BYTE1(v4) |= 1u;
       *(_DWORD *)(v3 + 1440) = v4;
       sub_4FAAC0(a1);
-      sub_50A5C0(*(float *)&a1);
+      sub_50A5C0((void *)a1);
       sub_4FAAF0(a1);
       v5 = sub_4FABC0((int)a1);
       v6 = *(_DWORD *)(v1 + 276);

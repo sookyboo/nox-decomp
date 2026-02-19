@@ -2634,6 +2634,7 @@ LABEL_55:
 //   sub_5281F0(a1);
 //   return sub_534750(SLODWORD(a1));
 // }
+void __cdecl sub_5281F0__abi_raw(nox_abi_ptrslot_t a1);
 int __cdecl sub_531E20__abi_raw(nox_abi_ptrslot_t a1)
 {
   int *v1; // edi
@@ -2651,7 +2652,7 @@ int __cdecl sub_531E20__abi_raw(nox_abi_ptrslot_t a1)
   BYTE1(v3) |= 1u;
   v1[360] = v3;
   sub_5281E0();
-  sub_5281F0(a1);
+  sub_5281F0__abi_raw(a1);
   return sub_534750(self);
 }
 
