@@ -1,32 +1,32 @@
 ![](https://github.com/sookyboo/nox-decomp/blob/main/logos/nox-decomp.png)
 # Nox-Decomp
 
+The game is fully playable on [PortMaster](https://portmaster.games/detail.html?name=nox-decomp), SteamDeck with flatpack, Linux and Windows for both single player and multiplayer and all classes warrior, wizard and conjurer!
+
+Nox-Decomp requires an original copy of Nox. None of the Nox game assets are provided by this project. To get a legitimate copy of the game assets, please refer to the [GoG release of Nox](https://www.gog.com/game/nox).
+
+The dialog audio files need to be converted in order for the dialog to work. See below for details. Many of the releases include scripts to automatically convert.
+
 If you enjoy this please consider giving me a tip on [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y61U19WK)
 
-This is a fork of https://github.com/neuromancer/nox-decomp
-
-Fixed most of the known bugs for Neuromancer's version and adds movie and LAN support and compiles for ARMHF devices.
-
-Also adds support for joining internet games from OpenNox lobby servers.
-
-A build is or will be available for [portmaster](https://portmaster.games/).
+This is a fork of https://github.com/neuromancer/nox-decomp this fork fixes all the bugs, adds movie, LAN, Internet (via OpenNox lobby servers) support and compiles for ARMHF devices.
 
 Other notable projects:
-[Opennox](https://github.com/opennox/opennox/tree/v1.9.0-alpha13) - This was difficult to get working on 32bit ARM which is why this fork started
+[Opennox](https://github.com/opennox/opennox/tree/v1.9.0-alpha13) - This was difficult to get working on 32bit ARM and has bugs which is why this fork started
 
 Why is this different than Opennox:
 This fork has fully complete-able single player campaigns and the server version can host any style of game without crashing.
-The releases also have gamepad support.
-It can join and host public internet games listed on the Opennox lobby servers. 
-It also works on $50 ARM based game consoles see the port master version below.
-It is fast and very close to the original game. It is still 32bit.
+Built-in gamepad support.
+Works on any native resolution of a device and scales the original game resolution to the device native resolution. 
+Can join and host public internet games listed on the OpenNox lobby servers. 
+Works on $50 ARM linux based handheld game consoles on [PortMaster](https://portmaster.games/detail.html?name=nox-decomp).
+Fast and very close to the original game. 
+32bit currently but possibly a 64bit version in future. 
 
 Neuromancers original comments:
 **The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
 
 I am not the author of this code. It comes from the [playnox.xyz](https://playnox.xyz) website. A copy of the original source code is permanently archived [here](https://web.archive.org/web/20191104220905/https://playnox.xyz/public_v1.zip). I just did some small modifications to properly run it in Linux.
-
-Nox-Decomp requires an original copy of Nox. None of the Nox game assets are provided by this project. To get a legitimate copy of the game assets, please refer to the [GoG release of Nox](https://www.gog.com/game/nox).
 
 # Screenshots
 
@@ -52,7 +52,9 @@ mv app/* .
 ```
 
 # Converting dialog audio files
-The audio dialog files need to be converted in order for them to work
+The audio dialog files need to be converted in order for them to work.
+
+Many of the releases have automatic conversion in their included game start script.
 
 ```bash
   # example can be found here: https://github.com/sookyboo/PortMaster-New/blob/sookyboo_nox_decomp/ports/nox-decomp/Nox-Decomp.sh
@@ -160,15 +162,25 @@ export NOX_SKIP_INTRO_MOVIES=0 # default is 1 - skip the logo movies at the star
 # NOX_LIMIT_RANGE_ON_RUN - useful for gamepads and steam deck 
 # limits the range of the mouse when running but only if starting close to center or passing through center
 export NOX_LIMIT_RANGE_ON_RUN=1 #default is 0
-export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle   
+export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle
+
+# Built in gamepad support
+export NOX_GAMEPAD=1
+export NOX_GAMEPAD_INI="$PWD/nox.gptk2.ini" # Mapping file based on gptokeyb2 must be present to work
+
+export NOX_GAMEPAD_EXIT=1 # when pressing start and select exit game 
+
+export NOX_GAMEPAD_AUTOSWAP_XBOX=1 # swap A and B automatically for xbox/nintendo controllers 
+export NOX_GAMEPAD_FLIP_ABXY=0 # manually swap A and B buttons
+export NOX_GAMEPAD_LOG=0 # for debbuging gamepad issues    
 ```
 
 # Steam deck 
 Download the flatpak from releases section.
 
-It requries access to a directory in your home directory called nox-decomp
+It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
 
-It also needs access to your devices to emulate the mouse and keyboard ( a future release might remove this requirement).
+It also needs access to your devices for gamepad support.
 
 
 Dependencies:
@@ -214,18 +226,37 @@ Choose Gamepad with Mouse Trackpad
 
 Press X to apply the layout
 
-# Windows
-
+# Linux
 Download the zip from releases.
 
-Unpack it and copy the files into your nox directory. 
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+
+Unpack nox-decomp and copy the gog setup program into gamefiles.
+
+Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
+
+After extraction it should start the game.
+
+
+# Windows
+Download the zip from releases.
+
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+
+Unpack nox-decomp and copy the gog setup program into gamefiles. 
+
+Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
+
+After extraction it should start the game.
+
+An alternate way is to:
+Download the zip from releases.
+
+Unpack it and copy the files into your nox directory.
 
 You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 
-
 Run noxd.exe inside the nox directory.
-
-(Source code is available in the windows branch for now)
 
 # Mac
 This works with crossover/wine.
@@ -271,11 +302,13 @@ You can place the gog game installer in gamefiles dir and it will automatically 
 ```
 
 # Known issues
+The game is fully playable on PortMaster, SteamDeck with flatpack, Linux and Windows for both single player and multiplayer and all classes warrior, wizard and conjurer!
 
-* Minor - all graphics are totally corrupted in 8-bit color mode but work in 16-bit color mode (16bit is better anyway).
-* Minor glitch on the last column of pixels on text only on some characters - barely noticeable - all text is legible.
-* Minor glitch on death rays appearing in shadows when they should be hidden from view.
-* Some slow downs in fade outs and fade ins and not noticeable on powerful hardware. (This is due to the way that the game is being drawn and was present in the original game I think)
+* Minor - 16-bit graphics work perfectly but 8-bit doesn't work
+* Minor - all text is legible - but there is some distortion usually with the last column of pixels for wide letters/characters.
+* Minor - glitch on death rays appearing in shadows when they should be hidden from view.
+* Minor - Possible rendering glitch on rendering undead spell - circle not 100% visible in bright light - spell works perfectly
+* Minor - On low power devices fade ins and fade outs are slightly slower
 
 # License
 
