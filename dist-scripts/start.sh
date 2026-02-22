@@ -8,6 +8,11 @@ PKG_NOXD="${PKG_BASE}/noxd.i386"
 PKG_STEAM_DIR="${PKG_BASE}/steam"
 PKG_FFMPEG_DIR="${PKG_BASE}/ffmpeg.i386"
 PKG_GPTK2_INI="${PKG_BASE}/nox.gptk2.ini"
+PKG_UTILS_DIR="${PKG_BASE}/utils"
+PKG_INNOEXTRACT="${PKG_UTILS_DIR}/innoextract.x86_64"
+PKG_FFMPEG_X64="${PKG_UTILS_DIR}/ffmpeg.x86_64"
+PKG_NOX_CFG="${PKG_BASE}/nox.cfg"
+
 : "${NOX_GAMEPAD_INI:=${PKG_GPTK2_INI}}"
 export NOX_GAMEPAD_INI
 
@@ -32,6 +37,145 @@ if [[ ! -f "${PKG_NOXD}" ]]; then
   echo "Installed /app tree:" >&2
   find /app -maxdepth 4 -print >&2 || true
   exit 127
+fi
+
+# ---------------------------
+# Game data extraction + dialog conversion (one-time)
+# ---------------------------
+: "${NOX_SKIP_EXTRACT:=0}"
+: "${NOX_SKIP_DIALOG_CONVERT:=0}"
+: "${NOX_FORCE_EXTRACT:=0}"
+: "${NOX_FORCE_DIALOG_CONVERT:=0}"
+
+NOX_GAMEFILES_DIR="${NOX_HOME_DIR}/gamefiles"
+NOX_GAME_DATA_BIN="${NOX_GAMEFILES_DIR}/app/gamedata.bin"
+NOX_INSTALLER_GLOB="${NOX_GAMEFILES_DIR}/setup_nox"*.exe
+
+install_game_data() {
+  # Skip unless missing (or forced)
+  if [[ "${NOX_FORCE_EXTRACT}" == "0" && -f "${NOX_GAME_DATA_BIN}" ]]; then
+    return 0
+  fi
+
+  if [[ ! -x "${PKG_INNOEXTRACT}" ]]; then
+    echo "WARN: innoextract not found/executable at ${PKG_INNOEXTRACT}; cannot extract installer." >&2
+    echo "Put extracted game files in: ${NOX_GAMEFILES_DIR}/app/ (need gamedata.bin)" >&2
+    return 0
+  fi
+
+  mkdir -p "${NOX_GAMEFILES_DIR}"
+
+  shopt -s nullglob nocaseglob
+  installers=( ${NOX_INSTALLER_GLOB} )
+  shopt -u nocaseglob
+
+  if (( ${#installers[@]} == 0 )); then
+    echo "Nox data not extracted." >&2
+    echo "Place GOG installer matching 'setup_nox*.exe' in: ${NOX_GAMEFILES_DIR}/" >&2
+    echo "Or manually provide extracted files so this exists: ${NOX_GAME_DATA_BIN}" >&2
+    return 0
+  fi
+
+  echo "Found Nox GOG installer: ${installers[0]}"
+  echo "Extracting installer into: ${NOX_GAMEFILES_DIR}"
+  echo "Extraction may take up to 10-60min"
+  "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}"
+
+  if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
+    echo "ERROR: extraction finished but ${NOX_GAME_DATA_BIN} still missing." >&2
+    return 1
+  fi
+
+  echo "Extraction complete"
+}
+
+ensure_nox_cfg() {
+  local dst_cfg="${NOX_ASSET_DIR}/nox.cfg"
+  if [[ -f "${dst_cfg}" ]]; then
+    return 0
+  fi
+  if [[ -f "${PKG_NOX_CFG}" ]]; then
+    echo "Installing default nox.cfg -> ${dst_cfg}"
+    cp -f "${PKG_NOX_CFG}" "${dst_cfg}"
+    return 0
+  fi
+  echo "WARN: nox.cfg missing and packaged default not found at ${PKG_NOX_CFG}" >&2
+  return 0
+}
+
+convert_dialog() {
+  local marker_file="${NOX_ASSET_DIR}/converted_dialog.txt"
+  local dialog_dir="${NOX_ASSET_DIR}/Dialog"
+
+  # Skip unless missing marker (or forced)
+  if [[ "${NOX_FORCE_DIALOG_CONVERT}" == "0" && -f "${marker_file}" ]]; then
+    return 0
+  fi
+
+  # Skip on 32-bit systems (ffmpeg is 64-bit only)
+  if [[ "$(getconf LONG_BIT)" == "32" ]]; then
+    echo "32-bit system detected, skipping dialog audio conversion"
+    return 0
+  fi
+
+  # Only run if game data exists
+  if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
+    echo "Game data not present, skipping dialog conversion"
+    return 0
+  fi
+
+  if [[ ! -x "${PKG_FFMPEG_X64}" ]]; then
+    echo "WARN: ffmpeg not found/executable at ${PKG_FFMPEG_X64}; skipping dialog conversion" >&2
+    return 0
+  fi
+
+  if [[ ! -d "${dialog_dir}" ]]; then
+    echo "Dialog directory not found, skipping conversion"
+    return 0
+  fi
+
+  shopt -s nullglob nocaseglob
+  wav_files=("${dialog_dir}"/*.wav)
+  total="${#wav_files[@]}"
+  shopt -u nocaseglob
+
+  if [[ "${total}" -eq 0 ]]; then
+    echo "No dialog WAV files found, skipping conversion"
+    return 0
+  fi
+
+  echo "Converting dialog audio (${total} files)"
+
+  for wav in "${wav_files[@]}"; do
+    tmp="${wav}.tmp"
+    if "${PKG_FFMPEG_X64}" -y \
+        -loglevel error \
+        -i "${wav}" \
+        -ac 1 \
+        -ar 22050 \
+        -c:a pcm_s16le \
+        -f wav \
+        "${tmp}"; then
+      mv "${tmp}" "${wav}"
+    else
+      rm -f "${tmp}"
+      echo "ERROR converting $(basename "${wav}")" >&2
+      return 1
+    fi
+  done
+
+  echo "Dialog audio converted to PCM on $(date)" > "${marker_file}"
+  echo "Dialog audio conversion complete"
+}
+
+if [[ "${NOX_SKIP_EXTRACT}" == "0" ]]; then
+  install_game_data
+fi
+
+ensure_nox_cfg
+
+if [[ "${NOX_SKIP_DIALOG_CONVERT}" == "0" ]]; then
+  convert_dialog
 fi
 
 # Optional: force X11 (helps GLX visual issues on some setups)

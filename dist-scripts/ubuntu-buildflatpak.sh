@@ -55,6 +55,8 @@ test -f "${WORKDIR}/start.sh"
 test -f "${WORKDIR}/noxd.i386"
 test -d "${WORKDIR}/steam"
 [[ -d "${WORKDIR}/ffmpeg.i386" ]] || echo "WARN: ffmpeg.i386 missing (continuing)"
+[[ -f "${WORKDIR}/utils/innoextract.x86_64" ]] || echo "WARN: utils/innoextract.x86_64 missing (extract step won't work)"
+[[ -f "${WORKDIR}/utils/ffmpeg.x86_64" ]]     || echo "WARN: utils/ffmpeg.x86_64 missing (dialog convert step won't work)"
 
 # ---------------------------
 # Clean & init
@@ -81,13 +83,17 @@ install -d "${INTERNAL_LIB}" \
   "${BUILD_DIR}/files/share/icons/hicolor/128x128/apps" \
   "${BUILD_DIR}/files/share/icons/hicolor/64x64/apps"
 
-
 # IMPORTANT: create extension mount points inside /app (prevents bwrap mkdir RO failure)
 install -d "${BUILD_DIR}/files/lib/i386-linux-gnu"
 install -d "${BUILD_DIR}/files/lib/i386-linux-gnu/GL"
 
 install -Dm755 "${WORKDIR}/noxd.i386" "${INTERNAL_LIB}/noxd.i386"
 install -Dm755 "${WORKDIR}/start.sh" "${BUILD_DIR}/files/bin/start.sh"
+
+# Tools (innoextract + ffmpeg) staged into /app/lib/$APP_ID/utils
+install -d "${INTERNAL_LIB}/utils"
+[[ -f "${WORKDIR}/utils/innoextract.x86_64" ]] && install -Dm755 "${WORKDIR}/utils/innoextract.x86_64" "${INTERNAL_LIB}/utils/innoextract.x86_64"
+[[ -f "${WORKDIR}/utils/ffmpeg.x86_64" ]]     && install -Dm755 "${WORKDIR}/utils/ffmpeg.x86_64"     "${INTERNAL_LIB}/utils/ffmpeg.x86_64"
 
 # ---------------------------
 # Desktop entry (auto-exported by Flatpak)
@@ -110,7 +116,6 @@ if [[ -f "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" ]]; then
 else
   echo "WARN: io.github.sookyboo.NoxDecomp.png missing; desktop entry will have no icon."
 fi
-
 
 [[ -f "${WORKDIR}/gptokeyb2.x86_64" ]] && install -Dm755 "${WORKDIR}/gptokeyb2.x86_64" "${INTERNAL_LIB}/gptokeyb2.x86_64"
 [[ -f "${WORKDIR}/nox.cfg" ]]          && install -Dm644 "${WORKDIR}/nox.cfg" "${INTERNAL_LIB}/nox.cfg"
@@ -239,6 +244,8 @@ flatpak run --command=sh "${APP_ID}" -c 'find /app -maxdepth 4 \( -type f -o -ty
 flatpak run --command=sh "${APP_ID}" -c "test -f /app/lib/${APP_ID}/noxd.i386"
 flatpak run --command=sh "${APP_ID}" -c "test -d /app/lib/i386-linux-gnu && echo OK:/app/lib/i386-linux-gnu || true"
 flatpak run --command=sh "${APP_ID}" -c "find /app/lib/i386-linux-gnu/GL -maxdepth 4 -type d 2>/dev/null | head -n 20 || true"
+flatpak run --command=sh "${APP_ID}" -c "test -d /app/lib/${APP_ID}/utils && echo OK:/app/lib/${APP_ID}/utils || true"
+flatpak run --command=sh "${APP_ID}" -c "ls -la /app/lib/${APP_ID}/utils 2>/dev/null || true"
 
 echo
 echo "✅ Build Complete: ${OUT_DIR}/${APP_ID}.flatpak"
