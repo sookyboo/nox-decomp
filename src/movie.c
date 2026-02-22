@@ -27,6 +27,14 @@
 
 #include <SDL2/SDL.h>
 
+#ifdef _WIN32
+// Use the real WinMM + CRT APIs on Windows
+#include <windows.h>
+#include <mmsystem.h>   // timeBeginPeriod/timeSetEvent/etc
+#include <io.h>         // _lseek/_filelength
+#pragma comment(lib, "winmm")
+#endif
+
 #ifdef __APPLE__
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
@@ -98,8 +106,17 @@ void AIL_unlock(void) {
 typedef uint32_t MMRESULT;
 
 /* Signature WinMM expects: */
-typedef void (*LPTIMECALLBACK)(uint32_t uTimerID, uint32_t uMsg,
-                              uintptr_t dwUser, uintptr_t dw1, uintptr_t dw2);
+#ifdef _WIN32
+  #include <windows.h>
+  #include <mmsystem.h>
+  /* WinMM already defines LPTIMECALLBACK and MMRESULT. Use those. */
+#else
+  typedef uint32_t MMRESULT;
+
+  /* Signature WinMM expects: */
+  typedef void (*LPTIMECALLBACK)(uint32_t uTimerID, uint32_t uMsg,
+                                uintptr_t dwUser, uintptr_t dw1, uintptr_t dw2);
+#endif
 
 static SDL_TimerID g_movie_timer_id = 0;
 static LPTIMECALLBACK g_movie_timer_cb = NULL;
@@ -175,7 +192,8 @@ static struct sdl_time_event *timeev_take(SDL_TimerID tid) {
     return ev;
 }
 
-/* WinMM timer functions */
+#ifndef _WIN32
+
 MMRESULT timeBeginPeriod(uint32_t uPeriod) {
  (void)uPeriod;
  return 0; /* no-op on SDL */
@@ -198,6 +216,7 @@ MMRESULT timeSetEvent(uint32_t uDelay, uint32_t uResolution,
     g_mm_next_fire   = SDL_GetTicks() + g_mm_interval_ms;
     return g_mm_id;
 }
+
 MMRESULT timeKillEvent(MMRESULT uTimerID)
 {
     (void)uTimerID;
@@ -207,6 +226,8 @@ MMRESULT timeKillEvent(MMRESULT uTimerID)
     g_mm_user        = 0;
     return 0;
 }
+
+#endif /* !_WIN32 */
 
 // Call this ONLY from the main thread, frequently (each loop iteration is fine)
 void mm_timer_pump_mainthread(void)
@@ -227,6 +248,7 @@ void mm_timer_pump_mainthread(void)
  * -------------------------- */
 
 /* Windows-style names used by the original code */
+#ifndef _WIN32
 static int _lseek(int fd, int offset, int origin) {
     off_t r = lseek(fd, (off_t)offset, origin);
     return (r == (off_t)-1) ? -1 : (int)r;
@@ -237,6 +259,7 @@ static int _filelength(int fd) {
     if (fstat(fd, &st) != 0) return -1;
     return (int)st.st_size;
 }
+#endif /* !_WIN32 */
 
 #endif /* USE_SDL */
 
@@ -481,21 +504,152 @@ int movie_resolve_path(const char *in, char *out, size_t out_sz)
     }
     out[n] = 0;
 
-    // 2) try case-correcting (use YOUR existing helper name here)
-    // If you have something like: int compat_casepath(const char *in, char *out)
-    // then do:
+#ifndef _WIN32
+    // 2) try case-correcting (not needed on Windows)
     {
         char tmp[1024];
-        if (external_compat_casepath(out, tmp, sizeof(tmp))) {            // <-- rename to your actual function
+        if (external_compat_casepath(out, tmp, sizeof(tmp))) {
             strncpy(out, tmp, out_sz - 1);
             out[out_sz - 1] = 0;
             return 1;
         }
     }
+#endif
 
-    // If no helper, still usable (after slash normalization), but may fail on case
+    // If no helper (or on Windows), still usable (after slash normalization)
     return 1;
 }
+
+
+static void movie_sws_apply_colorspace(struct SwsContext *sws, const AVFrame *frm)
+{
+    int cs = frm->colorspace;
+    if (cs == AVCOL_SPC_UNSPECIFIED) cs = AVCOL_SPC_BT470BG; // common default for SD MPEG-era content (BT.601)
+
+    const int *coeffs = sws_getCoefficients(cs);
+
+    // srcRange: 1 if full-range (JPEG), 0 if limited (MPEG)
+    int srcRange = (frm->color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
+
+    // dstRange for RGB should be full-range
+    int dstRange = 1;
+
+    // brightness/contrast/saturation defaults
+    int brightness = 0;
+    int contrast   = 1 << 16;
+    int saturation = 1 << 16;
+
+    sws_setColorspaceDetails(
+        sws,
+        coeffs, srcRange,
+        coeffs, dstRange,
+        brightness, contrast, saturation
+    );
+}
+
+
+static Uint32 nox_movie_sdl_5551_format_cached(void)
+{
+    static int inited = 0;
+    static Uint32 sdl_fmt = 0;
+
+    if (inited) return sdl_fmt;
+
+    /* Values:
+       - "rgba"  => SDL_PIXELFORMAT_RGBA5551  (alpha bit0)   [Linux-style]
+       - "bgra"  => SDL_PIXELFORMAT_ARGB1555  (alpha bit15)  [Windows-style]
+       - "auto" or unset => platform default (win=bgra, else=rgba)
+       Also accept: "linux"->rgba, "windows"->bgra, "rev"->bgra
+    */
+    const char *e = getenv("NOX_GL_5551");
+    if (!e || !*e || !strcasecmp(e, "auto")) {
+#ifdef _WIN32
+        sdl_fmt = SDL_PIXELFORMAT_ARGB1555;
+#else
+        sdl_fmt = SDL_PIXELFORMAT_RGBA5551;
+#endif
+    } else if (!strcasecmp(e, "rgba") || !strcasecmp(e, "linux")) {
+        sdl_fmt = SDL_PIXELFORMAT_RGBA5551;
+    } else if (!strcasecmp(e, "bgra") || !strcasecmp(e, "windows") || !strcasecmp(e, "rev")) {
+        sdl_fmt = SDL_PIXELFORMAT_ARGB1555;
+    } else {
+        /* Unknown value -> fall back to platform default */
+#ifdef _WIN32
+        sdl_fmt = SDL_PIXELFORMAT_ARGB1555;
+#else
+        sdl_fmt = SDL_PIXELFORMAT_RGBA5551;
+#endif
+    }
+
+    inited = 1;
+    return sdl_fmt;
+}
+
+static uint16_t nox_movie_alpha_mask_cached(void)
+{
+    static int inited = 0;
+    static uint16_t mask = 0;
+
+    if (inited) return mask;
+
+    const char *e = getenv("NOX_GL_5551");
+    if (!e || !*e || !strcasecmp(e, "auto")) {
+#ifdef _WIN32
+        mask = 0x8000; /* ARGB1555 */
+#else
+        mask = 0x0001; /* RGBA5551 */
+#endif
+    } else if (!strcasecmp(e, "rgba") || !strcasecmp(e, "linux")) {
+        mask = 0x0001;
+    } else if (!strcasecmp(e, "bgra") || !strcasecmp(e, "windows") || !strcasecmp(e, "rev")) {
+        mask = 0x8000;
+    } else {
+#ifdef _WIN32
+        mask = 0x8000;
+#else
+        mask = 0x0001;
+#endif
+    }
+
+    inited = 1;
+    return mask;
+}
+
+typedef enum {
+    NOX_5551_PACK_RGBA,  // RGB<<1, alpha bit0
+    NOX_5551_PACK_ARGB   // alpha bit15, no shift
+} nox_5551_pack_t;
+
+static nox_5551_pack_t nox_movie_5551_pack_cached(void)
+{
+    static int inited = 0;
+    static nox_5551_pack_t pack;
+
+    if (inited) return pack;
+
+    const char *e = getenv("NOX_GL_5551");
+    if (!e || !*e || !strcasecmp(e, "auto")) {
+#ifdef _WIN32
+        pack = NOX_5551_PACK_ARGB;
+#else
+        pack = NOX_5551_PACK_RGBA;
+#endif
+    } else if (!strcasecmp(e, "rgba") || !strcasecmp(e, "linux")) {
+        pack = NOX_5551_PACK_RGBA;
+    } else if (!strcasecmp(e, "bgra") || !strcasecmp(e, "windows") || !strcasecmp(e, "rev")) {
+        pack = NOX_5551_PACK_ARGB;
+    } else {
+#ifdef _WIN32
+        pack = NOX_5551_PACK_ARGB;
+#else
+        pack = NOX_5551_PACK_RGBA;
+#endif
+    }
+
+    inited = 1;
+    return pack;
+}
+
 
 volatile int g_movie_skip_requested = 0;
 
@@ -568,6 +722,7 @@ void __cdecl sub_555430(HWND *a1)
         dprintf("movie: no video stream in %s", movie_path);
         goto done;
     }
+    uint16_t a = nox_movie_alpha_mask_cached();
 
     // Video init
     {
@@ -586,17 +741,16 @@ void __cdecl sub_555430(HWND *a1)
         if (avcodec_open2(vdec, codec, NULL) < 0) goto done;
 
         // Ensure stable movie surface exists and matches the video
-        if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height) {
+        Uint32 want_fmt = nox_movie_sdl_5551_format_cached();
+        if (!g_movie_surf || g_movie_surf->w != vdec->width || g_movie_surf->h != vdec->height ||
+            g_movie_surf->format->format != want_fmt)
+        {
             if (g_movie_surf) SDL_FreeSurface(g_movie_surf);
-            g_movie_surf = SDL_CreateRGBSurfaceWithFormat(
-                0, vdec->width, vdec->height, 16, SDL_PIXELFORMAT_RGBA5551
-            );
-            if (!g_movie_surf) {
-                dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed");
-                goto done;
-            }
+            g_movie_surf = SDL_CreateRGBSurfaceWithFormat(0, vdec->width, vdec->height, 16, want_fmt);
+            if (!g_movie_surf) { dprintf("movie: SDL_CreateRGBSurfaceWithFormat failed"); goto done; }
         }
         dst = g_movie_surf;
+        g_present_src = g_movie_surf;
 
         // present from the stable movie surface
         g_present_src = g_movie_surf;
@@ -613,12 +767,15 @@ void __cdecl sub_555430(HWND *a1)
         // Clear movie surface to black so we don't show stale pixels
         if (SDL_MUSTLOCK(dst)) SDL_LockSurface(dst);
 
-        // RGBA5551 black with alpha=1 => 0x0001
-        uint16_t *pix = (uint16_t *)dst->pixels;
+        // ARGB1555 black with alpha=1 => 0x8000
+        uint16_t *p16 = (uint16_t *)dst->pixels;
         int pitch_pix = dst->pitch / 2;
-        for (int y = 0; y < dst->h; ++y) {
-            uint16_t *row = pix + y * pitch_pix;
-            for (int x = 0; x < dst->w; ++x) row[x] = 0x0001;
+
+        for (int y = 0; y < dst->h; y++) {
+            uint16_t *row = p16 + y * pitch_pix;
+            for (int x = 0; x < dst->w; x++) {
+                row[x] = (uint16_t)((row[x] & 0x7FFF) | a);
+            }
         }
 
         if (SDL_MUSTLOCK(dst)) SDL_UnlockSurface(dst);
@@ -740,6 +897,15 @@ void __cdecl sub_555430(HWND *a1)
                     uint8_t *dst_data[4] = { (uint8_t *)dst->pixels, NULL, NULL, NULL };
                     int dst_linesize[4]  = { dst->pitch, 0, 0, 0 };
 
+                    static int sws_cs_set = 0;
+                    if (!sws_cs_set) {
+                        dprintf("movie: pix_fmt=%d cs=%d range=%d prim=%d trc=%d",
+                                vfrm->format, vfrm->colorspace, vfrm->color_range,
+                                vfrm->color_primaries, vfrm->color_trc);
+                        movie_sws_apply_colorspace(sws, vfrm);
+                        sws_cs_set = 1;
+                    }
+
                     sws_scale(sws,
                               (const uint8_t * const*)vfrm->data, vfrm->linesize,
                               0, vdec->height,
@@ -747,14 +913,26 @@ void __cdecl sub_555430(HWND *a1)
 
                     uint16_t *p = (uint16_t *)dst->pixels;
                     int pitch_pix = dst->pitch / 2;
+                    uint16_t a = nox_movie_alpha_mask_cached();
 
-                    // sws output is effectively 0RGB1555-ish in little-endian (RGB in low 15 bits).
-                    // We need RGBA5551: RGB in bits 15..1, alpha in bit0.
-                    for (int y = 0; y < dst->h; y++) {
-                        uint16_t *row = p + y * pitch_pix;
-                        for (int x = 0; x < dst->w; x++) {
-                            uint16_t v = row[x];
-                            row[x] = (uint16_t)(((v & 0x7FFF) << 1) | 1);
+                    nox_5551_pack_t pack = nox_movie_5551_pack_cached();
+
+                    if (pack == NOX_5551_PACK_RGBA) {
+                        // sws output: 0RGB1555-ish in low 15 bits -> RGBA5551 wants RGB in bits 15..1, A in bit0
+                        for (int y = 0; y < dst->h; y++) {
+                            uint16_t *row = p + y * pitch_pix;
+                            for (int x = 0; x < dst->w; x++) {
+                                uint16_t v = row[x] & 0x7FFF;
+                                row[x] = (uint16_t)((v << 1) | 0x0001);  // alpha bit0
+                            }
+                        }
+                    } else {
+                        // sws output: xRRRRRGGGGGBBBBB -> ARGB1555 wants A in bit15
+                        for (int y = 0; y < dst->h; y++) {
+                            uint16_t *row = p + y * pitch_pix;
+                            for (int x = 0; x < dst->w; x++) {
+                                row[x] = (uint16_t)((row[x] & 0x7FFF) | a); // alpha bit15
+                            }
                         }
                     }
 

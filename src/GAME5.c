@@ -2,6 +2,7 @@
 #include <emscripten/emscripten.h>
 #endif
 #include "proto.h"
+#include "netextras.h"
 
 //-------------------------------------------------------------------------
 // Function declarations
@@ -11622,6 +11623,102 @@ void sub_554370()
 }
 
 //----- (00554380) --------------------------------------------------------
+//int __cdecl sub_554380(size_t *a1)
+//{
+//  int result; // eax
+//  int v2; // ebx
+//  unsigned __int8 *v3; // eax
+//  SOCKET *v4; // eax
+//  SOCKET *v5; // esi
+//  SOCKET v6; // eax
+//  signed int v7; // eax
+//  u_short v8; // ax
+//  __int16 v9; // cx
+//  struct hostent *v10; // eax
+//  u_short v11; // [esp-4h] [ebp-1B8h]
+//  u_short v12; // [esp-4h] [ebp-1B8h]
+//  struct sockaddr name; // [esp+14h] [ebp-1A0h]
+//  struct WSAData WSAData; // [esp+24h] [ebp-190h]
+//
+//  if ( !a1 )
+//    return -2;
+//  if ( *a1 )
+//    return -5;
+//  if ( (int)a1[4] > 128 )
+//    return -2;
+//  v2 = 0;
+//  byte_5D4594[3843644] = 0;
+//  *(_DWORD *)&byte_5D4594[3843632] = 0;
+//  byte_5D4594[3843660] = 0;
+//  v3 = &byte_5D4594[3843788];
+//  while ( *(_DWORD *)v3 )
+//  {
+//    v3 += 4;
+//    ++v2;
+//    if ( (int)v3 >= (int)&byte_5D4594[3844300] )
+//      return -8;
+//  }
+//  if ( v2 == -1 )
+//    return -8;
+//  v4 = (SOCKET *)sub_553000(a1);
+//  v5 = v4;
+//  *(_DWORD *)&byte_5D4594[4 * v2 + 3843788] = v4;
+//  if ( !v4 )
+//    return -1;
+//  *(_BYTE *)v4[12] = v2;
+//  v4[5] = -1;
+//  result = WSAStartup(0x101u, &WSAData);
+//  if ( result != -1 )
+//  {
+//    v6 = socket(2, 2, 0);
+//    *v5 = v6;
+//    if ( v6 == -1 )
+//    {
+//LABEL_17:
+//      WSACleanup();
+//      result = -1;
+//    }
+//    else
+//    {
+//      v7 = a1[2];
+//      if ( v7 < 1024 || v7 > 0x10000 )
+//        a1[2] = 18590;
+//      v11 = *((_WORD *)a1 + 4);
+//      *(_WORD *)name.sa_data = 0;
+//      name.sa_family = 2;
+//      *(_DWORD *)&name.sa_data[2] = 0;
+//      *(_DWORD *)&name.sa_data[6] = 0;
+//      *(_DWORD *)&name.sa_data[10] = 0;
+//      v8 = htons(v11);
+//      v9 = *((_WORD *)a1 + 4);
+//      *(_DWORD *)&name.sa_data[2] = 0;
+//      *(_WORD *)name.sa_data = v8;
+//      *(_WORD *)&byte_5D4594[3843636] = v9;
+//      while ( bind(*v5, &name, 16) == -1 )
+//      {
+//        if ( WSAGetLastError() != 10048 )
+//          goto LABEL_17;
+//        v12 = *((_WORD *)a1 + 4) + 1;
+//        ++a1[2];
+//        *(_WORD *)name.sa_data = htons(v12);
+//      }
+//      if ( gethostname((char *)&byte_5D4594[3843660], 128) != -1 )
+//      {
+//        v10 = gethostbyname((const char *)&byte_5D4594[3843660]);
+//        if ( v10 )
+//        {
+//          *(_DWORD *)&byte_5D4594[3843632] = **(_DWORD **)v10->h_addr_list;
+//          strcpy((char *)&byte_5D4594[3843644], inet_ntoa(*(struct in_addr *)&byte_5D4594[3843632]));
+//        }
+//      }
+//      result = v2;
+//    }
+//  }
+//  return result;
+//}
+/* -------------------------------------------------------------------------
+ * 3) Rewrite sub_554380 (minimal change: call netextras once bind succeeds)
+ * ------------------------------------------------------------------------- */
 int __cdecl sub_554380(size_t *a1)
 {
   int result; // eax
@@ -11701,6 +11798,10 @@ LABEL_17:
         ++a1[2];
         *(_WORD *)name.sa_data = htons(v12);
       }
+
+      /* netextras: host socket successfully bound */
+      nox_netextras_on_host_bind_success(*v5, (unsigned)a1[2]);
+
       if ( gethostname((char *)&byte_5D4594[3843660], 128) != -1 )
       {
         v10 = gethostbyname((const char *)&byte_5D4594[3843660]);
@@ -12046,6 +12147,33 @@ int __cdecl sub_554B40(u_short hostshort)
 }
 
 //----- (00554C80) --------------------------------------------------------
+//int __cdecl sub_554C80(u_short hostshort, char *buf, int a3)
+//{
+//  int v3; // esi
+//  int result; // eax
+//  struct sockaddr to; // [esp+4h] [ebp-10h]
+//
+//  v3 = 0;
+//  if ( !*(_DWORD *)&byte_5D4594[2513916] )
+//    return -17;
+//  to.sa_family = 2;
+//  *(_DWORD *)&to.sa_data[6] = 0;
+//  *(_DWORD *)&to.sa_data[10] = 0;
+//  *(_WORD *)to.sa_data = htons(hostshort);
+//  *(_DWORD *)&to.sa_data[2] = -1;
+//  if ( !buf
+//    || (unsigned __int16)a3 < 2u
+//    || (result = sendto(*(SOCKET *)&byte_5D4594[2513920], buf, (unsigned __int16)a3, 0, &to, 16),
+//        v3 = result,
+//        result != -1) )
+//  {
+//    result = v3;
+//  }
+//  return result;
+//}
+/* -------------------------------------------------------------------------
+ * 1) Rewrite sub_554C80 (minimal change: call netextras before sendto)
+ * ------------------------------------------------------------------------- */
 int __cdecl sub_554C80(u_short hostshort, char *buf, int a3)
 {
   int v3; // esi
@@ -12062,9 +12190,13 @@ int __cdecl sub_554C80(u_short hostshort, char *buf, int a3)
   *(_DWORD *)&to.sa_data[2] = -1;
   if ( !buf
     || (unsigned __int16)a3 < 2u
-    || (result = sendto(*(SOCKET *)&byte_5D4594[2513920], buf, (unsigned __int16)a3, 0, &to, 16),
-        v3 = result,
-        result != -1) )
+    || (nox_netextras_on_discovery_ping_send(*(SOCKET *)&byte_5D4594[2513920],
+                                            buf,
+                                            (unsigned __int16)a3,
+                                            (unsigned)hostshort),
+        (result = sendto(*(SOCKET *)&byte_5D4594[2513920], buf, (unsigned __int16)a3, 0, &to, 16),
+         v3 = result,
+         result != -1)) )
   {
     result = v3;
   }
@@ -12089,6 +12221,120 @@ int sub_554D10()
 }
 
 //----- (00554D70) --------------------------------------------------------
+//int __cdecl sub_554D70(char a1)
+//{
+//  int result; // eax
+//  int v2; // ebp
+//  char v3; // al
+//  char *v4; // eax
+//  char *v5; // esi
+//  int v6; // eax
+//  u_short v7; // ax
+//  int v8; // [esp+0h] [ebp-230h]
+//  u_long argp; // [esp+10h] [ebp-220h]
+//  int fromlen; // [esp+14h] [ebp-21Ch]
+//  int v11; // [esp+18h] [ebp-218h]
+//  int v12; // [esp+1Ch] [ebp-214h]
+//  struct sockaddr from; // [esp+20h] [ebp-210h]
+//  char buf[256]; // [esp+30h] [ebp-200h]
+//  char in[256]; // [esp+130h] [ebp-100h]
+//
+//  fromlen = 16;
+//  if ( !*(_DWORD *)&byte_5D4594[2513916] )
+//    return -17;
+//  v11 = a1 & 1;
+//  if ( a1 & 1 )
+//  {
+//    result = ioctlsocket(*(SOCKET *)&byte_5D4594[2513920], 1074030207, &argp);
+//    if ( result == -1 )
+//      return result;
+//    if ( argp )
+//      goto LABEL_8;
+//  }
+//  else
+//  {
+//    argp = 1;
+//LABEL_8:
+//    while ( 1 )
+//    {
+//      v2 = recvfrom(*(SOCKET *)&byte_5D4594[2513920], buf, 256, 0, &from, &fromlen);
+//      if ( v2 == -1 )
+//        break;
+//      v3 = buf[2];
+//      LOBYTE(v12) = buf[2];
+//      if ( buf[2] < 0x20u )
+//      {
+//        qmemcpy(in, &from, fromlen);
+//        if ( v3 == 13 || sub_43B300() == *(_DWORD *)&from.sa_data[2] )
+//        {
+//          switch ( (unsigned __int8)v12 )
+//          {
+//            case 0xDu:
+//              v4 = inet_ntoa(*(struct in_addr *)&in[4]);
+//              v5 = v4;
+//              if ( &v8 != (int *)-120 )
+//              {
+//                if ( v4 )
+//                {
+//                  if ( *(_DWORD *)&byte_5D4594[2513928] )
+//                  {
+//                    LOWORD(v6) = ntohs(*(u_short *)&in[2]);
+//                    if ( (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[2513928])(
+//                           v5,
+//                           v6,
+//                           &buf[72],
+//                           buf) == 1 )
+//                      sub_555000(0);
+//                  }
+//                }
+//              }
+//              break;
+//            case 0xFu:
+//              if ( sub_43B6D0() )
+//                sub_43AF90(5);
+//              break;
+//            case 0x10u:
+//              if ( sub_43B6D0() )
+//              {
+//                sub_43AF90(4);
+//                buf[2] = 18;
+//                v7 = htons(*(u_short *)from.sa_data);
+//                sub_555010(*(int *)&from.sa_data[2], v7, buf, 8);
+//              }
+//              break;
+//            case 0x13u:
+//              if ( sub_43B6D0() )
+//                sub_43AFA0((unsigned __int8)buf[3]);
+//              break;
+//            case 0x14u:
+//              if ( sub_43B6D0() && sub_43AF80() == 3 )
+//                sub_43AF90(7);
+//              break;
+//            case 0x15u:
+//              if ( sub_43B6D0() )
+//                sub_43AF90(8);
+//              break;
+//            default:
+//              break;
+//          }
+//        }
+//      }
+//      if ( v11 && !(a1 & 4) )
+//      {
+//        if ( ioctlsocket(*(SOCKET *)&byte_5D4594[2513920], 1074030207, &argp) == -1 )
+//          return -1;
+//        if ( argp )
+//          continue;
+//      }
+//      return v2;
+//    }
+//  }
+//  return -1;
+//}
+// 554EC5: variable 'v6' is possibly undefined
+/* -------------------------------------------------------------------------
+ * 2) Rewrite sub_554D70 (minimal change: try netextras fake recv first)
+ * ------------------------------------------------------------------------- */
 int __cdecl sub_554D70(char a1)
 {
   int result; // eax
@@ -12116,6 +12362,11 @@ int __cdecl sub_554D70(char a1)
     result = ioctlsocket(*(SOCKET *)&byte_5D4594[2513920], 1074030207, &argp);
     if ( result == -1 )
       return result;
+
+    /* netextras: if we have fake packets queued, treat socket as readable */
+    if ( !argp && nox_netextras_fake_pending((int)*(SOCKET *)&byte_5D4594[2513920]) )
+      argp = 1;
+
     if ( argp )
       goto LABEL_8;
   }
@@ -12125,9 +12376,30 @@ int __cdecl sub_554D70(char a1)
 LABEL_8:
     while ( 1 )
     {
-      v2 = recvfrom(*(SOCKET *)&byte_5D4594[2513920], buf, 256, 0, &from, &fromlen);
+      /* netextras: try to satisfy recvfrom() from fake queue first */
+      {
+        int fr = nox_netextras_try_fake_recvfrom(
+                   (int)*(SOCKET *)&byte_5D4594[2513920],
+                   buf,
+                   sizeof(buf),
+                   &from,
+                   (socklen_t *)&fromlen
+                 );
+        if ( fr >= 0 )
+          v2 = fr;
+        else
+          v2 = recvfrom(*(SOCKET *)&byte_5D4594[2513920], buf, 256, 0, &from, &fromlen);
+      }
+
+
+
       if ( v2 == -1 )
         break;
+
+      if (buf[2] == 0x0D) {
+          fprintf(stderr, "GAME5: got serverinfo len=%d name='%s'\n", v2, &buf[72]);
+      }
+
       v3 = buf[2];
       LOBYTE(v12) = buf[2];
       if ( buf[2] < 0x20u )
@@ -12187,10 +12459,16 @@ LABEL_8:
           }
         }
       }
+
       if ( v11 && !(a1 & 4) )
       {
         if ( ioctlsocket(*(SOCKET *)&byte_5D4594[2513920], 1074030207, &argp) == -1 )
           return -1;
+
+        /* netextras: if fake packets queued, keep loop going */
+        if ( !argp && nox_netextras_fake_pending((int)*(SOCKET *)&byte_5D4594[2513920]) )
+          argp = 1;
+
         if ( argp )
           continue;
       }

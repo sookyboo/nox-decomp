@@ -13,12 +13,15 @@
 #include <ctype.h>
 #include <errno.h>
 
+#ifndef _WIN32
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#endif
+
 
 #include <SDL2/SDL.h>
 
@@ -42,6 +45,15 @@ static int g_ctrllog(void) {
 
 static void handle_one_command(int fd, const char *cmd, int *authed, const char *pw);
 static void send_str_maybe(int fd, const char *s);
+
+#ifndef _WIN32
+static int recv_line_telnet(int fd, char *out, size_t cap);
+#endif
+
+static int split_commands(char *buf, char **cmds, int max_cmds);
+static void strip_hash_comment(char *s);
+static void enqueue_key_press(int scancode);
+
 
 // ------------------------------------------------------------
 // Small env helpers (copied pattern from lobby.c, self-contained)
@@ -112,6 +124,8 @@ static const char *nox_env_str(const char *name, const char *defv)
     return (s && *s) ? s : defv;
 }
 
+#ifndef _WIN32
+
 static void set_sock_timeouts(int fd, int ms)
 {
     // Keep it simple; timeouts prevent stuck reads forever.
@@ -121,6 +135,227 @@ static void set_sock_timeouts(int fd, int ms)
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, (socklen_t)sizeof(tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, (socklen_t)sizeof(tv));
 }
+
+
+// ------------------------------------------------------------
+// Server state
+// ------------------------------------------------------------
+static SDL_Thread *g_thr = NULL;
+static int g_server_fd = -1;
+static int g_client_fd = -1;
+static volatile int g_running = 0;
+
+static int send_str(int fd, const char *s)
+{
+    if (fd < 0 || !s) return -1;
+
+    size_t len = strlen(s);
+    while (len) {
+        int flags = 0;
+#ifdef MSG_NOSIGNAL
+        flags |= MSG_NOSIGNAL; // avoid SIGPIPE on Linux
+#endif
+        ssize_t n = send(fd, s, len, flags);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return -1; // EPIPE/ECONNRESET/etc
+        }
+        s += (size_t)n;
+        len -= (size_t)n;
+    }
+    return 0;
+}
+static void send_str_maybe(int fd, const char *s)
+{
+    if (fd >= 0 && s) (void)send_str(fd, s);
+}
+
+static void close_fd(int *pfd)
+{
+    if (pfd && *pfd >= 0) {
+        close(*pfd);
+        *pfd = -1;
+    }
+}
+
+static int make_listener(const char *bind_ip, int port)
+{
+    int fd = (int)socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+
+    int one = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, (socklen_t)sizeof(one));
+
+    struct sockaddr_in sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons((uint16_t)port);
+    if (inet_pton(AF_INET, bind_ip, &sa.sin_addr) != 1) {
+        close(fd);
+        return -1;
+    }
+
+    if (bind(fd, (struct sockaddr *)&sa, (socklen_t)sizeof(sa)) < 0) {
+        close(fd);
+        return -1;
+    }
+    if (listen(fd, 4) < 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+static int server_thread(void *unused)
+{
+    (void)unused;
+
+    const char *pw = getenv("NOX_CONTROL_SERVER_PASSWORD");
+    const char *bind_ip = nox_env_str("NOX_CONTROL_SERVER_BIND", "127.0.0.1");
+    int port = nox_env_int("NOX_CONTROL_SERVER_PORT", 2323);
+
+    NOX_CTRL_LOG("thread: start (bind=%s port=%d pw=%s)",
+                 bind_ip, port, (pw && *pw) ? "(set)" : "(missing/empty)");
+
+    if (!pw || !*pw) {
+        NOX_CTRL_LOG("thread: NOX_CONTROL_SERVER_PASSWORD not set; exiting");
+        g_running = 0;
+        return 0;
+    }
+
+    g_server_fd = make_listener(bind_ip, port);
+    if (g_server_fd < 0) {
+        NOX_CTRL_LOG("thread: make_listener failed for %s:%d (%s)", bind_ip, port, strerror(errno));
+        g_running = 0;
+        return 0;
+    }
+
+    NOX_CTRL_LOG("thread: listening on %s:%d (fd=%d)", bind_ip, port, g_server_fd);
+
+    while (g_running) {
+        struct sockaddr_storage ss;
+        socklen_t sl = sizeof(ss);
+        int cfd = (int)accept(g_server_fd, (struct sockaddr *)&ss, &sl);
+        if (cfd < 0) {
+            if (errno == EINTR) continue;
+            NOX_CTRL_LOG("thread: accept failed (%s)", strerror(errno));
+            continue;
+        }
+
+        // Log peer
+        char host[NI_MAXHOST], serv[NI_MAXSERV];
+        if (getnameinfo((struct sockaddr*)&ss, sl, host, sizeof(host), serv, sizeof(serv),
+                        NI_NUMERICHOST | NI_NUMERICSERV) == 0) {
+            NOX_CTRL_LOG("thread: client connected from %s:%s (fd=%d)", host, serv, cfd);
+        } else {
+            NOX_CTRL_LOG("thread: client connected (fd=%d)", cfd);
+        }
+
+        // one client at a time
+        if (g_client_fd >= 0) {
+            NOX_CTRL_LOG("thread: dropping previous client fd=%d", g_client_fd);
+            close_fd(&g_client_fd);
+        }
+        g_client_fd = cfd;
+
+        set_sock_timeouts(g_client_fd, 2000);
+
+        int authed = 0;
+        send_str(g_client_fd, "NOX control server. Type 'help'.\r\n");
+        send_str(g_client_fd, "auth <password>\r\n> ");
+
+        char line[1024];
+        for (;;) {
+            int rl = recv_line_telnet(g_client_fd, line, sizeof(line));
+            if (rl == 0) {
+                NOX_CTRL_LOG("thread: client EOF");
+                close_fd(&g_client_fd);
+                break;
+            }
+            if (rl < 0) {
+                // Usually timeout; just continue waiting
+                // But if the socket is dead, bail.
+                if (errno == ECONNRESET || errno == EPIPE) {
+                    NOX_CTRL_LOG("thread: client disconnected (%s)", strerror(errno));
+                    close_fd(&g_client_fd);
+                    break;
+                }
+                continue;
+            }
+
+            if (rl == 2) {
+                // Ctrl+C / Telnet IP -> treat like Escape (or ignore)
+                enqueue_key_press(SDL_SCANCODE_ESCAPE);
+
+                // Optional feedback to the client:
+                send_str(g_client_fd, "^C -> ESC\r\n> ");
+                continue;
+            }
+
+            // trim
+            char *s = line;
+            while (*s && (unsigned char)*s <= ' ') s++;
+            char *e = s + strlen(s);
+            while (e > s && (unsigned char)e[-1] <= ' ') *--e = 0;
+
+            NOX_CTRL_LOG("thread: recv line: '%s'", s);
+
+            if (!*s) { send_str(g_client_fd, "> "); continue; }
+
+            strip_hash_comment(s);
+
+            char *cmds[32];
+            int ncmd = split_commands(s, cmds, (int)(sizeof(cmds)/sizeof(cmds[0])));
+
+            for (int i=0;i<ncmd;i++) {
+                char *c = cmds[i];
+                while (*c && (unsigned char)*c <= ' ') c++;
+                char *ce = c + strlen(c);
+                while (ce > c && (unsigned char)ce[-1] <= ' ') *--ce = 0;
+                if (!*c) continue;
+
+                NOX_CTRL_LOG("thread: cmd: '%s'", c);
+
+                int before = g_client_fd;
+                handle_one_command(g_client_fd, c, &authed, pw);
+                if (before >= 0 && g_client_fd < 0) break;
+            }
+
+            if (g_client_fd < 0) break;
+            send_str(g_client_fd, "\r\n> ");
+        }
+    }
+
+    NOX_CTRL_LOG("thread: shutting down");
+    close_fd(&g_client_fd);
+    close_fd(&g_server_fd);
+    g_running = 0;
+    return 0;
+}
+
+#else
+
+static int send_str(int fd, const char *s)
+{
+    (void)fd;
+    (void)s;
+    return 0;
+}
+
+// Windows: no sockets server; keep compilation happy.
+// (bootstrap uses fd=-1 so no output is needed)
+static void send_str_maybe(int fd, const char *s) { (void)fd; (void)s; }
+
+// Keep these globals if referenced elsewhere in this file:
+static SDL_Thread *g_thr = NULL;
+static int g_server_fd = -1;
+static int g_client_fd = -1;
+static volatile int g_running = 0;
+
+#endif
+
+
+
 
 // ------------------------------------------------------------
 // Telnet-friendly line reader: ignores IAC negotiation.
@@ -199,7 +434,6 @@ static int recv_line_telnet(int fd, char *out, size_t cap)
         }
     }
 }
-
 
 // ------------------------------------------------------------
 // Control action queue (network thread -> main thread)
@@ -852,77 +1086,6 @@ static void run_script_as_commands(int fd, const char *script, int *authed, cons
 }
 
 
-// ------------------------------------------------------------
-// Server state
-// ------------------------------------------------------------
-static SDL_Thread *g_thr = NULL;
-static int g_server_fd = -1;
-static int g_client_fd = -1;
-static volatile int g_running = 0;
-
-static int send_str(int fd, const char *s)
-{
-    if (fd < 0 || !s) return -1;
-
-    size_t len = strlen(s);
-    while (len) {
-        int flags = 0;
-#ifdef MSG_NOSIGNAL
-        flags |= MSG_NOSIGNAL; // avoid SIGPIPE on Linux
-#endif
-        ssize_t n = send(fd, s, len, flags);
-        if (n < 0) {
-            if (errno == EINTR) continue;
-            return -1; // EPIPE/ECONNRESET/etc
-        }
-        s += (size_t)n;
-        len -= (size_t)n;
-    }
-    return 0;
-}
-
-static void send_str_maybe(int fd, const char *s)
-{
-    if (fd >= 0 && s) (void)send_str(fd, s);
-}
-
-
-static void close_fd(int *pfd)
-{
-    if (pfd && *pfd >= 0) {
-        close(*pfd);
-        *pfd = -1;
-    }
-}
-
-static int make_listener(const char *bind_ip, int port)
-{
-    int fd = (int)socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) return -1;
-
-    int one = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, (socklen_t)sizeof(one));
-
-    struct sockaddr_in sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons((uint16_t)port);
-    if (inet_pton(AF_INET, bind_ip, &sa.sin_addr) != 1) {
-        close(fd);
-        return -1;
-    }
-
-    if (bind(fd, (struct sockaddr *)&sa, (socklen_t)sizeof(sa)) < 0) {
-        close(fd);
-        return -1;
-    }
-    if (listen(fd, 4) < 0) {
-        close(fd);
-        return -1;
-    }
-    return fd;
-}
-
 static void help_banner(int fd)
 {
     send_str_maybe(fd,
@@ -1142,8 +1305,13 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
     if (streq_ci(tok, "ping")) { send_str_maybe(fd, "pong\r\n"); return; }
     if (streq_ci(tok, "quit") || streq_ci(tok, "exit")) {
         send_str_maybe(fd, "bye\r\n");
-        if (fd >= 0) shutdown(fd, SHUT_RDWR);
-        close_fd(&g_client_fd); // also sets to -1
+        #ifndef _WIN32
+            if (fd >= 0) shutdown(fd, SHUT_RDWR);
+            close_fd(&g_client_fd); // also sets to -1
+        #else
+            (void)fd;
+            // No socket client on Windows build.
+        #endif
         return;
     }
 
@@ -1398,133 +1566,6 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
     send_str_maybe(fd, "ERR unknown command\r\n");
 }
 
-static int server_thread(void *unused)
-{
-    (void)unused;
-
-    const char *pw = getenv("NOX_CONTROL_SERVER_PASSWORD");
-    const char *bind_ip = nox_env_str("NOX_CONTROL_SERVER_BIND", "127.0.0.1");
-    int port = nox_env_int("NOX_CONTROL_SERVER_PORT", 2323);
-
-    NOX_CTRL_LOG("thread: start (bind=%s port=%d pw=%s)",
-                 bind_ip, port, (pw && *pw) ? "(set)" : "(missing/empty)");
-
-    if (!pw || !*pw) {
-        NOX_CTRL_LOG("thread: NOX_CONTROL_SERVER_PASSWORD not set; exiting");
-        g_running = 0;
-        return 0;
-    }
-
-    g_server_fd = make_listener(bind_ip, port);
-    if (g_server_fd < 0) {
-        NOX_CTRL_LOG("thread: make_listener failed for %s:%d (%s)", bind_ip, port, strerror(errno));
-        g_running = 0;
-        return 0;
-    }
-
-    NOX_CTRL_LOG("thread: listening on %s:%d (fd=%d)", bind_ip, port, g_server_fd);
-
-    while (g_running) {
-        struct sockaddr_storage ss;
-        socklen_t sl = sizeof(ss);
-        int cfd = (int)accept(g_server_fd, (struct sockaddr *)&ss, &sl);
-        if (cfd < 0) {
-            if (errno == EINTR) continue;
-            NOX_CTRL_LOG("thread: accept failed (%s)", strerror(errno));
-            continue;
-        }
-
-        // Log peer
-        char host[NI_MAXHOST], serv[NI_MAXSERV];
-        if (getnameinfo((struct sockaddr*)&ss, sl, host, sizeof(host), serv, sizeof(serv),
-                        NI_NUMERICHOST | NI_NUMERICSERV) == 0) {
-            NOX_CTRL_LOG("thread: client connected from %s:%s (fd=%d)", host, serv, cfd);
-        } else {
-            NOX_CTRL_LOG("thread: client connected (fd=%d)", cfd);
-        }
-
-        // one client at a time
-        if (g_client_fd >= 0) {
-            NOX_CTRL_LOG("thread: dropping previous client fd=%d", g_client_fd);
-            close_fd(&g_client_fd);
-        }
-        g_client_fd = cfd;
-
-        set_sock_timeouts(g_client_fd, 2000);
-
-        int authed = 0;
-        send_str(g_client_fd, "NOX control server. Type 'help'.\r\n");
-        send_str(g_client_fd, "auth <password>\r\n> ");
-
-        char line[1024];
-        for (;;) {
-            int rl = recv_line_telnet(g_client_fd, line, sizeof(line));
-            if (rl == 0) {
-                NOX_CTRL_LOG("thread: client EOF");
-                close_fd(&g_client_fd);
-                break;
-            }
-            if (rl < 0) {
-                // Usually timeout; just continue waiting
-                // But if the socket is dead, bail.
-                if (errno == ECONNRESET || errno == EPIPE) {
-                    NOX_CTRL_LOG("thread: client disconnected (%s)", strerror(errno));
-                    close_fd(&g_client_fd);
-                    break;
-                }
-                continue;
-            }
-
-            if (rl == 2) {
-                // Ctrl+C / Telnet IP -> treat like Escape (or ignore)
-                enqueue_key_press(SDL_SCANCODE_ESCAPE);
-
-                // Optional feedback to the client:
-                send_str(g_client_fd, "^C -> ESC\r\n> ");
-                continue;
-            }
-
-            // trim
-            char *s = line;
-            while (*s && (unsigned char)*s <= ' ') s++;
-            char *e = s + strlen(s);
-            while (e > s && (unsigned char)e[-1] <= ' ') *--e = 0;
-
-            NOX_CTRL_LOG("thread: recv line: '%s'", s);
-
-            if (!*s) { send_str(g_client_fd, "> "); continue; }
-
-            strip_hash_comment(s);
-
-            char *cmds[32];
-            int ncmd = split_commands(s, cmds, (int)(sizeof(cmds)/sizeof(cmds[0])));
-
-            for (int i=0;i<ncmd;i++) {
-                char *c = cmds[i];
-                while (*c && (unsigned char)*c <= ' ') c++;
-                char *ce = c + strlen(c);
-                while (ce > c && (unsigned char)ce[-1] <= ' ') *--ce = 0;
-                if (!*c) continue;
-
-                NOX_CTRL_LOG("thread: cmd: '%s'", c);
-
-                int before = g_client_fd;
-                handle_one_command(g_client_fd, c, &authed, pw);
-                if (before >= 0 && g_client_fd < 0) break;
-            }
-
-            if (g_client_fd < 0) break;
-            send_str(g_client_fd, "\r\n> ");
-        }
-    }
-
-    NOX_CTRL_LOG("thread: shutting down");
-    close_fd(&g_client_fd);
-    close_fd(&g_server_fd);
-    g_running = 0;
-    return 0;
-}
-
 // ------------------------------------------------------------
 // Public API (called from win.c and input.c)
 // ------------------------------------------------------------
@@ -1559,15 +1600,21 @@ void nox_control_server_init(void)
     // Run local bootstrap commands once (does not require a client).
     nox_control_server_bootstrap_from_env();
 
-    g_running = 1;
-    g_thr = SDL_CreateThread(server_thread, "nox_ctrl", NULL);
-    if (!g_thr) {
-        NOX_CTRL_LOG("init: SDL_CreateThread failed: %s", SDL_GetError());
-        g_running = 0;
-        return;
-    }
+    #ifndef _WIN32
+        g_running = 1;
+        g_thr = SDL_CreateThread(server_thread, "nox_ctrl", NULL);
+        if (!g_thr) {
+            NOX_CTRL_LOG("init: SDL_CreateThread failed: %s", SDL_GetError());
+            g_running = 0;
+            return;
+        }
 
-    NOX_CTRL_LOG("init: thread started OK");
+        NOX_CTRL_LOG("init: thread started OK");
+    #else
+        // Windows: sockets server disabled, bootstrap macros only.
+        NOX_CTRL_LOG("init: control server sockets disabled on Windows (bootstrap macros only)");
+        (void)port; (void)bind_ip; // if you get unused warnings
+    #endif
 }
 
 

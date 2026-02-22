@@ -40,10 +40,23 @@ extern "C" int main(int argc, char *argv[])
     }
 #else
     progname = argv[0];
-    strcpy(cmdline, argv[0]);
-    for (i = 1; i < argc; i++)
-        sprintf(cmdline + strlen(cmdline), " %s", argv[i]);
+
+    // Windows WinMain lpCmdLine normally excludes argv[0].
+    cmdline[0] = 0;
+    for (i = 1; i < argc; i++) {
+        if (strlen(cmdline) + strlen(argv[i]) + 2 >= sizeof(cmdline))
+            break;
+        if (cmdline[0]) strcat(cmdline, " ");
+        strcat(cmdline, argv[i]);
+    }
+
+    fprintf(stderr, "[main] progname='%s'\n", progname ? progname : "(null)");
+    fprintf(stderr, "[main] cmdline='%s'\n", cmdline);
+    fflush(stderr);
 #endif
+
+    fprintf(stderr, "[main] calling WinMain(...)\n");
+    fflush(stderr);
 
     return WinMain(NULL, NULL, cmdline, 0);
 }

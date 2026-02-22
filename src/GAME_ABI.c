@@ -2634,6 +2634,7 @@ LABEL_55:
 //   sub_5281F0(a1);
 //   return sub_534750(SLODWORD(a1));
 // }
+void __cdecl sub_5281F0__abi_raw(nox_abi_ptrslot_t a1);
 int __cdecl sub_531E20__abi_raw(nox_abi_ptrslot_t a1)
 {
   int *v1; // edi
@@ -2651,7 +2652,7 @@ int __cdecl sub_531E20__abi_raw(nox_abi_ptrslot_t a1)
   BYTE1(v3) |= 1u;
   v1[360] = v3;
   sub_5281E0();
-  sub_5281F0(a1);
+  sub_5281F0__abi_raw(a1);
   return sub_534750(self);
 }
 
@@ -2897,7 +2898,7 @@ int __cdecl sub_5497E0__abi_raw(nox_abi_ptrslot_t a1)
 //  sub_4D9110(&v1->field_0, 30);
 //  return *(_DWORD *)&byte_5D4594[2491576];
 //}
-void __cdecl sub_549860__abi_raw(int a1, nox_abi_ptrslot_t a2);
+void __cdecl sub_549860__abi_raw(int a1, int a2);
 int __cdecl sub_549800__abi_raw(nox_abi_ptrslot_t a1)
 {
   float2 *v1; // esi
@@ -2962,7 +2963,7 @@ int __cdecl sub_549800__abi_raw(nox_abi_ptrslot_t a1)
 //    }
 //  }
 //}
-void __cdecl sub_549860__abi_raw(int a1, nox_abi_ptrslot_t a2)
+void __cdecl sub_549860__abi_raw(int a1, int a2)
 {
   int v2; // esi
   bool v3; // zf
@@ -2973,9 +2974,9 @@ void __cdecl sub_549860__abi_raw(int a1, nox_abi_ptrslot_t a2)
   int v8; // [esp+28h] [ebp+8h]
   float v9; // [esp+28h] [ebp+8h]
 
-  v2 = NOX_PTR(a2);
+  v2 = a2;
   v3 = (v2 == a1);
-  v8 = *(_DWORD *)(v2 + 748);
+  v8 = *(_DWORD *)(v2 + 748); // line 2979
   if ( !v3 )
   {
     if ( sub_4E6E50((float2 *)(v2 + 56), *(__int16 *)(v2 + 124), (float2 *)(a1 + 56)) & 1 )
@@ -3491,8 +3492,19 @@ int __cdecl sub_549CA0__abi_raw(nox_abi_ptrslot_t a1)
 //  }
 //  return result;
 //}
-int __cdecl sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2)
+int __cdecl sub_500F40__abi_raw(
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+    nox_abi_ptrslot_t a1,
+    nox_abi_ptrslot_t a2
+#else
+    int a1,
+    float a2
+#endif
+)
 {
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+  /* ---- ARM hard-float path: your current ABI-fixed version ---- */
+
   _DWORD *v2; // esi
   int v3; // eax
   float v5; // edx
@@ -3605,6 +3617,96 @@ int __cdecl sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2)
     (void)v18;                        /* keep decls stable/minimal-diff */
     return 1;
   }
+
+#else
+  /* ---- Non-ARM (i386 etc.): original x86 body, unchanged ---- */
+
+  _DWORD *v2; // esi
+  int v3; // eax
+  float v4; // edi
+  float v5; // edx
+  float v6; // ecx
+  double v7; // st7
+  double v8; // st6
+  long double v9; // st6
+  float v10; // edx
+  int result; // eax
+  int v12; // esi
+  int v13; // esi
+  float v14; // edx
+  float v15; // eax
+  float v16; // ecx
+  int v17; // eax
+  int v18; // edx
+  float4 v19; // [esp+8h] [ebp-10h]
+
+  v2 = (_DWORD *)a1;
+  if ( *(float *)&a1 == 0.0 )
+    return 0;
+  v3 = *(_DWORD *)(a1 + 16);
+  if ( !v3 )
+    return 0;
+  v4 = a2;
+  if ( a2 == 0.0 )
+    return 0;
+  if ( *(_BYTE *)(v3 + 8) & 4 )
+  {
+    v19.field_0 = *(float *)(v3 + 56);
+    v5 = *(float *)(v3 + 60);
+    v6 = *(float *)(a1 + 56);
+    v19.field_8 = *(float *)(a1 + 52);
+    v19.field_C = v6;
+    v7 = v19.field_8 - v19.field_0;
+    v19.field_4 = v5;
+    v8 = v6 - v5;
+    *(float *)&a1 = v8;
+    v9 = sqrt(v8 * *(float *)&a1 + v7 * v7);
+    a2 = v9;
+    if ( v9 > 50.0 )
+    {
+      v19.field_8 = v7 * 50.0 / a2 + v19.field_0;
+      v19.field_C = *(float *)&a1 * 50.0 / a2 + v19.field_4;
+    }
+    if ( sub_535250(&v19, 0, 0, 9) && !sub_411A90((float2 *)&v19.field_8) )
+    {
+      v10 = v19.field_C;
+      *(_DWORD *)LODWORD(v4) = LODWORD(v19.field_8);
+      *(float *)(LODWORD(v4) + 4) = v10;
+      return 1;
+    }
+    v12 = v2[4];
+    if ( *(_BYTE *)(v12 + 8) & 4 )
+    {
+      v13 = *(_DWORD *)(v12 + 748);
+      a1 = 2;
+      sub_4DA0F0(*(unsigned __int8 *)(*(_DWORD *)(v13 + 276) + 2064), 0, &a1);
+    }
+    return 0;
+  }
+  v19.field_0 = *(float *)(v3 + 56);
+  v14 = *(float *)(v3 + 60);
+  v15 = *(float *)(a1 + 52);
+  v16 = *(float *)(a1 + 56);
+  v19.field_4 = v14;
+  v19.field_8 = v15;
+  v19.field_C = v16;
+  if ( sub_535250(&v19, 0, 0, 9) )
+  {
+    *(_DWORD *)LODWORD(v4) = v2[13]; // line 3695
+    *(_DWORD *)(LODWORD(v4) + 4) = v2[14];
+    result = 1;
+  }
+  else
+  {
+    v17 = v2[4];
+    *(_DWORD *)LODWORD(v4) = *(_DWORD *)(v17 + 56);
+    v18 = *(_DWORD *)(v17 + 60);
+    result = 1;
+    *(_DWORD *)(LODWORD(v4) + 4) = v18;
+  }
+  return result;
+
+#endif
 }
 
 

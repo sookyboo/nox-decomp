@@ -1,0 +1,88 @@
+FROM noxdecomp-build-winx86:latest
+
+COPY . /build/nox-decomp
+
+# -------------------------------------------------
+# Patches BEFORE configure/build
+# -------------------------------------------------
+
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-win32 \
+      -DCMAKE_PREFIX_PATH="/opt/sdl2-win32;/opt/openal-win32;/opt/glew-win32;/opt/ffmpeg-win32" \
+      -DOPENAL_INCLUDE_DIR=/opt/openal-win32/include \
+      -DOPENAL_LIBRARY=/opt/openal-win32/lib/libOpenAL32.dll.a \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_SYSTEM_NAME=Windows \
+      -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+      -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+      -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+      -DUSE_SDL=ON \
+      -DUSE_DIRECTX=OFF \
+      -DCMAKE_C_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include -U_FORTIFY_SOURCE -fno-strict-aliasing -fsigned-char -O0 -fno-tree-vectorize -fno-aggressive-loop-optimizations" \
+      -DCMAKE_CXX_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include -fno-strict-aliasing -fsigned-char -O0" \
+      -DCMAKE_EXE_LINKER_FLAGS="-L/opt/sdl2-win32/lib -L/opt/openal-win32/lib -L/opt/glew-win32/lib -L/opt/ffmpeg-win32/lib"
+
+
+
+
+#COPY draw.c /build/nox-decomp/src/draw.c
+#COPY win.c /build/nox-decomp/src/win.c
+#COPY compat.c /build/nox-decomp/src/compat.c
+#COPY string.c /build/nox-decomp/src/string.c
+#COPY GAME4.c /build/nox-decomp/src/GAME4.c
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake --build . -j $(nproc)
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/bin/av*.dll /build/nox-decomp/build/src/lib/ || true
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${SDL2_PREFIX}/bin/SDL2.dll /build/nox-decomp/build/src/lib/ || true
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${OPENAL_PREFIX}/bin/OpenAL32.dll /build/nox-decomp/build/src/lib/ || true
+
+
+# -------------------------------------------------
+# Verify output
+# -------------------------------------------------
+RUN find /build/nox-decomp/build/
+RUN file /build/nox-decomp/build/src/out* || true
+
+#RUN nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
+#RUN nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
+
+
+# -------------------------------------------------
+# Bundle: create /build/nox-decomp/build/src/noxd.win32 with exe + DLLs
+# -------------------------------------------------
+RUN set -eux; \
+    OUTDIR=/build/nox-decomp/build/src/noxd.win32; \
+    mkdir -p "$OUTDIR"; \
+    cp -av /build/nox-decomp/build/src/out.exe "$OUTDIR/"; \
+    \
+    # game/vendor DLLs
+    cp -av /build/nox-decomp/build/src/lib/. "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/ffmpeg-win32/bin/av*.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/ffmpeg-win32/bin/sw*.dll      "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/ffmpeg-win32/bin/postproc*.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/sdl2-win32/bin/SDL2.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/openal-win32/bin/OpenAL32.dll "$OUTDIR/" 2>/dev/null || true; \
+    cp -av /opt/glew-win32/bin/*.dll "$OUTDIR/" 2>/dev/null || true; \
+    \
+    # toolchain runtime DLLs (MinGW i686)
+    ( test -f /usr/i686-w64-mingw32/lib/libwinpthread-1.dll && cp -av /usr/i686-w64-mingw32/lib/libwinpthread-1.dll "$OUTDIR/" ) \
+      || ( f="$(find /usr -type f -name 'libwinpthread-1.dll' | grep -E '/i686-w64-mingw32/' | head -n1)"; test -n "$f" && cp -av "$f" "$OUTDIR/" ) \
+      || true; \
+    \
+    ( f="$(find /usr/lib/gcc -type f -name 'libgcc_s_sjlj-1.dll' | grep -E '/i686-w64-mingw32/' | head -n1)"; test -n "$f" && cp -av "$f" "$OUTDIR/" ) || true; \
+    ( f="$(find /usr/lib/gcc -type f -name 'libstdc++-6.dll'   | grep -E '/i686-w64-mingw32/' | head -n1)"; test -n "$f" && cp -av "$f" "$OUTDIR/" ) || true; \
+    \
+    ls -la "$OUTDIR"

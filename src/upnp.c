@@ -15,20 +15,114 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/select.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#ifdef _WIN32
+  #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+  #endif
+  #include <winsock2.h>
+  #include <windows.h>
+  #include <ws2tcpip.h>
+
+  // pthread shims (we only need a mutex)
+  typedef CRITICAL_SECTION pthread_mutex_t;
+  #define PTHREAD_MUTEX_INITIALIZER {0}
+
+  static int pthread_mutex_init(pthread_mutex_t *m, void *attr) {
+      (void)attr;
+      InitializeCriticalSection(m);
+      return 0;
+  }
+  static int pthread_mutex_lock(pthread_mutex_t *m) { EnterCriticalSection(m); return 0; }
+  static int pthread_mutex_unlock(pthread_mutex_t *m) { LeaveCriticalSection(m); return 0; }
+
+  // basic close/socket types shims
+  #define close closesocket
+  typedef int socklen_t;
+
+  #ifndef SHUT_RDWR
+  #define SHUT_RDWR SD_BOTH
+  #endif
+
+  // MinGW doesn't always provide strcasecmp
+  #ifndef strcasecmp
+  #define strcasecmp _stricmp
+  #endif
+
+  static int g_wsa_inited = 0;
+  static void wsa_init_once(void)
+  {
+      if (!g_wsa_inited) {
+          WSADATA w;
+          if (WSAStartup(MAKEWORD(2, 2), &w) == 0) g_wsa_inited = 1;
+      }
+  }
+
+  static int set_nonblock(int fd, int nb) {
+      u_long mode = nb ? 1UL : 0UL;
+      return ioctlsocket((SOCKET)fd, FIONBIO, &mode) == 0 ? 0 : -1;
+  }
+
+  static void errno_from_wsa(int wsa)
+  {
+      if (wsa == WSAEINTR)            errno = EINTR;
+      else if (wsa == WSAEWOULDBLOCK) errno = EWOULDBLOCK;
+      else if (wsa == WSAEINPROGRESS) errno = EINPROGRESS;
+      else if (wsa == WSAETIMEDOUT)   errno = ETIMEDOUT;
+      else if (wsa == WSAECONNRESET)  errno = ECONNRESET;
+      else if (wsa == WSAECONNREFUSED)errno = ECONNREFUSED;
+      else if (wsa == WSAEHOSTUNREACH)errno = EHOSTUNREACH;
+      else if (wsa == WSAENETUNREACH) errno = ENETUNREACH;
+      else errno = EIO;
+  }
+
+  // IPv4-only fallbacks (avoid depending on inet_pton/inet_ntop presence in MinGW)
+  static int nox_inet_pton4(const char *src, void *dst)
+  {
+      if (!src || !dst) return 0;
+      unsigned long a = inet_addr(src);
+      if (a == INADDR_NONE) return 0;
+      *(unsigned long*)dst = a;
+      return 1;
+  }
+
+  static const char *nox_inet_ntop4(const void *src, char *dst, size_t size)
+  {
+      if (!src || !dst || size == 0) return NULL;
+      struct in_addr a;
+      memcpy(&a, src, sizeof(a));
+      const char *s = inet_ntoa(a);
+      if (!s) return NULL;
+      strncpy(dst, s, size - 1);
+      dst[size - 1] = 0;
+      return dst;
+  }
+
+  #define inet_pton(af,src,dst) ((af)==AF_INET ? nox_inet_pton4((src),(dst)) : 0)
+  #define inet_ntop(af,src,dst,size) ((af)==AF_INET ? nox_inet_ntop4((src),(dst),(size)) : NULL)
+
+#else
+  #include <pthread.h>
+  #include <unistd.h>
+  #include <fcntl.h>
+  #include <sys/socket.h>
+  #include <sys/types.h>
+  #include <sys/select.h>
+  #include <arpa/inet.h>
+  #include <netdb.h>
+
+  static int set_nonblock(int fd, int nb) {
+      int fl = fcntl(fd, F_GETFL, 0);
+      if (fl < 0) return -1;
+      if (nb) fl |= O_NONBLOCK; else fl &= ~O_NONBLOCK;
+      return fcntl(fd, F_SETFL, fl);
+  }
+#endif
 
 #ifndef INET6_ADDRSTRLEN
 #define INET6_ADDRSTRLEN 46
@@ -84,14 +178,54 @@ static const char *env_str(const char *name, const char *defv) {
     return (s && *s) ? s : defv;
 }
 
-static int set_nonblock(int fd, int nb) {
-    int fl = fcntl(fd, F_GETFL, 0);
-    if (fl < 0) return -1;
-    if (nb) fl |= O_NONBLOCK; else fl &= ~O_NONBLOCK;
-    return fcntl(fd, F_SETFL, fl);
-}
-
 static int connect_with_timeout(int fd, const struct sockaddr *sa, socklen_t slen, int ms) {
+#ifdef _WIN32
+    wsa_init_once();
+
+    if (set_nonblock(fd, 1) < 0) return -1;
+
+    int rc = connect((SOCKET)fd, sa, (int)slen);
+    if (rc == 0) { (void)set_nonblock(fd, 0); return 0; }
+
+    int wsa = WSAGetLastError();
+    if (wsa != WSAEWOULDBLOCK && wsa != WSAEINPROGRESS && wsa != WSAEALREADY) {
+        errno_from_wsa(wsa);
+        (void)set_nonblock(fd, 0);
+        return -1;
+    }
+
+    fd_set wfds;
+    FD_ZERO(&wfds);
+    FD_SET((SOCKET)fd, &wfds);
+
+    struct timeval tv;
+    tv.tv_sec = ms / 1000;
+    tv.tv_usec = (ms % 1000) * 1000;
+
+    rc = select(fd + 1, NULL, &wfds, NULL, &tv);
+    if (rc <= 0) {
+        (void)set_nonblock(fd, 0);
+        if (rc == 0) errno = ETIMEDOUT;
+        return -1;
+    }
+
+    int soerr = 0;
+    socklen_t sl = sizeof(soerr);
+    if (getsockopt((SOCKET)fd, SOL_SOCKET, SO_ERROR, (char*)&soerr, &sl) < 0) {
+        (void)set_nonblock(fd, 0);
+        return -1;
+    }
+
+    (void)set_nonblock(fd, 0);
+
+    if (soerr != 0) {
+        // SO_ERROR returns WSA error on Windows
+        errno_from_wsa(soerr);
+        return -1;
+    }
+    return 0;
+
+#else
     int fl = fcntl(fd, F_GETFL, 0);
     if (fl < 0) return -1;
     if (set_nonblock(fd, 1) < 0) return -1;
@@ -124,9 +258,13 @@ static int connect_with_timeout(int fd, const struct sockaddr *sa, socklen_t sle
     (void)fcntl(fd, F_SETFL, fl);
     if (soerr != 0) { errno = soerr; return -1; }
     return 0;
+#endif
 }
 
 static int tcp_connect_hostport(const char *host, int port, int timeout_ms) {
+#ifdef _WIN32
+    wsa_init_once();
+#endif
     char portstr[16];
     snprintf(portstr, sizeof(portstr), "%d", port);
 
@@ -156,11 +294,21 @@ static int tcp_connect_hostport(const char *host, int port, int timeout_ms) {
 static int send_all(int fd, const void *buf, size_t len) {
     const unsigned char *p = (const unsigned char *)buf;
     while (len) {
+#ifdef _WIN32
+        int n = send((SOCKET)fd, (const char*)p, (int)len, 0);
+        if (n < 0) {
+            int wsa = WSAGetLastError();
+            if (wsa == WSAEINTR) continue;
+            errno_from_wsa(wsa);
+            return -1;
+        }
+#else
         ssize_t n = send(fd, p, len, 0);
         if (n < 0) {
             if (errno == EINTR) continue;
             return -1;
         }
+#endif
         p += (size_t)n;
         len -= (size_t)n;
     }
@@ -170,7 +318,11 @@ static int send_all(int fd, const void *buf, size_t len) {
 static int recv_some(int fd, char *buf, size_t cap, int timeout_ms) {
     fd_set rfds;
     FD_ZERO(&rfds);
+#ifdef _WIN32
+    FD_SET((SOCKET)fd, &rfds);
+#else
     FD_SET(fd, &rfds);
+#endif
     struct timeval tv;
     tv.tv_sec = timeout_ms / 1000;
     tv.tv_usec = (timeout_ms % 1000) * 1000;
@@ -180,9 +332,15 @@ static int recv_some(int fd, char *buf, size_t cap, int timeout_ms) {
         errno = (rc == 0) ? ETIMEDOUT : errno;
         return -1;
     }
+#ifdef _WIN32
+    int n = recv((SOCKET)fd, buf, (int)cap, 0);
+    if (n < 0) { errno_from_wsa(WSAGetLastError()); return -1; }
+    return n;
+#else
     ssize_t n = recv(fd, buf, cap, 0);
     if (n < 0) return -1;
     return (int)n;
+#endif
 }
 
 /* Very small HTTP fetch: reads until close into out (NUL-terminated). */
@@ -406,11 +564,19 @@ static int ssdp_discover_location(char *out, size_t outsz, int timeout_ms) {
     if (!out || outsz == 0) return -1;
     out[0] = 0;
 
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32
+    wsa_init_once();
+#endif
+
+    int fd = (int)socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) return -1;
 
     int yes = 1;
-    (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+#ifdef _WIN32
+    (void)setsockopt((SOCKET)fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&yes, (int)sizeof(yes));
+#else
+    (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, (socklen_t)sizeof(yes));
+#endif
 
     struct sockaddr_in dst;
     memset(&dst, 0, sizeof(dst));
@@ -438,7 +604,11 @@ static int ssdp_discover_location(char *out, size_t outsz, int timeout_ms) {
             "\r\n",
             sts[i]);
         if (n <= 0 || (size_t)n >= sizeof(req)) continue;
-        (void)sendto(fd, req, (size_t)n, 0, (struct sockaddr *)&dst, sizeof(dst));
+#ifdef _WIN32
+        (void)sendto((SOCKET)fd, req, (int)n, 0, (struct sockaddr *)&dst, (int)sizeof(dst));
+#else
+        (void)sendto(fd, req, (size_t)n, 0, (struct sockaddr *)&dst, (socklen_t)sizeof(dst));
+#endif
     }
 
     // collect responses until timeout; pick first with LOCATION
@@ -452,7 +622,11 @@ static int ssdp_discover_location(char *out, size_t outsz, int timeout_ms) {
 
         fd_set rfds;
         FD_ZERO(&rfds);
+#ifdef _WIN32
+        FD_SET((SOCKET)fd, &rfds);
+#else
         FD_SET(fd, &rfds);
+#endif
         struct timeval tv;
         tv.tv_sec = remain / 1000;
         tv.tv_usec = (remain % 1000) * 1000;
@@ -463,20 +637,24 @@ static int ssdp_discover_location(char *out, size_t outsz, int timeout_ms) {
         char buf[2048];
         struct sockaddr_in from;
         socklen_t fl = sizeof(from);
+#ifdef _WIN32
+        int r = recvfrom((SOCKET)fd, buf, (int)sizeof(buf) - 1, 0, (struct sockaddr *)&from, &fl);
+        if (r <= 0) continue;
+        buf[r] = 0;
+#else
         ssize_t r = recvfrom(fd, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&from, &fl);
         if (r <= 0) continue;
         buf[r] = 0;
+#endif
 
         // Find "LOCATION:" (case-insensitive-ish)
         const char *loc = NULL;
         const char *p = buf;
         while (*p) {
-            // line start
             const char *line = p;
             const char *eol = strstr(p, "\r\n");
             if (!eol) eol = p + strlen(p);
 
-            // compare prefix
             const char *k = "location:";
             size_t klen = strlen(k);
             if ((size_t)(eol - line) > klen) {
@@ -515,7 +693,11 @@ static int determine_internal_ip(const char *router_ip, char *out, size_t outsz)
     if (!router_ip || !out || outsz == 0) return -1;
     out[0] = 0;
 
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32
+    wsa_init_once();
+#endif
+
+    int fd = (int)socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) return -1;
 
     struct sockaddr_in dst;
@@ -528,20 +710,33 @@ static int determine_internal_ip(const char *router_ip, char *out, size_t outsz)
     }
 
     // UDP connect doesn't send packets but selects route
+#ifdef _WIN32
+    (void)connect((SOCKET)fd, (const struct sockaddr *)&dst, (int)sizeof(dst));
+#else
     (void)connect(fd, (__CONST_SOCKADDR_ARG)(const struct sockaddr *)&dst, sizeof(dst));
+#endif
 
     struct sockaddr_in me;
     socklen_t ml = sizeof(me);
+    char ip[INET_ADDRSTRLEN];
+
+#ifdef _WIN32
+    if (getsockname((SOCKET)fd, (struct sockaddr *)&me, &ml) != 0) {
+        close(fd);
+        return -1;
+    }
+#else
     if (getsockname(fd, (__SOCKADDR_ARG)&me, &ml) != 0) {
         close(fd);
         return -1;
     }
+#endif
 
-    char ip[INET_ADDRSTRLEN];
     if (!inet_ntop(AF_INET, &me.sin_addr, ip, sizeof(ip))) {
         close(fd);
         return -1;
     }
+
     strncpy(out, ip, outsz - 1);
     out[outsz - 1] = 0;
     close(fd);

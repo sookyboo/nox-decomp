@@ -59,7 +59,10 @@ int __cdecl sub_48A720(SDL_Surface *a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, int 
 void __cdecl sub_48A670(SDL_Surface *a1);
 void __cdecl sub_48A6B0(SDL_Surface *a1);
 
-SDL_Window *dword_973FE0;
+extern SDL_Window *dword_973FE0;
+/* Forward decls: used by sub_444AC0() before the globals are defined */
+extern SDL_GLContext g_ddraw;
+extern SDL_Surface  *g_backbuffer1;
 #else
 void __cdecl sub_435380(LPDIRECTDRAWGAMMACONTROL *a1);
 void __cdecl sub_4353A0(LPDIRECTDRAWPALETTE *a1);
@@ -109,7 +112,10 @@ int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
 	InitializeCriticalSection((LPCRITICAL_SECTION)&byte_5D4594[3799596]);
 	*(_DWORD *)&byte_5D4594[823780] = 1;
 #ifdef USE_SDL
-	dword_973FE0 = (SDL_Window *)a1;
+    // IMPORTANT: a1 is an HWND in the original game calling convention.
+    // In SDL builds, dword_973FE0 must be set when you create the SDL window,
+    // not from this HWND argument.
+    (void)a1;
 #else
 	dword_973FE0 = a1;
 #endif
@@ -1001,15 +1007,85 @@ static void glCheckErrorAt(const char *where)
 #define FRAME_LOG(...) do {} while (0)
 #endif
 
+static int nox_strieq(const char *a, const char *b)
+{
+    if (!a || !b) return 0;
+    while (*a && *b) {
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return 0;
+        a++; b++;
+    }
+    return *a == 0 && *b == 0;
+}
+
+static void nox_choose_5551_cached(GLenum *out_format, GLenum *out_type)
+{
+    static int inited = 0;
+    static GLenum cached_format = 0;
+    static GLenum cached_type = 0;
+
+    if (!inited) {
+        const char *v = getenv("NOX_TEX5551_FMT");
+
+        if (v && *v) {
+            if (nox_strieq(v, "rgba5551") || nox_strieq(v, "rgba")) {
+                cached_format = GL_RGBA;
+                cached_type   = GL_UNSIGNED_SHORT_5_5_5_1;
+            } else if (nox_strieq(v, "bgra1555rev") || nox_strieq(v, "bgra")) {
+                cached_format = GL_BGRA;
+                cached_type   = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+            } else if (nox_strieq(v, "auto")) {
+                /* fall through to platform default */
+            } else {
+                /* unknown value -> platform default */
+            }
+        }
+
+        if (cached_format == 0) {
+#ifdef _WIN32
+            cached_format = GL_BGRA;
+            cached_type   = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+#else
+            cached_format = GL_RGBA;
+            cached_type   = GL_UNSIGNED_SHORT_5_5_5_1;
+#endif
+        }
+
+        inited = 1;
+    }
+
+    *out_format = cached_format;
+    *out_type   = cached_type;
+}
+
+
 void sdl_present()
 {
     if (!g_ddraw)
         return;
+    if (!dword_973FE0) {
+        fprintf(stderr, "sdl_present: no SDL window (dword_973FE0 is NULL)\n");
+        return;
+    }
+
+    // If the window isn't an OpenGL window, SDL will throw exactly the error you're seeing.
+    if ((SDL_GetWindowFlags(dword_973FE0) & SDL_WINDOW_OPENGL) == 0) {
+        fprintf(stderr, "sdl_present: window is not SDL_WINDOW_OPENGL (flags=0x%08x)\n",
+                (unsigned)SDL_GetWindowFlags(dword_973FE0));
+        return;
+    }
+
 
     SDL_Surface *srcsurf = g_present_src ? g_present_src : g_backbuffer1;
     if (!srcsurf)
         return;
-
+    if (SDL_GL_GetCurrentWindow() != dword_973FE0 ||
+        SDL_GL_GetCurrentContext() != g_ddraw)
+    {
+        if (SDL_GL_MakeCurrent(dword_973FE0, g_ddraw) != 0) {
+            fprintf(stderr, "sdl_present: SDL_GL_MakeCurrent failed: %s\n", SDL_GetError());
+            return;
+        }
+    }
     // --------------------------------------------------------------------
     // Frame + backbuffer tracking
     // --------------------------------------------------------------------
@@ -1025,6 +1101,8 @@ void sdl_present()
     // --------------------------------------------------------------------
     static SDL_GLContext s_main_ctx = NULL;
     SDL_GLContext cur_ctx = SDL_GL_GetCurrentContext();
+    GLenum fmt, type;
+    nox_choose_5551_cached(&fmt, &type);
     if (!s_main_ctx) {
         s_main_ctx = cur_ctx;
         fprintf(stderr, "GLCTX: main_ctx=%p\n", (void *)s_main_ctx);
@@ -1146,8 +1224,14 @@ static int tex_w = 0, tex_h = 0;
         tex_h = h;
 
         // Allocate a fresh texture of the correct size (contents undefined/empty).
+        // Alternate fix might be adding GL_TEXTURE_SWIZZLE_RGBA after glBindTexture:
+        // {
+//               GLint swz[] = { GL_BLUE, GL_GREEN, GL_RED, GL_ALPHA };
+//               glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swz);
+//               glCheckError();
+//           }
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tex_w, tex_h, 0,
-                     GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+                     fmt, type, NULL);
         // Optional: ensure clean black immediately (not strictly required if you fully upload every pixel)
         // You can skip this if your conv always fills w*h.
     }
@@ -1170,8 +1254,8 @@ static int tex_w = 0, tex_h = 0;
         glTexSubImage2D(
             GL_TEXTURE_2D, 0, 0, 0,
             w, h,
-            GL_RGBA,
-            GL_UNSIGNED_SHORT_5_5_5_1,
+            fmt,
+            type,
             srcsurf->pixels
         );
         glCheckErrorAt("texsubimage2d rgba5551");
@@ -1182,8 +1266,8 @@ static int tex_w = 0, tex_h = 0;
             glTexSubImage2D(
                 GL_TEXTURE_2D, 0, 0, y,
                 w, 1,
-                GL_RGBA,
-                GL_UNSIGNED_SHORT_5_5_5_1,
+                fmt,
+                type,
                 row
             );
         }
@@ -1561,12 +1645,14 @@ int sub_48B000()
     g_rotate = 0;
 #endif
     g_format = SDL_PIXELFORMAT_RGBA5551;
+    GLenum fmt, type;
+    nox_choose_5551_cached(&fmt, &type);
 
     if (!gl_inited) {
 
         // ---- Enforce OpenGL 2.1 compatibility ----
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+//        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+//        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
         // ---------------- FIRST TIME: full GL init ----------------
         g_ddraw = SDL_GL_CreateContext(dword_973FE0);
@@ -1605,11 +1691,10 @@ int sub_48B000()
 
         SDL_GL_SetSwapInterval(1);
 
-#ifdef _WIN32
+#if defined(_WIN32)
         err = glewInit();
         if (GLEW_OK != err)
         {
-            /* Problem: glewInit failed, something is seriously wrong. */
             dprintf("Error: %s\n", glewGetErrorString(err));
         }
 #endif
@@ -1645,7 +1730,7 @@ int sub_48B000()
             tex_w,
             tex_h,
             0,
-            GL_RGBA,
+            fmt,
             GL_UNSIGNED_BYTE,
             NULL
         );
@@ -1780,7 +1865,7 @@ int sub_48B000()
             tex_w,
             tex_h,
             0,
-            GL_RGBA,
+            fmt,
             GL_UNSIGNED_BYTE,
             NULL
         );
@@ -3896,6 +3981,24 @@ int __cdecl sub_4B0340(int a1)
 	*(_DWORD *)&byte_5D4594[1311932] = a1;
 #ifdef USE_SDL
      fprintf(stderr, "show movie\n");
+      /* Hard skip (useful for Wine/SDL bring-up): skip ALL movie/show path */
+         {
+             const char *skip_all = getenv("NOX_SKIP_MOVIES");
+             const char *skip_intro = getenv("NOX_SKIP_INTRO_MOVIES");
+             if (nox_env_truthy(skip_all) || nox_env_truthy(skip_intro)) {
+                 fprintf(stderr, "[movie] NOX_SKIP_MOVIES/NOX_SKIP_INTRO_MOVIES set -> skipping show path (queue=%d)\n",
+                         *(_DWORD *)&byte_5D4594[1311928]);
+                 /* Clear queue so we don't try again */
+                 *(_DWORD *)&byte_5D4594[1311928] = 0;
+
+                 g_present_src      = NULL;
+                 g_present_is_movie = 0;
+                 /* dword_6F7BA0 stays as-is */
+
+                 sub_4B05D0();
+                 return 1;
+             }
+         }
      v1 = 0;
 
     g_present_src      = NULL;   // let sub_555430 set it to g_movie_surf

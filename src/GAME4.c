@@ -3462,7 +3462,7 @@ int __cdecl sub_4FAB20(_DWORD *a1)
       BYTE1(v4) |= 1u;
       *(_DWORD *)(v3 + 1440) = v4;
       sub_4FAAC0(a1);
-      sub_50A5C0(*(float *)&a1);
+      sub_50A5C0((void *)a1);
       sub_4FAAF0(a1);
       v5 = sub_4FABC0((int)a1);
       v6 = *(_DWORD *)(v1 + 276);
@@ -8881,6 +8881,7 @@ bool __cdecl sub_500D70(int a1, int a2)
 }
 
 //----- (00500DA0) --------------------------------------------------------
+// nox_xxx_summonStart_500DA0
 int __cdecl sub_500DA0(int a1)
 {
   int v1; // eax
@@ -8925,8 +8926,15 @@ int __cdecl sub_500DA0(int a1)
       return 1;
     }
   }
-  if ( !sub_500F40(a1, COERCE_FLOAT(&v17[2])) )
-    return 1;
+  //if ( !sub_500F40(a1, COERCE_FLOAT(&v17[2])) )
+  //  return 1;
+  {
+    float outBits;
+    uint32_t out_u32 = (uint32_t)(uintptr_t)&v17[2];
+    memcpy(&outBits, &out_u32, sizeof(outBits));  // bit-cast pointer -> float
+    if (!sub_500F40(a1, outBits))
+      return 1;
+  }
   v17[10] = *(_BYTE *)(*(_DWORD *)(a1 + 16) + 124);
   v6 = sub_427230(v2);
   *(_WORD *)v17 = sub_4E3AA0(v6);

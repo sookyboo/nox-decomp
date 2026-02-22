@@ -14,6 +14,16 @@
 
 #include "defs.h"
 
+#if defined(_WIN32) && defined(USE_SDL)
+#include <stdio.h>
+
+void nox_dbgbreak_impl(const char *file, int line, const char *func)
+{
+    fprintf(stderr, "[AIL] DebugBreak suppressed at %s:%d (%s)\n", file, line, func);
+    fflush(stderr);
+}
+#endif
+
 struct _DIG_DRIVER
 {
     ALCdevice *device;
@@ -243,12 +253,14 @@ static unsigned int decode_adpcm_stereo(int16_t *out, const BYTE *data, unsigned
 
 static void checkError()
 {
-    ALenum error;
-    error = alGetError();
+    ALenum error = alGetError();
     if (error != AL_NO_ERROR)
     {
-        dprintf("AL error: 0x%x\n", error);
-        DebugBreak();
+        const ALchar *estr = alGetString(error);
+        fprintf(stderr, "[AIL] OpenAL error: 0x%x (%s)\n", (unsigned)error, estr ? estr : "unknown");
+        fflush(stderr);
+        /* Do not hard-break under Wine/SDL; keep going so we can see follow-up failures */
+        /* DebugBreak(); */
     }
 }
 
@@ -360,15 +372,58 @@ DXDEC void AILCALL AIL_digital_configuration (HDIGDRIVER dig, S32 FAR *rate, S32
 
 DXDEC S32 AILCALL AIL_digital_handle_release(HDIGDRIVER drvr)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
-    DebugBreak();
+    if (!drvr)
+        return 0;
+
+    /* stop audio so Miles-style "release" actually quiets the system */
+    SDL_LockMutex(drvr->mutex);
+
+    for (HSAMPLE s = drvr->sample_head; s; s = s->next) {
+        if (s->source) {
+            alSourceStop(s->source);
+        }
+        s->playing = 0;
+        /* optional: drain queued buffers so next play starts clean */
+        if (s->source) {
+            sample_drain_buffers(s);
+        }
+    }
+
+    for (HSTREAM st = drvr->stream_head; st; st = st->next) {
+        if (st->source) {
+            alSourceStop(st->source);
+        }
+        st->playing = 0;
+        /* optional: unqueue anything we can */
+        if (st->source) {
+            /* drain: unqueue queued buffers (mirrors sample_drain_buffers) */
+            ALint queued = 0;
+            alGetSourcei(st->source, AL_BUFFERS_QUEUED, &queued);
+            if (queued > 2) queued = 2;
+            if (queued > 0) {
+                ALuint tmp[2];
+                alSourceUnqueueBuffers(st->source, queued, tmp);
+                for (int i = 0; i < queued; i++) {
+                    if (st->hwready < 2) st->hwbuf[st->hwready++] = tmp[i];
+                }
+            }
+        }
+    }
+
+    SDL_UnlockMutex(drvr->mutex);
+
+    /* swallow errors; this is a compatibility shim */
+    (void)alGetError();
     return 0;
 }
 
-DXDEC S32 AILCALL AIL_digital_handle_reacquire (HDIGDRIVER drvr)
+DXDEC S32 AILCALL AIL_digital_handle_reacquire(HDIGDRIVER drvr)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
-    DebugBreak();
+    if (!drvr)
+        return 0;
+
+    /* Nothing to do in this backend; we never actually released the device/context.
+       Returning success + clearing the game's "released" flag is what it expects. */
     return 0;
 }
 
@@ -747,8 +802,35 @@ error:
 
 DXDEC void AILCALL AIL_pause_stream(HSTREAM stream, S32 onoff)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
-    DebugBreak();
+    if (!stream)
+        return;
+
+    SDL_LockMutex(stream->dig->mutex);
+
+    if (onoff)
+    {
+        /* pause */
+        stream->playing = 0;
+        if (stream->source)
+            alSourcePause(stream->source);
+    }
+    else
+    {
+        /* resume */
+        stream->playing = 1;
+        if (stream->source)
+        {
+            ALint state = 0;
+            alGetSourcei(stream->source, AL_SOURCE_STATE, &state);
+            if (state != AL_PLAYING)
+                alSourcePlay(stream->source);
+        }
+    }
+
+    SDL_UnlockMutex(stream->dig->mutex);
+
+    /* Don’t fatal-break on OpenAL issues under Wine; just report via checkError */
+    checkError();
 }
 
 DXDEC AILSAMPLECB AILCALL AIL_register_EOB_callback (HSAMPLE S, AILSAMPLECB EOB)

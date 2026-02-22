@@ -268,11 +268,11 @@ int sub_5497E0(void *p)
  * GAME5: sub_549860 (callback arg is the pointer-slot)
  * ============================================================ */
 // nox_xxx_monsterAttackAreaDamage_549860
-void sub_549860__abi_raw(int a1, nox_abi_ptrslot_t a2);
+static void sub_549860__abi_raw(int a1, int a2);
 
 void sub_549860(int a1, void *p2)
 {
-    sub_549860__abi_raw(a1, nox_to_ptrslot(p2));
+    sub_549860__abi_raw(a1, (int)p2);
 }
 
 
@@ -312,7 +312,8 @@ int sub_549960(void *p)
 }
 
 // Fix summoning on i386
-/* raw ABI entrypoint: a1 = self ptrslot, a2 = out float2 ptrslot */
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+
 int sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2);
 
 /* bit-cast float -> u32 without aliasing UB */
@@ -323,32 +324,25 @@ static inline uint32_t nox_u32_from_float(float f)
     return u;
 }
 
-/*
- * KEEP THIS SIGNATURE: call sites pass (int self_ptr, float packed_ptr)
- * where packed_ptr was produced via COERCE_FLOAT(&something).
- */
 int sub_500F40(int a1, float a2)
 {
-    /* This codebase is currently 32-bit only (arm32/x86). Enforce assumptions. */
-#if UINTPTR_MAX != 0xFFFFFFFFu
-# error "sub_500F40 wrapper expects 32-bit pointers (arm32/x86)."
-#endif
-#if !defined(__STDC_IEC_559__) /* optional: IEEE-754 */
-    /* Not strictly required, but most toolchains here are IEEE-754. */
-#endif
-
-    /* a1 is a pointer value in an int */
     void *self = (void *)(uintptr_t)(uint32_t)a1;
-
-    /*
-     * a2 is NOT a numeric float. It is a pointer’s raw bits carried in a float.
-     * COERCE_FLOAT(&v17[2]) makes the float bit-pattern == (uint32_t)&v17[2].
-     */
     uint32_t out_u32 = nox_u32_from_float(a2);
     void *out_ptr = (void *)(uintptr_t)out_u32;
-
     return sub_500F40__abi_raw(nox_to_ptrslot(self), nox_to_ptrslot(out_ptr));
 }
+
+#else
+
+int sub_500F40__abi_raw(int a1, float a2);
+
+/* On i386/others, no ABI translation needed; just call the raw version. */
+int sub_500F40(int a1, float a2)
+{
+    return sub_500F40__abi_raw(a1, a2);
+}
+
+#endif
 
 // fix arrow wrong direction wiz chpt 3
 void sub_5281F0__abi_raw(nox_abi_ptrslot_t a1);
