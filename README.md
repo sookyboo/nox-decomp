@@ -176,30 +176,41 @@ export NOX_GAMEPAD_LOG=0 # for debbuging gamepad issues
 ```
 
 # Steam deck 
-Download the flatpak from releases section.
-
+Please note:
 It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
-
 It also needs access to your devices for gamepad support.
 
+Go to Power -> Switch to Desktop
 
-Dependencies:
-```
-flatpak install --user -y flathub \
-org.freedesktop.Platform//24.08 \
-org.freedesktop.Platform.Compat.i386//24.08 \
-org.freedesktop.Platform.GL32.default//24.08
-```
+Controlling the mouse: Right touch pad lets you move the mouse, r2 is click and l2 is right click.
 
-Install:
-```
-# assuming io.github.sookyboo.NoxDecomp.flatpak is in the current dir
-flatpak install -y --user --reinstall io.github.sookyboo.NoxDecomp.flatpak
-```
+Download the flatpak.zip from releases section in the chrome browser on the steam deck.
+
+Open up the file manager (File Manager is called Dolphin)
+
+Go to Downloads
+
+Double Click flatpak.zip
+
+Open it up in Ark 
+
+Click the Extract button in the top left
+
+Extract to the Downloads folder (should be already there)
+
+Click Extract
+
+Back in the file manager (Dolphin) there should be a flatpak directory go inside it
+
+Double click install.sh
+
+Choose execute
+
+Wait 30 seconds and in the mean time 
 
 Create a launcher for steam:
 
-Using Dolphin file browser
+Using file manager (Dolphin)
 
 Go to Home/.local/share/flatpak/exports/share/applications
 
@@ -207,10 +218,13 @@ Right click `io.github.sookyboo.NoxDecomp.desktop`
 
 Click Add to Steam
 
+Double click `io.github.sookyboo.NoxDecomp.desktop` it to run it so it will create `~/nox-decomp/gamefiles` in your home directory for you.
 
-Setup Controller (These instructions may differ as Valve changes steam):
+Log in to your gog.com account and buy/download nox it should be something like `setup_nox_2.0.0.20.exe`
 
-Get out of desktop mode by restarting
+Download that file and move it into your Home -> nox-decomp -> gamefiles directory.
+
+Click the bottom left steam icon and choose restart back into normal steam deck mode.
 
 Go to your library, Non-Steam collection
 
