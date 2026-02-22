@@ -240,6 +240,10 @@ Choose Gamepad with Mouse Trackpad
 
 Press X to apply the layout
 
+Now go back to the game launch screen and launch the game
+
+It will spin for 50 seconds while it extracts the game files and then the game should launch.
+
 # Linux
 Download the zip from releases.
 
