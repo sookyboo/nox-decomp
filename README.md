@@ -15,13 +15,13 @@ Other notable projects:
 [Opennox](https://github.com/opennox/opennox/tree/v1.9.0-alpha13) - This was difficult to get working on 32bit ARM and has bugs which is why this fork started
 
 Why is this different than Opennox:
-This fork has fully complete-able single player campaigns and the server version can host any style of game without crashing.
-Built-in gamepad support.
-Works on any native resolution of a device and scales the original game resolution to the device native resolution. 
-Can join and host public internet games listed on the OpenNox lobby servers. 
-Works on $50 ARM linux based handheld game consoles on [PortMaster](https://portmaster.games/detail.html?name=nox-decomp).
-Fast and very close to the original game. 
-32bit currently but possibly a 64bit version in future. 
+- This fork has fully complete-able single player campaigns and the server version can host any style of game without crashing.
+- Built-in gamepad support.
+- Works on any native resolution of a device and scales the original game resolution to the device native resolution. 
+- Can join and host public internet games listed on the OpenNox lobby servers. 
+- Works on $50 ARM linux based handheld game consoles on [PortMaster](https://portmaster.games/detail.html?name=nox-decomp).
+- Fast and very close to the original game. 
+- 32bit currently but possibly a 64bit version in future. 
 
 Neuromancers original comments:
 **The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
