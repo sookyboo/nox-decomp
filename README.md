@@ -296,6 +296,11 @@ The file is also included in releases here.
 
 # Server
 There are docker arm64 and amd64 images that run the 32bit version
+
+Example kubernetes and docker-compose files:
+[docker-compose.yml](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/docker-compose.yml)
+[kubernetes](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/nox-decomp-kube.yml)
+
 ```
 amd64:
 docker run --pull always --rm --name nox-decomp-server --platform linux/amd64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest

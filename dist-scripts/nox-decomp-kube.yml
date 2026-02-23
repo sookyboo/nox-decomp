@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nox-decomp-secret
+type: Opaque
+stringData:
+  NOX_CONTROL_SERVER_PASSWORD: "secret"
+  NOX_SERVER_SYSOP: "secret"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nox-decomp
+  labels:
+    app: nox-decomp
+  annotations:
+    backup.velero.io/backup-volumes-excludes: nox-volume,nox-src
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nox-decomp
+  template:
+    metadata:
+      labels:
+        app: nox-decomp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: "OnRootMismatch"
+
+      initContainers:
+        - name: seed-gamefiles
+          image: ghcr.io/nox-decomp/nox-decomp-server:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ "ALL" ]
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+          command: [ "/bin/sh", "-lc" ]
+          args:
+            - |
+              set -eu
+
+              CHECK="/dst/.seeded"
+              if [ -f "${CHECK}" ]; then
+                echo "Gamefiles already seeded (${CHECK} exists); skipping copy."
+                exit 0
+              fi
+
+              echo "Seeding gamefiles from /src -> /dst ..."
+              mkdir -p /dst
+
+              # Copy contents without trying to preserve ownership/timestamps
+              cp -R --no-preserve=ownership,mode,timestamps /src/. /dst/
+
+              date > "${CHECK}"
+              echo "Seed complete."
+          volumeMounts:
+            - name: nox-src
+              mountPath: /src
+              readOnly: true
+            - name: nox-gamefiles
+              mountPath: /dst
+      containers:
+        - name: nox-decomp
+          image: ghcr.io/nox-decomp/nox-decomp-server:latest
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: NOX_CONTROL_SERVER
+              value: "1"
+            - name: NOX_CONTROL_SERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nox-decomp-secret
+                  key: NOX_CONTROL_SERVER_PASSWORD
+            - name: NOX_CONTROL_SERVER_BIND
+              value: "127.0.0.1"
+            - name: NOX_CONTROL_SERVER_PORT
+              value: "2323"
+
+            - name: NOX_SKIP_INTRO_MOVIES
+              value: "1"
+            - name: NOX_CONTROL_SERVER_SLEEP_SCALE
+              value: "6"
+            - name: NOX_CONTROL_SERVER_BOOT
+              value: "sleep 5000; macro server;"
+            - name: NOX_CONTROL_INJECT_LOG
+              value: "0"
+            - name: NOX_CONTROL_LOG
+              value: "1"
+
+            - name: NOX_SERVER_NAME
+              value: "NoxDecomp"
+            - name: NOX_SERVER_SYSOP
+              valueFrom:
+                secretKeyRef:
+                  name: nox-decomp-secret
+                  key: NOX_SERVER_SYSOP
+            - name: NOX_SERVER_LESSONS
+              value: "15"
+            - name: NOX_SERVER_TIME
+              value: "0"
+            - name: NOX_SERVER_DEFAULT_MAP
+              value: "capflag"
+
+            - name: NOX_CAPTURE_INPUT
+              value: "0"
+
+            - name: NOX_LOBBY_REGISTER_ENABLE
+              value: "0" # Enable this once port forwarding is set up on your router
+            - name: NOX_UPNP_ENABLE
+              value: "0"
+            - name: NOX_GAMEPAD
+              value: "0"
+          ports:
+            - name: game-udp
+              containerPort: 18590
+              protocol: UDP
+            - name: control
+              containerPort: 2323
+              protocol: TCP
+          volumeMounts:
+            - name: nox-gamefiles
+              mountPath: /opt/nox-decomp/gamefiles/app
+          resources:
+            limits:
+              memory: "200Mi"
+              cpu: "100m"
+
+      volumes:
+        # Read-only source on the node
+        - name: nox-src
+          hostPath:
+            path: /opt/nox/gamefiles/app
+            type: DirectoryOrCreate
+
+        # Writable runtime copy (pod-local). Replace with a PVC if you want persistence.
+        - name: nox-gamefiles
+          emptyDir: {}
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nox-decomp-service
+  labels:
+    app: nox-decomp
+spec:
+  selector:
+    app: nox-decomp
+  type: NodePort
+  ports:
+    - name: game-udp
+      port: 18590
+      targetPort: 18590
+      protocol: UDP
+      nodePort: 31890
+
+    - name: control
+      port: 2323
+      targetPort: 2323
+      protocol: TCP
+      nodePort: 32323
