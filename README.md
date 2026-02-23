@@ -69,23 +69,13 @@ Click Extract
 
 Back in the file manager (Dolphin) there should be a flatpak directory go inside it
 
-Double click install.sh
+Right click the steam icon in the system tray and click Exit Steam
+
+Double click install_with_steam_entry.sh
 
 Choose execute
 
-Wait 30 seconds and in the mean time
-
-Create a launcher for steam:
-
-Using file manager (Dolphin)
-
-Go to Home/.local/share/flatpak/exports/share/applications
-
-Right click `io.github.sookyboo.NoxDecomp.desktop`
-
-Click Add to Steam
-
-Double click `io.github.sookyboo.NoxDecomp.desktop` it to run it so it will create `~/nox-decomp/gamefiles` in your home directory for you.
+Wait 30 seconds 
 
 Log in to your gog.com account and buy/download nox it should be something like `setup_nox_2.0.0.20.exe`
 
@@ -93,21 +83,7 @@ Download that file and move it into your Home -> nox-decomp -> gamefiles directo
 
 Click the bottom left steam icon and choose restart back into normal steam deck mode.
 
-Go to your library, Non-Steam collection
-
-Click NoxDecomp
-
-Click Controller settings button
-
-Click using template:
-
-Under Layouts created by Valve:
-
-Choose Gamepad with Mouse Trackpad
-
-Press X to apply the layout
-
-Now go back to the game launch screen and launch the game
+Find the game and launch it in your library
 
 It will spin for 50 seconds while it extracts the game files and then the game should launch.
 
