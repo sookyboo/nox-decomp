@@ -45,59 +45,153 @@ cmake --build . -j $(nproc)
 
 # Running the game
 
+## PortMaster
+Open the PortMaster app on your device and install NoxDecomp and follow the readme on [PortMaster](https://portmaster.games/games.html)
+
+The file is also included in releases here.
+
+## Steam deck
+Please note:
+It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
+It also needs access to your devices for gamepad support.
+
+Go to Power -> Switch to Desktop
+
+Controlling the mouse: Right touch pad lets you move the mouse, r2 is click and l2 is right click.
+
+Download the flatpak.zip from releases section in the chrome browser on the steam deck.
+
+Open up the file manager (File Manager is called Dolphin)
+
+Go to Downloads
+
+Double Click flatpak.zip
+
+Open it up in Ark
+
+Click the Extract button in the top left
+
+Extract to the Downloads folder (should be already there)
+
+Click Extract
+
+Back in the file manager (Dolphin) there should be a flatpak directory go inside it
+
+Double click install.sh
+
+Choose execute
+
+Wait 30 seconds and in the mean time
+
+Create a launcher for steam:
+
+Using file manager (Dolphin)
+
+Go to Home/.local/share/flatpak/exports/share/applications
+
+Right click `io.github.sookyboo.NoxDecomp.desktop`
+
+Click Add to Steam
+
+Double click `io.github.sookyboo.NoxDecomp.desktop` it to run it so it will create `~/nox-decomp/gamefiles` in your home directory for you.
+
+Log in to your gog.com account and buy/download nox it should be something like `setup_nox_2.0.0.20.exe`
+
+Download that file and move it into your Home -> nox-decomp -> gamefiles directory.
+
+Click the bottom left steam icon and choose restart back into normal steam deck mode.
+
+Go to your library, Non-Steam collection
+
+Click NoxDecomp
+
+Click Controller settings button
+
+Click using template:
+
+Under Layouts created by Valve:
+
+Choose Gamepad with Mouse Trackpad
+
+Press X to apply the layout
+
+Now go back to the game launch screen and launch the game
+
+It will spin for 50 seconds while it extracts the game files and then the game should launch.
+
+## Linux
+Download the zip from releases.
+
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+
+Unpack nox-decomp and copy the gog setup program into gamefiles.
+
+Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
+
+After extraction it should start the game.
+
+
+## Windows
+Download the zip from releases.
+
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+
+Unpack nox-decomp and copy the gog setup program into gamefiles.
+
+Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
+
+After extraction it should start the game.
+
+An alternate way is to:
+Download the zip from releases.
+
+Unpack it and copy the files into your nox directory.
+
+You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+
+Run noxd.exe inside the nox directory.
+
+## Mac
+This works with crossover/wine.
+
+Download the zip from releases.
+
+Unpack it and copy the files into your nox directory.
+
+You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here (GoG Nox)[https://www.gog.com/en/game/nox]
+
+Make a crossover bottle. Right click hit option open a shell and navigate to your directory with nox.
+
+Run noxd.exe inside the nox directory with `wine noxd.exe`.
+
+## Server
+There are docker arm64 and amd64 images that run the 32bit version
+
+Example kubernetes and docker-compose files:
+[docker-compose.yml](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/docker-compose.yml)
+[kubernetes](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/nox-decomp-kube.yml)
+
 ```
-innoextract setup_nox_2.0.0.20.exe
-mv app/* .
-./src/out
-```
+amd64:
+docker run --pull always --rm --name nox-decomp-server --platform linux/amd64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest
 
-# Converting dialog audio files
-The audio dialog files need to be converted in order for them to work.
+arm64:
+docker run --pull always --rm --name nox-decomp-server --platform linux/arm64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest
 
-Many of the releases have automatic conversion in their included game start script.
+if your device doesn't have 32bit cpu support you will need docker qemu (e.g. mac m1):
+docker run --privileged --rm tonistiigi/binfmt --install all
 
-```bash
-  # example can be found here: https://github.com/sookyboo/PortMaster-New/blob/sookyboo_nox_decomp/ports/nox-decomp/Nox-Decomp.sh
-  export DIALOG_DIR="Dialog" # Put a full path to your extracted Dialog directory
-  export FFMPEG_BIN="ffmpeg"
-  shopt -s nullglob nocaseglob
-  wav_files=("$DIALOG_DIR"/*.wav)
-  total="${#wav_files[@]}"
+You will need to set env vars and port forward from your router to the container host on port 18590 UDP
 
-  if [ "$total" -eq 0 ]; then
-    echo "No dialog WAV files found, skipping conversion"
-    return 0
-  fi
+If you want to register the game please make sure port forwarding is working and then:
+NOX_LOBBY_REGISTER_ENABLE=1
+Only register if port forwarding is enabled to reduce unusable servers in the list.
 
-  echo "Converting dialog audio ($total files)"
-  sleep 1
+I don't think you can broadcast udp from a docker container so you can't find this on a local lan only on internet with register enabled.
 
-  i=0
+The container runs as user 1001 for security and you need a copy of the game to run it.
 
-  # -------------------------------------------------
-  # Convert with progress updates
-  # -------------------------------------------------
-  for wav in "${wav_files[@]}"; do
-    tmp="${wav}.tmp"
-
-    if "$FFMPEG_BIN" -y \
-        -loglevel error \
-        -i "$wav" \
-        -ac 1 \
-        -ar 22050 \
-        -c:a pcm_s16le \
-        -f wav \
-        "$tmp"; then
-      mv "$tmp" "$wav"
-    else
-      rm -f "$tmp"
-      echo "ERROR converting $(basename "$wav")"
-      return 1
-    fi
-
-    i=$((i + 1))
-  done
-
+You can place the gog game installer in gamefiles dir and it will automatically extract it.
 ```
 
 # Internet Lobby env vars 
@@ -173,155 +267,6 @@ export NOX_GAMEPAD_EXIT=1 # when pressing start and select exit game
 export NOX_GAMEPAD_AUTOSWAP_XBOX=1 # swap A and B automatically for xbox/nintendo controllers 
 export NOX_GAMEPAD_FLIP_ABXY=0 # manually swap A and B buttons
 export NOX_GAMEPAD_LOG=0 # for debbuging gamepad issues    
-```
-
-# Steam deck 
-Please note:
-It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
-It also needs access to your devices for gamepad support.
-
-Go to Power -> Switch to Desktop
-
-Controlling the mouse: Right touch pad lets you move the mouse, r2 is click and l2 is right click.
-
-Download the flatpak.zip from releases section in the chrome browser on the steam deck.
-
-Open up the file manager (File Manager is called Dolphin)
-
-Go to Downloads
-
-Double Click flatpak.zip
-
-Open it up in Ark 
-
-Click the Extract button in the top left
-
-Extract to the Downloads folder (should be already there)
-
-Click Extract
-
-Back in the file manager (Dolphin) there should be a flatpak directory go inside it
-
-Double click install.sh
-
-Choose execute
-
-Wait 30 seconds and in the mean time 
-
-Create a launcher for steam:
-
-Using file manager (Dolphin)
-
-Go to Home/.local/share/flatpak/exports/share/applications
-
-Right click `io.github.sookyboo.NoxDecomp.desktop`
-
-Click Add to Steam
-
-Double click `io.github.sookyboo.NoxDecomp.desktop` it to run it so it will create `~/nox-decomp/gamefiles` in your home directory for you.
-
-Log in to your gog.com account and buy/download nox it should be something like `setup_nox_2.0.0.20.exe`
-
-Download that file and move it into your Home -> nox-decomp -> gamefiles directory.
-
-Click the bottom left steam icon and choose restart back into normal steam deck mode.
-
-Go to your library, Non-Steam collection
-
-Click NoxDecomp
-
-Click Controller settings button
-
-Click using template:
-
-Under Layouts created by Valve:
-
-Choose Gamepad with Mouse Trackpad
-
-Press X to apply the layout
-
-Now go back to the game launch screen and launch the game
-
-It will spin for 50 seconds while it extracts the game files and then the game should launch.
-
-# Linux
-Download the zip from releases.
-
-Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
-
-Unpack nox-decomp and copy the gog setup program into gamefiles.
-
-Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
-
-After extraction it should start the game.
-
-
-# Windows
-Download the zip from releases.
-
-Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
-
-Unpack nox-decomp and copy the gog setup program into gamefiles. 
-
-Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
-
-After extraction it should start the game.
-
-An alternate way is to:
-Download the zip from releases.
-
-Unpack it and copy the files into your nox directory.
-
-You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here [GoG Nox](https://www.gog.com/en/game/nox)
-
-Run noxd.exe inside the nox directory.
-
-# Mac
-This works with crossover/wine.
-
-Download the zip from releases.
-
-Unpack it and copy the files into your nox directory.
-
-You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here (GoG Nox)[https://www.gog.com/en/game/nox]
-
-Make a crossover bottle. Right click hit option open a shell and navigate to your directory with nox.
-
-Run noxd.exe inside the nox directory with `wine noxd.exe`.
-
-# PortMaster
-Open the PortMaster app on your device and install NoxDecomp and follow the readme on [PortMaster](https://portmaster.games/games.html)
-
-The file is also included in releases here. 
-
-# Server
-There are docker arm64 and amd64 images that run the 32bit version
-
-Example kubernetes and docker-compose files:
-[docker-compose.yml](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/docker-compose.yml)
-[kubernetes](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/nox-decomp-kube.yml)
-
-```
-amd64:
-docker run --pull always --rm --name nox-decomp-server --platform linux/amd64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest
-
-arm64:
-docker run --pull always --rm --name nox-decomp-server --platform linux/arm64 -p 18590:18590/udp -v \${PWD}/gamefiles:/opt/nox-decomp/gamefiles ghcr.io/nox-decomp/nox-decomp-server:latest
-
-if your device doesn't have 32bit cpu support you will need docker qemu (e.g. mac m1):
-docker run --privileged --rm tonistiigi/binfmt --install all
-
-You will need to set env vars and port forward from your router to the container host on port 18590 UDP
-
-If you want to register the game please make sure port forwarding is working and then:
-NOX_LOBBY_REGISTER_ENABLE=1
-Only register if port forwarding is enabled to reduce unusable servers in the list.
-
-I don't think you can broadcast udp from a docker container so you can't find this on a local lan only on internet with register enabled.
-
-The container runs as user 1001 for security and you need a copy of the game to run it.
-
-You can place the gog game installer in gamefiles dir and it will automatically extract it.
 ```
 
 # Known issues
