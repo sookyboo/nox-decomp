@@ -46,7 +46,7 @@ cmake --build . -j $(nproc)
 # Running the game
 
 ## PortMaster
-Open the PortMaster app on your device and install NoxDecomp and follow the readme on [PortMaster](https://portmaster.games/games.html)
+Open the PortMaster app on your device and install NoxDecomp and follow the readme on [PortMaster](https://portmaster.games/detail.html?name=nox-decomp)
 
 The file is also included in releases here.
 
@@ -57,7 +57,7 @@ It also needs access to your devices for gamepad support.
 
 Go to Power -> Switch to Desktop
 
-Controlling the mouse: Right touch pad lets you move the mouse, r2 is click and l2 is right click.
+Controlling the mouse in desktop mode: Right touch pad lets you move the mouse, r2 is click and l2 is right click.
 
 Download the flatpak.zip from releases section in the chrome browser on the steam deck.
 
@@ -124,9 +124,9 @@ Download the zip from releases.
 
 Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 
-Unpack nox-decomp and copy the gog setup program into gamefiles.
+Unpack nox-decomp and copy the gog setup program `setup_nox_2.0.0.20.exe` into nox-decomp `gamefiles` directory.
 
-Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
+Run the included Nox-Decomp.sh script which expects the nox installation file in the gamefiles directory.
 
 After extraction it should start the game.
 
@@ -138,31 +138,26 @@ Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 
 Unpack nox-decomp and copy the gog setup program into gamefiles.
 
-Run the included Nox-Decomp.bat script which expects the nox installation file in the gamefiles directory.
+Run the included Nox-Decomp.bat script which expects the nox installation file in the nox-decomp `gamefiles` directory.
 
 After extraction it should start the game.
 
-An alternate way is to:
-Download the zip from releases.
-
-Unpack it and copy the files into your nox directory.
-
-You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here [GoG Nox](https://www.gog.com/en/game/nox)
-
-Run noxd.exe inside the nox directory.
+Can take up to a minute on a fast computer.
 
 ## Mac
 This works with crossover/wine.
 
-Download the zip from releases.
+Download the windows zip from releases.
 
-Unpack it and copy the files into your nox directory.
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 
-You can get the nox files by using [innoextract](https://github.com/dscharrer/innoextract/releases) and buying the game from here (GoG Nox)[https://www.gog.com/en/game/nox]
+Unpack nox-decomp and copy the gog setup program into gamefiles.
+
+Run the included Nox-Decomp.bat script which expects the nox installation file in the nox-decomp `gamefiles` directory.
 
 Make a crossover bottle. Right click hit option open a shell and navigate to your directory with nox.
 
-Run noxd.exe inside the nox directory with `wine noxd.exe`.
+Run Nox-Decomp.bat inside the nox directory with `wine NoxDecomp.bat`.
 
 ## Server
 There are docker arm64 and amd64 images that run the 32bit version
