@@ -35,14 +35,6 @@ I am not the author of this code. It comes from the [playnox.xyz](https://playno
 ![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/movie1.png)
 ![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/movie2.png)
 
-# Building from source
-
-```
-cd build
-cmake ..
-cmake --build . -j $(nproc)
-```
-
 # Running the game
 
 ## PortMaster
@@ -163,8 +155,11 @@ Run Nox-Decomp.bat inside the nox directory with `wine NoxDecomp.bat`.
 There are docker arm64 and amd64 images that run the 32bit version
 
 Example kubernetes and docker-compose files:
+
 [docker-compose.yml](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/docker-compose.yml)
+
 [kubernetes](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/nox-decomp-kube.yml)
+
 
 ```
 amd64:
@@ -272,6 +267,16 @@ The game is fully playable on PortMaster, SteamDeck with flatpack, Linux and Win
 * Minor - glitch on death rays appearing in shadows when they should be hidden from view.
 * Minor - Possible rendering glitch on rendering undead spell - circle not 100% visible in bright light - spell works perfectly
 * Minor - On low power devices fade ins and fade outs are slightly slower
+
+# Building from source
+
+See [build.sh](https://github.com/sookyboo/nox-decomp/blob/main/build.sh) and [lightbuild.sh](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/lightbuild.sh)
+
+```
+cd build
+cmake ..
+cmake --build . -j $(nproc)
+```
 
 # License
 
