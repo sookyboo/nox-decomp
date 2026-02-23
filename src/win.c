@@ -125,6 +125,26 @@ int g_fullscreen;
 const char *g_argv[21];
 unsigned int g_argc;
 
+static int g_nox_gamepad_enabled = 1;
+
+static int nox_env_is_false(const char *v)
+{
+    if (!v || !*v) return 0;
+    return (v[0] == '0') ||
+           (v[0] == 'f' || v[0] == 'F') ||
+           (v[0] == 'n' || v[0] == 'N');
+}
+
+static void nox_gamepad_read_env(void)
+{
+    const char *v = getenv("NOX_GAMEPAD");
+    if (nox_env_is_false(v)) {
+        g_nox_gamepad_enabled = 0;
+        NOX_DBG("NOX_GAMEPAD=%s -> gamepad disabled", v ? v : "(null)");
+    } else {
+        NOX_DBG("NOX_GAMEPAD=%s -> gamepad enabled", v ? v : "(null)");
+    }
+}
 
 
 //----- (00401C70) --------------------------------------------------------
@@ -195,7 +215,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// SDL path: FORCE CLASSIC 640x480, NO WIDESCREEN
 	// ---------------------------------------------------------------------
     NOX_DBG("SDL_Init starting");
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0) {
+    nox_gamepad_read_env();
+
+    Uint32 sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER;
+    if (g_nox_gamepad_enabled) {
+        sdl_flags |= SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER;
+    }
+
+    NOX_DBG("SDL_Init starting flags=0x%x (gamepad=%d)", (unsigned)sdl_flags, g_nox_gamepad_enabled);
+    if (SDL_Init(sdl_flags) != 0) {
         NOX_DBG("SDL_Init failed: %s", SDL_GetError());
         return 0;
     }
