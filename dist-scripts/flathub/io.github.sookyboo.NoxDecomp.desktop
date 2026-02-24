@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Nox-Decomp
+Comment=Community reimplementation (requires original game data)
+Exec=io.github.sookyboo.NoxDecomp
+Icon=io.github.sookyboo.NoxDecomp
+Categories=Game;
+Terminal=false
