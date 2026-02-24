@@ -87,9 +87,9 @@ modules:
       - -DCMAKE_INSTALL_PREFIX=/app
     sources:
       # Debian "orig" tarball is fine and stable; pinned by sha256.
-      - type: archive
-        url: https://launchpad.net/ubuntu/+source/innoextract/1.9-1/+download/innoextract_1.9.orig.tar.gz
-        sha256: 6344a69fc1ed847d4ed3e272e0da5998948c6b828cb7af39c6321aba6cf88126
+    - type: archive
+      url: https://distro.ibiblio.org/ubuntu/pool/universe/i/innoextract/innoextract_1.9.orig.tar.gz
+      sha256: 6344a69fc1ed847d4ed3e272e0da5998948c6b828cb7af39c6321aba6cf88126
 
   # --- FFmpeg (x86_64) CLI for your conversion tools ---
   - name: ffmpeg-x86_64
