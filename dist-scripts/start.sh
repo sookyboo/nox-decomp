@@ -481,6 +481,8 @@ add_path_front "/usr/lib/i386-linux-gnu/GL/default/lib"
 add_path_front "/app/lib/i386-linux-gnu"
 add_path_front "/usr/lib/i386-linux-gnu"
 
+add_path_back "/app/lib32"
+
 # --- Bundled 32-bit ffmpeg (if you ship it) ---
 add_path_back "${PKG_FFMPEG_DIR}"
 
