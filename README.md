@@ -42,14 +42,18 @@ Open the PortMaster app on your device and install NoxDecomp and follow the read
 
 The file is also included in releases here.
 
-## Steam deck
-Please note:
-It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
-It also needs access to your devices for gamepad support.
+## Steam Deck
+Please note that the flatpak requires these permissions:
+- It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
+- It also needs access to your devices for gamepad support.
+- It requires access to your steam config folders to add a launcher for steam
+- It requires a copy of `setup_nox_2.0.0.20.exe` from gog in ~/nox-decomp/gamesfiles
 
 Go to Power -> Switch to Desktop
 
-Controlling the mouse in desktop mode: Right touch pad lets you move the mouse, r2 is click and l2 is right click.
+Controlling the mouse in Steam Deck desktop mode: 
+- Right touch pad lets you move the mouse
+- r2 is click and l2 is right click
 
 Download the flatpak.zip from releases section in the chrome browser on the steam deck.
 
@@ -71,21 +75,27 @@ Back in the file manager (Dolphin) there should be a flatpak directory go inside
 
 Right click the steam icon in the system tray and click Exit Steam
 
-Double click install_with_steam_entry.sh
+Double click install.sh
 
 Choose execute
 
-Wait 30 seconds 
-
-Log in to your gog.com account and buy/download nox it should be something like `setup_nox_2.0.0.20.exe`
+Log in to your gog.com account and buy/download nox the setup file should be something like `setup_nox_2.0.0.20.exe`
 
 Download that file and move it into your Home -> nox-decomp -> gamefiles directory.
 
+Click the Steam start button in the bottom left corner and search for nox-decomp or look for it in games and start it
+
+It will ask if it can 'create/update a Steam shortcut, install artwork, and set a Steam Deck controller template' say Yes
+
+Then you will see a progress bar for extraction of game data and conversion of audio files.
+
+It will tell you when it finishes. Click OK. 
+
+Delete the flatpak.zip from your downloads dir and the directory.
+
 Click the bottom left steam icon and choose restart back into normal steam deck mode.
 
-Find the game and launch it in your library
-
-It will spin for 50 seconds while it extracts the game files and then the game should launch.
+Find the game and launch it in your library and enjoy!
 
 ## Linux
 Download the zip from releases.
