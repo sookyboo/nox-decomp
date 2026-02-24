@@ -285,6 +285,15 @@ ensure_nox_cfg() {
   return 0
 }
 
+is_steam_deck() {
+  local pn=""
+  pn="$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null || true)"
+  case "$pn" in
+    Jupiter|Galileo) return 0 ;;
+  esac
+  return 1
+}
+
 convert_dialog() {
   local marker_file="${NOX_ASSET_DIR}/converted_dialog.txt"
   local dialog_dir="${NOX_ASSET_DIR}/Dialog"
@@ -394,6 +403,16 @@ convert_dialog() {
 
   echo "Dialog audio converted to PCM on $(date)" > "${marker_file}"
   echo "Dialog audio conversion complete"
+
+  # If we’re on Steam Deck + have zenity GUI, tell the user to restart into Gaming Mode and exit.
+  if [[ "${have_gui:-0}" == "1" ]] && is_steam_deck; then
+    zenity --info \
+      --title="Nox-Decomp" \
+      --width=520 \
+      --text=$'Dialog audio conversion finished.\n\nPlease restart the Steam Deck into Gaming Mode (Steam button → Power → Restart).\n\nAfter restarting, launch Nox-Decomp from Steam.' \
+      >/dev/null 2>&1 || true
+    exit 0
+  fi
 }
 
 if [[ "${NOX_SKIP_EXTRACT}" == "0" ]]; then
