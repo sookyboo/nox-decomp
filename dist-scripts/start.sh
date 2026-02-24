@@ -123,6 +123,40 @@ if [[ ! -f "${PKG_NOXD}" ]]; then
 fi
 
 # ---------------------------
+# Zenity helpers (only if display + zenity)
+# ---------------------------
+have_gui=0
+if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+  have_gui=1
+fi
+
+zenity_pulse() {
+  # Args: title text
+  local title="$1"
+  local text="$2"
+  if [[ "$have_gui" != "1" ]]; then
+    return 1
+  fi
+
+  # Start a pulsing progress dialog and print its PID.
+  (
+    echo "# $text"
+    while :; do
+      echo "10"
+      sleep 0.8
+    done
+  ) | zenity --progress \
+        --title="$title" \
+        --text="$text" \
+        --pulsate \
+        --no-cancel \
+        --auto-close \
+        --width=520 \
+        >/dev/null 2>&1 &
+  echo $!
+}
+
+# ---------------------------
 # Game data extraction + dialog conversion (one-time)
 # ---------------------------
 : "${NOX_SKIP_EXTRACT:=0}"
@@ -169,8 +203,18 @@ install_game_data() {
 
   echo "Found Nox GOG installer: ${installers[0]}"
   echo "Extracting installer into: ${NOX_GAMEFILES_DIR}"
-  echo "Extraction may take up to 10-60min"
+  echo "Extraction may take a couple of minutes"
+  local zpid=""
+  if [[ "$have_gui" == "1" ]]; then
+    zpid="$(zenity_pulse "Nox-Decomp" "Extracting game data (innoextract)…")" || true
+  fi
+
   "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}"
+
+  # Close the pulsing dialog (if it’s still open)
+  if [[ -n "${zpid}" ]]; then
+    kill "${zpid}" >/dev/null 2>&1 || true
+  fi
 
   if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
     echo "ERROR: extraction finished but ${NOX_GAME_DATA_BIN} still missing." >&2
@@ -226,8 +270,8 @@ convert_dialog() {
   fi
 
   shopt -s nullglob nocaseglob
-  wav_files=("${dialog_dir}"/*.wav)
-  total="${#wav_files[@]}"
+  local wav_files=("${dialog_dir}"/*.wav)
+  local total="${#wav_files[@]}"
   shopt -u nocaseglob
 
   if [[ "${total}" -eq 0 ]]; then
@@ -237,8 +281,44 @@ convert_dialog() {
 
   echo "Converting dialog audio (${total} files)"
 
+  # --- Start pulsing dialog, but keep its text updated via a status file ---
+  local zpid=""
+  local zstatus=""
+  if [[ "${have_gui:-0}" == "1" ]]; then
+    zstatus="$(mktemp)"
+    printf 'Converting dialog audio… (0/%s)\n' "$total" >"$zstatus"
+
+    (
+      # Feed zenity: pulse + current status text
+      while :; do
+        echo "10"
+        echo "# $(cat "$zstatus" 2>/dev/null || echo "Converting dialog audio…")"
+        sleep 0.8
+      done
+    ) | zenity --progress \
+          --title="Nox-Decomp" \
+          --text="Converting dialog audio…" \
+          --pulsate \
+          --no-cancel \
+          --auto-close \
+          --width=520 \
+          >/dev/null 2>&1 &
+    zpid=$!
+  fi
+
+  local i=0
   for wav in "${wav_files[@]}"; do
-    tmp="${wav}.tmp"
+    i=$((i + 1))
+    local base
+    base="$(basename "$wav")"
+
+    # (Optional) write a breadcrumb to your log
+    echo "Converting (${i}/${total}): ${base}"
+    if [[ -n "${zstatus:-}" ]]; then
+      printf 'Converting audio (%s/%s): %s\n' "$i" "$total" "$base" >"$zstatus" 2>/dev/null || true
+    fi
+
+    local tmp="${wav}.tmp"
     if "${PKG_FFMPEG_X64}" -y \
         -loglevel error \
         -i "${wav}" \
@@ -249,11 +329,21 @@ convert_dialog() {
         "${tmp}"; then
       mv "${tmp}" "${wav}"
     else
-      rm -f "${tmp}"
-      echo "ERROR converting $(basename "${wav}")" >&2
+      if [[ -n "${zpid}" ]]; then
+        kill "${zpid}" >/dev/null 2>&1 || true
+        wait "${zpid}" 2>/dev/null || true
+      fi
+      [[ -n "${zstatus:-}" ]] && rm -f "$zstatus" 2>/dev/null || true
+      echo "ERROR converting ${base}" >&2
       return 1
     fi
   done
+
+  if [[ -n "${zpid}" ]]; then
+    kill "${zpid}" >/dev/null 2>&1 || true
+    wait "${zpid}" 2>/dev/null || true
+  fi
+  [[ -n "${zstatus:-}" ]] && rm -f "$zstatus" 2>/dev/null || true
 
   echo "Dialog audio converted to PCM on $(date)" > "${marker_file}"
   echo "Dialog audio conversion complete"
