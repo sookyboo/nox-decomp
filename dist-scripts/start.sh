@@ -13,6 +13,89 @@ PKG_INNOEXTRACT="${PKG_UTILS_DIR}/innoextract.x86_64"
 PKG_FFMPEG_X64="${PKG_UTILS_DIR}/ffmpeg.x86_64"
 PKG_NOX_CFG="${PKG_BASE}/nox.cfg"
 
+# ---------------------------
+# Optional Steam integration prompt (zenity + python3)
+# ---------------------------
+
+STEAM_SHORTCUT_PY="${PKG_BASE}/steam_shortcut.py"
+STEAM_V_IMG="${PKG_BASE}/steamv.png"
+STEAM_H_IMG="${PKG_BASE}/steamh.png"
+STEAM_ICON_IMG="${PKG_BASE}/${APP_ID}.png"  # staged icon in your flatpak
+want_skip=0
+
+# 1) Skip if launched via Steam
+if [[ -n "${SteamAppId:-}" || -n "${SteamGameId:-}" ]]; then
+  want_skip=1
+fi
+
+# 2) Skip if user passed our explicit flag
+for a in "$@"; do
+  if [[ "$a" == "--skip-steam-install" ]]; then
+    want_skip=1
+    break
+  fi
+done
+
+# 3) Skip if explicitly disabled
+if [[ "${NOX_SKIP_STEAM_INSTALL:-0}" != "0" ]]; then
+  want_skip=1
+fi
+
+have_zenity=0
+have_python=0
+command -v zenity >/dev/null 2>&1 && have_zenity=1
+command -v python3 >/dev/null 2>&1 && have_python=1
+
+# Only try GUI prompt if we have a display
+have_display=0
+[[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && have_display=1
+
+if [[ "$want_skip" == "0" && "$have_display" == "1" && "$have_zenity" == "1" && "$have_python" == "1" && -f "$STEAM_SHORTCUT_PY" ]]; then
+  # If already installed, skip asking
+  if python3 "$STEAM_SHORTCUT_PY" --is-installed-flatpak "${APP_ID}" >/dev/null 2>&1; then
+    :
+  else
+    chosen_steamid="$(python3 "$STEAM_SHORTCUT_PY" --print-detected-steamid 2>/dev/null || true)"
+
+    msg="Add Nox-Decomp to Steam?
+
+Steam user detected: ${chosen_steamid:-unknown}
+
+This will create/update a Steam shortcut, install artwork, and set a Steam Deck controller template.
+
+You can skip this prompt in future by installing the steam shortcut or launching with:
+  --skip-steam-install"
+
+    if zenity --question --title="Nox-Decomp" --width=520 --text="$msg"; then
+      sid_args=()
+      if [[ -n "$chosen_steamid" ]]; then
+        sid_args=(--steamid "$chosen_steamid")
+      fi
+
+      python3 "$STEAM_SHORTCUT_PY" \
+        "${sid_args[@]}" \
+        --name "Nox-Decomp" \
+        --exe "/usr/bin/flatpak" \
+        --startdir "$HOME" \
+        --launch "run ${APP_ID} --skip-steam-install" \
+        --flatpak-app-id "${APP_ID}" \
+        --grid "$STEAM_V_IMG" \
+        --portrait "$STEAM_V_IMG" \
+        --hero "$STEAM_H_IMG" \
+        --icon-file "$STEAM_ICON_IMG" \
+        --template "controller_neptune_gamepad+mouse.vdf" \
+        --force-template \
+        --sspy-parser-id 1 \
+        --tags "Installed,Ready TO Play" \
+        >/dev/null 2>&1 || true
+
+      zenity --info --title="Nox-Decomp" --width=520 --text="Steam shortcut install attempted.
+
+Restart Steam to see changes."
+    fi
+  fi
+fi
+
 : "${NOX_GAMEPAD_INI:=${PKG_GPTK2_INI}}"
 export NOX_GAMEPAD_INI
 
@@ -70,10 +153,18 @@ install_game_data() {
   shopt -u nocaseglob
 
   if (( ${#installers[@]} == 0 )); then
+    msg=$'Nox data not extracted.\n\n'"Place GOG installer matching 'setup_nox*.exe' in:\n${NOX_GAMEFILES_DIR}/\n\nOr manually provide extracted files so this exists:\n${NOX_GAME_DATA_BIN}"
+
     echo "Nox data not extracted." >&2
     echo "Place GOG installer matching 'setup_nox*.exe' in: ${NOX_GAMEFILES_DIR}/" >&2
     echo "Or manually provide extracted files so this exists: ${NOX_GAME_DATA_BIN}" >&2
-    return 0
+
+    # Best-effort GUI prompt (only if zenity + a display is available)
+    if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+      zenity --info --title="Nox-Decomp" --width=520 --text="$msg" >/dev/null 2>&1 || true
+    fi
+
+    exit 0
   fi
 
   echo "Found Nox GOG installer: ${installers[0]}"

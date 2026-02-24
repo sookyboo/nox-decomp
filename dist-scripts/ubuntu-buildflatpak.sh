@@ -63,7 +63,7 @@ test -d "${WORKDIR}/steam"
 # ---------------------------
 echo "== Cleaning previous outputs =="
 rm -rf "${BUILD_DIR}" "${REPO_DIR}" "${OUT_DIR}"
-rm -f "${APP_ID}.flatpak"
+rm -f "${OUT_DIR}/${APP_ID}.flatpak"
 
 echo "== flatpak build-init =="
 flatpak build-init --arch="${ARCH}" "${BUILD_DIR}" "${APP_ID}" \
@@ -94,6 +94,12 @@ install -Dm755 "${WORKDIR}/start.sh" "${BUILD_DIR}/files/bin/start.sh"
 install -d "${INTERNAL_LIB}/utils"
 [[ -f "${WORKDIR}/utils/innoextract.x86_64" ]] && install -Dm755 "${WORKDIR}/utils/innoextract.x86_64" "${INTERNAL_LIB}/utils/innoextract.x86_64"
 [[ -f "${WORKDIR}/utils/ffmpeg.x86_64" ]]     && install -Dm755 "${WORKDIR}/utils/ffmpeg.x86_64"     "${INTERNAL_LIB}/utils/ffmpeg.x86_64"
+
+# steam integration
+install -Dm755 "${WORKDIR}/steam_shortcut.py" "${INTERNAL_LIB}/steam_shortcut.py"
+install -Dm644 "${WORKDIR}/steamv.png" "${INTERNAL_LIB}/steamv.png"
+install -Dm644 "${WORKDIR}/steamh.png" "${INTERNAL_LIB}/steamh.png"
+install -Dm644 "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" "${INTERNAL_LIB}/${APP_ID}.png"
 
 # ---------------------------
 # Desktop entry (auto-exported by Flatpak)
@@ -156,7 +162,11 @@ flatpak build-finish "${BUILD_DIR}" \
   --socket=pulseaudio \
   --filesystem=~/nox-decomp:create \
   --device=all \
-  --filesystem=/run/udev:ro
+  --filesystem=/run/udev:ro \
+  --filesystem=xdg-data/Steam:rw \
+  --filesystem=~/.steam/steam:rw \
+  --filesystem=~/.local/share/Steam:rw \
+  --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam:rw
 
 # ---------------------------
 # Inject i386 + GL32 extension metadata (OpenNox-style, but AUTO-DOWNLOAD GL32)

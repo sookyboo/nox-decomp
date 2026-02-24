@@ -174,6 +174,29 @@ def list_all_steamids(steam_root: Path) -> List[str]:
             ids.append(d.name)
     return ids
 
+def detect_recent_steamid() -> Tuple[Path, str]:
+    steam_root = detect_steam_root()
+    if not steam_root:
+        raise FileNotFoundError("Could not auto-detect Steam root")
+    _userdir, sid = choose_userdata_dir(steam_root, None)
+    return steam_root, sid
+
+
+def is_flatpak_shortcut_installed(steam_root: Path, steamid: str, flatpak_app_id: str) -> bool:
+    vdf = steam_root / "userdata" / steamid / "config" / "shortcuts.vdf"
+    if not vdf.exists():
+        return False
+
+    data = vdf.read_bytes()
+    count, ok = _verify_shortcuts_vdf_roundtrip(data)
+    if not ok:
+        return False
+
+    shortcuts = parse_shortcuts_vdf(data)
+    for s in shortcuts:
+        if (s.flatpak_app_id or "") == (flatpak_app_id or ""):
+            return True
+    return False
 
 # ----------------------------
 # Binary VDF parsing/writing (shortcuts.vdf) - steam-shortcut-editor compatible
@@ -1407,12 +1430,41 @@ def main() -> int:
     ap.add_argument("--logo", type=str, default=None, help="Logo PNG -> {appid}_logo.png (writes both 32-bit and long-id)")
     ap.add_argument("--icon-file", type=str, default=None,
                     help="PNG icon to copy into userdata/<steamid>/config/grid/ and set as shortcut icon path")
+    # Helpers for embedding in launchers (avoid JSON parsing in shell)
+    ap.add_argument(
+        "--print-detected-steamid",
+        action="store_true",
+        help="Print the most-recent SteamID folder and exit (auto-detect Steam root).",
+    )
+    ap.add_argument(
+        "--is-installed-flatpak",
+        type=str,
+        default=None,
+        help="Exit 0 if a shortcut with this FlatpakAppID exists (auto-detect Steam root + most recent user unless --steamid given). Exit 1 otherwise.",
+    )
     args = ap.parse_args()
 
     steam_root = Path(args.steam_root) if args.steam_root else detect_steam_root()
     if not steam_root:
         print("Could not auto-detect Steam root. Pass --steam-root.", file=sys.stderr)
         return 2
+
+    # ---- helper modes for launchers / scripts ----
+    if args.print_detected_steamid:
+        try:
+            _sr, sid = detect_recent_steamid()
+            print(sid)
+            return 0
+        except Exception:
+            return 1
+
+    if args.is_installed_flatpak is not None:
+        try:
+            userdir, sid = choose_userdata_dir(steam_root, args.steamid)
+            ok = is_flatpak_shortcut_installed(steam_root, sid, args.is_installed_flatpak)
+            return 0 if ok else 1
+        except Exception:
+            return 1
 
     if args.dump_json:
         if (args.dump_name is None) and (args.dump_appid is None) and (not args.dump_list):
