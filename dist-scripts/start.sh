@@ -204,16 +204,63 @@ install_game_data() {
   echo "Found Nox GOG installer: ${installers[0]}"
   echo "Extracting installer into: ${NOX_GAMEFILES_DIR}"
   echo "Extraction may take a couple of minutes"
+
   local zpid=""
-  if [[ "$have_gui" == "1" ]]; then
-    zpid="$(zenity_pulse "Nox-Decomp" "Extracting game data (innoextract)…")" || true
+  local zstatus=""
+  local zlog=""
+
+  if [[ "${have_gui:-0}" == "1" ]]; then
+    zstatus="$(mktemp)"
+    zlog="$(mktemp)"
+    printf 'Extracting game data…\nStarting innoextract…\n' >"$zstatus"
+
+    (
+      while :; do
+        echo "10"
+        if [[ -s "$zlog" ]]; then
+          last="$(tail -n 1 "$zlog" 2>/dev/null | tr -d '\r')"
+          printf '# %s\n' "$(cat "$zstatus" 2>/dev/null)"
+          if [[ -n "$last" ]]; then
+            printf '# Extracting setup file: %s\n' "$last"
+          fi
+        else
+          printf '# %s\n' "$(cat "$zstatus" 2>/dev/null)"
+        fi
+        sleep 0.8
+      done
+    ) | zenity --progress \
+          --title="Nox-Decomp" \
+          --text="Extracting game data…" \
+          --pulsate \
+          --no-cancel \
+          --auto-close \
+          --width=520 \
+          >/dev/null 2>&1 &
+    zpid=$!
   fi
 
-  "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}"
+  # Run innoextract; if GUI is active, capture output to zlog for live tailing
+  if [[ -n "${zstatus:-}" ]]; then
+    printf 'Running innoextract…\n' >"$zstatus" 2>/dev/null || true
+    # Keep stdout+stderr for the zenity tail and for your log.txt
+    "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}" 2>&1 | tee -a "$zlog"
+    rc=${PIPESTATUS[0]}
+  else
+    "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}"
+    rc=$?
+  fi
 
-  # Close the pulsing dialog (if it’s still open)
+  # Stop zenity cleanly
   if [[ -n "${zpid}" ]]; then
     kill "${zpid}" >/dev/null 2>&1 || true
+    wait "${zpid}" 2>/dev/null || true
+  fi
+  [[ -n "${zstatus:-}" ]] && rm -f "$zstatus" 2>/dev/null || true
+  [[ -n "${zlog:-}" ]] && rm -f "$zlog" 2>/dev/null || true
+
+  if [[ "$rc" -ne 0 ]]; then
+    echo "ERROR: innoextract failed (rc=$rc)" >&2
+    return 1
   fi
 
   if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
