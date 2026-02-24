@@ -162,12 +162,15 @@ flatpak build-finish "${BUILD_DIR}" \
   --socket=pulseaudio \
   --filesystem=~/nox-decomp:create \
   --device=all \
-  --filesystem=/run/udev:ro \
-  --filesystem=xdg-data/Steam:rw \
-  --filesystem=~/.steam/steam:rw \
-  --filesystem=~/.local/share/Steam:rw \
-  --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam:rw
-
+  --filesystem=xdg-data/Steam/userdata:rw \
+  --filesystem=~/.steam/steam/userdata:rw \
+  --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/userdata:rw \
+  --filesystem=xdg-data/Steam/controller_base:ro \
+  --filesystem=~/.steam/steam/controller_base:ro \
+  --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/controller_base:ro \
+  --filesystem=xdg-data/Steam/steamapps/common/Steam\ Controller\ Configs:rw \
+  --filesystem=~/.steam/steam/steamapps/common/Steam\ Controller\ Configs:rw \
+  --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Steam\ Controller\ Configs:rw
 # ---------------------------
 # Inject i386 + GL32 extension metadata (OpenNox-style, but AUTO-DOWNLOAD GL32)
 # ---------------------------
