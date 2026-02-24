@@ -11,8 +11,9 @@ sdk-extensions:
 
 finish-args:
   # Safer than --device=all; good for gamepads. Requires newer Flatpak.
-  - --require-version=1.16.0
-  - --device=input
+#  - --require-version=1.16.0
+#  - --device=input
+  - --device=all
   - --device=dri
   - --socket=wayland
   - --socket=fallback-x11
@@ -68,7 +69,7 @@ modules:
   - name: boost
     buildsystem: simple
     build-commands:
-      - ./bootstrap.sh --prefix=/app --with-libraries=program_options,iostreams,filesystem,system
+      - ./bootstrap.sh --prefix=/app --with-libraries=program_options,iostreams,filesystem,system,date_time
       - ./b2 -j ${FLATPAK_BUILDER_N_JOBS} variant=release link=shared threading=multi runtime-link=shared install
     sources:
       - type: archive
@@ -152,26 +153,24 @@ modules:
 
   # --- Build your i386 nox-decomp executable from upstream repo ---
   - name: nox-decomp-i386
-    buildsystem: cmake-ninja
-    builddir: true
+    buildsystem: simple
     build-options: *i386_build_options
-    config-opts:
-      - -DCMAKE_BUILD_TYPE=Release
-      - -DFFMPEG_PREFIX=/app
-      - -DCMAKE_C_COMPILER=i686-unknown-linux-gnu-gcc
-      - -DCMAKE_CXX_COMPILER=i686-unknown-linux-gnu-g++
-      # Your Docker flags can be reintroduced if needed, but start simple:
-      # - -DCMAKE_C_FLAGS=...
-      # - -DCMAKE_CXX_FLAGS=...
     build-commands:
-      - cmake --build . -j ${FLATPAK_BUILDER_N_JOBS}
-      # Adjust if your actual output path differs:
+      - mkdir -p build
+      - |
+        cmake -S . -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DFFMPEG_PREFIX=/app \
+          -DCMAKE_C_COMPILER=i686-unknown-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=i686-unknown-linux-gnu-g++ \
+          -DCMAKE_C_FLAGS="-U_FORTIFY_SOURCE -fno-strict-aliasing -fsigned-char -O0 -fno-tree-vectorize -fno-aggressive-loop-optimizations -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast -Wno-incompatible-pointer-types -Wno-error=incompatible-pointer-types -Wno-implicit-function-declaration" \
+          -DCMAKE_CXX_FLAGS="-fno-strict-aliasing -fsigned-char -O0 -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast"
+      - cmake --build build -j ${FLATPAK_BUILDER_N_JOBS}
       - install -d /app/lib/${FLATPAK_ID}
-      - install -Dm755 src/out /app/lib/${FLATPAK_ID}/noxd.i386
+      - install -Dm755 build/src/out /app/lib/${FLATPAK_ID}/noxd.i386
     sources:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
-#        tag: "TAG"
         commit: "c5fdfabe2a8f54f5522419b3a8cd43f59464af5f"
 
   # --- Install your dist-scripts assets from the same upstream repo ---
