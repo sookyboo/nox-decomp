@@ -187,7 +187,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
-        commit: "aa181c3e619719230dca86720d00b96fd5fb71b8"
+        commit: "afa2dbbb4b607c5025ab9817f35138dc19a7c14e"
 
   # --- Install your dist-scripts assets from the same upstream repo ---
   - name: dist-assets
@@ -241,7 +241,7 @@ modules:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
 #        tag: "TAG"
-        commit: "aa181c3e619719230dca86720d00b96fd5fb71b8"
+        commit: "afa2dbbb4b607c5025ab9817f35138dc19a7c14e"
 
   - name: app-metadata
     buildsystem: simple
