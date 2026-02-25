@@ -11,7 +11,7 @@ sdk-extensions:
 
 finish-args:
   # Safer than --device=all; for gamepads. Requires newer Flatpak.
-  - --require-version=1.16.0
+  - --require-version=1.15.91
   - --device=input
 #  - --device=all # for testing with ubuntu 24.04 lts instead of input
 

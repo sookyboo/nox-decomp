@@ -1,0 +1,73 @@
+# syntax=docker/dockerfile:1.6
+FROM debian:trixie
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+ARG RUNTIME_VER=24.08
+ARG GL_VER=1.4
+ARG ARCH=x86_64
+
+ENV FLATPAK_SYSTEM_DIR=/var/lib/flatpak
+
+# ---- Base deps + Flatpak tooling ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+          ca-certificates \
+          curl \
+          xz-utils \
+          bzip2 \
+          zstd \
+          git \
+          python3 \
+          file \
+          sudo \
+          flatpak \
+          flatpak-builder \
+          elfutils \
+          ostree \
+          bubblewrap \
+          fuse3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/sudo \
+    && chmod +x /usr/local/bin/sudo
+
+
+
+# ---- Add Flathub (system) ----
+RUN flatpak remote-add --if-not-exists --system flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+COPY deps.sh              /work/deps.sh
+
+# ---- Pre-install runtimes/SDK/extensions (cache-heavy layer) ----
+#RUN flatpak install -y --system --noninteractive --no-related --arch="${ARCH}" flathub \
+#      "org.freedesktop.Platform//${RUNTIME_VER}" \
+#      "org.freedesktop.Sdk//${RUNTIME_VER}" \
+#      "org.freedesktop.Platform.Compat.i386//${RUNTIME_VER}" \
+#    && flatpak install -y --system --noninteractive --no-related --arch="${ARCH}" flathub \
+#      "org.freedesktop.Platform.GL32.default//${RUNTIME_VER}" || true
+
+#RUN /work/deps.sh
+
+# Optional: reduce size
+#RUN flatpak uninstall -y --system --unused || true
+
+WORKDIR /work
+
+# ---- Copy only the files your script uses (including optional ones) ----
+COPY build.sh /work/build.sh
+COPY io.github.sookyboo.nox-decomp.desktop            /work/io.github.sookyboo.nox-decomp.desktop
+COPY io.github.sookyboo.nox-decomp.metainfo.xml                /work/io.github.sookyboo.nox-decomp.metainfo.xml
+COPY io.github.sookyboo.nox-decomp.yml          /work/io.github.sookyboo.nox-decomp.yml
+
+#RUN chmod +x /work/build.sh
+
+#ENV APP_NAME=NoxDecomp \
+#    APP_ID=io.github.sookyboo.nox-decomp \
+#    RUNTIME_VER=24.08 \
+#    GL_VER=1.4 \
+#    ARCH=x86_64 \
+#    BUILD_DIR=build-dir \
+#    REPO_DIR=repo \
+#    OUT_DIR=out \
+#    LOCAL_REMOTE_NAME=noxdecomp-local
+
+#CMD ["/work/build.sh"]
