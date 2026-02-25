@@ -556,65 +556,33 @@ echo "[display] detected ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}"
 # Auto-pick NOX resolution from DISPLAY_WIDTH / DISPLAY_HEIGHT (if provided)
 # ---------------------------
 
-# Defaults (only applied if user didn't already export them)
-: "${NOX_GAME_WIDTH:=1024}"
-: "${NOX_GAME_HEIGHT:=768}"
-: "${NOX_GAME_BITS:=16}"
-: "${NOX_GAME_FULLSCREEN:=1}"
-
 # Optional inputs (may be unset under -u)
 dw="${DISPLAY_WIDTH:-}"
 dh="${DISPLAY_HEIGHT:-}"
 
-if [[ -n "$dw" && -n "$dh" ]]; then
-  # Must be numeric
-  if [[ "$dw" =~ ^[0-9]+$ && "$dh" =~ ^[0-9]+$ && "$dh" -ne 0 ]]; then
-    # Aspect ratio as float
-    ASPECT="$(awk -v w="$dw" -v h="$dh" 'BEGIN { printf "%.4f", w / h }')"
+MAX_W=1024
+MAX_H=768
 
-    # 4:3 ≈ 1.3333
-    if awk -v a="$ASPECT" 'BEGIN { exit !(a > 1.30 && a < 1.36) }'; then
-      if [[ "$dw" -lt 1024 && "$dh" -lt 768 ]]; then
-        NOX_GAME_WIDTH="$dw"
-        NOX_GAME_HEIGHT="$dh"
-      else
-        NOX_GAME_WIDTH=1024
-        NOX_GAME_HEIGHT=768
-      fi
+read NOX_GAME_WIDTH_DEFAULT NOX_GAME_HEIGHT_DEFAULT < <(
+  awk -v dw="$DISPLAY_WIDTH" -v dh="$DISPLAY_HEIGHT" -v mw="$MAX_W" -v mh="$MAX_H" '
+    BEGIN {
+      sw = mw / dw;
+      sh = mh / dh;
+      s = sw < sh ? sw : sh;
+      if (s > 1) s = 1;          # don’t upscale
+      w = int(dw * s);
+      h = int(dh * s);
+      if (w < 1) w = 1;
+      if (h < 1) h = 1;
+      printf "%d %d\n", w, h;
+    }'
+)
 
-    # 1:1 ≈ 1.0
-    elif awk -v a="$ASPECT" 'BEGIN { exit !(a > 0.98 && a < 1.02) }'; then
-      if [[ "$dw" -lt 768 ]]; then
-        NOX_GAME_WIDTH="$dw"
-        NOX_GAME_HEIGHT="$dw"
-      else
-        NOX_GAME_WIDTH=768
-        NOX_GAME_HEIGHT=768
-      fi
-
-    # Widescreen (everything else)
-    else
-      # Widescreen / other: scale-to-fit inside 1024x768 while preserving aspect
-      MAX_W=1024
-      MAX_H=768
-
-      read NOX_GAME_WIDTH NOX_GAME_HEIGHT < <(
-        awk -v dw="$DISPLAY_WIDTH" -v dh="$DISPLAY_HEIGHT" -v mw="$MAX_W" -v mh="$MAX_H" '
-          BEGIN {
-            sw = mw / dw;
-            sh = mh / dh;
-            s = sw < sh ? sw : sh;
-            if (s > 1) s = 1;          # don’t upscale
-            w = int(dw * s);
-            h = int(dh * s);
-            if (w < 1) w = 1;
-            if (h < 1) h = 1;
-            printf "%d %d\n", w, h;
-          }'
-      )
-    fi
-  fi
-fi
+# Defaults (only applied if user didn't already export them)
+: "${NOX_GAME_WIDTH:=$NOX_GAME_WIDTH_DEFAULT}"
+: "${NOX_GAME_HEIGHT:=$NOX_GAME_HEIGHT_DEFAULT}"
+: "${NOX_GAME_BITS:=16}"
+: "${NOX_GAME_FULLSCREEN:=1}"
 
 export NOX_GAME_WIDTH NOX_GAME_HEIGHT NOX_GAME_BITS NOX_GAME_FULLSCREEN
 
