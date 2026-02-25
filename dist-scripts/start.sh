@@ -594,19 +594,24 @@ if [[ -n "$dw" && -n "$dh" ]]; then
 
     # Widescreen (everything else)
     else
-      # Cap width at 1024
-      if [[ "$dw" -gt 1024 ]]; then
-        NOX_GAME_WIDTH=1024
-      else
-        NOX_GAME_WIDTH="$dw"
-      fi
+      # Widescreen / other: scale-to-fit inside 1024x768 while preserving aspect
+      MAX_W=1024
+      MAX_H=768
 
-      # Scale height to preserve aspect ratio, cap at 768
-      NOX_GAME_HEIGHT="$(awk -v w="$NOX_GAME_WIDTH" -v a="$ASPECT" 'BEGIN {
-        h = w / a;
-        if (h > 768) h = 768;
-        printf "%d", h
-      }')"
+      read NOX_GAME_WIDTH NOX_GAME_HEIGHT < <(
+        awk -v dw="$DISPLAY_WIDTH" -v dh="$DISPLAY_HEIGHT" -v mw="$MAX_W" -v mh="$MAX_H" '
+          BEGIN {
+            sw = mw / dw;
+            sh = mh / dh;
+            s = sw < sh ? sw : sh;
+            if (s > 1) s = 1;          # don’t upscale
+            w = int(dw * s);
+            h = int(dh * s);
+            if (w < 1) w = 1;
+            if (h < 1) h = 1;
+            printf "%d %d\n", w, h;
+          }'
+      )
     fi
   fi
 fi
