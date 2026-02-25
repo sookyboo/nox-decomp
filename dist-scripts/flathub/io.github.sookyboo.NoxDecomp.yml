@@ -10,7 +10,7 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.toolchain-i386
 
 finish-args:
-  # Safer than --device=all; good for gamepads. Requires newer Flatpak.
+  # Safer than --device=all; for gamepads. Requires newer Flatpak.
 #  - --require-version=1.16.0
 #  - --device=input
   - --device=all
@@ -21,9 +21,19 @@ finish-args:
   - --share=ipc
   - --share=network
   - --allow=multiarch
+  - --filesystem=~/nox-decomp:create
 
-  # Read installer from Downloads (you can change this if your flow differs)
-  - --filesystem=xdg-download:ro
+  - --filesystem=xdg-data/Steam/userdata:rw
+  - --filesystem=~/.steam/steam/userdata:rw
+  - --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/userdata:rw
+
+  - --filesystem=xdg-data/Steam/controller_base:ro
+  - --filesystem=~/.steam/steam/controller_base:ro
+  - --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/controller_base:ro
+
+  - --filesystem=xdg-data/Steam/steamapps/common/Steam\ Controller\ Configs:rw
+  - --filesystem=~/.steam/steam/steamapps/common/Steam\ Controller\ Configs:rw
+  - --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Steam\ Controller\ Configs:rw
 
 # Runtime multiarch support: run i386 binary + 32-bit GL.
 add-extensions:
@@ -65,6 +75,12 @@ cleanup:
   - /share/doc
 
 modules:
+  - name: multiarch-mountpoints
+    buildsystem: simple
+    build-commands:
+      - install -d /app/lib/i386-linux-gnu
+      - install -d /app/lib/i386-linux-gnu/GL
+      - install -d /app/lib/debug/lib/i386-linux-gnu
   # --- Boost (needed by innoextract) ---
   - name: boost
     buildsystem: simple
@@ -88,9 +104,9 @@ modules:
       - -DCMAKE_INSTALL_PREFIX=/app
     sources:
       # Debian "orig" tarball is fine and stable; pinned by sha256.
-    - type: archive
-      url: https://distro.ibiblio.org/ubuntu/pool/universe/i/innoextract/innoextract_1.9.orig.tar.gz
-      sha256: 6344a69fc1ed847d4ed3e272e0da5998948c6b828cb7af39c6321aba6cf88126
+      - type: archive
+        url: https://distro.ibiblio.org/ubuntu/pool/universe/i/innoextract/innoextract_1.9.orig.tar.gz
+        sha256: 6344a69fc1ed847d4ed3e272e0da5998948c6b828cb7af39c6321aba6cf88126
 
   # --- FFmpeg (x86_64) CLI for your conversion tools ---
   - name: ffmpeg-x86_64
@@ -226,3 +242,14 @@ modules:
         url: https://github.com/sookyboo/nox-decomp.git
 #        tag: "TAG"
         commit: "c5fdfabe2a8f54f5522419b3a8cd43f59464af5f"
+
+  - name: app-metadata
+    buildsystem: simple
+    sources:
+      - type: file
+        path: io.github.sookyboo.NoxDecomp.desktop
+      - type: file
+        path: io.github.sookyboo.NoxDecomp.metainfo.xml
+    build-commands:
+      - install -Dm644 io.github.sookyboo.NoxDecomp.desktop /app/share/applications/io.github.sookyboo.NoxDecomp.desktop
+      - install -Dm644 io.github.sookyboo.NoxDecomp.metainfo.xml /app/share/metainfo/io.github.sookyboo.NoxDecomp.metainfo.xml

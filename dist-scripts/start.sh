@@ -268,6 +268,9 @@ install_game_data() {
     return 1
   fi
 
+  echo "Remove installer nox.cfg"
+  rm "$NOX_GAMEFILES_DIR/app/nox.cfg" || true
+
   echo "Extraction complete"
 }
 

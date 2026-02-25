@@ -4,7 +4,7 @@
     <id>io.github.sookyboo.NoxDecomp</id>
 
     <name>Nox-Decomp</name>
-    <summary>Unofficial Nox (2000) port for Linux/Steam Deck with LAN + Internet multiplayer (original game data required)</summary>
+    <summary>Comment=Unofficial Nox (2000) port with hi-res scaling, gamepad support, and LAN/Internet multiplayer (original game data required)</summary>
 
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>Unlicense</project_license>
