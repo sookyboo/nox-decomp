@@ -197,7 +197,7 @@ modules:
       - install -Dm755 dist-scripts/start.sh /app/bin/start.sh
 
       - install -d /app/lib/${FLATPAK_ID}
-      - install -Dm644 dist-scripts/nox.cfg /app/lib/${FLATPAK_ID}/nox.cfg || true
+      - install -Dm644 dist-scripts/nox.cfg.hires /app/lib/${FLATPAK_ID}/nox.cfg || true
       - install -Dm644 dist-scripts/nox.gptk2.ini /app/lib/${FLATPAK_ID}/nox.gptk2.ini || true
       - install -Dm755 dist-scripts/steam_shortcut.py /app/lib/${FLATPAK_ID}/steam_shortcut.py || true
 
