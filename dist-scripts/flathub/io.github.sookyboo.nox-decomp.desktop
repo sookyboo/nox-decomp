@@ -3,6 +3,6 @@ Type=Application
 Name=Nox-Decomp
 Comment=Community reimplementation (requires original game data)
 Exec=start.sh
-Icon=io.github.sookyboo.NoxDecomp
+Icon=io.github.sookyboo.nox-decomp
 Categories=Game;
 Terminal=false

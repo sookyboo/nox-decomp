@@ -53,7 +53,7 @@ COPY steam/                /work/steam/
 COPY ffmpeg.i386/          /work/ffmpeg.i386/
 
 # Optional files (you said they will exist)
-COPY io.github.sookyboo.NoxDecomp.png /work/io.github.sookyboo.NoxDecomp.png
+COPY io.github.sookyboo.nox-decomp.png /work/io.github.sookyboo.nox-decomp.png
 COPY gptokeyb2.x86_64                 /work/gptokeyb2.x86_64
 COPY nox.cfg                          /work/nox.cfg
 COPY nox.gptk2.ini                    /work/nox.gptk2.ini
@@ -61,7 +61,7 @@ COPY nox.gptk2.ini                    /work/nox.gptk2.ini
 RUN chmod +x /work/ubuntu-buildflatpak.sh
 
 #ENV APP_NAME=NoxDecomp \
-#    APP_ID=io.github.sookyboo.NoxDecomp \
+#    APP_ID=io.github.sookyboo.nox-decomp \
 #    RUNTIME_VER=24.08 \
 #    GL_VER=1.4 \
 #    ARCH=x86_64 \

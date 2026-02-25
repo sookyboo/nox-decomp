@@ -1,5 +1,5 @@
-APP_ID=io.github.sookyboo.NoxDecomp
-MANIFEST=io.github.sookyboo.NoxDecomp.yml
+APP_ID=io.github.sookyboo.nox-decomp
+MANIFEST=io.github.sookyboo.nox-decomp.yml
 
 rm -rf build-dir repo
 flatpak-builder --force-clean --repo=repo build-dir "$MANIFEST"

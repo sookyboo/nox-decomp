@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_ID="io.github.sookyboo.NoxDecomp"
+APP_ID="io.github.sookyboo.nox-decomp"
 
 PKG_BASE="/app/lib/${APP_ID}"
 PKG_NOXD="${PKG_BASE}/noxd.i386"

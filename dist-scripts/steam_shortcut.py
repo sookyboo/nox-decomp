@@ -1165,7 +1165,7 @@ def _apply_for_steamid(steam_root: Path, steamid: str, args: argparse.Namespace)
         if not src_icon.exists():
             return 2, f"icon-file not found: {src_icon}"
 
-        # If you want EXACTLY io.github.sookyboo.NoxDecomp.png:
+        # If you want EXACTLY io.github.sookyboo.nox-decomp.png:
         if flatpak_app_id:
             dst_icon = grid_dir / f"{flatpak_app_id}.png"
         else:

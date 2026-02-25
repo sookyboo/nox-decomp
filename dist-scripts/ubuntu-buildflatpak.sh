@@ -4,7 +4,7 @@ set -euo pipefail
 APP_NAME="${APP_NAME:-NoxDecomp}"
 RUNTIME_VER="${RUNTIME_VER:-24.08}"
 GL_VER="${GL_VER:-1.4}"
-APP_ID="${APP_ID:-io.github.sookyboo.NoxDecomp}"
+APP_ID="${APP_ID:-io.github.sookyboo.nox-decomp}"
 ARCH="${ARCH:-x86_64}"
 
 WORKDIR="$(pwd)"
@@ -99,7 +99,7 @@ install -d "${INTERNAL_LIB}/utils"
 install -Dm755 "${WORKDIR}/steam_shortcut.py" "${INTERNAL_LIB}/steam_shortcut.py"
 install -Dm644 "${WORKDIR}/steamv.png" "${INTERNAL_LIB}/steamv.png"
 install -Dm644 "${WORKDIR}/steamh.png" "${INTERNAL_LIB}/steamh.png"
-install -Dm644 "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" "${INTERNAL_LIB}/${APP_ID}.png"
+install -Dm644 "${WORKDIR}/io.github.sookyboo.nox-decomp.png" "${INTERNAL_LIB}/${APP_ID}.png"
 
 # ---------------------------
 # Desktop entry (auto-exported by Flatpak)
@@ -115,12 +115,12 @@ Terminal=false
 EOF
 #Exec=${APP_ID}
 
-if [[ -f "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" ]]; then
-  install -Dm644 "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" "${BUILD_DIR}/files/share/icons/hicolor/256x256/apps/${APP_ID}.png"
-  install -Dm644 "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" "${BUILD_DIR}/files/share/icons/hicolor/128x128/apps/${APP_ID}.png"
-  install -Dm644 "${WORKDIR}/io.github.sookyboo.NoxDecomp.png" "${BUILD_DIR}/files/share/icons/hicolor/64x64/apps/${APP_ID}.png"
+if [[ -f "${WORKDIR}/io.github.sookyboo.nox-decomp.png" ]]; then
+  install -Dm644 "${WORKDIR}/io.github.sookyboo.nox-decomp.png" "${BUILD_DIR}/files/share/icons/hicolor/256x256/apps/${APP_ID}.png"
+  install -Dm644 "${WORKDIR}/io.github.sookyboo.nox-decomp.png" "${BUILD_DIR}/files/share/icons/hicolor/128x128/apps/${APP_ID}.png"
+  install -Dm644 "${WORKDIR}/io.github.sookyboo.nox-decomp.png" "${BUILD_DIR}/files/share/icons/hicolor/64x64/apps/${APP_ID}.png"
 else
-  echo "WARN: io.github.sookyboo.NoxDecomp.png missing; desktop entry will have no icon."
+  echo "WARN: io.github.sookyboo.nox-decomp.png missing; desktop entry will have no icon."
 fi
 
 [[ -f "${WORKDIR}/gptokeyb2.x86_64" ]] && install -Dm755 "${WORKDIR}/gptokeyb2.x86_64" "${INTERNAL_LIB}/gptokeyb2.x86_64"

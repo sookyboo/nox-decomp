@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Copyright 2026 -->
 <component type="desktop-application">
-    <id>io.github.sookyboo.NoxDecomp</id>
+    <id>io.github.sookyboo.nox-decomp</id>
 
     <name>Nox-Decomp</name>
     <summary>Comment=Unofficial Nox (2000) port with hi-res scaling, gamepad support, and LAN/Internet multiplayer (original game data required)</summary>
@@ -13,7 +13,7 @@
         <name>sookyboo</name>
     </developer>
 
-    <launchable type="desktop-id">io.github.sookyboo.NoxDecomp.desktop</launchable>
+    <launchable type="desktop-id">io.github.sookyboo.nox-decomp.desktop</launchable>
 
     <description>
         <p>
@@ -59,24 +59,24 @@
 
     <!-- Prefer shipping icons in the app and using type="stock".
          If you also want a remote fallback, keep the remote icon too. -->
-    <icon type="stock">io.github.sookyboo.NoxDecomp</icon>
+    <icon type="stock">io.github.sookyboo.nox-decomp</icon>
 
     <screenshots>
         <screenshot type="default">
             <caption>In-game action</caption>
-            <image type="source">file:///app/share/metainfo/io.github.sookyboo.NoxDecomp-game1.png</image>
+            <image type="source">file:///app/share/metainfo/io.github.sookyboo.nox-decomp-game1.png</image>
         </screenshot>
         <screenshot>
             <caption>Handheld / controller play</caption>
-            <image type="source">file:///app/share/metainfo/io.github.sookyboo.NoxDecomp-handheld.jpeg</image>
+            <image type="source">file:///app/share/metainfo/io.github.sookyboo.nox-decomp-handheld.jpeg</image>
         </screenshot>
         <screenshot>
             <caption>Video playback support</caption>
-            <image type="source">file:///app/share/metainfo/io.github.sookyboo.NoxDecomp-movie1.png</image>
+            <image type="source">file:///app/share/metainfo/io.github.sookyboo.nox-decomp-movie1.png</image>
         </screenshot>
         <screenshot>
             <caption>Cutscenes and movies</caption>
-            <image type="source">file:///app/share/metainfo/io.github.sookyboo.NoxDecomp-movie2.png</image>
+            <image type="source">file:///app/share/metainfo/io.github.sookyboo.nox-decomp-movie2.png</image>
         </screenshot>
     </screenshots>
 

@@ -1,4 +1,4 @@
-app-id: io.github.sookyboo.NoxDecomp
+app-id: io.github.sookyboo.nox-decomp
 runtime: org.freedesktop.Platform
 runtime-version: "24.08"
 sdk: org.freedesktop.Sdk
@@ -228,7 +228,7 @@ modules:
       - install -Dm644 dist-scripts/steamh.png /app/lib/${FLATPAK_ID}/steamh.png
 
       # Icon
-      - install -Dm644 dist-scripts/io.github.sookyboo.NoxDecomp.png /app/lib/${FLATPAK_ID}/${FLATPAK_ID}.png
+      - install -Dm644 dist-scripts/io.github.sookyboo.nox-decomp.png /app/lib/${FLATPAK_ID}/${FLATPAK_ID}.png
 
       # AppStream screenshots shipped inside the Flatpak
       - install -d /app/share/metainfo/${FLATPAK_ID}
@@ -238,7 +238,7 @@ modules:
       - install -Dm644 screenshots/movie2.png    /app/share/metainfo/${FLATPAK_ID}/movie2.png
 
       - install -d /app/share/icons/hicolor/256x256/apps
-      - install -Dm644 dist-scripts/io.github.sookyboo.NoxDecomp.png /app/share/icons/hicolor/256x256/apps/${FLATPAK_ID}.png
+      - install -Dm644 dist-scripts/io.github.sookyboo.nox-decomp.png /app/share/icons/hicolor/256x256/apps/${FLATPAK_ID}.png
 
       # Keep compatibility with the old utils layout (start.sh may reference these paths)
 #      - install -d /app/lib/${FLATPAK_ID}/utils
@@ -263,9 +263,9 @@ modules:
     buildsystem: simple
     sources:
       - type: file
-        path: io.github.sookyboo.NoxDecomp.desktop
+        path: io.github.sookyboo.nox-decomp.desktop
       - type: file
-        path: io.github.sookyboo.NoxDecomp.metainfo.xml
+        path: io.github.sookyboo.nox-decomp.metainfo.xml
     build-commands:
-      - install -Dm644 io.github.sookyboo.NoxDecomp.desktop /app/share/applications/io.github.sookyboo.NoxDecomp.desktop
-      - install -Dm644 io.github.sookyboo.NoxDecomp.metainfo.xml /app/share/metainfo/io.github.sookyboo.NoxDecomp.metainfo.xml
+      - install -Dm644 io.github.sookyboo.nox-decomp.desktop /app/share/applications/io.github.sookyboo.nox-decomp.desktop
+      - install -Dm644 io.github.sookyboo.nox-decomp.metainfo.xml /app/share/metainfo/io.github.sookyboo.nox-decomp.metainfo.xml
