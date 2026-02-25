@@ -4,33 +4,36 @@ runtime-version: "24.08"
 sdk: org.freedesktop.Sdk
 command: start.sh
 
-# Needed to build i386 binaries inside an x86_64 SDK.
+# Needed to build i386 binaries inside an x86_64 SDK. Nox-Decomp can only be compiled as 32bit at the moment.
 sdk-extensions:
   - org.freedesktop.Sdk.Compat.i386
   - org.freedesktop.Sdk.Extension.toolchain-i386
 
 finish-args:
   # Safer than --device=all; for gamepads. Requires newer Flatpak.
-#  - --require-version=1.16.0
-#  - --device=input
-  - --device=all
+  - --require-version=1.16.0
+  - --device=input
+#  - --device=all # for testing with ubuntu 24.04 lts instead of input
   - --device=dri
   - --socket=wayland
   - --socket=fallback-x11
   - --socket=pulseaudio
   - --share=ipc
-  - --share=network
+  - --share=network # needed for LAN and internet multiplayer based on UDP port 18590
   - --allow=multiarch
   - --filesystem=~/nox-decomp:create
 
+  # For installing steam launcher shortcut - required for gamepad mode to work on steam deck
   - --filesystem=xdg-data/Steam/userdata:rw
   - --filesystem=~/.steam/steam/userdata:rw
   - --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/userdata:rw
 
+  # get gamepad with mouse profile
   - --filesystem=xdg-data/Steam/controller_base:ro
   - --filesystem=~/.steam/steam/controller_base:ro
   - --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/controller_base:ro
 
+  # set gamepad with mouse profile
   - --filesystem=xdg-data/Steam/steamapps/common/Steam\ Controller\ Configs:rw
   - --filesystem=~/.steam/steam/steamapps/common/Steam\ Controller\ Configs:rw
   - --filesystem=~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Steam\ Controller\ Configs:rw
@@ -108,7 +111,7 @@ modules:
         url: https://distro.ibiblio.org/ubuntu/pool/universe/i/innoextract/innoextract_1.9.orig.tar.gz
         sha256: 6344a69fc1ed847d4ed3e272e0da5998948c6b828cb7af39c6321aba6cf88126
 
-  # --- FFmpeg (x86_64) CLI for your conversion tools ---
+  # --- FFmpeg (x86_64) CLI for conversion tools ---
   - name: ffmpeg-x86_64
     buildsystem: simple
     build-commands:
@@ -129,7 +132,7 @@ modules:
         url: https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz
         sha256: 733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1
 
-  # --- FFmpeg i386 shared libs (the key piece for your i386-only nox binary) ---
+  # --- FFmpeg i386 shared libs (the key piece for i386-only nox binary) ---
   - name: ffmpeg-i386-libs
     buildsystem: simple
     build-options: *i386_build_options
@@ -167,7 +170,7 @@ modules:
         url: https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz
         sha256: 733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1
 
-  # --- Build your i386 nox-decomp executable from upstream repo ---
+  # --- Build i386 nox-decomp executable from upstream repo ---
   - name: nox-decomp-i386
     buildsystem: simple
     build-options: *i386_build_options
@@ -189,7 +192,7 @@ modules:
         url: https://github.com/sookyboo/nox-decomp.git
         commit: "29a1cb707a855081be867aee4c56476ba27789af"
 
-  # --- Install your dist-scripts assets from the same upstream repo ---
+  # --- Install dist-scripts assets from the same upstream repo ---
   - name: dist-assets
     buildsystem: simple
     build-commands:
@@ -213,18 +216,10 @@ modules:
       - install -Dm644 screenshots/movie1.png    /app/share/metainfo/${FLATPAK_ID}/movie1.png
       - install -Dm644 screenshots/movie2.png    /app/share/metainfo/${FLATPAK_ID}/movie2.png
 
-      # keep for now to test but change start.sh to use /app/lib32 directly instead in future
-      #- install -d /app/lib/${FLATPAK_ID}/ffmpeg.i386
-      #- cp -av /app/lib32/libav*.so* /app/lib/${FLATPAK_ID}/ffmpeg.i386/ 2>/dev/null || true
-      #- cp -av /app/lib32/libswscale.so* /app/lib/${FLATPAK_ID}/ffmpeg.i386/ 2>/dev/null || true
-      #- cp -av /app/lib32/libswresample.so* /app/lib/${FLATPAK_ID}/ffmpeg.i386/ 2>/dev/null || true
-
-      # Desktop + appstream are provided by the Flathub packaging repo files (below),
-      # but your icon is already in dist-scripts, so install it:
       - install -d /app/share/icons/hicolor/256x256/apps
       - install -Dm644 dist-scripts/io.github.sookyboo.NoxDecomp.png /app/share/icons/hicolor/256x256/apps/${FLATPAK_ID}.png
 
-      # Keep compatibility with the old utils layout (your start.sh may reference these paths)
+      # Keep compatibility with the old utils layout (start.sh may reference these paths)
       - install -d /app/lib/${FLATPAK_ID}/utils
       - ln -sf /app/bin/ffmpeg /app/lib/${FLATPAK_ID}/utils/ffmpeg.x86_64
       - ln -sf /app/bin/innoextract /app/lib/${FLATPAK_ID}/utils/innoextract.x86_64
