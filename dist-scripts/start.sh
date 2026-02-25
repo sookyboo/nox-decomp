@@ -516,22 +516,34 @@ detect_display_wh() {
         conn="$(basename "$(dirname "$status_file")")"  # e.g. card0-eDP-1
         echo "[display] DRM sysfs: ${conn} status='${st}'" >&2
 
-        if [[ "$st" == "connected" ]]; then
-          modes_file="${status_file%/status}/modes"
-          if [[ -r "$modes_file" ]]; then
-            mode="$(head -n1 "$modes_file" 2>/dev/null || true)"
-            echo "[display] DRM sysfs: ${conn} first mode='${mode}' (from $modes_file)" >&2
-            if [[ "$mode" =~ ^([0-9]+)x([0-9]+)$ ]]; then
-              w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
-              method="drm:${conn}"
-              echo "[display] DRM sysfs success: ${w}x${h} via ${conn}" >&2
-              break
-            else
-              echo "[display] DRM sysfs: ${conn} mode not usable" >&2
+        [[ "$st" == "connected" ]] || continue
+
+        modes_file="${status_file%/status}/modes"
+        if [[ -r "$modes_file" ]]; then
+          mode="$(head -n1 "$modes_file" 2>/dev/null || true)"
+          echo "[display] DRM sysfs: ${conn} first mode='${mode}' (from $modes_file)" >&2
+
+          if [[ "$mode" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+            w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+
+            # Steam Deck / internal panels sometimes report 800x1280 (portrait ordering).
+            # If it's eDP (internal) and looks portrait, swap to landscape.
+            if [[ "$conn" == *"-eDP-"* || "$conn" == *"eDP-"* ]]; then
+              if (( w < h )); then
+                echo "[display] DRM sysfs: ${conn} looks portrait (${w}x${h}); swapping to ${h}x${w}" >&2
+                local tmp="$w"; w="$h"; h="$tmp"
+                echo "[display] DRM sysfs: ${conn} after swap: ${w}x${h}" >&2
+              fi
             fi
+
+            method="drm:${conn}"
+            echo "[display] DRM sysfs success: ${w}x${h} via ${conn}" >&2
+            break
           else
-            echo "[display] DRM sysfs: modes file unreadable/missing: $modes_file" >&2
+            echo "[display] DRM sysfs: ${conn} mode not usable" >&2
           fi
+        else
+          echo "[display] DRM sysfs: modes file unreadable/missing: $modes_file" >&2
         fi
       done
     fi
