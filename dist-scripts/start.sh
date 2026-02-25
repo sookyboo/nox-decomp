@@ -436,6 +436,187 @@ if [[ "${NOX_FORCE_X11}" != "0" ]]; then
   export SDL_VIDEO_DRIVER=x11 2>/dev/null || true
 fi
 
+detect_display_wh() {
+  local w="" h=""
+  local method=""
+
+  echo "[display] detect_display_wh: DISPLAY='${DISPLAY:-}' WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-}'" >&2
+
+  # 1) X11: xrandr (best if available)
+  if command -v xrandr >/dev/null 2>&1; then
+    if [[ -n "${DISPLAY:-}" ]]; then
+      echo "[display] trying xrandr (--current)" >&2
+      local line res
+      line="$(xrandr --current 2>/dev/null | awk '
+        $2=="connected" && $3=="primary" {print; exit}
+        $2=="connected" {print; exit}
+      ')"
+      if [[ -n "$line" ]]; then
+        echo "[display] xrandr picked line: $line" >&2
+        # Example: eDP-1 connected primary 1280x800+0+0 ...
+        res="$(awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+x[0-9]+\+/){gsub(/\+.*/,"",$i); print $i; exit}}' <<<"$line")"
+        echo "[display] xrandr parsed res: '${res:-}'" >&2
+        if [[ "$res" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+          w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+          method="xrandr"
+          echo "[display] xrandr success: ${w}x${h}" >&2
+        else
+          echo "[display] xrandr did not yield a usable WxH" >&2
+        fi
+      else
+        echo "[display] xrandr: no connected outputs found" >&2
+      fi
+    else
+      echo "[display] xrandr available but DISPLAY is unset; skipping xrandr" >&2
+    fi
+  else
+    echo "[display] xrandr not found; skipping" >&2
+  fi
+
+  # 2) X11: xdpyinfo fallback
+  if [[ -z "$w" ]]; then
+    if command -v xdpyinfo >/dev/null 2>&1; then
+      if [[ -n "${DISPLAY:-}" ]]; then
+        echo "[display] trying xdpyinfo" >&2
+        local dims
+        dims="$(xdpyinfo 2>/dev/null | awk -F'[ x]+' '/dimensions:/{print $3" "$4; exit}')"
+        echo "[display] xdpyinfo parsed dims: '${dims:-}'" >&2
+        if [[ "$dims" =~ ^([0-9]+)[[:space:]]+([0-9]+)$ ]]; then
+          w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+          method="xdpyinfo"
+          echo "[display] xdpyinfo success: ${w}x${h}" >&2
+        else
+          echo "[display] xdpyinfo did not yield a usable WxH" >&2
+        fi
+      else
+        echo "[display] xdpyinfo available but DISPLAY is unset; skipping xdpyinfo" >&2
+      fi
+    else
+      echo "[display] xdpyinfo not found; skipping" >&2
+    fi
+  fi
+
+  # 3) DRM sysfs (good for docked + wayland/gamescope when tools aren’t there)
+  if [[ -z "$w" ]]; then
+    echo "[display] trying DRM sysfs: /sys/class/drm/card*-*/status" >&2
+    local status_file modes_file mode
+    shopt -s nullglob
+    local status_files=(/sys/class/drm/card*-*/status)
+    shopt -u nullglob
+
+    if (( ${#status_files[@]} == 0 )); then
+      echo "[display] DRM sysfs: no status files found" >&2
+    else
+      echo "[display] DRM sysfs: found ${#status_files[@]} status files" >&2
+      for status_file in "${status_files[@]}"; do
+        [[ -r "$status_file" ]] || { echo "[display] DRM sysfs: unreadable: $status_file" >&2; continue; }
+
+        local st conn
+        st="$(cat "$status_file" 2>/dev/null || true)"
+        conn="$(basename "$(dirname "$status_file")")"  # e.g. card0-eDP-1
+        echo "[display] DRM sysfs: ${conn} status='${st}'" >&2
+
+        if [[ "$st" == "connected" ]]; then
+          modes_file="${status_file%/status}/modes"
+          if [[ -r "$modes_file" ]]; then
+            mode="$(head -n1 "$modes_file" 2>/dev/null || true)"
+            echo "[display] DRM sysfs: ${conn} first mode='${mode}' (from $modes_file)" >&2
+            if [[ "$mode" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+              w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+              method="drm:${conn}"
+              echo "[display] DRM sysfs success: ${w}x${h} via ${conn}" >&2
+              break
+            else
+              echo "[display] DRM sysfs: ${conn} mode not usable" >&2
+            fi
+          else
+            echo "[display] DRM sysfs: modes file unreadable/missing: $modes_file" >&2
+          fi
+        fi
+      done
+    fi
+  fi
+
+  # 4) Last resort: assume internal Deck panel
+  if [[ -z "$w" ]]; then
+    w=1280; h=800
+    method="fallback:1280x800"
+    echo "[display] fallback to ${w}x${h}" >&2
+  fi
+
+  echo "[display] detect_display_wh result: ${w}x${h} (method=${method:-unknown})" >&2
+  printf '%s %s\n' "$w" "$h"
+}
+
+read DISPLAY_WIDTH DISPLAY_HEIGHT < <(detect_display_wh)
+export DISPLAY_WIDTH DISPLAY_HEIGHT
+echo "[display] detected ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}"
+
+# ---------------------------
+# Auto-pick NOX resolution from DISPLAY_WIDTH / DISPLAY_HEIGHT (if provided)
+# ---------------------------
+
+# Defaults (only applied if user didn't already export them)
+: "${NOX_GAME_WIDTH:=1024}"
+: "${NOX_GAME_HEIGHT:=768}"
+: "${NOX_GAME_BITS:=16}"
+: "${NOX_GAME_FULLSCREEN:=1}"
+
+# Optional inputs (may be unset under -u)
+dw="${DISPLAY_WIDTH:-}"
+dh="${DISPLAY_HEIGHT:-}"
+
+if [[ -n "$dw" && -n "$dh" ]]; then
+  # Must be numeric
+  if [[ "$dw" =~ ^[0-9]+$ && "$dh" =~ ^[0-9]+$ && "$dh" -ne 0 ]]; then
+    # Aspect ratio as float
+    ASPECT="$(awk -v w="$dw" -v h="$dh" 'BEGIN { printf "%.4f", w / h }')"
+
+    # 4:3 ≈ 1.3333
+    if awk -v a="$ASPECT" 'BEGIN { exit !(a > 1.30 && a < 1.36) }'; then
+      if [[ "$dw" -lt 1024 && "$dh" -lt 768 ]]; then
+        NOX_GAME_WIDTH="$dw"
+        NOX_GAME_HEIGHT="$dh"
+      else
+        NOX_GAME_WIDTH=1024
+        NOX_GAME_HEIGHT=768
+      fi
+
+    # 1:1 ≈ 1.0
+    elif awk -v a="$ASPECT" 'BEGIN { exit !(a > 0.98 && a < 1.02) }'; then
+      if [[ "$dw" -lt 768 ]]; then
+        NOX_GAME_WIDTH="$dw"
+        NOX_GAME_HEIGHT="$dw"
+      else
+        NOX_GAME_WIDTH=768
+        NOX_GAME_HEIGHT=768
+      fi
+
+    # Widescreen (everything else)
+    else
+      # Cap width at 1024
+      if [[ "$dw" -gt 1024 ]]; then
+        NOX_GAME_WIDTH=1024
+      else
+        NOX_GAME_WIDTH="$dw"
+      fi
+
+      # Scale height to preserve aspect ratio, cap at 768
+      NOX_GAME_HEIGHT="$(awk -v w="$NOX_GAME_WIDTH" -v a="$ASPECT" 'BEGIN {
+        h = w / a;
+        if (h > 768) h = 768;
+        printf "%d", h
+      }')"
+    fi
+  fi
+fi
+
+export NOX_GAME_WIDTH NOX_GAME_HEIGHT NOX_GAME_BITS NOX_GAME_FULLSCREEN
+
+# (Optional) breadcrumb in log.txt
+echo "[video] DISPLAY=${dw:-unset}x${dh:-unset} -> NOX_GAME=${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT} bits=${NOX_GAME_BITS} fullscreen=${NOX_GAME_FULLSCREEN}"
+
+
 # ---------------------------
 # SDL controller defaults (user can override by exporting their own values)
 # ---------------------------
