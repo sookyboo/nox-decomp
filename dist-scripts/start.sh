@@ -616,6 +616,34 @@ export NOX_GAME_WIDTH NOX_GAME_HEIGHT NOX_GAME_BITS NOX_GAME_FULLSCREEN
 # (Optional) breadcrumb in log.txt
 echo "[video] DISPLAY=${dw:-unset}x${dh:-unset} -> NOX_GAME=${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT} bits=${NOX_GAME_BITS} fullscreen=${NOX_GAME_FULLSCREEN}"
 
+# ---------------------------
+# Apply detected video settings into nox.cfg (best-effort)
+# ---------------------------
+
+if [[ -f "${NOX_ASSET_DIR}/nox.cfg" ]]; then
+  echo "[cfg] patching ${NOX_ASSET_DIR}/nox.cfg with VideoMode=${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}x${NOX_GAME_BITS} Fullscreen=${NOX_GAME_FULLSCREEN}"
+
+  # Update existing keys if present
+  sed -i -E \
+    "s/^VideoMode[[:space:]]*=.*/VideoMode = ${NOX_GAME_WIDTH} ${NOX_GAME_HEIGHT} ${NOX_GAME_BITS}/" \
+    "${NOX_ASSET_DIR}/nox.cfg" || true
+
+  sed -i -E \
+    "s/^Fullscreen[[:space:]]*=.*/Fullscreen = ${NOX_GAME_FULLSCREEN}/" \
+    "${NOX_ASSET_DIR}/nox.cfg" || true
+
+  # If keys were missing, append them (so it actually takes effect)
+  if ! grep -qE '^VideoMode[[:space:]]*=' "${NOX_ASSET_DIR}/nox.cfg" 2>/dev/null; then
+    echo "[cfg] VideoMode not found; appending"
+    printf '\nVideoMode = %s %s %s\n' "${NOX_GAME_WIDTH}" "${NOX_GAME_HEIGHT}" "${NOX_GAME_BITS}" >> "${NOX_ASSET_DIR}/nox.cfg" || true
+  fi
+  if ! grep -qE '^Fullscreen[[:space:]]*=' "${NOX_ASSET_DIR}/nox.cfg" 2>/dev/null; then
+    echo "[cfg] Fullscreen not found; appending"
+    printf 'Fullscreen = %s\n' "${NOX_GAME_FULLSCREEN}" >> "${NOX_ASSET_DIR}/nox.cfg" || true
+  fi
+else
+  echo "[cfg] nox.cfg not found at ${NOX_ASSET_DIR}/nox.cfg; skipping patch"
+fi
 
 # ---------------------------
 # SDL controller defaults (user can override by exporting their own values)
