@@ -8,9 +8,8 @@ PKG_NOXD="${PKG_BASE}/noxd.i386"
 PKG_STEAM_DIR="${PKG_BASE}/steam"
 PKG_FFMPEG_DIR="${PKG_BASE}/ffmpeg.i386"
 PKG_GPTK2_INI="${PKG_BASE}/nox.gptk2.ini"
-PKG_UTILS_DIR="${PKG_BASE}/utils"
-PKG_INNOEXTRACT="${PKG_UTILS_DIR}/innoextract.x86_64"
-PKG_FFMPEG_X64="${PKG_UTILS_DIR}/ffmpeg.x86_64"
+PKG_INNOEXTRACT="/app/bin/innoextract"
+PKG_FFMPEG_X64="/app/bin/ffmpeg"
 PKG_NOX_CFG="${PKG_BASE}/nox.cfg"
 
 # ---------------------------
