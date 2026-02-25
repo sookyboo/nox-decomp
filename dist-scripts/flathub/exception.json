@@ -1,0 +1,8 @@
+{
+  "io.github.sookyboo.nox-decomp": {
+    "finish-args-flatpak-appdata-folder-access": "The app integrates with Steam on Steam Deck / desktop by creating a shortcut and installing controller profiles",
+    "finish-args-has-dev-input": "The app needs direct input device access for gamepads",
+    "finish-args-unnecessary-xdg-data-Steam-rw-access": "The app intentionally writes to Steam userdata and controller configuration folders",
+    "finish-args-unnecessary-xdg-data-Steam-ro-access": "The app intentionally reads Steam controller_base data to detect and reuse Steam Input templates/profiles"
+  }
+}
