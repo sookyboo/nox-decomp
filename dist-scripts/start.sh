@@ -56,7 +56,7 @@ if [[ "$want_skip" == "0" && "$have_display" == "1" && "$have_zenity" == "1" && 
 
     msg="Add Nox-Decomp to Steam?
 
-Steam user detected: ${chosen_steamid:-unknown}
+Steam user detected
 
 This will create/update a Steam shortcut, install artwork, and set a Steam Deck controller template.
 
