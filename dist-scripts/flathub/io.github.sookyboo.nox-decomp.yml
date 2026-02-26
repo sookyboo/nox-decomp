@@ -216,11 +216,11 @@ modules:
       - install -Dm755 dist-scripts/steam_shortcut.py /app/bin/steam_shortcut.py || true
 
       # Steam Art
-      - install -Dm644 dist-scripts/steamv.png /app/share/nox-decomp/${FLATPAK_ID}/steamv.png
-      - install -Dm644 dist-scripts/steamh.png /app/share/nox-decomp/${FLATPAK_ID}/steamh.png
+      - install -Dm644 dist-scripts/steamv.png /app/share/nox-decomp/steamv.png
+      - install -Dm644 dist-scripts/steamh.png /app/share/nox-decomp/steamh.png
 
       # Icon
-      - install -Dm644 dist-scripts/io.github.sookyboo.nox-decomp.png /app/share/nox-decomp/${FLATPAK_ID}/${FLATPAK_ID}.png
+      - install -Dm644 dist-scripts/io.github.sookyboo.nox-decomp.png /app/share/nox-decomp/${FLATPAK_ID}.png
 
       # AppStream screenshots shipped inside the Flatpak
       - install -d /app/share/metainfo/${FLATPAK_ID}
