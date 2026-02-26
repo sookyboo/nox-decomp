@@ -164,7 +164,7 @@ modules:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
         #        tag: "v0.9.2"
-        commit: "a7c9f1e1fa65bd0a6fdad0c6abfec955138c000f"
+        commit: "fad5be6fd16dbd7f4fefa92f729657bbece21e10"
 
   - name: app-metadata
     buildsystem: simple
