@@ -43,9 +43,8 @@ Open the PortMaster app on your device and install NoxDecomp and follow the read
 The file is also included in releases here.
 
 ## Steam Deck
-Please note that the flatpak requires these permissions:
-- It requires access to a directory in your home directory called nox-decomp. ~/nox-decomp
-- It also needs access to your devices for gamepad support.
+Please note the flatpak requirements:
+- It  needs access to your devices for gamepad support (all flatpaks do for gamepad support until flatpak 1.16 is released on steam deck) .
 - It requires access to your steam config folders to add a launcher for steam
 - It requires a copy of `setup_nox_2.0.0.20.exe` from gog in ~/nox-decomp/gamesfiles
 
@@ -53,9 +52,14 @@ Go to Power -> Switch to Desktop
 
 Controlling the mouse in Steam Deck desktop mode: 
 - Right touch pad lets you move the mouse
-- r2 is click and l2 is right click
+- R2 is click and L2 is right click
+- Steam button + X shows the on screen keyboard (you can use the touch screen to enter text)
 
-Download the flatpak.zip from releases section in the chrome browser on the steam deck.
+[Video Guide](https://youtu.be/vSfgxl9E7i4)
+
+Log in to your [gog.com](https://www.gog.com/en/game/nox) account and buy/download nox the setup file should be something like `setup_nox_2.0.0.20.exe`
+
+Download the flatpak.zip from [releases section](https://github.com/sookyboo/nox-decomp/releases) in the chrome browser on the steam deck.
 
 Open up the file manager (File Manager is called Dolphin)
 
@@ -79,23 +83,25 @@ Double click install.sh
 
 Choose execute
 
-Log in to your gog.com account and buy/download nox the setup file should be something like `setup_nox_2.0.0.20.exe`
+Wait while it installs the flatpak and its dependencies.
 
-Download that file and move it into your Home -> nox-decomp -> gamefiles directory.
+In the pop up click "Run" to run nox-decomp now and start the setup extraction process.
 
-Click the Steam start button in the bottom left corner and search for nox-decomp or look for it in games and start it
+It will ask to add a launcher to your steam deck. Click "Yes"
 
-It will ask if it can 'create/update a Steam shortcut, install artwork, and set a Steam Deck controller template' say Yes
+When the steam launcher step is finished click "OK"
 
-Then you will see a progress bar for extraction of game data and conversion of audio files.
+Read the instructions for installing the game data and click "OK"
 
-It will tell you when it finishes. Click OK. 
+Choose "select GOG installer" and click "OK"
 
-Delete the flatpak.zip from your downloads dir and the directory.
+Go to your Downloads and select `setup_nox_2.0.0.20.exe` and click "OK"
 
-Click the bottom left steam icon and choose restart back into normal steam deck mode.
+Wait for the extraction and conversion process to finish.
 
-Find the game and launch it in your library and enjoy!
+Note: You will only see it in your steam library the next time steam restarts.
+
+Restart your device or launch the game from the start menu and enjoy!
 
 ## Linux
 Download the zip from releases.
