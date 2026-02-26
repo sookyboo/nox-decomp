@@ -21,12 +21,6 @@ finish-args:
   - --share=network
   - --allow=multiarch
 
-  # Nox-Decomp needs purchased game assets
-  # gog installer can be automatically extracted if put in ~/nox-decomp/gamefiles/setup_nox_2.0.0.20.exe
-  # game saves in ~/nox-decomp/gamefiles/app/Save
-  # game config saves in ~/nox-decomp/gamefiles/nox.cfg
-  - --filesystem=~/nox-decomp:create
-
   # For installing steam launcher shortcut - uses steam_shortcut.py
   # shortcut and controller profile required for gamepad mode to work on steam deck
   - --filesystem=xdg-data/Steam/userdata:rw
@@ -170,7 +164,7 @@ modules:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
         #        tag: "v0.9.2"
-        commit: "0e3f5e153e3a69854f64901e493bf6a8c9ccca41"
+        commit: "2e42eafbb9944df448ecb3967cc0ed0a3f7a48e4"
 
   - name: app-metadata
     buildsystem: simple
