@@ -295,26 +295,35 @@ EOF
 
         elif [[ "$kind" == "DIR" ]]; then
           echo "User selected extracted folder via portal: $path"
-          mkdir -p "${NOX_GAMEFILES_DIR}/app"
 
-          # Accept either:
-          #  - an "app" folder containing gamedata.bin
-          #  - a parent folder that contains app/gamedata.bin
+          mkdir -p "${NOX_GAMEFILES_DIR}"
+
+          # Determine the actual "app" dir that contains gamedata.bin
+          src_app=""
           if [[ -f "${path}/gamedata.bin" ]]; then
-            if ! cp -r "${path}/." "${NOX_GAMEFILES_DIR}/app/"; then
-              zenity --error --title="Nox-Decomp" --width=520 \
-                --text="Failed to copy selected folder into:\n${NOX_GAMEFILES_DIR}/app" \
-                >/dev/null 2>&1 || true
-            fi
+            src_app="${path}"
           elif [[ -f "${path}/app/gamedata.bin" ]]; then
-            if ! cp -r "${path}/app/." "${NOX_GAMEFILES_DIR}/app/"; then
-              zenity --error --title="Nox-Decomp" --width=520 \
-                --text="Failed to copy selected folder into:\n${NOX_GAMEFILES_DIR}/app" \
-                >/dev/null 2>&1 || true
-            fi
+            src_app="${path}/app"
           else
             zenity --error --title="Nox-Decomp" --width=520 \
               --text=$'That folder does not look like extracted Nox data.\n\nExpected:\n  gamedata.bin\nor:\n  app/gamedata.bin' \
+              >/dev/null 2>&1 || true
+            src_app=""
+          fi
+
+          if [[ -n "${src_app}" ]]; then
+            # Replace app dir with a symlink to the selected folder (use-in-place)
+            rm -rf "${NOX_GAMEFILES_DIR}/app"
+            ln -s "${src_app}" "${NOX_GAMEFILES_DIR}/app" || {
+              zenity --error --title="Nox-Decomp" --width=520 \
+                --text="Failed to link selected folder.\n\nTried to link:\n${src_app}\n\nto:\n${NOX_GAMEFILES_DIR}/app" \
+                >/dev/null 2>&1 || true
+            }
+          fi
+
+          if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
+            zenity --error --title="Nox-Decomp" --width=520 \
+              --text="Game data is still missing.\n\nExpected:\n${NOX_GAME_DATA_BIN}" \
               >/dev/null 2>&1 || true
           fi
         fi
