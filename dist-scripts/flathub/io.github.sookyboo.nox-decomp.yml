@@ -193,20 +193,11 @@ modules:
           -DCMAKE_CXX_FLAGS="-std=gnu++17 -fno-strict-aliasing -fsigned-char -O0 -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast"
       - cmake --build build -j ${FLATPAK_BUILDER_N_JOBS}
       - install -d /app/lib/${FLATPAK_ID}
-      - install -Dm755 build/src/out /app/bin/noxd.i386
-    sources:
-      - type: git
-        url: https://github.com/sookyboo/nox-decomp.git
-        #        tag: "v0.9.2"
-        commit: "ae7ce59e1af9e6bb3a0928118aa623ccd669fe2f"
-
-  # --- Install dist-scripts assets from the same upstream repo ---
-  - name: dist-assets
-    buildsystem: simple
-    build-commands:
       - install -d /app/bin
+      - install -Dm755 build/src/out /app/bin/noxd.i386
       - install -Dm755 dist-scripts/start.sh /app/bin/start.sh
 
+      # dist-assets
       - install -d /app/share/nox-decomp/
       # nox.cfg default config
       - install -Dm644 dist-scripts/nox.cfg.hires /app/share/nox-decomp/nox.cfg || true
@@ -234,18 +225,10 @@ modules:
       - install -Dm644 dist-scripts/licenses/ffmpeg_LICENSE.txt      /app/share/licenses/${FLATPAK_ID}/ffmpeg/LICENSE.txt
       - install -Dm644 dist-scripts/licenses/boost_LICENSE.txt      /app/share/licenses/${FLATPAK_ID}/boost/LICENSE.txt
 
-      # Ensure i386 loader finds our i386 ffmpeg libs:
-      - install -d /app/etc
-      - |
-        cat > /app/etc/ld.so.conf <<'EOF'
-        /app/lib32
-        /app/lib/i386-linux-gnu
-        EOF
-
     sources:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
-#        tag: "v0.9.2"
+        #        tag: "v0.9.2"
         commit: "ae7ce59e1af9e6bb3a0928118aa623ccd669fe2f"
 
   - name: app-metadata
