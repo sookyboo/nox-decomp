@@ -111,7 +111,6 @@ portal_pick_game_source() {
     --radiolist \
     --column="Pick" --column="Option" \
     TRUE  "Select GOG installer (setup_nox*.exe)" \
-    FALSE "Select extracted game folder (contains gamedata.bin)" \
     FALSE "Cancel" \
     2>/dev/null || true
   )"
@@ -260,9 +259,6 @@ You have two options:
 
 1) Use the file chooser to select your GOG installer (setup_nox*.exe)
    • Recommended: pick the installer and Nox-Decomp will extract it automatically.
-
-2) Provide already-extracted game files
-   • Select the extracted folder (must contain gamedata.bin or app/gamedata.bin).
 
 If you prefer to do it manually without the file chooser:
    • Copy setup_nox*.exe into:
