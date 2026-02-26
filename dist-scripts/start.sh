@@ -253,17 +253,24 @@ install_game_data() {
   shopt -u nocaseglob
 
   if (( ${#installers[@]} == 0 )); then
-    msg=$'Nox game data not found.\n\n'\
-    $'You have two options:\n\n'\
-    $'1) Use the file chooser to select your GOG installer (setup_nox*.exe)\n'\
-    $'   • Recommended: pick the installer and Nox-Decomp will extract it automatically.\n\n'\
-    $'2) Provide already-extracted game files\n'\
-    $'   • Select the extracted folder (must contain gamedata.bin or app/gamedata.bin).\n\n'\
-    $'If you prefer to do it manually without the file chooser:\n'\
-    $'   • Copy setup_nox*.exe into:\n'\
-    "     ${NOX_GAMEFILES_DIR}/\n"\
-    $'   • Or ensure this exists:\n'\
-    "     ${NOX_GAME_DATA_BIN}\n"
+msg="$(cat <<EOF
+Nox game data not found.
+
+You have two options:
+
+1) Use the file chooser to select your GOG installer (setup_nox*.exe)
+   • Recommended: pick the installer and Nox-Decomp will extract it automatically.
+
+2) Provide already-extracted game files
+   • Select the extracted folder (must contain gamedata.bin or app/gamedata.bin).
+
+If you prefer to do it manually without the file chooser:
+   • Copy setup_nox*.exe into:
+     ${NOX_GAMEFILES_DIR}/
+   • Or ensure this exists:
+     ${NOX_GAME_DATA_BIN}
+EOF
+)"
 
     echo "Nox data not extracted." >&2
     echo "Place GOG installer matching 'setup_nox*.exe' in: ${NOX_GAMEFILES_DIR}/" >&2
