@@ -298,7 +298,7 @@ EOF
 
           mkdir -p "${NOX_GAMEFILES_DIR}"
 
-          # Determine the actual "app" dir that contains gamedata.bin
+          # Determine actual app dir that contains gamedata.bin
           src_app=""
           if [[ -f "${path}/gamedata.bin" ]]; then
             src_app="${path}"
@@ -312,19 +312,26 @@ EOF
           fi
 
           if [[ -n "${src_app}" ]]; then
-            # Replace app dir with a symlink to the selected folder (use-in-place)
+            # IMPORTANT: step out so we don't delete/replace the directory we're in
+            cd "${NOX_GAMEFILES_DIR}" || cd / || true
+
+            mkdir -p "${NOX_GAMEFILES_DIR}"
+
+            # Option A: symlink (recommended for portal folders)
             rm -rf "${NOX_GAMEFILES_DIR}/app"
             ln -s "${src_app}" "${NOX_GAMEFILES_DIR}/app" || {
               zenity --error --title="Nox-Decomp" --width=520 \
                 --text="Failed to link selected folder.\n\nTried to link:\n${src_app}\n\nto:\n${NOX_GAMEFILES_DIR}/app" \
                 >/dev/null 2>&1 || true
             }
-          fi
 
-          if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
-            zenity --error --title="Nox-Decomp" --width=520 \
-              --text="Game data is still missing.\n\nExpected:\n${NOX_GAME_DATA_BIN}" \
-              >/dev/null 2>&1 || true
+            # Re-enter the final asset dir so relative opens like ./audio.idx work
+            cd "${NOX_ASSET_DIR}" || true
+            if [[ -n "${src_app}" && ! -f "${NOX_GAME_DATA_BIN}" ]]; then
+              zenity --error --title="Nox-Decomp" --width=520 \
+                --text="Game data still not found after selecting folder.\n\nExpected:\n${NOX_GAME_DATA_BIN}" \
+                >/dev/null 2>&1 || true
+            fi
           fi
         fi
 
