@@ -100,16 +100,33 @@ export NOX_GAMEPAD_INI
 export NOX_GAMEPAD_EXIT
 
 
-# Host-writable dirs
-: "${NOX_HOME_DIR:=${HOME}/nox-decomp}"
-: "${NOX_ASSET_DIR:=${NOX_HOME_DIR}/gamefiles/app}"
-: "${NOX_CONF_DIR:=${NOX_HOME_DIR}/conf}"
-: "${NOX_SAVE_DIR:=${NOX_ASSET_DIR}/Save}"
+# Sandbox-writable dirs (XDG Base Directory Spec)
+: "${XDG_DATA_HOME:=${HOME}/.local/share}"
+: "${XDG_CONFIG_HOME:=${HOME}/.config}"
+: "${XDG_STATE_HOME:=${HOME}/.local/state}"
+: "${XDG_CACHE_HOME:=${HOME}/.cache}"
+
+APP_SLUG="nox-decomp"
+
+# Keep NOX_HOME_DIR as a logical base, but point it at XDG data (inside sandbox under Flatpak)
+: "${NOX_HOME_DIR:=${XDG_DATA_HOME}/${APP_SLUG}}"
+: "${NOX_GAMEFILES_DIR:=${NOX_HOME_DIR}/gamefiles}"
+: "${NOX_ASSET_DIR:=${NOX_GAMEFILES_DIR}/app}"
+: "${NOX_CONF_DIR:=${XDG_CONFIG_HOME}/${APP_SLUG}}"
+: "${NOX_STATE_DIR:=${XDG_STATE_HOME}/${APP_SLUG}}"
+: "${NOX_SAVE_DIR:=${NOX_STATE_DIR}/Save}"
 mkdir -p "${NOX_ASSET_DIR}" "${NOX_CONF_DIR}" "${NOX_SAVE_DIR}"
 cd "${NOX_ASSET_DIR}"
-export XDG_DATA_HOME="${NOX_CONF_DIR}"
 
-> "$NOX_ASSET_DIR/log.txt" && exec > >(tee "$NOX_ASSET_DIR/log.txt") 2>&1
+# Best-effort: keep Save/ visible next to assets for engines that expect it there
+if [[ ! -e "${NOX_ASSET_DIR}/Save" ]]; then
+  ln -s "${NOX_SAVE_DIR}" "${NOX_ASSET_DIR}/Save" 2>/dev/null || true
+fi
+
+# Log to XDG state (not the game data dir)
+NOX_LOG_FILE="${NOX_STATE_DIR}/log.txt"
+mkdir -p "${NOX_STATE_DIR}"
+> "${NOX_LOG_FILE}" && exec > >(tee "${NOX_LOG_FILE}") 2>&1
 
 # Sanity
 if [[ ! -f "${PKG_NOXD}" ]]; then
@@ -161,7 +178,6 @@ zenity_pulse() {
 : "${NOX_FORCE_EXTRACT:=0}"
 : "${NOX_FORCE_DIALOG_CONVERT:=0}"
 
-NOX_GAMEFILES_DIR="${NOX_HOME_DIR}/gamefiles"
 NOX_GAME_DATA_BIN="${NOX_GAMEFILES_DIR}/app/gamedata.bin"
 NOX_INSTALLER_GLOB="${NOX_GAMEFILES_DIR}/setup_nox"*.exe
 
