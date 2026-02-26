@@ -93,6 +93,59 @@ Restart Steam to see changes."
   fi
 fi
 
+portal_pick_game_source() {
+  # Outputs one of:
+  #   EXE:<path-to-installer-exe>
+  #   DIR:<path-to-extracted-app-dir>
+  #
+  # Returns non-zero if user cancels or GUI unavailable.
+  if [[ "${have_gui:-0}" != "1" ]]; then
+    return 1
+  fi
+
+  local choice=""
+  choice="$(zenity --list \
+    --title="Nox-Decomp" \
+    --width=520 --height=260 \
+    --text="Nox game data not found.\n\nChoose what you want to provide:" \
+    --radiolist \
+    --column="Pick" --column="Option" \
+    TRUE  "Select GOG installer (setup_nox*.exe)" \
+    FALSE "Select extracted game folder (contains gamedata.bin)" \
+    FALSE "Cancel" \
+    2>/dev/null || true
+  )"
+
+  case "$choice" in
+    "Select GOG installer (setup_nox*.exe)")
+      local exe=""
+      exe="$(zenity --file-selection \
+        --title="Select Nox GOG installer" \
+        --file-filter="Windows installer (*.exe) | *.exe" \
+        --file-filter="All files | *" \
+        2>/dev/null || true
+      )"
+      [[ -n "$exe" ]] || return 1
+      printf 'EXE:%s\n' "$exe"
+      return 0
+      ;;
+    "Select extracted game folder (contains gamedata.bin)")
+      local dir=""
+      dir="$(zenity --file-selection \
+        --directory \
+        --title="Select extracted game folder (contains gamedata.bin)" \
+        2>/dev/null || true
+      )"
+      [[ -n "$dir" ]] || return 1
+      printf 'DIR:%s\n' "$dir"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 : "${NOX_GAMEPAD_INI:=${PKG_GPTK2_INI}}"
 export NOX_GAMEPAD_INI
 
@@ -200,18 +253,81 @@ install_game_data() {
   shopt -u nocaseglob
 
   if (( ${#installers[@]} == 0 )); then
-    msg=$'Nox data not extracted.\n\n'"Place GOG installer matching 'setup_nox*.exe' in:\n${NOX_GAMEFILES_DIR}/\n\nOr manually provide extracted files so this exists:\n${NOX_GAME_DATA_BIN}"
+    msg=$'Nox game data not found.\n\n'\
+    $'You have two options:\n\n'\
+    $'1) Use the file chooser to select your GOG installer (setup_nox*.exe)\n'\
+    $'   • Recommended: pick the installer and Nox-Decomp will extract it automatically.\n\n'\
+    $'2) Provide already-extracted game files\n'\
+    $'   • Select the extracted folder (must contain gamedata.bin or app/gamedata.bin).\n\n'\
+    $'If you prefer to do it manually without the file chooser:\n'\
+    $'   • Copy setup_nox*.exe into:\n'\
+    "     ${NOX_GAMEFILES_DIR}/\n"\
+    $'   • Or ensure this exists:\n'\
+    "     ${NOX_GAME_DATA_BIN}\n"
 
     echo "Nox data not extracted." >&2
     echo "Place GOG installer matching 'setup_nox*.exe' in: ${NOX_GAMEFILES_DIR}/" >&2
     echo "Or manually provide extracted files so this exists: ${NOX_GAME_DATA_BIN}" >&2
 
-    # Best-effort GUI prompt (only if zenity + a display is available)
-    if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    # GUI: show info, then offer portal picker (installer EXE or extracted folder)
+    if [[ "${have_gui:-0}" == "1" ]]; then
       zenity --info --title="Nox-Decomp" --width=520 --text="$msg" >/dev/null 2>&1 || true
+
+      picked="$(portal_pick_game_source 2>/dev/null || true)"
+      if [[ -n "$picked" ]]; then
+        kind="${picked%%:*}"
+        path="${picked#*:}"
+
+        mkdir -p "${NOX_GAMEFILES_DIR}"
+
+        if [[ "$kind" == "EXE" ]]; then
+          # Copy installer into sandbox data dir; next scan will find it.
+          bn="$(basename "$path")"
+          echo "User selected installer via portal: $path"
+          cp -f "$path" "${NOX_GAMEFILES_DIR}/${bn}" || true
+
+        elif [[ "$kind" == "DIR" ]]; then
+          echo "User selected extracted folder via portal: $path"
+          mkdir -p "${NOX_GAMEFILES_DIR}/app"
+
+          # Accept either:
+          #  - an "app" folder containing gamedata.bin
+          #  - a parent folder that contains app/gamedata.bin
+          if [[ -f "${path}/gamedata.bin" ]]; then
+            if ! cp -r "${path}/." "${NOX_GAMEFILES_DIR}/app/"; then
+              zenity --error --title="Nox-Decomp" --width=520 \
+                --text="Failed to copy selected folder into:\n${NOX_GAMEFILES_DIR}/app" \
+                >/dev/null 2>&1 || true
+            fi
+          elif [[ -f "${path}/app/gamedata.bin" ]]; then
+            if ! cp -r "${path}/app/." "${NOX_GAMEFILES_DIR}/app/"; then
+              zenity --error --title="Nox-Decomp" --width=520 \
+                --text="Failed to copy selected folder into:\n${NOX_GAMEFILES_DIR}/app" \
+                >/dev/null 2>&1 || true
+            fi
+          else
+            zenity --error --title="Nox-Decomp" --width=520 \
+              --text=$'That folder does not look like extracted Nox data.\n\nExpected:\n  gamedata.bin\nor:\n  app/gamedata.bin' \
+              >/dev/null 2>&1 || true
+          fi
+        fi
+
+        # Re-scan after portal selection
+        shopt -s nullglob nocaseglob
+        installers=( ${NOX_INSTALLER_GLOB} )
+        shopt -u nocaseglob
+      fi
     fi
 
-    exit 0
+    # If we now have extracted data, proceed; if we now have an installer, proceed; else exit as before.
+    if [[ -f "${NOX_GAME_DATA_BIN}" ]]; then
+      echo "Game data now present after portal selection."
+      return 0
+    fi
+
+    if (( ${#installers[@]} == 0 )); then
+      exit 0
+    fi
   fi
 
   echo "Found Nox GOG installer: ${installers[0]}"
