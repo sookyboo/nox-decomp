@@ -8,7 +8,7 @@ PKG_NOXD="/app/bin/noxd.i386"
 PKG_FFMPEG_DIR="$/app/bin/ffmpeg.i386"
 PKG_GPTK2_INI="${PKG_BASE}/nox.gptk2.ini"
 PKG_INNOEXTRACT="/app/bin/innoextract"
-PKG_FFMPEG_X64="/app/bin/ffmpeg"
+PKG_FFMPEG_X64="/usr/bin/ffmpeg"
 PKG_NOX_CFG="${PKG_BASE}/nox.cfg"
 
 # ---------------------------
