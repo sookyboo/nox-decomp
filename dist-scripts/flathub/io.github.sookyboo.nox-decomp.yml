@@ -161,8 +161,8 @@ modules:
       - install -Dm644 dist-scripts/licenses/boost_LICENSE.txt      /app/share/licenses/${FLATPAK_ID}/boost/LICENSE.txt
 
       # Flatpak files
-      - install -Dm644 io.github.sookyboo.nox-decomp.desktop /app/share/applications/io.github.sookyboo.nox-decomp.desktop
-      - install -Dm644 io.github.sookyboo.nox-decomp.metainfo.xml /app/share/metainfo/io.github.sookyboo.nox-decomp.metainfo.xml
+      - install -Dm644 dist-scripts/flathub/io.github.sookyboo.nox-decomp.desktop /app/share/applications/io.github.sookyboo.nox-decomp.desktop
+      - install -Dm644 dist-scripts/flathub/io.github.sookyboo.nox-decomp.metainfo.xml /app/share/metainfo/io.github.sookyboo.nox-decomp.metainfo.xml
 
     sources:
       - type: git
