@@ -15,7 +15,7 @@ PKG_NOX_CFG="${PKG_BASE}/nox.cfg"
 # Optional Steam integration prompt (zenity + python3)
 # ---------------------------
 
-STEAM_SHORTCUT_PY="${PKG_BASE}/steam_shortcut.py"
+STEAM_SHORTCUT_PY="/app/bin/steam_shortcut.py"
 STEAM_V_IMG="${PKG_BASE}/steamv.png"
 STEAM_H_IMG="${PKG_BASE}/steamh.png"
 STEAM_ICON_IMG="${PKG_BASE}/${APP_ID}.png"  # staged icon in your flatpak
