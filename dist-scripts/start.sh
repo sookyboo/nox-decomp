@@ -684,7 +684,7 @@ add_path_back "${PKG_FFMPEG_DIR}"
 # --- Steam SDL (32-bit) ---
 # Put this late-ish so GL and other runtime libs aren’t accidentally shadowed.
 # If you *must* force Steam SDL first, flip add_path_back -> add_path_front.
-add_path_back "${PKG_STEAM_DIR}/libs.i386.x11"
+#add_path_back "${PKG_STEAM_DIR}/libs.i386.x11"
 
 # ---------------------------
 # Find an i386 loader we can actually execute

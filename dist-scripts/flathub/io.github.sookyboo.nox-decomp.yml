@@ -109,10 +109,14 @@ modules:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/app
     sources:
-      # Debian "orig" tarball is fine and stable; pinned by sha256.
       - type: git
         url: https://github.com/dscharrer/innoextract.git
         tag: "1.9"
+
+      # Inline patch: bump cmake_minimum_required in VersionScript.cmake
+      - type: shell
+        commands:
+          - sed -i 's/^cmake_minimum_required(VERSION 2\.8)$/cmake_minimum_required(VERSION 3.5)/' cmake/VersionScript.cmake
 
   # --- FFmpeg (x86_64) CLI for conversion tools - needed to convert audio files ---
   - name: ffmpeg-x86_64
@@ -185,8 +189,8 @@ modules:
           -DFFMPEG_PREFIX=/app \
           -DCMAKE_C_COMPILER=i686-unknown-linux-gnu-gcc \
           -DCMAKE_CXX_COMPILER=i686-unknown-linux-gnu-g++ \
-          -DCMAKE_C_FLAGS="-U_FORTIFY_SOURCE -fno-strict-aliasing -fsigned-char -O0 -fno-tree-vectorize -fno-aggressive-loop-optimizations -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast -Wno-incompatible-pointer-types -Wno-error=incompatible-pointer-types -Wno-implicit-function-declaration" \
-          -DCMAKE_CXX_FLAGS="-fno-strict-aliasing -fsigned-char -O0 -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast"
+          -DCMAKE_C_FLAGS="-std=gnu17 -U_FORTIFY_SOURCE -fno-strict-aliasing -fsigned-char -O0 -fno-tree-vectorize -fno-aggressive-loop-optimizations -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast -Wno-incompatible-pointer-types -Wno-error=incompatible-pointer-types -Wno-implicit-function-declaration" \
+          -DCMAKE_CXX_FLAGS="-std=gnu++17 -fno-strict-aliasing -fsigned-char -O0 -fcommon -Wno-int-conversion -Wno-pointer-to-int-cast -Wno-error=int-conversion -Wno-error=pointer-to-int-cast"
       - cmake --build build -j ${FLATPAK_BUILDER_N_JOBS}
       - install -d /app/lib/${FLATPAK_ID}
       - install -Dm755 build/src/out /app/bin/noxd.i386
