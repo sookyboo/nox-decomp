@@ -21,7 +21,7 @@ Why is this different than Opennox:
 - Can join and host public internet games listed on the OpenNox lobby servers. 
 - Works on $50 ARM linux based handheld game consoles on [PortMaster](https://portmaster.games/detail.html?name=nox-decomp).
 - Fast and very close to the original game. 
-- 32bit currently but possibly a 64bit version in future. 
+- 32bit currently but possibly a 64bit version in future. (The way the code accesses memory expects 32bit and most likely needs changes in thousands of locations)
 
 Neuromancers original comments:
 **The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
@@ -145,6 +145,9 @@ Run Nox-Decomp.bat inside the nox directory with `wine NoxDecomp.bat`.
 
 Intel Macs:
 Building for Intel Macs should be possible but that won't run on m series macs - rosetta doesn't support 32bit binaries
+
+M series macs:
+M series macs can't run 32bit arm binaries
 
 ## Server
 There are docker arm64 and amd64 images that run the 32bit version
