@@ -129,7 +129,7 @@ After extraction it should start the game.
 Can take up to a minute on a fast computer.
 
 ## Mac
-This works with crossover/wine.
+This works with crossover (macos wine can't run 32bit binaries).
 
 Download the windows zip from releases.
 
@@ -142,6 +142,9 @@ Run the included Nox-Decomp.bat script which expects the nox installation file i
 Make a crossover bottle. Right click hit option open a shell and navigate to your directory with nox.
 
 Run Nox-Decomp.bat inside the nox directory with `wine NoxDecomp.bat`.
+
+Intel Macs:
+Building for Intel Macs should be possible but that won't run on m series macs - rosetta doesn't support 32bit binaries
 
 ## Server
 There are docker arm64 and amd64 images that run the 32bit version
