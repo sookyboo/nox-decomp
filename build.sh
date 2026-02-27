@@ -6,6 +6,13 @@ docker buildx build --load --platform=linux/arm64 --progress=plain -f Dockerfile
 docker cp noxdecomp_tmp:/opt/ffmpeg-armhf/lib/. ../ffmpeg.armhf/ && \
 docker rm noxdecomp_tmp
 
+docker buildx build --load --platform=linux/arm64 --progress=plain -f Dockerfile.arm64native -t noxdecomp-build-arm64native . && \
+docker create --name noxdecomp_tmp_arm64native noxdecomp-build-arm64native && \
+docker cp noxdecomp_tmp_arm64native:/build/nox-decomp/build/src/out ../noxd.arm64 && \
+mkdir -p ../gl4es.arm64 && docker cp noxdecomp_tmp_arm64native:/build/gl4es/lib/libGL.so.1 ../gl4es.arm64/libGL.so.1 && mkdir -p ../ffmpeg.arm64 && \
+docker cp noxdecomp_tmp_arm64native:/opt/ffmpeg-arm64/lib/. ../ffmpeg.arm64/ && \
+docker rm noxdecomp_tmp_arm64native
+
 docker buildx build --load --platform=linux/amd64 --progress=plain -f Dockerfile.x86 -t noxdecomp-build-x86 . &&  \
 docker create --name noxdecomp_tmp-x86 noxdecomp-build-x86 && \
 docker cp noxdecomp_tmp-x86:/build/nox-decomp/build/src/out ../noxd.i386 && \

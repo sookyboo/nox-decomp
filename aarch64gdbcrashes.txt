@@ -1,0 +1,9 @@
+Thread 1 "noxd.aarch64" received signal SIGSEGV, Segmentation fault.
+0x00000000555bc200 in ?? ()
+(gdb) bt
+#0  0x00000000555bc200 in ?? ()
+#1  0x00000055558af440 in sub_416BB0 () at /build/nox-decomp/src/GAME5.c:20010
+#2  0x00000055555bc64c in sub_416D40 () at /build/nox-decomp/src/GAME1.c:20747
+#3  0x0000005555561d7c in sub_401070 (a1=1, a2=1440567832) at /build/nox-decomp/src/GAME1.c:206
+#4  0x00000055558fc810 in WinMain (hInstance=0x0, hPrevInstance=0x0, lpCmdLine=0x7fffffedf8 "", nShowCmd=0) at /build/nox-decomp/src/win.c:326
+#5  0x00000055558cc24c in main (argc=1, argv=0x7ffffff078) at /build/nox-decomp/src/main.cpp:61

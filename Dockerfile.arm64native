@@ -1,0 +1,244 @@
+FROM ubuntu:20.04
+
+# Run with: docker buildx build --platform=linux/arm64 --progress=plain -f Dockerfile -t noxdecomp-build . && docker create --name noxdecomp_tmp noxdecomp-build && docker cp noxdecomp_tmp:/build/nox-decomp/build/src/out ./noxd.arm64 && docker cp noxdecomp_tmp:/build/gl4es/lib/libGL.so.1 libGL.so.1 && docker rm noxdecomp_tmp
+#
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /build
+
+# -------------------------------------------------
+# Enable arm64 architecture + toolchain + arm64 sysroot headers/libs
+# -------------------------------------------------
+RUN dpkg --add-architecture arm64 && \
+    apt-get update && apt-get install -y \
+      build-essential \
+      ccache \
+      cmake \
+      ninja-build \
+      git \
+      pkg-config \
+      wget \
+      ca-certificates \
+      autoconf \
+      automake \
+      libtool \
+      python3 \
+      \
+      gcc-aarch64-linux-gnu \
+      g++-aarch64-linux-gnu \
+      binutils-aarch64-linux-gnu \
+      \
+      libc6-dev-arm64-cross \
+      libstdc++-9-dev-arm64-cross \
+      linux-libc-dev-arm64-cross \
+      \
+      libsdl2-dev:arm64 \
+      libz-dev:arm64 \
+      libpng-dev:arm64 \
+      libbz2-dev:arm64 \
+      libssl-dev:arm64 \
+      liblua5.1-0-dev:arm64 \
+      libasound2-dev:arm64 \
+      libogg-dev:arm64 \
+      libvorbis-dev:arm64 \
+      libtheora-dev:arm64 \
+      libopenal-dev:arm64 \
+      \
+      make \
+      yasm \
+      nasm \
+      gettext \
+      texinfo \
+      \
+      zlib1g-dev:arm64 \
+      libbz2-dev:arm64 \
+      libssl-dev:arm64 \
+      \
+      innoextract \
+      zip && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# Ensure pkg-config resolves ARM64 (prevents host/amd64 contamination)
+ENV PKG_CONFIG_PATH=/opt/ffmpeg-arm64/lib/pkgconfig:/usr/lib/aarch64-linux-gnu/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/opt/ffmpeg-arm64/lib/pkgconfig:/usr/lib/aarch64-linux-gnu/pkgconfig
+ENV PKG_CONFIG_SYSROOT_DIR=
+
+# -------------------------------------------------
+# Toolchain file (Ubuntu multiarch style; no CMAKE_SYSROOT)
+# -------------------------------------------------
+RUN cat <<'EOF' > /toolchain-arm64.cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
+set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+
+set(CMAKE_FIND_ROOT_PATH
+    /usr/aarch64-linux-gnu
+    /usr/lib/aarch64-linux-gnu
+)
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+EOF
+
+# gl4es lib
+
+WORKDIR /build
+RUN git clone https://github.com/ptitSeb/gl4es.git
+
+RUN apt-get update && apt-get install -y \
+          build-essential \
+          ccache \
+          cmake \
+          ninja-build \
+          git \
+          pkg-config \
+          wget \
+          ca-certificates \
+          libegl1-mesa-dev:arm64 \
+          libgles2-mesa-dev:arm64 \
+          libgbm-dev:arm64 \
+          libdrm-dev:arm64 \
+          mesa-common-dev:arm64 \
+          \
+          libx11-dev:arm64 \
+          libxext-dev:arm64 \
+          libxfixes-dev:arm64 \
+          libxdamage-dev:arm64 \
+          libxxf86vm-dev:arm64
+
+# gl4es: fix CMake module + function usage (CMake 3.16 compatible)
+RUN sed -i \
+    -e 's/include(CheckCompilerFlag)/include(CheckCCompilerFlag)/' \
+    -e 's/check_compiler_flag(C /check_c_compiler_flag(/g' \
+    /build/gl4es/CMakeLists.txt
+
+# Sanity check
+RUN grep -n "CheckCCompilerFlag" /build/gl4es/CMakeLists.txt && \
+    grep -n "check_c_compiler_flag" /build/gl4es/CMakeLists.txt
+
+RUN cd gl4es && mkdir -p build && cd build && \
+    cmake .. \
+      -DCMAKE_TOOLCHAIN_FILE=/toolchain-arm64.cmake \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DNOX11=ON -DGLX_STUBS=ON -DEGL_WRAPPER=ON -DGBM=ON \
+      -DCMAKE_INSTALL_PREFIX=/usr
+
+RUN cd gl4es/build && \
+    make -j"$(nproc)"
+
+RUN file /build/gl4es-arm64/usr/lib*/libGL.so* || true
+
+# ffmpeg for videos
+
+# -------------------------------------------------
+# Build FFmpeg (arm64) from git with VQA3 support
+# -------------------------------------------------
+ARG FFMPEG_GIT_REF=n7.1.1
+# You can switch to "master" if you want latest:
+# ARG FFMPEG_GIT_REF=master
+
+
+ARG FFMPEG_PREFIX=/opt/ffmpeg-arm64
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
+
+WORKDIR /build
+
+
+RUN git clone https://git.ffmpeg.org/ffmpeg.git /build/ffmpeg && \
+    cd /build/ffmpeg && \
+    git checkout ${FFMPEG_GIT_REF}
+
+ENV CC="ccache aarch64-linux-gnu-gcc"
+ENV CXX="ccache aarch64-linux-gnu-g++"
+ENV AR="aarch64-linux-gnu-ar"
+ENV RANLIB="aarch64-linux-gnu-ranlib"
+ENV STRIP="aarch64-linux-gnu-strip"
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && \
+    ./configure \
+      --prefix=${FFMPEG_PREFIX} \
+      --arch=aarch64 \
+      --target-os=linux \
+      --cross-prefix=aarch64-linux-gnu- \
+      --enable-cross-compile \
+      --pkg-config=pkg-config \
+      --enable-shared \
+      --disable-static \
+      --disable-programs \
+      --disable-doc \
+      --disable-debug \
+      --enable-pic \
+      --disable-openssl --disable-gnutls  --disable-bzlib --disable-zlib \
+      --sysroot=/usr/aarch64-linux-gnu \
+      --extra-cflags="-I/usr/include/aarch64-linux-gnu" \
+      --extra-ldflags="-L/usr/lib/aarch64-linux-gnu"
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/ffmpeg && make -j"$(nproc)" \
+    && make install
+
+RUN ls -l /opt/ffmpeg-arm64/lib/libavformat.so* && \
+    ls -l /opt/ffmpeg-arm64/lib/pkgconfig/libavformat.pc && \
+    PKG_CONFIG_LIBDIR=/opt/ffmpeg-arm64/lib/pkgconfig pkg-config --libs libavformat
+
+#RUN exit 1
+# back to nox
+
+# -------------------------------------------------
+# Fetch sources
+# -------------------------------------------------
+#RUN git clone https://github.com/neuromancer/nox-decomp.git
+COPY . /build/nox-decomp
+
+# -------------------------------------------------
+# Build (arm64)
+# -------------------------------------------------
+WORKDIR /build/nox-decomp/build
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake .. \
+      -DCMAKE_TOOLCHAIN_FILE=/toolchain-arm64.cmake \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DFFMPEG_PREFIX=/opt/ffmpeg-arm64 \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_C_FLAGS="\
+        -U_FORTIFY_SOURCE \
+        -fno-strict-aliasing \
+        -fsigned-char \
+        -O0 \
+        -fno-tree-vectorize \
+        -fno-aggressive-loop-optimizations \
+      " \
+      -DCMAKE_CXX_FLAGS="\
+        -fno-strict-aliasing \
+        -fsigned-char \
+        -O0 \
+      "
+
+RUN --mount=type=cache,target=/root/.ccache \
+    cd /build/nox-decomp/build && \
+    cmake --build . -j $(nproc)
+
+
+RUN mkdir -p /build/nox-decomp/build/src/lib && \
+    cp -av ${FFMPEG_PREFIX}/lib/libav*.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswscale.so* /build/nox-decomp/build/src/lib/ && \
+    cp -av ${FFMPEG_PREFIX}/lib/libswresample.so* /build/nox-decomp/build/src/lib/
+# -------------------------------------------------
+# Verify output
+# -------------------------------------------------
+RUN find /build/nox-decomp/build/
+RUN file /build/nox-decomp/build/src/out
+
+#RUN aarch64-linux-gnu-nm /build/nox-decomp/build/src/out | grep -E 'sub_4F4E50($|__)'
+#RUN aarch64-linux-gnu-nm /build/nox-decomp/build/src/out | grep 'sub_50A5C0'
+
+RUN readelf -d /build/nox-decomp/build/src/out | grep NEEDED
+
+RUN find  /opt/ffmpeg-arm64/lib/ && ls -lah /opt/ffmpeg-arm64/lib/
