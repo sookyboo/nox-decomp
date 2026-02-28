@@ -62,6 +62,150 @@ mkdir -p "$GAMEDIR"
 > "$GAMEDIR/log.txt" && exec > >(tee "$GAMEDIR/log.txt") 2>&1
 
 # ---------------------------
+# Optional GUI helpers (zenity) + optional Steam integration (python3)
+# ---------------------------
+have_zenity=0
+have_python=0
+have_display=0
+have_gui=0
+
+command -v zenity >/dev/null 2>&1 && have_zenity=1
+command -v python3 >/dev/null 2>&1 && have_python=1
+[[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && have_display=1
+[[ "$have_zenity" == "1" && "$have_display" == "1" ]] && have_gui=1
+
+zinfo() {
+  # Args: text
+  [[ "$have_gui" == "1" ]] || return 0
+  zenity --info --title="Nox-Decomp" --width=520 --text="$1" >/dev/null 2>&1 || true
+}
+
+zerror() {
+  # Args: text
+  [[ "$have_gui" == "1" ]] || return 0
+  zenity --error --title="Nox-Decomp" --width=520 --text="$1" >/dev/null 2>&1 || true
+}
+
+zquestion() {
+  # Args: text
+  [[ "$have_gui" == "1" ]] || return 1
+  zenity --question --title="Nox-Decomp" --width=520 --text="$1" >/dev/null 2>&1
+}
+
+zenity_pulse_start() {
+  # Args: title text status_file(optional)
+  [[ "$have_gui" == "1" ]] || return 1
+  local title="$1"
+  local text="$2"
+  local status_file="${3:-}"
+
+  (
+    while :; do
+      echo "10"
+      if [[ -n "$status_file" && -f "$status_file" ]]; then
+        echo "# $(cat "$status_file" 2>/dev/null || echo "$text")"
+      else
+        echo "# $text"
+      fi
+      sleep 0.8
+    done
+  ) | zenity --progress \
+        --title="$title" \
+        --text="$text" \
+        --pulsate \
+        --no-cancel \
+        --auto-close \
+        --width=520 \
+        >/dev/null 2>&1 &
+  echo $!
+}
+
+zenity_pulse_stop() {
+  # Args: pid
+  local pid="${1:-}"
+  [[ -n "$pid" ]] || return 0
+  kill "$pid" >/dev/null 2>&1 || true
+  wait "$pid" >/dev/null 2>&1 || true
+}
+
+maybe_prompt_add_to_steam() {
+  # Optional: only runs if zenity + python3 + helper script exists.
+  local want_skip=0
+
+  # 1) Skip if launched via Steam
+  if [[ -n "${SteamAppId:-}" || -n "${SteamGameId:-}" ]]; then
+    want_skip=1
+  fi
+
+  # 2) Skip if user passed our explicit flag
+  for a in "$@"; do
+    if [[ "$a" == "--skip-steam-install" ]]; then
+      want_skip=1
+      break
+    fi
+  done
+
+  # 3) Skip if explicitly disabled
+  if [[ "${NOX_SKIP_STEAM_INSTALL:-0}" != "0" ]]; then
+    want_skip=1
+  fi
+
+  # Layout for non-flatpak build:
+  #   utils/steam_shortcut.py
+  #   gamefiles/app/steamv.png + steamh.png + app icon (optional)
+  local STEAM_SHORTCUT_PY="$UTILDIR/steam_shortcut.py"
+  local STEAM_V_IMG="$ASSET_DIR/steamv.png"
+  local STEAM_H_IMG="$ASSET_DIR/steamh.png"
+  local STEAM_ICON_IMG="$ASSET_DIR/io.github.sookyboo.nox-decomp.png"
+
+  if [[ "$want_skip" == "0" && "$have_gui" == "1" && "$have_python" == "1" && -f "$STEAM_SHORTCUT_PY" ]]; then
+    # If already installed, skip asking (helper supports this check)
+    if python3 "$STEAM_SHORTCUT_PY" --is-installed --name "Nox-Decomp" --exe "$GAMEDIR/start.sh" >/dev/null 2>&1; then
+      :
+    else
+      chosen_steamid="$(python3 "$STEAM_SHORTCUT_PY" --print-detected-steamid 2>/dev/null || true)"
+
+      msg="Add Nox-Decomp to Steam?
+
+Steam user detected
+
+This will create/update a Steam shortcut and install artwork/controller template.
+
+You can skip this prompt in future by launching with:
+  --skip-steam-install"
+
+      if zquestion "$msg"; then
+        sid_args=()
+        if [[ -n "$chosen_steamid" ]]; then
+          sid_args=(--steamid "$chosen_steamid")
+        fi
+
+        python3 "$STEAM_SHORTCUT_PY" \
+          "${sid_args[@]}" \
+          --name "Nox-Decomp" \
+          --exe "$GAMEDIR/start.sh" \
+          --startdir "$GAMEDIR" \
+          --launch "--skip-steam-install" \
+          --grid "$STEAM_V_IMG" \
+          --portrait "$STEAM_V_IMG" \
+          --hero "$STEAM_H_IMG" \
+          --icon-file "$STEAM_ICON_IMG" \
+          --template "controller_neptune_gamepad+mouse.vdf" \
+          --force-template \
+          >/dev/null 2>&1 || true
+
+        zinfo "Steam shortcut install attempted.
+
+Restart Steam to see changes."
+      fi
+    fi
+  fi
+}
+
+# Run the optional Steam prompt early (no-op unless prerequisites exist)
+maybe_prompt_add_to_steam "$@"
+
+# ---------------------------
 # Create config/save dir
 # ---------------------------
 $ESUDO mkdir -p "$CONF_DIR/Save"
@@ -109,11 +253,76 @@ install() {
         fi
     done
 
+    # GUI fallback: allow user to pick the installer if not present
+    if [ "$found_installer" != "yes" ] && [[ "$have_gui" == "1" ]]; then
+      msg="Nox game data not found.
+
+Please select your Nox GOG installer (setup_nox*.exe).
+
+The installer will be copied into:
+  $SRC/
+and extracted automatically."
+      zinfo "$msg"
+
+      picked_exe="$(zenity --file-selection \
+        --title="Select Nox GOG installer" \
+        --file-filter="Windows installer (*.exe) | *.exe" \
+        --file-filter="All files | *" \
+        2>/dev/null || true
+      )"
+
+      if [[ -n "$picked_exe" && -f "$picked_exe" ]]; then
+        bn="$(basename "$picked_exe")"
+        echo "User selected installer via zenity: $picked_exe"
+        mkdir -p "$SRC"
+        cp -f "$picked_exe" "$SRC/$bn" >/dev/null 2>&1 || true
+      fi
+
+      # re-scan after copy
+      found_installer="no"
+      for file in "$SRC"/$INSTALLER_EXE_GLOB; do
+          if [ -f "$file" ]; then
+              found_installer="yes"
+              break
+          fi
+      done
+    fi
+
     if [ "$found_installer" = "yes" ]; then
         echo "Found Nox GOG installer"
         echo "Extracting GOG installer"
         sleep 1
-        "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC"
+
+        zstatus=""
+        zpid=""
+        if [[ "$have_gui" == "1" ]]; then
+          zstatus="$(mktemp)"
+          printf 'Extracting game data…\nRunning innoextract…\n' >"$zstatus"
+          zpid="$(zenity_pulse_start "Nox-Decomp" "Extracting game data…" "$zstatus")" || true
+        fi
+
+        # Run innoextract (keep output in log.txt; optionally also in status)
+        if [[ -n "$zstatus" ]]; then
+          "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC" 2>&1
+          rc=$?
+        else
+          "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC"
+          rc=$?
+        fi
+
+        if [[ -n "$zpid" ]]; then
+          zenity_pulse_stop "$zpid"
+        fi
+        [[ -n "$zstatus" ]] && rm -f "$zstatus" >/dev/null 2>&1 || true
+
+        if [[ "$rc" -ne 0 ]]; then
+          echo "Extraction failed (rc=$rc)"
+          zerror "Extraction failed.
+
+Please check log.txt for details."
+          sleep 5
+          exit 1
+        fi
     fi
 
     echo "Extracting Nox data..."
@@ -122,6 +331,13 @@ install() {
 
     if [ ! -f "$NEEDED" ]; then
       echo "Extraction failed"
+      zerror "Extraction failed.
+
+Expected:
+  $NEEDED
+
+Put Nox files in:
+  $GAMEDIR/gamefiles/"
       sleep 5
       exit 1
     fi
@@ -136,7 +352,7 @@ install() {
 }
 
 convert_dialog() {
-
+  NEEDED="$ASSET_DIR/gamedata.bin"
   MARKER_FILE="$ASSET_DIR/converted_dialog.txt"
   DIALOG_DIR="$ASSET_DIR/Dialog"
   FFMPEG_BIN="$UTILDIR/ffmpeg.${DEVICE_ARCH}"
@@ -194,10 +410,24 @@ convert_dialog() {
   echo "Converting dialog audio ($total files)"
   sleep 1
 
+  zpid=""
+  zstatus=""
+  if [[ "$have_gui" == "1" ]]; then
+    zstatus="$(mktemp)"
+    printf 'Converting dialog audio… (0/%s)\n' "$total" >"$zstatus"
+    zpid="$(zenity_pulse_start "Nox-Decomp" "Converting dialog audio…" "$zstatus")" || true
+  fi
+
   # -------------------------------------------------
   # Convert with progress updates
   # -------------------------------------------------
+  i=0
   for wav in "${wav_files[@]}"; do
+    i=$((i + 1))
+    base="$(basename "$wav")"
+    if [[ -n "$zstatus" ]]; then
+      printf 'Converting audio (%s/%s): %s\n' "$i" "$total" "$base" >"$zstatus" 2>/dev/null || true
+    fi
     tmp="${wav}.tmp"
 
     if "$FFMPEG_BIN" -y \
@@ -212,10 +442,23 @@ convert_dialog() {
     else
       rm -f "$tmp"
       echo "ERROR converting $(basename "$wav")"
+      if [[ -n "$zpid" ]]; then
+        zenity_pulse_stop "$zpid"
+      fi
+      [[ -n "$zstatus" ]] && rm -f "$zstatus" >/dev/null 2>&1 || true
+      zerror "Dialog audio conversion failed on:
+  $base
+
+See log.txt for details."
       return 1
     fi
 
   done
+
+  if [[ -n "$zpid" ]]; then
+    zenity_pulse_stop "$zpid"
+  fi
+  [[ -n "$zstatus" ]] && rm -f "$zstatus" >/dev/null 2>&1 || true
 
   # -------------------------------------------------
   # Finish up
@@ -224,6 +467,7 @@ convert_dialog() {
 
   echo "Dialog audio conversion complete"
   sleep 1
+  zinfo "Dialog audio conversion complete."
 }
 
 # -------------------------------------------------

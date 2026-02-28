@@ -1442,6 +1442,18 @@ def main() -> int:
         default=None,
         help="Exit 0 if a shortcut with this FlatpakAppID exists (auto-detect Steam root + most recent user unless --steamid given). Exit 1 otherwise.",
     )
+
+    ap.add_argument(
+        "--is-installed",
+        action="store_true",
+        help="Exit 0 if a shortcut exists matching --name/--exe (and optionally --launch). Exit 1 otherwise.",
+    )
+    ap.add_argument(
+        "--match-launch",
+        action="store_true",
+        help="With --is-installed: also require LaunchOptions to match --launch exactly.",
+    )
+
     args = ap.parse_args()
 
     steam_root = Path(args.steam_root) if args.steam_root else detect_steam_root()
@@ -1463,6 +1475,44 @@ def main() -> int:
             userdir, sid = choose_userdata_dir(steam_root, args.steamid)
             ok = is_flatpak_shortcut_installed(steam_root, sid, args.is_installed_flatpak)
             return 0 if ok else 1
+        except Exception:
+            return 1
+
+    if args.is_installed:
+        try:
+            userdir, sid = choose_userdata_dir(steam_root, args.steamid)
+            vdf = steam_root / "userdata" / sid / "config" / "shortcuts.vdf"
+            if not vdf.exists():
+                return 1
+
+            data = vdf.read_bytes()
+            count, ok = _verify_shortcuts_vdf_roundtrip(data)
+            if not ok:
+                return 1
+
+            shortcuts = parse_shortcuts_vdf(data)
+
+            # Require --name and --exe (same inputs you use to create the shortcut)
+            if not args.name or not args.exe:
+                return 1
+
+            want_name = str(args.name)
+            want_exe = str(args.exe)
+            want_launch = str(args.launch or "")
+
+            def norm_exe(s: str) -> str:
+                # Steam often stores exe quoted; normalize.
+                s = (s or "").strip()
+                if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+                    s = s[1:-1]
+                return s
+
+            for sc in shortcuts:
+                if sc.app_name == want_name and norm_exe(sc.exe) == norm_exe(want_exe):
+                    if args.match_launch and (sc.launch_options or "") != want_launch:
+                        continue
+                    return 0
+            return 1
         except Exception:
             return 1
 
