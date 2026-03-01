@@ -34,4 +34,5 @@
 -   Different merchants have different prices - keep your original shirt and use it to compare selling prices at different merchants to get the best deal.
 -   Later in the game it is possible to set traps and these are sometimes useful for tough enemies but not always.
 -   There are versions of Nox-Decomp available for SteamDeck, Windows and Docker images for servers [sookyboo/nox-decomp](https://github.com/sookyboo/nox-decomp).
--   Full controller mapping listing below
+-   [GamePad Button Mapping Guide](https://github.com/sookyboo/nox-decomp/blob/main/docs/gamepad.md)
+-   [Multiplayer networking guide](https://github.com/sookyboo/nox-decomp/blob/main/docs/multiplayer.md)
