@@ -1,5 +1,6 @@
 #!/bin/bash
-
+SELF_SH="$(readlink -f -- "${BASH_SOURCE[0]}" 2>/dev/null || realpath -- "${BASH_SOURCE[0]}")"
+SELF_DIR="$(cd -- "$(dirname -- "${SELF_SH}")" && pwd)"
 
 DEVICE_ARCH="aarch64"
 DEVICE_HAS_ARMHF="N"
@@ -172,7 +173,7 @@ maybe_prompt_add_to_steam() {
 
   if [[ "$want_skip" == "0" && "$have_gui" == "1" && "$have_python" == "1" && -f "$STEAM_SHORTCUT_PY" ]]; then
     # If already installed, skip asking (helper supports this check)
-    if python3 "$STEAM_SHORTCUT_PY" --is-installed --name "Nox-Decomp" --exe "$GAMEDIR/start.sh" >/dev/null 2>&1; then
+    if python3 "$STEAM_SHORTCUT_PY" --is-installed --name "Nox-Decomp" --exe "$SELF_SH" >/dev/null 2>&1; then
       :
     else
       chosen_steamid="$(python3 "$STEAM_SHORTCUT_PY" --print-detected-steamid 2>/dev/null || true)"
@@ -195,7 +196,7 @@ If you choose No, you won't be asked again (a marker will be created).
         python3 "$STEAM_SHORTCUT_PY" \
           "${sid_args[@]}" \
           --name "Nox-Decomp" \
-          --exe "$GAMEDIR/start.sh" \
+          --exe "$SELF_SH" \
           --startdir "$GAMEDIR" \
           --launch="--skip-steam-install" \
           --grid "$STEAM_V_IMG" \
