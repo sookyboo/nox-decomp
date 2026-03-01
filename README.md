@@ -104,15 +104,38 @@ Note: You will only see it in your steam library the next time steam restarts.
 Restart your device or launch the game from the start menu and enjoy!
 
 ## Linux
-Download the zip from releases.
+Log in to your [gog.com](https://www.gog.com/en/game/nox) account and buy/download nox the setup file should be something like `setup_nox_2.0.0.20.exe`
 
-Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+From [releases section](https://github.com/sookyboo/nox-decomp/releases) :
 
-Unpack nox-decomp and copy the gog setup program `setup_nox_2.0.0.20.exe` into nox-decomp `gamefiles` directory.
+Download nox-decomp-linux-armhf.tar.gz for arm64/armhf devices
+Download nox-decomp-linux-i386.tar.gz for intel i386/32bit/amd64 devices
 
-Run the included Nox-Decomp.sh script which expects the nox installation file in the gamefiles directory.
+The following steps were made with Ubuntu 24.04 and vary depending on which Linux you are running but will be very similar.
 
-After extraction it should start the game.
+Right click your nox-decomp tar.gz file downloaded above in your downloads folder and choose Extract
+
+This should create a folder with the name nox-decomp-linux-i386 or nox-decomp-linux-armhf
+
+Go inside the folder
+
+Right click the Nox-Decomp.sh file and choose Run as Program
+
+Click OK when it says Nox game data not found .
+
+Navigate to your downloads where you have `setup_nox_2.0.0.20.exe`
+
+(If you don't get a file chooser you can manually copy `setup_nox_2.0.0.20.exe` into the gamefiles directory.)
+
+
+It will ask to add a launcher to your steam installation. Click "Yes" or "No" depending on if you want a shortcut in steam or not.
+Note: You will only see it in your steam library the next time steam restarts.
+
+When the steam launcher step is finished click "OK"
+
+Wait for the extraction and conversion process to finish.
+
+Click "OK" and you should enter the game.
 
 
 ## Windows
