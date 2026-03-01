@@ -32,11 +32,17 @@ RUN_ARCH="${DEVICE_ARCH}"
 
 # 2) Remap device arch -> desired run arch
 case "${RUN_ARCH}" in
-  aarch64|arm64)
+  aarch64|arm64|armv8*)
+    RUN_ARCH="armhf"
+    ;;
+  armhf|armv7*|arm)
     RUN_ARCH="armhf"
     ;;
   amd64|x86_64)
-    RUN_ARCH="i386"   # 32-bit x86 userspace
+    RUN_ARCH="i386"
+    ;;
+  x86|i686|i386)
+    RUN_ARCH="i386"
     ;;
 esac
 
@@ -220,162 +226,206 @@ fi
 
 
 install() {
-
-
   # -------------------------------------------------
   # Locate source data
   # -------------------------------------------------
-  SRC="$GAMEDIR/gamefiles"
+  local SRC="$GAMEDIR/gamefiles"
+  local NEEDED="$SRC/app/gamedata.bin"
 
   # -------------------------------------------------
-  # Run extractor if needed
+  # Nothing to do if already extracted
   # -------------------------------------------------
-  NEEDED="$SRC/app/gamedata.bin"
+  if [[ -f "$NEEDED" ]]; then
+    return 0
+  fi
 
-  if [ ! -f "$NEEDED" ]; then
-    echo "Nox data not extracted"
-    sleep 1
+  echo "Nox data not extracted"
+  sleep 1
 
-    if [ -z "$SRC" ]; then
-      echo "Put Nox files in:"
-      echo "$GAMEDIR/gamefiles/"
-      sleep 5
-      exit 1
+  if [[ -z "$SRC" ]]; then
+    echo "Put Nox files in:"
+    echo "$GAMEDIR/gamefiles/"
+    sleep 5
+    exit 1
+  fi
+
+  mkdir -p "$DATADIR"
+
+  # -------------------------------------------------
+  # Find installer
+  # -------------------------------------------------
+  local found_installer="no"
+  local file=""
+  shopt -s nullglob nocaseglob
+  for file in "$SRC"/$INSTALLER_EXE_GLOB; do
+    if [[ -f "$file" ]]; then
+      found_installer="yes"
+      break
     fi
+  done
+  shopt -u nocaseglob
 
-    mkdir -p "$DATADIR"
-
-    found_installer="no"
-    for file in "$SRC"/$INSTALLER_EXE_GLOB; do
-        if [ -f "$file" ]; then
-            found_installer="yes"
-            break
-        fi
-    done
-
-    # GUI fallback: allow user to pick the installer if not present
-    if [ "$found_installer" != "yes" ] && [[ "$have_gui" == "1" ]]; then
-      msg="Nox game data not found.
+  # -------------------------------------------------
+  # GUI fallback: pick installer if not present
+  # -------------------------------------------------
+  if [[ "$found_installer" != "yes" && "${have_gui}" == "1" ]]; then
+    local msg
+    msg="Nox game data not found.
 
 Please select your Nox GOG installer (setup_nox*.exe).
 
 The installer will be copied into:
   $SRC/
 and extracted automatically."
-      zinfo "$msg"
+    zinfo "$msg"
 
-      picked_exe="$(zenity --file-selection \
-        --title="Select Nox GOG installer" \
-        --file-filter="Windows installer (*.exe) | *.exe" \
-        --file-filter="All files | *" \
-        2>/dev/null || true
-      )"
+    local picked_exe=""
+    picked_exe="$(zenity --file-selection \
+      --title="Select Nox GOG installer" \
+      --file-filter="Windows installer (*.exe) | *.exe" \
+      --file-filter="All files | *" \
+      2>/dev/null || true
+    )"
 
-      if [[ -n "$picked_exe" && -f "$picked_exe" ]]; then
-        bn="$(basename "$picked_exe")"
-        echo "User selected installer via zenity: $picked_exe"
-        mkdir -p "$SRC"
-        cp -f "$picked_exe" "$SRC/$bn" >/dev/null 2>&1 || true
-      fi
-
-      # re-scan after copy
-      found_installer="no"
-      for file in "$SRC"/$INSTALLER_EXE_GLOB; do
-          if [ -f "$file" ]; then
-              found_installer="yes"
-              break
-          fi
-      done
+    if [[ -n "$picked_exe" && -f "$picked_exe" ]]; then
+      local bn
+      bn="$(basename "$picked_exe")"
+      echo "User selected installer via zenity: $picked_exe"
+      mkdir -p "$SRC"
+      cp -f "$picked_exe" "$SRC/$bn" >/dev/null 2>&1 || true
     fi
 
-    if [ "$found_installer" = "yes" ]; then
-        echo "Found Nox GOG installer"
-        echo "Extracting GOG installer"
-        sleep 1
+    # re-scan after copy
+    found_installer="no"
+    shopt -s nullglob nocaseglob
+    for file in "$SRC"/$INSTALLER_EXE_GLOB; do
+      if [[ -f "$file" ]]; then
+        found_installer="yes"
+        break
+      fi
+    done
+    shopt -u nocaseglob
+  fi
 
-        zstatus=""
-        zpid=""
-        if [[ "$have_gui" == "1" ]]; then
-          zstatus="$(mktemp)"
-          printf 'Extracting game data…\nRunning innoextract…\n' >"$zstatus"
-          zpid="$(zenity_pulse_start "Nox-Decomp" "Extracting game data…" "$zstatus")" || true
-        fi
+  # -------------------------------------------------
+  # If we have an installer, extract it with zenity updates (audio-conversion style)
+  # -------------------------------------------------
+  if [[ "$found_installer" == "yes" ]]; then
+    echo "Found Nox GOG installer"
+    echo "Extracting GOG installer"
+    sleep 1
 
-        # Run innoextract with live status updates (best-effort)
-        zlog=""
-        ztail_pid=""
+    # Prefer a concrete installer path (first match) for nicer status + no glob surprises
+    local installer_path=""
+    shopt -s nullglob nocaseglob
+    for file in "$SRC"/$INSTALLER_EXE_GLOB; do
+      if [[ -f "$file" ]]; then
+        installer_path="$file"
+        break
+      fi
+    done
+    shopt -u nocaseglob
 
-        if [[ -n "$zstatus" ]]; then
-          zlog="$(mktemp)"
+    if [[ -z "$installer_path" ]]; then
+      echo "ERROR: installer glob matched earlier but no file found on second pass"
+      zerror "Extraction failed.
 
-          # Background: update status file with last extractor output line
-          (
-            last=""
-            while :; do
-              if [[ -s "$zlog" ]]; then
-                cur="$(tail -n 1 "$zlog" 2>/dev/null | tr -d '\r')"
-                if [[ -n "$cur" && "$cur" != "$last" ]]; then
-                  printf 'Extracting…\n%s\n' "$cur" >"$zstatus" 2>/dev/null || true
-                  last="$cur"
-                fi
-              fi
-              sleep 0.8
-            done
-          ) &
-          ztail_pid=$!
-
-          # Capture output for tailing *and* keep it in your main log (via your global exec/tee)
-          "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC" 2>&1 | tee -a "$zlog" >/dev/null
-          rc=${PIPESTATUS[0]}
-
-          # Stop tailer
-          [[ -n "$ztail_pid" ]] && kill "$ztail_pid" >/dev/null 2>&1 || true
-          [[ -n "$ztail_pid" ]] && wait "$ztail_pid" >/dev/null 2>&1 || true
-          rm -f "$zlog" >/dev/null 2>&1 || true
-        else
-          "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC"
-          rc=$?
-        fi
-
-        if [[ -n "$zpid" ]]; then
-          zenity_pulse_stop "$zpid"
-        fi
-        [[ -n "$zstatus" ]] && rm -f "$zstatus" >/dev/null 2>&1 || true
-
-        if [[ "$rc" -ne 0 ]]; then
-          echo "Extraction failed (rc=$rc)"
-          zerror "Extraction failed.
+Could not locate installer after selection.
 
 Please check log.txt for details."
-          sleep 5
-          exit 1
-        fi
+      sleep 5
+      exit 1
     fi
 
-    echo "Extracting Nox data..."
-    echo "Extraction may take up to 10-60min"
-    # Produces gamefiles/app/gamedata.bin if successful
+    # --- start pulsing dialog (same style as convert_dialog) ---
+    local zpid=""
+    local zstatus=""
+    if [[ "$have_gui" == "1" ]]; then
+      zstatus="$(mktemp)"
+      printf 'Extracting game data…\nStarting innoextract…\n' >"$zstatus"
 
-    if [ ! -f "$NEEDED" ]; then
-      echo "Extraction failed"
+      (
+        while :; do
+          echo "10"
+          echo "# $(cat "$zstatus" 2>/dev/null || echo "Extracting game data…")"
+          sleep 0.8
+        done
+      ) | zenity --progress \
+            --title="Nox-Decomp" \
+            --text="Extracting game data…" \
+            --pulsate \
+            --no-cancel \
+            --auto-close \
+            --width=520 \
+            >/dev/null 2>&1 &
+      zpid=$!
+    fi
+
+    # --- run innoextract and update status file directly (no tail/tee buffering) ---
+    local rc=0
+    if [[ -n "$zstatus" ]]; then
+      local -a exec_cmd
+      if command -v stdbuf >/dev/null 2>&1; then
+        exec_cmd=(stdbuf -oL -eL "$INNOEXTRACT" "$installer_path" -d "$SRC")
+      else
+        exec_cmd=("$INNOEXTRACT" "$installer_path" -d "$SRC")
+      fi
+
+      "${exec_cmd[@]}" 2>&1 | while IFS= read -r line; do
+        # Preserve full output into log.txt (pipe would otherwise bypass your global tee)
+        echo "$line"
+        line="${line//$'\r'/}"
+        [[ -n "$line" ]] && printf 'Extracting…\n%s\n' "$line" >"$zstatus" 2>/dev/null || true
+      done
+      rc=${PIPESTATUS[0]}
+    else
+      "$INNOEXTRACT" "$installer_path" -d "$SRC"
+      rc=$?
+    fi
+
+    # --- stop zenity cleanly ---
+    if [[ -n "$zpid" ]]; then
+      kill "$zpid" >/dev/null 2>&1 || true
+      wait "$zpid" >/dev/null 2>&1 || true
+    fi
+    [[ -n "$zstatus" ]] && rm -f "$zstatus" >/dev/null 2>&1 || true
+
+    if [[ "$rc" -ne 0 ]]; then
+      echo "Extraction failed (rc=$rc)"
       zerror "Extraction failed.
+
+Please check log.txt for details."
+      sleep 5
+      exit 1
+    fi
+  fi
+
+  # -------------------------------------------------
+  # Verify extracted output
+  # -------------------------------------------------
+  echo "Extracting Nox data..."
+  echo "Extraction may take up to 10-60min"
+  # Produces gamefiles/app/gamedata.bin if successful
+
+  if [[ ! -f "$NEEDED" ]]; then
+    echo "Extraction failed"
+    zerror "Extraction failed.
 
 Expected:
   $NEEDED
 
 Put Nox files in:
   $GAMEDIR/gamefiles/"
-      sleep 5
-      exit 1
-    fi
-
-    echo "Extraction complete"
-    sleep 1
-
-    echo "Delete installer files."
-    #rm -fR "$SRC"/$INSTALLER_EXE_GLOB
-    sleep 1
+    sleep 5
+    exit 1
   fi
+
+  echo "Extraction complete"
+  sleep 1
+
+  echo "Delete installer files."
+  #rm -fR "$SRC"/$INSTALLER_EXE_GLOB
+  sleep 1
 }
 
 convert_dialog() {
@@ -428,6 +478,7 @@ convert_dialog() {
   shopt -s nullglob nocaseglob
   wav_files=("$DIALOG_DIR"/*.wav)
   total="${#wav_files[@]}"
+  shopt -u nocaseglob nullglob
 
   if [ "$total" -eq 0 ]; then
     echo "No dialog WAV files found, skipping conversion"
