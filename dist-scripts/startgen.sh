@@ -61,6 +61,7 @@ UTILDIR="$GAMEDIR/utils"
 INNOEXTRACT="$GAMEDIR/steam/utils/innoextract.$DEVICE_ARCH"
 DATADIR="$GAMEDIR/data"
 INSTALLER_EXE_GLOB="setup_nox*.exe"
+STEAM_SHORTCUT_MARKER="$ASSET_DIR/steam_shortcut.txt"
 # ---------------------------
 # Logging
 # ---------------------------
@@ -138,6 +139,11 @@ maybe_prompt_add_to_steam() {
   # Optional: only runs if zenity + python3 + helper script exists.
   local want_skip=0
 
+  # 0) Skip if user previously said "no"
+  if [[ -f "${STEAM_SHORTCUT_MARKER:-$ASSET_DIR/steam_shortcut.txt}" ]]; then
+    want_skip=1
+  fi
+
   # 1) Skip if launched via Steam
   if [[ -n "${SteamAppId:-}" || -n "${SteamGameId:-}" ]]; then
     want_skip=1
@@ -177,8 +183,8 @@ Steam user detected
 
 This will create/update a Steam shortcut and install artwork/controller template.
 
-You can skip this prompt in future by launching with:
-  --skip-steam-install"
+If you choose No, you won't be asked again (a marker will be created).
+"
 
       if zquestion "$msg"; then
         sid_args=()
@@ -203,6 +209,13 @@ You can skip this prompt in future by launching with:
         zinfo "Steam shortcut install attempted.
 
 Restart Steam to see changes."
+      else
+        # User said "No": write marker so we don't ask again
+        mkdir -p "$ASSET_DIR" >/dev/null 2>&1 || true
+        {
+          echo "User declined Steam shortcut prompt on $(date)"
+          echo "Delete this file to re-enable prompting."
+        } > "${STEAM_SHORTCUT_MARKER:-$ASSET_DIR/steam_shortcut.txt}" 2>/dev/null || true
       fi
     fi
   fi
