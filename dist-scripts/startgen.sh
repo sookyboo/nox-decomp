@@ -166,9 +166,9 @@ maybe_prompt_add_to_steam() {
   #   utils/steam_shortcut.py
   #   gamefiles/app/steamv.png + steamh.png + app icon (optional)
   local STEAM_SHORTCUT_PY="$UTILDIR/steam_shortcut.py"
-  local STEAM_V_IMG="$GAME_DIR/steamv.png"
-  local STEAM_H_IMG="$GAME_DIR/steamh.png"
-  local STEAM_ICON_IMG="$GAME_DIR/io.github.sookyboo.nox-decomp.png"
+  local STEAM_V_IMG="$GAMEDIR/steam/steamv.png"
+  local STEAM_H_IMG="$GAMEDIR/steam/steamh.png"
+  local STEAM_ICON_IMG="$GAMEDIR/steam/io.github.sookyboo.nox-decomp.png"
 
   if [[ "$want_skip" == "0" && "$have_gui" == "1" && "$have_python" == "1" && -f "$STEAM_SHORTCUT_PY" ]]; then
     # If already installed, skip asking (helper supports this check)
@@ -204,7 +204,7 @@ If you choose No, you won't be asked again (a marker will be created).
           --icon-file "$STEAM_ICON_IMG" \
           --template "controller_neptune_gamepad+mouse.vdf" \
           --force-template \
-          >/dev/null 2>&1 || true
+          2>&1 || true
 
         zinfo "Steam shortcut install attempted.
 
