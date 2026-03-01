@@ -59,7 +59,7 @@ GPTK_CFG_FULL="$GAMEDIR/nox.gptk2.ini"
 BINARY="noxd"
 UTILDIR="$GAMEDIR/utils"
 
-INNOEXTRACT="$GAMEDIR/steam/utils/innoextract.$DEVICE_ARCH"
+INNOEXTRACT="$GAMEDIR/utils/innoextract.$DEVICE_ARCH"
 DATADIR="$GAMEDIR/data"
 INSTALLER_EXE_GLOB="setup_nox*.exe"
 STEAM_SHORTCUT_MARKER="$ASSET_DIR/steam_shortcut.txt"
