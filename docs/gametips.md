@@ -1,0 +1,37 @@
+## Tips when playing with a gamepad, smallscreen or for the first time
+-   It is worth watching the game story video introduction once in the main menu by pressing "Play Intro"
+-   Your device might be able to handle better graphics - when in the game go to main menu->options (**Select**) experiment with these:
+  -   High Res Front Walls
+  -   High Res Floors
+  -   Soft Shadow Edge
+  -   Render Particle Glow
+  -   Fade Objects
+  -   Render Bubbles (in mana and health viles)
+  -   Draw Front Walls (I prefer this off)
+  -   Translucent Front Walls
+-   If you want to save your graphics settings exit the game from the menus not the **Select** + **Start** shortcut (after saving your config you can exit with the shortcut)
+-   Save often using **Start + Right D-Pad** and load often with **Start + Left D-Pad**.
+-   Running into things like chests, doors, switches, tree stumps will open them.
+-   If inventory / book / merchant / video is open press **Select** to exit any of them quickly.
+-   Use **L2** to slow down the mouse for picking up items, navigating menus or issuing commands to creatures as a conjurer
+-   If you are a conjurer you can issue commands to your creatures in the top right window
+-   Small screens might make the game harder
+-   Opening the mini map on each level can make it easier (**Start + A**)
+-   Zooming the map can help you find unexplored areas
+-   Something almost always comes out of a chest look carefully for items like arrow quivers
+-   Take time to organise your spell lists - you can drag spells from the book
+-   Spell buttons/analog stick are clockwise from the order on the bottom of the screen for first four
+-   The last/fith spell at the bottom of the screen can be used with **L1 + R1**
+-   Cycle through your spell set ups with **L1 + Up D-Pad/Down D-Pad** press the little square to drag spells from your spell book into the different spell rows
+-   A spell ordering I like and is easy to memorise: Up for healing, down for dealing heavy damage, right for running/evading/hiding, left for slowing/hindering/confusing enemy, L1 + R1 for prep/shield spells
+-   You can drag and drop items from your inventory
+-   Most obstacles can be overcome with thinking, prepping, saving and reloading - rather than mouse speed
+-   Most of the levels are completely different and have different challenges for the three classes Conjurer, Wizard and Warrior. It is worth playing through all of them. Conjurers can control creatures and have spells, Wizards can't control creatures but have powerful spells, Warriors have no magic but are stronger and faster and have special skills.
+-   Multiplayer is extremely fun too - I encourage you to try it with friends - Online games and local WiFi/LAN games co-op and versus are possible up to 32 players.
+-   You can see what the status icons are with your inventory open by hovering over them.
+-   Weapons and armour do eventually break unless you repair them - break boxes/walls with a cheap weapon and repair your favourites.
+-   Look for tree stumps, secret walls and areas - they often reward you with items/gold that can help you finish the level or game.
+-   Different merchants have different prices - keep your original shirt and use it to compare selling prices at different merchants to get the best deal.
+-   Later in the game it is possible to set traps and these are sometimes useful for tough enemies but not always.
+-   There are versions of Nox-Decomp available for SteamDeck, Windows and Docker images for servers [sookyboo/nox-decomp](https://github.com/sookyboo/nox-decomp).
+-   Full controller mapping listing below
