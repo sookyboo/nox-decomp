@@ -86,6 +86,35 @@ static int nox_limit_range_radius(void)
     return g_limit_range_radius;
 }
 
+// ------------------------------------------------------------
+// Mouse sensitivity (NOX_MOUSE_SENSITIVITY)
+//   - default: 1.0
+//   - examples: 0.5 (half), 2.0 (double)
+// ------------------------------------------------------------
+static float g_mouse_sensitivity_cached = -1.0f;
+
+static float nox_mouse_sensitivity(void)
+{
+    if (g_mouse_sensitivity_cached < 0.0f) {
+        const char *s = getenv("NOX_MOUSE_SENSITIVITY");
+        float v = 1.0f;
+
+        if (s && *s) {
+            char *end = NULL;
+            v = strtof(s, &end);
+
+            // If parse failed (no digits consumed), fall back to default.
+            if (end == s) v = 1.0f;
+
+            // Optional sanity clamp (prevents negative/infinite madness)
+            if (!(v > 0.0f) || v > 100.0f) v = 1.0f;
+        }
+
+        g_mouse_sensitivity_cached = v;
+    }
+    return g_mouse_sensitivity_cached;
+}
+
 static struct keyboard_event keyboard_event_queue[256];
 static DWORD keyboard_event_ridx;
 static DWORD keyboard_event_widx;
@@ -768,6 +797,9 @@ void __cdecl sub_47FA80(signed int a1)
 int sub_47D8D0()
 {
     SDL_SetRelativeMouseMode(SDL_TRUE);
+
+    input_sensitivity = nox_mouse_sensitivity();
+
     mouse_event_ridx = 0;
     mouse_event_widx = 0;
 
