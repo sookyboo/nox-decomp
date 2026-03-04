@@ -1197,6 +1197,7 @@ LABEL_14:
 //  *(_DWORD *)(v1 + 36) = *(_DWORD *)(v1 + 48);
 //  return 0;
 //}
+//nox_xxx_spellDrainMana_52E210
 int __cdecl sub_52E210__abi_raw(nox_abi_ptrslot_t a1)
 {
   int v2; // eax
@@ -1296,11 +1297,13 @@ int __cdecl sub_52E210__abi_raw(nox_abi_ptrslot_t a1)
 
   v21 = *(float *)(self + 72);
   v22 = sub_419D70(&byte_587000[260408], *(_DWORD *)(self + 8) - 1) + v21;
-  *(float *)&v14 = (float)sub_419A70(v22);
+  int i14 = sub_419A70(v22);
+  float f14;
+  memcpy(&f14, &i14, sizeof(f14));
 
   v15 = *(_DWORD **)(self + 48);
-  v19.field_0 = *(float *)&v14;
-  v16 = (double)v14;
+  v19.field_0 = f14;
+  v16 = (double)i14;
   v17 = *(_DWORD **)(self + 36);
   *(float *)(self + 72) = (float)(v22 - v16);
 
