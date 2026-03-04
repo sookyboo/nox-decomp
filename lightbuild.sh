@@ -35,6 +35,7 @@ docker buildx build --load --platform=linux/amd64 --progress=plain -f Dockerfile
 docker create --name noxdecomp_tmp-win-x86-light noxdecomp-build-win-x86-light && \
 rm -rf ../noxd.win32 && \
 docker cp noxdecomp_tmp-win-x86-light:/build/nox-decomp/build/src/noxd.win32 ../noxd.win32 && \
+docker cp noxdecomp_tmp-win-x86-light:/build/nox-decomp/build/src/launch-nox-decomp.exe ../noxd.win32 && \
 # optional rename if you want a nicer exe name locally
 ( test -f ../noxd.win32/out.exe && mv -f ../noxd.win32/out.exe ../noxd.win32/noxd.winx86.exe || true ) && \
 docker rm noxdecomp_tmp-win-x86-light
