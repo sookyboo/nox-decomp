@@ -17036,11 +17036,105 @@ LABEL_14:
 }
 
 //----- (004BA670) --------------------------------------------------------
+//void __cdecl sub_4BA670(int a1, int a2, int a3, int a4, int a5)
+//{
+//  int v5; // ebx
+//  int v6; // edi
+//  int v7; // esi
+//  int v8; // eax
+//  double v9; // st7
+//  double v10; // st6
+//  double v11; // st5
+//  double v12; // st4
+//  double v13; // st5
+//  double v14; // st5
+//  double v15; // rt0
+//  int v16; // eax
+//  int v17; // ecx
+//  int v18; // esi
+//  int v19; // edx
+//  unsigned __int8 *v20; // eax
+//  float v21; // [esp-Ch] [ebp-44h]
+//  int2 a4a; // [esp+18h] [ebp-20h]
+//  int2 a3a; // [esp+20h] [ebp-18h]
+//  int2 a2a; // [esp+28h] [ebp-10h]
+//  int2 a1a; // [esp+30h] [ebp-8h]
+//  float v26; // [esp+40h] [ebp+8h]
+//
+//  v5 = a5;
+//  v6 = a4 - a2;
+//  v7 = a5 - a3;
+//  v8 = sub_48C6B0(a4 - a2, a5 - a3);
+//  *(_DWORD *)&byte_5D4594[1316408] = v8 / 40 + 1;
+//  if ( v8 / 40 + 2 >= 30 )
+//    *(_DWORD *)&byte_5D4594[1316408] = 28;
+//  a1a.field_0 = a2;
+//  v9 = *(float *)&byte_587000[8 * a1 + 194136];
+//  v10 = *(float *)&byte_587000[8 * a1 + 194140];
+//  v11 = (double)(a4 - a2);
+//  v12 = (double)v7;
+//  a1a.field_4 = a3;
+//  a2a.field_0 = a4;
+//  a2a.field_4 = v5;
+//  *(float *)&byte_5D4594[1313880] = v12;
+//  v26 = sqrt(v12 * *(float *)&byte_5D4594[1313880] + v11 * v11) + 0.0099999998;
+//  *(float *)&byte_5D4594[1313876] = v11 / v26;
+//  v13 = *(float *)&byte_5D4594[1313880] / v26;
+//  *(float *)&byte_5D4594[1313880] = v13;
+//  v14 = v13 * v10 + *(float *)&byte_5D4594[1313876] * v9;
+//  if ( v14 < 0.0 )
+//    v14 = v14 * 0.2;
+//  v15 = (1.0 - v14) * (double)v8 * 2.3;
+//  *(float *)&byte_5D4594[1313868] = v9 * v15;
+//  *(float *)&byte_5D4594[1313872] = v10 * v15;
+//  a3a.field_0 = sub_419A70(*(float *)&byte_5D4594[1313868]);
+//  v16 = sub_419A70(*(float *)&byte_5D4594[1313872]);
+//  a4a.field_0 = v6;
+//  v17 = 0;
+//  a3a.field_4 = v16;
+//  a4a.field_4 = v7;
+//  a5 = 0;
+//  do
+//  {
+//    if ( v17 )
+//      *(float *)&byte_5D4594[4 * v17 + 1313856] = *(float *)&byte_5D4594[4 * v17 + 1313856] + 0.25;
+//    else
+//      *(float *)&byte_5D4594[1313856] = *(float *)&byte_5D4594[1313856] + 0.2;
+//    v18 = *(_DWORD *)&byte_5D4594[1316408];
+//    if ( *(float *)&byte_5D4594[4 * v17 + 1313856] >= 1.0 )
+//    {
+//      v19 = *(_DWORD *)&byte_5D4594[1316408] + 1;
+//      if ( *(_DWORD *)&byte_5D4594[1316408] + 1 > 0 )
+//      {
+//        v20 = &byte_5D4594[28 * (v19 + 30 * v17) + 1313872];
+//        do
+//        {
+//          *((_DWORD *)v20 + 6) = *((_DWORD *)v20 - 1);
+//          *((_DWORD *)v20 + 7) = *(_DWORD *)v20;
+//          *((_DWORD *)v20 + 8) = *((_DWORD *)v20 + 1);
+//          *((_DWORD *)v20 + 9) = *((_DWORD *)v20 + 2);
+//          *((_DWORD *)v20 + 5) = *((_DWORD *)v20 - 2);
+//          v20 -= 28;
+//          --v19;
+//        }
+//        while ( v19 );
+//      }
+//      *(_DWORD *)&byte_5D4594[4 * v17 + 1313856] = 0;
+//      *(_DWORD *)&byte_5D4594[840 * v17 + 1313908] = 0;
+//    }
+//    v21 = *(float *)&byte_5D4594[4 * v17 + 1313856];
+//    *(_DWORD *)&byte_5D4594[1316412] = 0;
+//    sub_4BEDE0(&a1a, &a2a, &a3a, &a4a, v18, v21, sub_4BA8B0, (int)&a5);
+//    v17 = ++a5;
+//  }
+//  while ( a5 < 3 );
+//}
 // Minimal port-safe rewrite:
 //  - Freeze endY so it can't be clobbered when a5 is reused as a loop counter.
 //  - Don't pass &a5 (which we mutate) as the callback arg; pass a stable layerArg instead.
 //  - Everything else stays the same.
 
+// plasma render staff of oblivion effects
 void __cdecl sub_4BA670(int a1, int a2, int a3, int a4, int a5)
 {
   const int endY = a5;                 // MIN FIX #1: preserve real endY
