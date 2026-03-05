@@ -35,6 +35,17 @@ I am not the original author of this code. It comes from the [playnox.xyz](https
 ![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/movie1.png)
 ![](https://github.com/sookyboo/nox-decomp/blob/main/screenshots/movie2.png)
 
+# Thanks
+Thanks to my wife for giving me the time to work on this.
+
+Thanks to my brother for playing this game with me when I was growing up.
+
+Thanks to OpenNox for implementing a modern lobby server which enables internet games and for labeling functions in their code which made navigating this code easier.
+
+Thanks to klops, JanTrueno, Dia, Fraxinus88, OGM, Ganimoth, NotYerAvgPorter, Hades-Arcadius, MrGiKILL and Cebion from the [PortMaster discord](https://discord.com/invite/JxYBp9HTAY) for contributing fixes, advice and testing for the PortMaster port.
+
+Thanks to szhublox and Lovyxia from the [NoX RPG Unofficial discord](https://discord.gg/4bYwu68) for testing, good suggestions and knowing the original game so well.
+
 # Running the game
 
 ## PortMaster
