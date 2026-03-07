@@ -22518,6 +22518,16 @@ int __cdecl sub_46B490(int a1, int a2, int a3, int a4)
 //----- (0046B4C0) --------------------------------------------------------
 int __cdecl sub_46B4C0(int a1, int a2, int a3, int a4)
 {
+//  static int once;
+//  if (!once && a1) {
+//    once = 1;
+//    fprintf(stderr,
+//      "[dispatch] obj=%p fn372=%p fn376=%p cb1d0=%p\n",
+//      (void*)a1,
+//      *(void **)(a1 + 372),
+//      *(void **)(a1 + 376),
+//      *(void **)(a1 + 0x1D0));
+//  }
   int result; // eax
 
   result = a1;
@@ -46608,17 +46618,151 @@ double __cdecl sub_48C700(float a1, float a2)
 // 48C722: variable 'v2' is possibly undefined
 
 //----- (0048C730) --------------------------------------------------------
+//unsigned __fastcall sub_48C730(unsigned int a1)
+//{
+//  unsigned int v1; // eax
+//  int result; // eax
+//  unsigned int v3; // eax
+//  unsigned int v4; // eax
+//  unsigned int v5; // eax
+//  unsigned int v6; // eax
+//  unsigned int v7; // eax
+//  unsigned int v8; // eax
+//  unsigned int v9; // eax
+//  unsigned int v10; // eax
+//  unsigned int v11; // eax
+//  unsigned int v12; // eax
+//  unsigned int v13; // eax
+//  unsigned int v14; // eax
+//  unsigned int v15; // eax
+//
+//  v1 = a1;
+//  if ( a1 < 0x10000 )
+//  {
+//    if ( a1 < 0x100 )
+//    {
+//      if ( a1 < 0x10 )
+//      {
+//        if ( a1 < 4 )
+//        {
+//          v15 = a1 << 6;
+//          LOBYTE(v15) = byte_587000[155956 + 64 * a1];
+//          result = v15 >> 7;
+//        }
+//        else
+//        {
+//          v14 = 16 * a1;
+//          LOBYTE(v14) = byte_587000[155956 + 16 * a1];
+//          result = v14 >> 6;
+//        }
+//      }
+//      else if ( a1 < 0x40 )
+//      {
+//        v13 = 4 * a1;
+//        LOBYTE(v13) = byte_587000[155956 + 4 * a1];
+//        result = v13 >> 5;
+//      }
+//      else
+//      {
+//        LOBYTE(v1) = byte_587000[155956 + a1];
+//        result = v1 >> 4;
+//      }
+//    }
+//    else if ( a1 < 0x1000 )
+//    {
+//      if ( a1 < 0x400 )
+//      {
+//        v12 = a1 >> 2;
+//        LOBYTE(v12) = byte_587000[155956 + a1 >> 2];
+//        result = v12 >> 3;
+//      }
+//      else
+//      {
+//        v11 = a1 >> 4;
+//        LOBYTE(v11) = byte_587000[155956 + a1 >> 4];
+//        result = v11 >> 2;
+//      }
+//    }
+//    else if ( a1 < 0x4000 )
+//    {
+//      v10 = a1 >> 6;
+//      LOBYTE(v10) = byte_587000[155956 + a1 >> 6];
+//      result = v10 >> 1;
+//    }
+//    else
+//    {
+//      result = a1 >> 8;
+//      LOBYTE(result) = byte_587000[155956 + a1 >> 8];
+//    }
+//  }
+//  else if ( a1 < 0x1000000 )
+//  {
+//    if ( a1 < 0x100000 )
+//    {
+//      if ( a1 < 0x40000 )
+//      {
+//        v9 = a1 >> 10;
+//        LOBYTE(v9) = byte_587000[155956 + a1 >> 10];
+//        result = 2 * v9;
+//      }
+//      else
+//      {
+//        v8 = a1 >> 12;
+//        LOBYTE(v8) = byte_587000[155956 + a1 >> 12];
+//        result = 4 * v8;
+//      }
+//    }
+//    else if ( a1 < 0x400000 )
+//    {
+//      v7 = a1 >> 14;
+//      LOBYTE(v7) = byte_587000[155956 + a1 >> 14];
+//      result = 8 * v7;
+//    }
+//    else
+//    {
+//      v6 = a1 >> 16;
+//      LOBYTE(v6) = byte_587000[155956 + a1 >> 16];
+//      result = 16 * v6;
+//    }
+//  }
+//  else if ( a1 < 0x10000000 )
+//  {
+//    if ( a1 < 0x4000000 )
+//    {
+//      v5 = a1 >> 18;
+//      LOBYTE(v5) = byte_587000[155956 + a1 >> 18];
+//      result = 32 * v5;
+//    }
+//    else
+//    {
+//      v4 = a1 >> 20;
+//      LOBYTE(v4) = byte_587000[155956 + a1 >> 20];
+//      result = v4 << 6;
+//    }
+//  }
+//  else if ( a1 < 0x40000000 )
+//  {
+//    v3 = a1 >> 22;
+//    LOBYTE(v3) = byte_587000[155956 + a1 >> 22];
+//    result = v3 << 7;
+//  }
+//  else
+//  {
+//    result = (unsigned __int8)byte_587000[155956 + a1 >> 24] << 8;
+//  }
+//  return result;
+//}
 unsigned __fastcall sub_48C730(unsigned int a1)
 {
-  unsigned int v1; // eax
-  int result; // eax
-  unsigned int v3; // eax
-  unsigned int v4; // eax
-  unsigned int v5; // eax
-  unsigned int v6; // eax
-  unsigned int v7; // eax
-  unsigned int v8; // eax
-  unsigned int v9; // eax
+  unsigned int v1;  // eax
+  unsigned int result; // eax
+  unsigned int v3;  // eax
+  unsigned int v4;  // eax
+  unsigned int v5;  // eax
+  unsigned int v6;  // eax
+  unsigned int v7;  // eax
+  unsigned int v8;  // eax
+  unsigned int v9;  // eax
   unsigned int v10; // eax
   unsigned int v11; // eax
   unsigned int v12; // eax
@@ -46627,6 +46771,7 @@ unsigned __fastcall sub_48C730(unsigned int a1)
   unsigned int v15; // eax
 
   v1 = a1;
+
   if ( a1 < 0x10000 )
   {
     if ( a1 < 0x100 )
@@ -46636,20 +46781,20 @@ unsigned __fastcall sub_48C730(unsigned int a1)
         if ( a1 < 4 )
         {
           v15 = a1 << 6;
-          LOBYTE(v15) = byte_587000[155956 + 64 * a1];
+          LOBYTE(v15) = byte_587000[155956 + (64 * a1)];
           result = v15 >> 7;
         }
         else
         {
           v14 = 16 * a1;
-          LOBYTE(v14) = byte_587000[155956 + 16 * a1];
+          LOBYTE(v14) = byte_587000[155956 + (16 * a1)];
           result = v14 >> 6;
         }
       }
       else if ( a1 < 0x40 )
       {
         v13 = 4 * a1;
-        LOBYTE(v13) = byte_587000[155956 + 4 * a1];
+        LOBYTE(v13) = byte_587000[155956 + (4 * a1)];
         result = v13 >> 5;
       }
       else
@@ -46663,26 +46808,26 @@ unsigned __fastcall sub_48C730(unsigned int a1)
       if ( a1 < 0x400 )
       {
         v12 = a1 >> 2;
-        LOBYTE(v12) = byte_587000[155956 + a1 >> 2];
+        LOBYTE(v12) = byte_587000[155956 + (a1 >> 2)];
         result = v12 >> 3;
       }
       else
       {
         v11 = a1 >> 4;
-        LOBYTE(v11) = byte_587000[155956 + a1 >> 4];
+        LOBYTE(v11) = byte_587000[155956 + (a1 >> 4)];
         result = v11 >> 2;
       }
     }
     else if ( a1 < 0x4000 )
     {
       v10 = a1 >> 6;
-      LOBYTE(v10) = byte_587000[155956 + a1 >> 6];
+      LOBYTE(v10) = byte_587000[155956 + (a1 >> 6)];
       result = v10 >> 1;
     }
     else
     {
       result = a1 >> 8;
-      LOBYTE(result) = byte_587000[155956 + a1 >> 8];
+      LOBYTE(result) = byte_587000[155956 + (a1 >> 8)];
     }
   }
   else if ( a1 < 0x1000000 )
@@ -46692,26 +46837,26 @@ unsigned __fastcall sub_48C730(unsigned int a1)
       if ( a1 < 0x40000 )
       {
         v9 = a1 >> 10;
-        LOBYTE(v9) = byte_587000[155956 + a1 >> 10];
+        LOBYTE(v9) = byte_587000[155956 + (a1 >> 10)];
         result = 2 * v9;
       }
       else
       {
         v8 = a1 >> 12;
-        LOBYTE(v8) = byte_587000[155956 + a1 >> 12];
+        LOBYTE(v8) = byte_587000[155956 + (a1 >> 12)];
         result = 4 * v8;
       }
     }
     else if ( a1 < 0x400000 )
     {
       v7 = a1 >> 14;
-      LOBYTE(v7) = byte_587000[155956 + a1 >> 14];
+      LOBYTE(v7) = byte_587000[155956 + (a1 >> 14)];
       result = 8 * v7;
     }
     else
     {
       v6 = a1 >> 16;
-      LOBYTE(v6) = byte_587000[155956 + a1 >> 16];
+      LOBYTE(v6) = byte_587000[155956 + (a1 >> 16)];
       result = 16 * v6;
     }
   }
@@ -46720,26 +46865,27 @@ unsigned __fastcall sub_48C730(unsigned int a1)
     if ( a1 < 0x4000000 )
     {
       v5 = a1 >> 18;
-      LOBYTE(v5) = byte_587000[155956 + a1 >> 18];
+      LOBYTE(v5) = byte_587000[155956 + (a1 >> 18)];
       result = 32 * v5;
     }
     else
     {
       v4 = a1 >> 20;
-      LOBYTE(v4) = byte_587000[155956 + a1 >> 20];
+      LOBYTE(v4) = byte_587000[155956 + (a1 >> 20)];
       result = v4 << 6;
     }
   }
   else if ( a1 < 0x40000000 )
   {
     v3 = a1 >> 22;
-    LOBYTE(v3) = byte_587000[155956 + a1 >> 22];
+    LOBYTE(v3) = byte_587000[155956 + (a1 >> 22)];
     result = v3 << 7;
   }
   else
   {
-    result = (unsigned __int8)byte_587000[155956 + a1 >> 24] << 8;
+    result = (unsigned __int8)byte_587000[155956 + (a1 >> 24)] << 8;
   }
+
   return result;
 }
 
@@ -56279,23 +56425,104 @@ int sub_499450()
 }
 
 //----- (00499490) --------------------------------------------------------
+//_DWORD *__cdecl sub_499490(int a1, _WORD *a2, int a3, int a4, char a5, char a6)
+//{
+//  _DWORD *result; // eax
+//  _DWORD *v7; // esi
+//
+//  result = (_DWORD *)sub_45A360(a1, a3 + (unsigned __int16)a2[2], a4 + (unsigned __int16)a2[3]);
+//  v7 = result;
+//  if ( result )
+//  {
+//    *((_WORD *)result + 216) = *a2;
+//    *((_WORD *)result + 217) = a2[1];
+//    *((_BYTE *)result + 443) = a5;
+//    *((_BYTE *)result + 444) = sub_415FF0(3, 10, (const char *)&byte_587000[162008], 138);
+//    *((_BYTE *)v7 + 446) = a6;
+//    *((_BYTE *)v7 + 445) = a6;
+//    result = sub_45A110(v7);
+//  }
+//  return result;
+//}
 _DWORD *__cdecl sub_499490(int a1, _WORD *a2, int a3, int a4, char a5, char a6)
 {
   _DWORD *result; // eax
-  _DWORD *v7; // esi
+  _DWORD *v7;     // esi
 
-  result = (_DWORD *)sub_45A360(a1, a3 + (unsigned __int16)a2[2], a4 + (unsigned __int16)a2[3]);
+  int spawnX = a3 + (unsigned __int16)a2[2];
+  int spawnY = a4 + (unsigned __int16)a2[3];
+
+  result = (_DWORD *)sub_45A360(a1, spawnX, spawnY);
   v7 = result;
+
   if ( result )
   {
-    *((_WORD *)result + 216) = *a2;
+    *((_WORD *)result + 216) = a2[0];
     *((_WORD *)result + 217) = a2[1];
     *((_BYTE *)result + 443) = a5;
     *((_BYTE *)result + 444) = sub_415FF0(3, 10, (const char *)&byte_587000[162008], 138);
-    *((_BYTE *)v7 + 446) = a6;
-    *((_BYTE *)v7 + 445) = a6;
+    *((_BYTE *)result + 446) = a6;
+    *((_BYTE *)result + 445) = a6;
+
+    /* one-time debug: inspect fields BEFORE sub_45A110 */
+//    {
+//      static int once_pre;
+//      if (!once_pre) {
+//        once_pre = 1;
+//        fprintf(stderr,
+//                "[sub_499490] type=0x%x spawn=(%d,%d) start=(%u,%u) end=(%u,%u) "
+//                "b443=%u b444=%u b445=%u b446=%u cb@116=%p expire(+448)=%u\n",
+//                a1,
+//                spawnX, spawnY,
+//                (unsigned)(unsigned __int16)a2[0], (unsigned)(unsigned __int16)a2[1],
+//                (unsigned)(unsigned __int16)a2[2], (unsigned)(unsigned __int16)a2[3],
+//                (unsigned)(unsigned __int8)a5,
+//                (unsigned)*((unsigned __int8 *)v7 + 444),
+//                (unsigned)(unsigned __int8)a6,
+//                (unsigned)(unsigned __int8)a6,
+//                (void *)v7[116],
+//                (unsigned)*(_DWORD *)((char *)v7 + 448));
+//      }
+//    }
+
     result = sub_45A110(v7);
+
+    /* one-time debug: inspect fields AFTER sub_45A110 */
+//    {
+//      static int once_post;
+//      if (!once_post) {
+//        once_post = 1;
+//        fprintf(stderr,
+//                "[CharmOrb obj] ptr=%p cb116=%p flags120=%08x spawnTime320=%u expire448=%u "
+//                "b1bb=%u b1bc=%u b1bd=%u b1be=%u pos=(%d,%d)\n",
+//                (void *)v7,
+//                (void *)v7[116],
+//                (unsigned)*(_DWORD *)((char *)v7 + 120),
+//                (unsigned)*(_DWORD *)((char *)v7 + 320),
+//                (unsigned)*(_DWORD *)((char *)v7 + 448),
+//                (unsigned)*((unsigned __int8 *)v7 + 0x1BB),
+//                (unsigned)*((unsigned __int8 *)v7 + 0x1BC),
+//                (unsigned)*((unsigned __int8 *)v7 + 0x1BD),
+//                (unsigned)*((unsigned __int8 *)v7 + 0x1BE),
+//                *(_DWORD *)((char *)v7 + 12),
+//                *(_DWORD *)((char *)v7 + 16));
+//      }
+//    }
+
+    /* one-time debug: 0x1D0 / flags */
+//    {
+//      static int once_misc;
+//      if (!once_misc) {
+//        once_misc = 1;
+//        fprintf(stderr,
+//                "[CharmOrb] obj=%p cb(+0x1d0)=%p flags(+0x78)=%08x\n",
+//                (void *)v7,
+//                *(void **)((char *)v7 + 0x1D0),
+//                *(unsigned *)((char *)v7 + 0x78));
+//      }
+//    }
   }
+
   return result;
 }
 

@@ -29654,53 +29654,126 @@ int __cdecl sub_4CA540(_DWORD *a1, int a2)
 }
 
 //----- (004CA650) --------------------------------------------------------
+//int __cdecl sub_4CA650(int a1, int a2)
+//{
+//  int v2; // esi
+//  int v3; // eax
+//  int v4; // ebx
+//  int v5; // edi
+//  int v6; // eax
+//  int v7; // ecx
+//  int v8; // eax
+//  int v9; // ebp
+//  int v10; // eax
+//  int v11; // edi
+//  unsigned __int16 v12; // dx
+//  int v13; // ebp
+//  int v14; // eax
+//  int result; // eax
+//  int v16; // [esp+10h] [ebp-10h]
+//  int v17; // [esp+28h] [ebp+8h]
+//
+//  v2 = a2;
+//  v3 = *(_DWORD *)(a2 + 16);
+//  v4 = *(unsigned __int16 *)(a2 + 434) - v3;
+//  v5 = *(unsigned __int16 *)(a2 + 432) - *(_DWORD *)(a2 + 12);
+//  v6 = sub_48C6B0(v5, v4);
+//  v7 = v6;
+//  v8 = *(unsigned __int8 *)(a2 + 443);
+//  v17 = v8;
+//  ++v7;
+//  v9 = *(_DWORD *)(v2 + 12);
+//  v10 = v5 * v8 / v7;
+//  v11 = *(_DWORD *)(v2 + 16);
+//  v16 = v9 + v10;
+//  v12 = *(_WORD *)(v2 + 432);
+//  v13 = v9 - v12;
+//  v14 = v11 + v4 * v17 / v7;
+//  if ( v7 <= 10
+//    || v13 * (v16 - v12) + (v11 - *(unsigned __int16 *)(v2 + 434)) * (v14 - *(unsigned __int16 *)(v2 + 434)) < 0 )
+//  {
+//    sub_45A4E0(v2);
+//    result = 0;
+//  }
+//  else
+//  {
+//    sub_49AA90((_DWORD *)v2, v16, v14);
+//    result = 1;
+//  }
+//  return result;
+//}
 int __cdecl sub_4CA650(int a1, int a2)
 {
-  int v2; // esi
-  int v3; // eax
-  int v4; // ebx
-  int v5; // edi
-  int v6; // eax
-  int v7; // ecx
-  int v8; // eax
-  int v9; // ebp
-  int v10; // eax
-  int v11; // edi
-  unsigned __int16 v12; // dx
-  int v13; // ebp
-  int v14; // eax
-  int result; // eax
-  int v16; // [esp+10h] [ebp-10h]
-  int v17; // [esp+28h] [ebp+8h]
+  int obj = a2;
 
-  v2 = a2;
-  v3 = *(_DWORD *)(a2 + 16);
-  v4 = *(unsigned __int16 *)(a2 + 434) - v3;
-  v5 = *(unsigned __int16 *)(a2 + 432) - *(_DWORD *)(a2 + 12);
-  v6 = sub_48C6B0(v5, v4);
-  v7 = v6;
-  v8 = *(unsigned __int8 *)(a2 + 443);
-  v17 = v8;
-  ++v7;
-  v9 = *(_DWORD *)(v2 + 12);
-  v10 = v5 * v8 / v7;
-  v11 = *(_DWORD *)(v2 + 16);
-  v16 = v9 + v10;
-  v12 = *(_WORD *)(v2 + 432);
-  v13 = v9 - v12;
-  v14 = v11 + v4 * v17 / v7;
-  if ( v7 <= 10
-    || v13 * (v16 - v12) + (v11 - *(unsigned __int16 *)(v2 + 434)) * (v14 - *(unsigned __int16 *)(v2 + 434)) < 0 )
+  int curX = *(_DWORD *)(obj + 12);
+  int curY = *(_DWORD *)(obj + 16);
+
+  int tgtX = (unsigned __int16)*(_WORD *)(obj + 432);
+  int tgtY = (unsigned __int16)*(_WORD *)(obj + 434);
+
+  // matches asm: EDI = tgtX - curX, EBX = tgtY - curY
+  int dx = tgtX - curX;
+  int dy = tgtY - curY;
+
+  // what the game uses
+  int dist = sub_48C6B0(dx, dy);
+  int distp = dist + 1;
+
+  int speed = (unsigned __int8)*(_BYTE *)(obj + 0x1BB);
+
+  // matches asm: IMUL + CDQ + IDIV
+  int newX = curX + (dx * speed) / distp;
+  int newY = curY + (dy * speed) / distp;
+
+  // dot = (cur - tgt) · (new - tgt)
+  int curToTgtX = curX - tgtX;
+  int curToTgtY = curY - tgtY;
+  int newToTgtX = newX - tgtX;
+  int newToTgtY = newY - tgtY;
+
+  int dot = (newToTgtY * curToTgtY) + (newToTgtX * curToTgtX);
+
+  /* one-time debug: also log the exact sum reaching sub_48C730-style logic */
+//  {
+//    static int once;
+//    if (!once) {
+//      once = 1;
+//
+//      // reproduce FUN_0048c6b0 math exactly:
+//      //   dy^2 uses unsigned MUL (low 32)
+//      //   dx^2 uses signed IMUL (low 32)
+//      unsigned int dy_u = (unsigned int)dy;
+//      unsigned int dy2  = dy_u * dy_u;                 // low 32 like MUL
+//      unsigned int dx2  = (unsigned int)(dx * dx);     // low 32 like IMUL
+//      unsigned int sum  = dx2 + dy2;
+//
+////      unsigned int lutDist = sub_48C730(sum);
+//      unsigned int lutDist = (unsigned int)sub_48C6B0(dx, dy);
+//
+//      fprintf(stderr,
+//        "[sub_4CA650] cur=(%d,%d) tgt=(%d,%d) dxdy=(%d,%d) speed=%d\n"
+//        "           dx2=%u dy2=%u sum=%u dist(sub_48C6B0)=%d dist(sub_48C730(sum))=%u distp=%d\n"
+//        "           new=(%d,%d) curToTgt=(%d,%d) newToTgt=(%d,%d) dot=%d killDist=%d killDot=%d\n",
+//        curX, curY, tgtX, tgtY, dx, dy, speed,
+//        dx2, dy2, sum, dist, lutDist, distp,
+//        newX, newY,
+//        curToTgtX, curToTgtY,
+//        newToTgtX, newToTgtY,
+//        dot,
+//        (distp <= 10),
+//        (dot < 0));
+//    }
+//  }
+
+  if ( distp <= 10 || dot < 0 )
   {
-    sub_45A4E0(v2);
-    result = 0;
+    sub_45A4E0(obj);
+    return 0;
   }
-  else
-  {
-    sub_49AA90((_DWORD *)v2, v16, v14);
-    result = 1;
-  }
-  return result;
+
+  sub_49AA90((_DWORD *)obj, newX, newY);
+  return 1;
 }
 // 4CA67E: variable 'v6' is possibly undefined
 
@@ -32230,31 +32303,102 @@ int __cdecl sub_4CE0A0(int a1, int a2)
 }
 
 //----- (004CE0C0) --------------------------------------------------------
+//int __cdecl sub_4CE0C0(int a1, int a2)
+//{
+//  int v2; // ebx
+//  __int16 v3; // cx
+//  int v4; // esi
+//  __int16 v5; // ax
+//  __int16 v6; // cx
+//  int v7; // eax
+//  int v9; // [esp-18h] [ebp-20h]
+//  char v10; // [esp-14h] [ebp-1Ch]
+//  __int16 v11[4]; // [esp+0h] [ebp-8h]
+//
+//  if ( !*(_DWORD *)&byte_5D4594[1523012] )
+//    *(_DWORD *)&byte_5D4594[1523012] = sub_44CFC0((CHAR *)&byte_587000[190940]);
+//  v2 = 10;
+//  v3 = *(_WORD *)(a2 + 16);
+//  v11[0] = *(_WORD *)(a2 + 12);
+//  v11[1] = v3;
+//  do
+//  {
+//    v4 = sub_415FF0(0, 255, (const char *)&byte_587000[190952], 102);
+//    v5 = sub_415FF0(2, 8, (const char *)&byte_587000[191000], 105);
+//    v6 = *(_WORD *)(a2 + 16) + v5 * *(short *)&byte_587000[8 * v4 + 192092];
+//    v11[2] = *(_WORD *)(a2 + 12) + v5 * *(short *)&byte_587000[8 * v4 + 192088];
+//    v11[3] = v6;
+//    if ( sub_415FF0(0, 100, (const char *)&byte_587000[191048], 112) < 50 )
+//    {
+//      v10 = sub_415FF0(6, 10, (const char *)&byte_587000[191096], 116);
+//      v9 = sub_415FF0(-20, 20, (const char *)&byte_587000[191144], 115);
+//      v7 = sub_415FF0(-20, 20, (const char *)&byte_587000[191192], 114);
+//      sub_499490(*(int *)&byte_5D4594[1523012], v11, v7, v9, v10, 0);
+//    }
+//    --v2;
+//  }
+//  while ( v2 );
+//  return 1;
+//}
 int __cdecl sub_4CE0C0(int a1, int a2)
 {
   int v2; // ebx
-  __int16 v3; // cx
-  int v4; // esi
-  __int16 v5; // ax
-  __int16 v6; // cx
+  int v4; // esi (dir)
+  __int16 v5; // ax  (mag)
   int v7; // eax
   int v9; // [esp-18h] [ebp-20h]
   char v10; // [esp-14h] [ebp-1Ch]
-  __int16 v11[4]; // [esp+0h] [ebp-8h]
+  _WORD v11[4]; // startX,startY,endX,endY (matches asm storage)
 
   if ( !*(_DWORD *)&byte_5D4594[1523012] )
     *(_DWORD *)&byte_5D4594[1523012] = sub_44CFC0((CHAR *)&byte_587000[190940]);
+
   v2 = 10;
-  v3 = *(_WORD *)(a2 + 16);
   v11[0] = *(_WORD *)(a2 + 12);
-  v11[1] = v3;
+  v11[1] = *(_WORD *)(a2 + 16);
+
   do
   {
     v4 = sub_415FF0(0, 255, (const char *)&byte_587000[190952], 102);
-    v5 = sub_415FF0(2, 8, (const char *)&byte_587000[191000], 105);
-    v6 = *(_WORD *)(a2 + 16) + v5 * *(short *)&byte_587000[8 * v4 + 192092];
-    v11[2] = *(_WORD *)(a2 + 12) + v5 * *(short *)&byte_587000[8 * v4 + 192088];
-    v11[3] = v6;
+    v5 = (__int16)sub_415FF0(2, 8, (const char *)&byte_587000[191000], 105);
+
+    /* Match asm: use WORD components from the vec table */
+    {
+      __int16 dx = *(__int16 *)&byte_587000[8 * v4 + 192088]; // x low word
+      __int16 dy = *(__int16 *)&byte_587000[8 * v4 + 192092]; // y low word
+
+      int sx = (unsigned __int16)v11[0];
+      int sy = (unsigned __int16)v11[1];
+
+      int ex = sx + (int)v5 * (int)dx;
+      int ey = sy + (int)v5 * (int)dy;
+
+      v11[2] = (unsigned __int16)ex;
+      v11[3] = (unsigned __int16)ey;
+    }
+
+    /* one-time proof log */
+//    {
+//      static int once;
+//      if (!once) {
+//        once = 1;
+//
+//        fprintf(stderr,
+//                "[sub_4CE0C0] dir=%d mag=%d start=(%u,%u)\n"
+//                "  table word=(%d,%d) dword=(%d,%d)\n"
+//                "  end=(%u,%u) delta=(%d,%d)\n",
+//                v4, (int)v5,
+//                (unsigned)(unsigned __int16)v11[0], (unsigned)(unsigned __int16)v11[1],
+//                (int)*(__int16 *)&byte_587000[8 * v4 + 192088],
+//                (int)*(__int16 *)&byte_587000[8 * v4 + 192092],
+//                *(int *)&byte_587000[8 * v4 + 192088],
+//                *(int *)&byte_587000[8 * v4 + 192092],
+//                (unsigned)(unsigned __int16)v11[2], (unsigned)(unsigned __int16)v11[3],
+//                (int)(unsigned __int16)v11[2] - (int)(unsigned __int16)v11[0],
+//                (int)(unsigned __int16)v11[3] - (int)(unsigned __int16)v11[1]);
+//      }
+//    }
+
     if ( sub_415FF0(0, 100, (const char *)&byte_587000[191048], 112) < 50 )
     {
       v10 = sub_415FF0(6, 10, (const char *)&byte_587000[191096], 116);
@@ -32262,9 +32406,11 @@ int __cdecl sub_4CE0C0(int a1, int a2)
       v7 = sub_415FF0(-20, 20, (const char *)&byte_587000[191192], 114);
       sub_499490(*(int *)&byte_5D4594[1523012], v11, v7, v9, v10, 0);
     }
+
     --v2;
   }
   while ( v2 );
+
   return 1;
 }
 
