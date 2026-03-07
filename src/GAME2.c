@@ -56325,6 +56325,27 @@ _DWORD *__cdecl sub_499520(int a1, unsigned __int16 *a2, __int16 a3, char a4, ch
     *((_BYTE *)v8 + 445) = a5;
     v8[116] = sub_4CA720;
     *((_WORD *)v8 + 254) = a3;
+
+    /* ---- one-time init logging (hard-coded) ---- */
+//    {
+//      static int once;
+//      if (!once) {
+//        once = 1;
+//        fprintf(stderr,
+//                "[sub_499520] start=(%u,%u) end=(%u,%u) dist(+440)=%u a3(angle)=%u a4(dirFlag)=%u a5=%u b444=%u\n",
+//                (unsigned)*a2,
+//                (unsigned)a2[1],
+//                (unsigned)a2[2],
+//                (unsigned)a2[3],
+//                (unsigned)*((unsigned __int16 *)result + 220),
+//                (unsigned)(unsigned __int8)a3,
+//                (unsigned)(unsigned __int8)a4,
+//                (unsigned)(unsigned __int8)a5,
+//                (unsigned)*((unsigned __int8 *)result + 444));
+//      }
+//    }
+    /* ---- end logging ---- */
+
     result = sub_45A110(v8);
   }
   return result;

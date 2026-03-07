@@ -29705,6 +29705,46 @@ int __cdecl sub_4CA650(int a1, int a2)
 // 4CA67E: variable 'v6' is possibly undefined
 
 //----- (004CA720) --------------------------------------------------------
+//int __cdecl sub_4CA720(int a1, int a2)
+//{
+//  int v2; // ebx
+//  int v3; // ebp
+//  int v4; // ecx
+//  int v5; // edx
+//  int v6; // ebx
+//  int v7; // kr00_4
+//  int v8; // ebx
+//  int result; // eax
+//
+//  v2 = *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(a2 + 316);
+//  if ( v2 >= 60
+//    || (v3 = *(unsigned __int16 *)(a2 + 432), abs32(*(_DWORD *)(a2 + 12) - (unsigned __int16)v3) < 10)
+//    && abs32(*(_DWORD *)(a2 + 16) - *(unsigned __int16 *)(a2 + 434)) < 10 )
+//  {
+//    sub_45A4E0(a2);
+//    result = 0;
+//  }
+//  else
+//  {
+//    v4 = *(__int16 *)(a2 + 440) - v2 * *(__int16 *)(a2 + 440) / 60;
+//    v5 = (v2 << 8) / 120;
+//    if ( *(_BYTE *)(a2 + 443) )
+//      v6 = v5 + *(unsigned __int8 *)(a2 + 442);
+//    else
+//      v6 = *(unsigned __int8 *)(a2 + 442) - v5;
+//    if ( v6 < 0 )
+//      v6 += (unsigned int)(255 - v6) >> 8 << 8;
+//    if ( v6 >= 256 )
+//      v6 += -256 * ((unsigned int)v6 >> 8);
+//    v7 = v4 * *(int *)&byte_587000[8 * v6 + 192088];
+//    v8 = *(unsigned __int16 *)(a2 + 434) + v4 * *(_DWORD *)&byte_587000[8 * v6 + 192092] / 16;
+//    sub_49AA90((_DWORD *)a2, v3 + v7 / 16, v8);
+//    *(_DWORD *)(a2 + 32) = v3 + v7 / 16;
+//    *(_DWORD *)(a2 + 36) = v8;
+//    result = 1;
+//  }
+//  return result;
+//}
 int __cdecl sub_4CA720(int a1, int a2)
 {
   int v2; // ebx
@@ -29712,9 +29752,8 @@ int __cdecl sub_4CA720(int a1, int a2)
   int v4; // ecx
   int v5; // edx
   int v6; // ebx
-  int v7; // kr00_4
+  int v7; // eax
   int v8; // ebx
-  int result; // eax
 
   v2 = *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(a2 + 316);
   if ( v2 >= 60
@@ -29722,28 +29761,71 @@ int __cdecl sub_4CA720(int a1, int a2)
     && abs32(*(_DWORD *)(a2 + 16) - *(unsigned __int16 *)(a2 + 434)) < 10 )
   {
     sub_45A4E0(a2);
-    result = 0;
+    return 0;
   }
+
+  v4 = *(__int16 *)(a2 + 440) - v2 * *(__int16 *)(a2 + 440) / 60;
+  v5 = (v2 << 8) / 120;
+
+  if ( *(_BYTE *)(a2 + 443) )
+    v6 = v5 + *(unsigned __int8 *)(a2 + 442);
   else
+    v6 = *(unsigned __int8 *)(a2 + 442) - v5;
+
+  if ( v6 < 0 )
+    v6 += (unsigned int)(255 - v6) >> 8 << 8;
+  if ( v6 >= 256 )
+    v6 += -256 * ((unsigned int)v6 >> 8);
+
   {
-    v4 = *(__int16 *)(a2 + 440) - v2 * *(__int16 *)(a2 + 440) / 60;
-    v5 = (v2 << 8) / 120;
-    if ( *(_BYTE *)(a2 + 443) )
-      v6 = v5 + *(unsigned __int8 *)(a2 + 442);
-    else
-      v6 = *(unsigned __int8 *)(a2 + 442) - v5;
-    if ( v6 < 0 )
-      v6 += (unsigned int)(255 - v6) >> 8 << 8;
-    if ( v6 >= 256 )
-      v6 += -256 * ((unsigned int)v6 >> 8);
-    v7 = v4 * *(int *)&byte_587000[8 * v6 + 192088];
-    v8 = *(unsigned __int16 *)(a2 + 434) + v4 * *(_DWORD *)&byte_587000[8 * v6 + 192092] / 16;
-    sub_49AA90((_DWORD *)a2, v3 + v7 / 16, v8);
-    *(_DWORD *)(a2 + 32) = v3 + v7 / 16;
-    *(_DWORD *)(a2 + 36) = v8;
-    result = 1;
+    int tx = *(int *)&byte_587000[8 * v6 + 192088];
+    int ty = *(int *)&byte_587000[8 * v6 + 192092];
+
+    /* ---- one-time table/entry logging (hard-coded) ---- */
+//    {
+//      static int once;
+//      if (!once) {
+//        once = 1;
+//
+//        /* table base seen in asm: DAT_005b5e58.
+//           Here we log via the byte_587000-based expression. */
+//        int t0x = *(int *)&byte_587000[192088];
+//        int t0y = *(int *)&byte_587000[192092];
+//        int t1x = *(int *)&byte_587000[192088 + 8];
+//        int t1y = *(int *)&byte_587000[192092 + 8];
+//
+//        fprintf(stderr,
+//                "[sub_4CA720] table sanity:\n"
+//                "  entry0=(%d,%d) entry1=(%d,%d)\n"
+//                "  idx=%d tx=%d ty=%d\n"
+//                "  center=(%u,%u) amp0=%d age=%d base=%u dirFlag=%u\n",
+//                t0x, t0y, t1x, t1y,
+//                v6, tx, ty,
+//                (unsigned)*(unsigned __int16 *)(a2 + 432),
+//                (unsigned)*(unsigned __int16 *)(a2 + 434),
+//                (int)*(__int16 *)(a2 + 440),
+//                v2,
+//                (unsigned)*(unsigned __int8 *)(a2 + 442),
+//                (unsigned)*(unsigned __int8 *)(a2 + 443));
+//      }
+//    }
+    /* ---- end logging ---- */
+
+    int prodx = v4 * tx;
+    int prody = v4 * ty;
+
+    // EXACT asm: (prod + (prod<0 ? 15 : 0)) >> 4  (trunc toward 0)
+    int offx = (prodx + ((prodx >> 31) & 0xF)) >> 4;
+    int offy = (prody + ((prody >> 31) & 0xF)) >> 4;
+
+    v7 = (unsigned __int16)v3 + offx;
+    v8 = *(unsigned __int16 *)(a2 + 434) + offy;
   }
-  return result;
+
+  sub_49AA90((_DWORD *)a2, v7, v8);
+  *(_DWORD *)(a2 + 32) = v7;
+  *(_DWORD *)(a2 + 36) = v8;
+  return 1;
 }
 
 //----- (004CA860) --------------------------------------------------------
@@ -31314,15 +31396,32 @@ int __cdecl sub_4CCAC0(int a1, _DWORD *a2)
       if ( (int)(*(_DWORD *)&byte_5D4594[2598000] % 0x33u) < 256 )
       {
         v11 = &byte_587000[8 * v10 + 192092];
+        unsigned __int16 pts[4];
+        int startX, startY;
+
+        startX = (unsigned __int16)LOWORD(i);
+        startY = (unsigned __int16)HIWORD(i);
+
         do
         {
-          v12 = v18 * *(_WORD *)v11;
-          v16 = i + v18 * *((_WORD *)v11 - 2);
-          v17 = HIWORD(i) + v12;
-          sub_499520(*(int *)&byte_5D4594[1522956], (unsigned __int16 *)&i, v10, 0, 0);
-          sub_499520(*(int *)&byte_5D4594[1522956], (unsigned __int16 *)&i, v10, 1, 0);
+          /* Read low 16-bit components like the original asm does:
+             DX = word ptr [ESI-4]  (x component low word)
+             CX = word ptr [ESI]    (y component low word)
+             then multiply by v18 and add to start.
+          */
+          __int16 dx = *(__int16 *)(v11 - 4);   // low word of X dword
+          __int16 dy = *(__int16 *)(v11 + 0);   // low word of Y dword
+
+          pts[0] = (unsigned __int16)startX;
+          pts[1] = (unsigned __int16)startY;
+          pts[2] = (unsigned __int16)(startX + (int)v18 * (int)dx);
+          pts[3] = (unsigned __int16)(startY + (int)v18 * (int)dy);
+
+          sub_499520(*(int *)&byte_5D4594[1522956], pts, (unsigned __int16)v10, 0, 0);
+          sub_499520(*(int *)&byte_5D4594[1522956], pts, (unsigned __int16)v10, 1, 0);
+
           v11 += 408;
-          LOWORD(v10) = v10 + 51;
+          v10 = (v10 + 51) & 0xFF;
         }
         while ( (int)v11 < (int)&byte_587000[194140] );
       }
