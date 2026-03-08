@@ -23,10 +23,24 @@ Why is this different than Opennox:
 - Fast and very close to the original game. 
 - 32bit currently but possibly a 64bit version in future. (The way the code accesses memory expects 32bit and most likely needs changes in thousands of locations)
 
-Neuromancers original comments:
-**The public development of a Nox reimplementation was moved to the [Nox Discord server](https://discord.gg/4bYwu68). Feel free to join to follow the development of this project.**
+Project Goals and progress:
 
-I am not the original author of this code. It comes from the [playnox.xyz](https://playnox.xyz) website. A copy of the original source code is permanently archived [here](https://web.archive.org/web/20191104220905/https://playnox.xyz/public_v1.zip). I just did some small modifications to properly run it in Linux.
+(This is the order goals are prioritised)
+
+- Fix any seg faults on armhf and i386 - progress 100% (game stable - no known seg faults - all solo wizard/conjurer/warrior play tests completed)
+- Easy setup for new players - progress 99% (launchers that automatically extract game and convert audio for linux, portmaster, windows and steamdeck flatpak. Windows launcher sometimes fails to launch game)
+- Fix any networking issues - progress 100% (no known issues)
+- Fix any known rendering issues - progress 98% (known minor issues with lasers and fonts)
+- Fix any known audio issues - progress 97% (minor noisy glitch between song changes, auto dialog conversion required)
+- Gamepad support - progress 98% (emulates mouse and keyboard, config file, no direct player movement yet, thumb sticks might be too sensitive and skip dialog screens between chapters)
+- Try and port to 64bit - progress 2% (have planned two possible options forward but requires many changes)
+- New features
+  - opennox lobby integration works but no hd support for lobby
+  - control server that emulates mouse and keyboard clicks for server mode
+  - 1024x768ish resolution is automatically scaled to hd displays when using launcher without changing aspect ratio
+  - limit mouse movement for gamepad compatibility - toggleable
+  - HD might be possible by directly editing nox.cfg and launcher but untested
+- Rewrite game functions to be easily readable
 
 # Screenshots
 
@@ -337,11 +351,14 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - neuromancer (for some Linux fixes)
 - Sookyboo (for fixing 16bit cursor color, solo game, spell rendering fixes, arm32bit crashes, adding video support and internet game support)
 
-Are you the one that should be mentioned here? Let me know I will add your name. Also, if you are interested in continue this project, I can give you administrative access to this repository.
+Are you the one that should be mentioned here? Let me know I will add your name.
+
+Neuromancers original comments:
+I am not the original author of this code. It comes from the [playnox.xyz](https://playnox.xyz) website. A copy of the original source code is permanently archived [here](https://web.archive.org/web/20191104220905/https://playnox.xyz/public_v1.zip).
 
 # Legal
 Nox-Decomp is released to the Public Domain. The documentation and function provided by Nox-Decomp may only be utilized with assets provided by ownership of Nox.
 
 Nox™ (C) 2000 Electronic Arts Inc.  All rights reserved. Nox are trademarks or registered trademarks of Electronic Arts in the U.S. and/or other countries.
 
-Nox-Comp and any of its' maintainers are in no way associated with or endorsed by Electronic Arts.
+Nox-Decomp and any of it's maintainers are in no way associated with or endorsed by Electronic Arts.
