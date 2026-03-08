@@ -10484,6 +10484,72 @@ int __cdecl sub_4AFCF0(int a1, int a2, int a3, int a4)
 }
 
 //----- (004AFD40) --------------------------------------------------------
+//void sub_4AFD40()
+//{
+//  char *i; // ebp
+//  int v1; // esi
+//  int v2; // edi
+//  void (__cdecl *v3)(int); // eax
+//  void (__cdecl *v4)(int); // eax
+//  unsigned __int8 *v5; // esi
+//  int v6; // ebx
+//  int (__cdecl **v7)(int); // edi
+//  int v8; // eax
+//  int v9; // ecx
+//  int v10; // eax
+//  int v11; // edx
+//
+//  for ( i = (char *)memchr(*(const void **)&byte_5D4594[1311144], 255, *(size_t *)&byte_5D4594[1311148]);
+//        i;
+//        i = (char *)memchr(i + 1, 255, *(_DWORD *)&byte_5D4594[1311148] - v1 - 1) )
+//  {
+//    v1 = (int)&i[-*(_DWORD *)&byte_5D4594[1311144]];
+//    v2 = *(_DWORD *)&byte_5D4594[1311140] + 136 * (_DWORD)&i[-*(_DWORD *)&byte_5D4594[1311144]];
+//    if ( !(*(_BYTE *)(v2 + 56) & 8) )
+//    {
+//      v3 = *(void (__cdecl **)(int))(v2 + 124);
+//      if ( v3 )
+//        v3(*(_DWORD *)&byte_5D4594[1311140] + 136 * (_DWORD)&i[-*(_DWORD *)&byte_5D4594[1311144]]);
+//    }
+//    v4 = *(void (__cdecl **)(int))(v2 + 128);
+//    if ( v4 )
+//      v4(v2);
+//    if ( *(_DWORD *)&byte_5D4594[1311148] - v1 == 1 )
+//      break;
+//  }
+//  v5 = &byte_5D4594[1311168];
+//  v6 = 32;
+//  do
+//  {
+//    v7 = (int (__cdecl **)(int))(v5 - 12);
+//    if ( *((_DWORD *)v5 - 3) )
+//    {
+//      v8 = *((_DWORD *)v5 - 2);
+//      if ( v8 )
+//      {
+//        if ( v8 == 1 )
+//        {
+//          v9 = *((_DWORD *)v5 + 1);
+//          v10 = *(_DWORD *)v5 + 1;
+//          *(_DWORD *)v5 = v10;
+//          if ( v10 <= v9 && (*v7)((int)(v5 - 12)) )
+//          {
+//            *((_DWORD *)v5 - 2) = *((_DWORD *)v5 - 1);
+//          }
+//          else
+//          {
+//            v11 = *((_DWORD *)v5 + 2);
+//            *v7 = 0;
+//            sub_4AFA40(v11);
+//          }
+//        }
+//      }
+//    }
+//    v5 += 24;
+//    --v6;
+//  }
+//  while ( v6 );
+//}
 void sub_4AFD40()
 {
   char *i; // ebp

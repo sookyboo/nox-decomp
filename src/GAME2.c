@@ -56293,6 +56293,14 @@ void __cdecl sub_4991E0(_DWORD *a1)
 }
 
 //----- (00499290) --------------------------------------------------------
+//_QWORD __cdecl sub_499290(int a1)
+//{
+//  __int64 result; // rax
+//
+//  LODWORD(result) = *(_DWORD *)&byte_5D4594[8 * a1 + 1212068];
+//  HIDWORD(result) = *(_DWORD *)&byte_5D4594[8 * a1 + 1212072];
+//  return result;
+//}
 _QWORD __cdecl sub_499290(int a1)
 {
   __int64 result; // rax
@@ -56304,6 +56312,57 @@ _QWORD __cdecl sub_499290(int a1)
 }
 
 //----- (004992B0) --------------------------------------------------------
+//BOOL __cdecl sub_4992B0(int a1, int a2)
+//{
+//  BOOL result; // eax
+//  int v3; // ecx
+//  int v4; // ebp
+//  int v5; // ecx
+//  int v6; // edx
+//  BOOL v7; // [esp+0h] [ebp-8h]
+//  int v8; // [esp+4h] [ebp-4h]
+//
+//  result = 0;
+//  v7 = 0;
+//  v8 = 0;
+//  if ( *(_DWORD *)&byte_5D4594[1217464] > 0 )
+//  {
+//    v3 = 8 * *(_DWORD *)&byte_5D4594[1217464] - 8;
+//    do
+//    {
+//      v4 = *(_DWORD *)&byte_5D4594[v3 + 1203876];
+//      v5 = *(_DWORD *)&byte_5D4594[v3 + 1203880];
+//      v6 = *(_DWORD *)&byte_5D4594[8 * v8 + 1203880];
+//      if ( v6 > a2 )
+//      {
+//        if ( v5 > a2 )
+//          goto LABEL_11;
+//      }
+//      else if ( a2 < v5 )
+//      {
+//        goto LABEL_8;
+//      }
+//      if ( a2 < v6 )
+//      {
+//LABEL_8:
+//        if ( a1 >= *(int *)&byte_5D4594[8 * v8 + 1203876]
+//                 + (a2 - v6) * (v4 - *(_DWORD *)&byte_5D4594[8 * v8 + 1203876]) / (v5 - v6) )
+//        {
+//          result = v7;
+//        }
+//        else
+//        {
+//          result = !v7;
+//          v7 = !v7;
+//        }
+//      }
+//LABEL_11:
+//      v3 = 8 * v8++;
+//    }
+//    while ( v8 < *(int *)&byte_5D4594[1217464] );
+//  }
+//  return result;
+//}
 BOOL __cdecl sub_4992B0(int a1, int a2)
 {
   int count = *(_DWORD *)&byte_5D4594[1217464];
