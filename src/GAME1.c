@@ -9,7 +9,7 @@ extern float draw_gamma;
 extern float input_sensitivity;
 
 void f(int);
-void (*mainloop_enter)();
+void (*mainloop_enter)(void *);
 void *mainloop_enter_args;
 void (*mainloop_exit)();
 int g_v20, g_v21;

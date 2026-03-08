@@ -3,6 +3,7 @@
 #endif
 
 #include "proto.h"
+extern void nox_ctrl_capture_event(const SDL_Event *ev);
 
 #ifdef USE_SDL
 #include <SDL2/SDL.h>
