@@ -10499,24 +10499,36 @@ void sub_4AFD40()
   int v10; // eax
   int v11; // edx
 
-  for ( i = (char *)memchr(*(const void **)&byte_5D4594[1311144], 255, *(size_t *)&byte_5D4594[1311148]);
+  /* base pointers (match asm intent) */
+  char *base = *(char **)&byte_5D4594[1311144];
+  int entryBase = *(_DWORD *)&byte_5D4594[1311140];
+  int len = *(_DWORD *)&byte_5D4594[1311148];
+
+  for ( i = (char *)memchr(base, 255, (size_t)len);
         i;
-        i = (char *)memchr(i + 1, 255, *(_DWORD *)&byte_5D4594[1311148] - v1 - 1) )
+        i = (char *)memchr(i + 1, 255, (size_t)(len - v1 - 1)) )
   {
-    v1 = (int)&i[-*(_DWORD *)&byte_5D4594[1311144]];
-    v2 = *(_DWORD *)&byte_5D4594[1311140] + 136 * (_DWORD)&i[-*(_DWORD *)&byte_5D4594[1311144]];
+    /* CHANGED: idx = i - base */
+    v1 = (int)(i - base);
+
+    /* CHANGED: entry = entryBase + idx*136 */
+    v2 = entryBase + 136 * v1;
+
     if ( !(*(_BYTE *)(v2 + 56) & 8) )
     {
       v3 = *(void (__cdecl **)(int))(v2 + 124);
       if ( v3 )
-        v3(*(_DWORD *)&byte_5D4594[1311140] + 136 * (_DWORD)&i[-*(_DWORD *)&byte_5D4594[1311144]]);
+        v3(v2); /* CHANGED: pass entry pointer (EDI in asm) */
     }
+
     v4 = *(void (__cdecl **)(int))(v2 + 128);
     if ( v4 )
       v4(v2);
-    if ( *(_DWORD *)&byte_5D4594[1311148] - v1 == 1 )
+
+    if ( len - v1 == 1 )
       break;
   }
+
   v5 = &byte_5D4594[1311168];
   v6 = 32;
   do
@@ -25427,10 +25439,9 @@ int __cdecl sub_4C5060(_DWORD *a1)
   int v3; // esi
   int v4; // edi
   int v5; // ebx
-  int v6; // ecx
+  int v6; // eax
   int v7; // edi
   int v8; // esi
-  int v9; // edx
   int v10; // [esp+0h] [ebp-24h]
   int2 a1a; // [esp+4h] [ebp-20h]
   int2 v12; // [esp+Ch] [ebp-18h]
@@ -25438,51 +25449,65 @@ int __cdecl sub_4C5060(_DWORD *a1)
   int2 v14; // [esp+1Ch] [ebp-8h]
 
   result = *(_DWORD *)&byte_5D4594[2614252];
-  if ( *(_DWORD *)&byte_5D4594[2614252] )
+  if ( !result )
+    return result;
+
+  result = *(_DWORD *)&byte_5D4594[1321800];
+  v10 = 0;
+  if ( (int)result <= 0 )
+    return result;
+
+  v2 = (unsigned __int16 *)&byte_5D4594[1321540];
+  do
   {
-    result = *(_DWORD *)&byte_5D4594[1321800];
-    v10 = 0;
-    if ( *(_DWORD *)&byte_5D4594[1321800] > 0 )
+    v3 = *a1 + *v2 - a1[4];
+    v4 = a1[1] + v2[1] - a1[5];
+
+    v5 = sub_4992B0(v3, v4);
+
+    /* v6 = v2[2] - v2[0] (matches asm EAX = [EBP+4] - [EBP]) */
+    v6 = (int)((unsigned __int16)v2[2]) - (int)((unsigned __int16)v2[0]);
+
+    /* end = start + deltas */
+    v14.field_0 = v3 + v6;
+    v14.field_4 = v4 + ((int)((unsigned __int16)v2[3]) - (int)((unsigned __int16)v2[1]));
+
+    v12.field_0 = v3;
+    v12.field_4 = v4;
+
+    /* bounds check that forces EBX=0 (matches asm) */
+    if ( v3 <= 0 || v3 >= (int)a1[8] - 1 || v4 <= 0 || v4 >= (int)a1[9] - 1 )
+      v5 = 0;
+
+    v7 = sub_498C20(&v12, &v14, (int)a1);
+
+    if ( v7 )
     {
-      v2 = (unsigned __int16 *)&byte_5D4594[1321540];
-      do
+      v8 = 0;
+      for ( a1a = v12; v8 < v7; v5 = 1 - v5 )
       {
-        v3 = *a1 + *v2 - a1[4];
-        v4 = a1[1] + v2[1] - a1[5];
-        v5 = sub_4992B0(v3, v4);
-        v6 = v2[3] - v2[1];
-        if ( v3 <= 0 || v3 >= a1[8] - 1 || v4 <= 0 || v4 >= a1[9] - 1 )
-          v5 = 0;
-        v14.field_0 = v3 + v2[2] - *v2;
-        v14.field_4 = v4 + v6;
-        v12.field_0 = v3;
-        v12.field_4 = v4;
-        v7 = sub_498C20(&v12, &v14, (int)a1);
-        if ( v7 )
-        {
-          v8 = 0;
-          for ( a1a = v12; v8 < v7; v5 = 1 - v5 )
-          {
-            *(_QWORD*)&a2 = sub_499290(v8);
-            if ( v5 )
-              sub_4C51D0(&a1a, &a2);
-            a1a = a2;
-            ++v8;
-          }
-          if ( v5 )
-            sub_4C51D0(&a1a, &v14);
-        }
-        else if ( v5 )
-        {
-          sub_4C51D0(&v12, &v14);
-        }
-        result = v10 + 1;
-        v2 += 4;
-        ++v10;
+        *(_QWORD *)&a2 = sub_499290(v8);
+        if ( v5 )
+          sub_4C51D0(&a1a, &a2);
+        a1a = a2;
+        ++v8;
       }
-      while ( v10 < *(int *)&byte_5D4594[1321800] );
+      if ( v5 )
+        sub_4C51D0(&a1a, &v14);
     }
+    else
+    {
+      /* IMPORTANT: disassembly gates this call on v5 */
+      if ( v5 )
+        sub_4C51D0(&v12, &v14);
+    }
+
+    result = v10 + 1;
+    v2 += 4;
+    ++v10;
   }
+  while ( v10 < *(int *)&byte_5D4594[1321800] );
+
   return result;
 }
 // 4C5151: variable 'v9' is possibly undefined

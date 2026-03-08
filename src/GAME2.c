@@ -56296,63 +56296,60 @@ void __cdecl sub_4991E0(_DWORD *a1)
 _QWORD __cdecl sub_499290(int a1)
 {
   __int64 result; // rax
+  int idx = a1 + 1; /* 1-based slots, per FUN_00499130 / FUN_004991e0 */
 
-  LODWORD(result) = *(_DWORD *)&byte_5D4594[8 * a1 + 1212068];
-  HIDWORD(result) = *(_DWORD *)&byte_5D4594[8 * a1 + 1212072];
+  LODWORD(result) = *(_DWORD *)&byte_5D4594[8 * idx + 1212060];
+  HIDWORD(result) = *(_DWORD *)&byte_5D4594[8 * idx + 1212064];
   return result;
 }
 
 //----- (004992B0) --------------------------------------------------------
 BOOL __cdecl sub_4992B0(int a1, int a2)
 {
-  BOOL result; // eax
-  int v3; // ecx
-  int v4; // ebp
-  int v5; // ecx
-  int v6; // edx
-  BOOL v7; // [esp+0h] [ebp-8h]
-  int v8; // [esp+4h] [ebp-4h]
+  int count = *(_DWORD *)&byte_5D4594[1217464];
+  BOOL inside = 0;
+  int i;
 
-  result = 0;
-  v7 = 0;
-  v8 = 0;
-  if ( *(_DWORD *)&byte_5D4594[1217464] > 0 )
+  if (count <= 0)
+    return 0;
+
+  for (i = 0; i < count; ++i)
   {
-    v3 = 8 * *(_DWORD *)&byte_5D4594[1217464] - 8;
-    do
-    {
-      v4 = *(_DWORD *)&byte_5D4594[v3 + 1203876];
-      v5 = *(_DWORD *)&byte_5D4594[v3 + 1203880];
-      v6 = *(_DWORD *)&byte_5D4594[8 * v8 + 1203880];
-      if ( v6 > a2 )
-      {
-        if ( v5 > a2 )
-          goto LABEL_11;
-      }
-      else if ( a2 < v5 )
-      {
-        goto LABEL_8;
-      }
-      if ( a2 < v6 )
-      {
-LABEL_8:
-        if ( a1 >= *(int *)&byte_5D4594[8 * v8 + 1203876]
-                 + (a2 - v6) * (v4 - *(_DWORD *)&byte_5D4594[8 * v8 + 1203876]) / (v5 - v6) )
-        {
-          result = v7;
-        }
-        else
-        {
-          result = !v7;
-          v7 = !v7;
-        }
-      }
-LABEL_11:
-      v3 = 8 * v8++;
+    /* asm edge order: (prev -> cur) where prev wraps from last */
+    int cur  = i;
+    int prev = (i == 0) ? (count - 1) : (i - 1);
+
+    int x_prev = *(_DWORD *)&byte_5D4594[8 * prev + 1203876];
+    int y_prev = *(_DWORD *)&byte_5D4594[8 * prev + 1203880];
+    int x_cur  = *(_DWORD *)&byte_5D4594[8 * cur  + 1203876];
+    int y_cur  = *(_DWORD *)&byte_5D4594[8 * cur  + 1203880];
+
+    /* Match asm y-range tests */
+    if (y_cur > a2) {
+      if (y_prev > a2)
+        continue;
+    } else {
+      if (a2 < y_prev)
+        goto TEST_EDGE;
     }
-    while ( v8 < *(int *)&byte_5D4594[1217464] );
+
+    if (a2 >= y_cur)
+      continue;
+
+TEST_EDGE:
+    /* xint = x_cur + (a2 - y_cur) * (x_prev - x_cur) / (y_prev - y_cur) */
+    {
+      int dy = (y_prev - y_cur);
+      if (dy != 0) {
+        int num  = (a2 - y_cur) * (x_prev - x_cur);
+        int xint = x_cur + (num / dy);
+        if (a1 < xint)
+          inside = !inside;
+      }
+    }
   }
-  return result;
+
+  return inside;
 }
 
 //----- (00499360) --------------------------------------------------------
