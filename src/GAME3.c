@@ -25453,46 +25453,29 @@ int __cdecl sub_4C5060(_DWORD *a1)
         v6 = v2[3] - v2[1];
         if ( v3 <= 0 || v3 >= a1[8] - 1 || v4 <= 0 || v4 >= a1[9] - 1 )
           v5 = 0;
-
         v14.field_0 = v3 + v2[2] - *v2;
         v14.field_4 = v4 + v6;
         v12.field_0 = v3;
         v12.field_4 = v4;
-
         v7 = sub_498C20(&v12, &v14, (int)a1);
-
-        /* --- MINIMAL SAFETY NET: ensure we draw at least once --- */
         if ( v7 )
         {
-          int drew_any = 0; /* NEW */
-
           v8 = 0;
           for ( a1a = v12; v8 < v7; v5 = 1 - v5 )
           {
             *(_QWORD*)&a2 = sub_499290(v8);
-
-            /* CHANGED: if we'd draw nothing, force first segment */
-            if ( v5 || !drew_any )
-            {
+            if ( v5 )
               sub_4C51D0(&a1a, &a2);
-              drew_any = 1;
-            }
-
             a1a = a2;
             ++v8;
           }
-
-          /* CHANGED: same rule for final segment */
-          if ( v5 || !drew_any )
+          if ( v5 )
             sub_4C51D0(&a1a, &v14);
         }
-        else
+        else if ( v5 )
         {
-          /* CHANGED: previously only drew if (v5) */
           sub_4C51D0(&v12, &v14);
         }
-        /* --- end safety net --- */
-
         result = v10 + 1;
         v2 += 4;
         ++v10;
