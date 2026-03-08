@@ -62,6 +62,7 @@ Thanks to szhublox and Lovyxia from the [NoX RPG Unofficial discord](https://dis
 Thanks to szhublox for finding the original decompiled binary version 1.2b with sha256: e6e1b56029f8871c25d0caf8bcedf7bf1699580d0dc24c90d79eb27e9d7e05b2
 Thanks to szhublox for pairing on obliterate rendering fixes, finding where the spell renders and uncovering a hint of where to look for a fix.
 Thanks to szhublox for videos of force of nature, obliterate and mana drain problems.
+Thanks to szhublox for fixing rendering for Ring of Fire spell.
 
 # Running the game
 
