@@ -25354,6 +25354,71 @@ void sub_4C5050()
 }
 
 //----- (004C5060) --------------------------------------------------------
+//int __cdecl sub_4C5060(_DWORD *a1)
+//{
+//  int result; // eax
+//  unsigned __int16 *v2; // ebp
+//  int v3; // esi
+//  int v4; // edi
+//  int v5; // ebx
+//  int v6; // ecx
+//  int v7; // edi
+//  int v8; // esi
+//  int v9; // edx
+//  int v10; // [esp+0h] [ebp-24h]
+//  int2 a1a; // [esp+4h] [ebp-20h]
+//  int2 v12; // [esp+Ch] [ebp-18h]
+//  int2 a2; // [esp+14h] [ebp-10h]
+//  int2 v14; // [esp+1Ch] [ebp-8h]
+//
+//  result = *(_DWORD *)&byte_5D4594[2614252];
+//  if ( *(_DWORD *)&byte_5D4594[2614252] )
+//  {
+//    result = *(_DWORD *)&byte_5D4594[1321800];
+//    v10 = 0;
+//    if ( *(_DWORD *)&byte_5D4594[1321800] > 0 )
+//    {
+//      v2 = (unsigned __int16 *)&byte_5D4594[1321540];
+//      do
+//      {
+//        v3 = *a1 + *v2 - a1[4];
+//        v4 = a1[1] + v2[1] - a1[5];
+//        v5 = sub_4992B0(v3, v4);
+//        v6 = v2[3] - v2[1];
+//        if ( v3 <= 0 || v3 >= a1[8] - 1 || v4 <= 0 || v4 >= a1[9] - 1 )
+//          v5 = 0;
+//        v14.field_0 = v3 + v2[2] - *v2;
+//        v14.field_4 = v4 + v6;
+//        v12.field_0 = v3;
+//        v12.field_4 = v4;
+//        v7 = sub_498C20(&v12, &v14, (int)a1);
+//        if ( v7 )
+//        {
+//          v8 = 0;
+//          for ( a1a = v12; v8 < v7; v5 = 1 - v5 )
+//          {
+//            *(_QWORD*)&a2 = sub_499290(v8);
+//            if ( v5 )
+//              sub_4C51D0(&a1a, &a2);
+//            a1a = a2;
+//            ++v8;
+//          }
+//          if ( v5 )
+//            sub_4C51D0(&a1a, &v14);
+//        }
+//        else if ( v5 )
+//        {
+//          sub_4C51D0(&v12, &v14);
+//        }
+//        result = v10 + 1;
+//        v2 += 4;
+//        ++v10;
+//      }
+//      while ( v10 < *(int *)&byte_5D4594[1321800] );
+//    }
+//  }
+//  return result;
+//}
 // Fix beam missing sometimes
 int __cdecl sub_4C5060(_DWORD *a1)
 {
