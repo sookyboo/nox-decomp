@@ -56337,7 +56337,7 @@ BOOL __cdecl sub_4992B0(int a1, int a2)
       {
 LABEL_8:
         if ( a1 >= *(int *)&byte_5D4594[8 * v8 + 1203876]
-                 + (a2 - v6) * (v4 - *(_DWORD *)&byte_5D4594[8 * v8 + 1203876]) / (v5 - v6) )
+                 + (a2 - v6) * (v4 - *(int *)&byte_5D4594[8 * v8 + 1203876]) / (v5 - v6) )
         {
           result = v7;
         }
