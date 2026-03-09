@@ -30,7 +30,7 @@ Project Goals and progress:
 - Fix any seg faults on armhf and i386 - progress 100% (game stable - no known seg faults - all solo wizard/conjurer/warrior play tests completed)
 - Easy setup for new players - progress 99% (launchers that automatically extract game and convert audio for linux, portmaster, windows and steamdeck flatpak. Windows launcher sometimes fails to launch game)
 - Fix any networking issues - progress 100% (no known issues)
-- Fix any known rendering issues - progress 98% (known minor issues with lasers and fonts)
+- Fix any known rendering issues - progress 99% (no known rendering issues)
 - Fix any known audio issues - progress 97% (minor noisy glitch between song changes, auto dialog conversion required)
 - Gamepad support - progress 98% (emulates mouse and keyboard, config file, no direct player movement yet, thumb sticks might be too sensitive and skip dialog screens between chapters)
 - Try and port to 64bit - progress 2% (have planned two possible options forward but requires many changes)
@@ -307,15 +307,16 @@ export NOX_GAMEPAD_EXIT=1 # when pressing start and select exit game
 export NOX_GAMEPAD_AUTOSWAP_XBOX=1 # swap A and B automatically for xbox/nintendo controllers 
 export NOX_GAMEPAD_FLIP_ABXY=0 # manually swap A and B buttons
 export NOX_GAMEPAD_LOG=0 # for debbuging gamepad issues    
+
+export NOX_LINEAR_SCALING=1 # when scaling don't keep things pixel perfect but apply smoothing
+export NOX_INTEGER_SCALING=0 # only scale to the highest integer value that fits in the screen don't use floats to fit exactly on screen
 ```
 
 # Known issues
 The game is fully playable on PortMaster, SteamDeck with flatpack, Linux and Windows for both single player and multiplayer and all classes warrior, wizard and conjurer!
 
 * Minor - 16-bit graphics work perfectly but 8-bit doesn't work
-* Minor - all text is legible - but there is some distortion usually with the last column of pixels for wide letters/characters.
-* Minor - glitch on death rays appearing in shadows when they should be hidden from view.
-* Minor - Possible rendering glitch on rendering undead spell - circle not 100% visible in bright light - spell works perfectly
+* Minor - all text is legible - but there might be distortion based on your scaling settings and resolution enabling smoothing with NOX_LINEAR_SCALING on small consoles may fix.
 * Minor - On low power devices fade ins and fade outs are slightly slower
 
 # Building from source
