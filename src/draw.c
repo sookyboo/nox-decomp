@@ -1127,6 +1127,22 @@ static void nox_choose_5551_cached(GLenum *out_format, GLenum *out_type)
     *out_type   = cached_type;
 }
 
+static int nox_use_linear_scaling(void)
+{
+    static int inited = 0;
+    static int enabled = 0;
+
+    if (!inited) {
+        const char *v = getenv("NOX_LINEAR_SCALING");
+        enabled = nox_env_truthy(v);
+        fprintf(stderr, "[scaling] texture filtering: %s\n",
+                enabled ? "GL_LINEAR" : "GL_NEAREST");
+        inited = 1;
+    }
+
+    return enabled;
+}
+
 
 void sdl_present()
 {
@@ -1348,9 +1364,12 @@ static int tex_w = 0, tex_h = 0;
     // --------------------------------------------------------------------
     // Draw textured quad
     // --------------------------------------------------------------------
+    GLint filter = nox_use_linear_scaling() ? GL_LINEAR : GL_NEAREST;
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     glCheckErrorAt("tex parameters");
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1781,10 +1800,12 @@ int sub_48B000()
         g_tex_height = 0;
 
         // Set basic parameters here.
+        GLint filter = nox_use_linear_scaling() ? GL_LINEAR : GL_NEAREST;
+
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
         glCheckError();
 
         // Make the GL texture a plain RGBA8888 buffer.
