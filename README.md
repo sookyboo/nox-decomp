@@ -307,7 +307,11 @@ export NOX_GAMEPAD_EXIT=1 # when pressing start and select exit game
 
 export NOX_GAMEPAD_AUTOSWAP_XBOX=1 # swap A and B automatically for xbox/nintendo controllers 
 export NOX_GAMEPAD_FLIP_ABXY=0 # manually swap A and B buttons
-export NOX_GAMEPAD_LOG=0 # for debbuging gamepad issues    
+export NOX_GAMEPAD_LOG=0 # for debbuging gamepad issues  
+
+export NOX_GAMEPAD_RIGHT_STICK_THRESHOLD=20000
+export NOX_GAMEPAD_RIGHT_STICK_CENTER_THRESHOLD=8000
+export NOX_GAMEPAD_RIGHT_STICK_REARM=1 # 1 enables one shot mode and 0 is repeat mode  
 
 export NOX_LINEAR_SCALING=1 # when scaling don't keep things pixel perfect but apply smoothing
 export NOX_INTEGER_SCALING=0 # only scale to the highest integer value that fits in the screen don't use floats to fit exactly on screen
