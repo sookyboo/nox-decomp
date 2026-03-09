@@ -1014,22 +1014,30 @@ static void set_viewport(float srcw, float srch)
         scale_x = (int)((float)win_w / int_srcw);
         scale_y = (int)((float)win_h / int_srch);
         scale = (scale_x < scale_y) ? scale_x : scale_y;
-        if (scale < 1)
-          scale = 1;
 
-        vpw = (int)(int_srcw * (float)scale);
-        vph = (int)(int_srch * (float)scale);
+        if (scale >= 1) {
+          vpw = (int)(int_srcw * (float)scale);
+          vph = (int)(int_srch * (float)scale);
 
-        offx = (win_w - vpw) / 2.0f;
-        offy = (win_h - vph) / 2.0f;
-        used_integer = 1;
+          offx = (win_w - vpw) / 2.0f;
+          offy = (win_h - vph) / 2.0f;
+          used_integer = 1;
+        } else {
+          if (ratio * vph <= vpw) {
+            offx = (vpw - (int)(vph * ratio + 0.5f)) / 2.0f;
+            vpw = (int)(vph * ratio + 0.5f);
+          } else {
+            offy = (vph - (int)(vpw / ratio + 0.5f)) / 2.0f;
+            vph = (int)(vpw / ratio + 0.5f);
+          }
+        }
       } else {
         if (ratio * vph <= vpw) {
-          offx = (vpw - vph * ratio) / 2;
-          vpw = vph * ratio;
+          offx = (vpw - (int)(vph * ratio + 0.5f)) / 2.0f;
+          vpw = (int)(vph * ratio + 0.5f);
         } else {
-          offy = (vph - vpw / ratio) / 2;
-          vph = vpw / ratio;
+          offy = (vph - (int)(vpw / ratio + 0.5f)) / 2.0f;
+          vph = (int)(vpw / ratio + 0.5f);
         }
       }
     }
