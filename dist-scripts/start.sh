@@ -913,6 +913,12 @@ export NOX_GAMEPAD
 : "${NOX_GAMEPAD_LOG:=1}"
 export NOX_GAMEPAD_LOG
 
+: "${NOX_LINEAR_SCALING:=1}"
+export NOX_LINEAR_SCALING
+
+: "${NOX_INTEGER_SCALING:=0}"
+export NOX_INTEGER_SCALING
+
 export # for debug
 
 "${LOADER}" --library-path "${LIBPATH}" "${PKG_NOXD}"
