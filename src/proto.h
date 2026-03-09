@@ -5523,7 +5523,7 @@ int __cdecl sub_500D10(int a1);
 int __cdecl sub_500D50(int a1);
 bool __cdecl sub_500D70(int a1, int a2);
 int __cdecl sub_500DA0(int a1);
-int __cdecl sub_500F40(int a1, float a2);
+int __cdecl sub_500F40(int a1, void *out_xy);
 int __cdecl sub_5010D0(int a1);
 void __cdecl sub_5011C0(int a1);
 int __cdecl sub_5011F0(int *a1);
@@ -6127,7 +6127,7 @@ void __cdecl sub_517C10(float4 *a1, void (__cdecl *a2)(float *, int), int a3); /
 void __cdecl sub_517DC0(float4 *a1, void (__cdecl *a2)(int, int), int a3); // idb
 void __cdecl sub_517ED0(float4 *a1, void (__cdecl *a2)(float *, int), int a3); // idb
 int *__cdecl sub_517F00(float *a1, void (__cdecl *a2)(int *, int), int a3);
-void __cdecl sub_517F90(float2 *a1, float a2, int a3, int a4); // idb
+void __cdecl sub_517F90(float2 *a1, float a2, void *a3, int a4); // idb
 void __cdecl sub_518000(float *, int); // idb
 int __cdecl sub_518040(int, float, int, int); // idb
 void __cdecl sub_5180B0(int a1, int a2);

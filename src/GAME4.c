@@ -8926,15 +8926,9 @@ int __cdecl sub_500DA0(int a1)
       return 1;
     }
   }
-  //if ( !sub_500F40(a1, COERCE_FLOAT(&v17[2])) )
-  //  return 1;
-  {
-    float outBits;
-    uint32_t out_u32 = (uint32_t)(uintptr_t)&v17[2];
-    memcpy(&outBits, &out_u32, sizeof(outBits));  // bit-cast pointer -> float
-    if (!sub_500F40(a1, outBits))
-      return 1;
-  }
+  if ( !sub_500F40(a1, &v17[2]) )
+       return 1;
+
   v17[10] = *(_BYTE *)(*(_DWORD *)(a1 + 16) + 124);
   v6 = sub_427230(v2);
   *(_WORD *)v17 = sub_4E3AA0(v6);
@@ -29083,22 +29077,31 @@ int *__cdecl sub_517F00(float *a1, void (__cdecl *a2)(int *, int), int a3)
 }
 
 //----- (00517F90) --------------------------------------------------------
-void __cdecl sub_517F90(float2 *a1, float a2, int a3, int a4)
+void __cdecl sub_517F90(float2 *a1, float a2, void *a3, int a4)
 {
   double v4; // st7
-  int a3a[4]; // [esp+0h] [ebp-20h]
+  uintptr_t a3a[4]; // [esp+0h] [ebp-20h]
   float4 a1a; // [esp+10h] [ebp-10h]
 
-  a3a[0] = (int)a1;
-  a3a[2] = a3;
-  *(float *)&a3a[1] = a2 * a2;
+  a3a[0] = (uintptr_t)a1;
+  a3a[2] = (uintptr_t)a3;
+  /* keep original: squared radius stored as raw float bits in slot 1 */
+  {
+    float r2 = a2 * a2;
+    uint32_t bits;
+    memcpy(&bits, &r2, sizeof(bits));
+    a3a[1] = (uintptr_t)bits;
+  }
+
   v4 = a1->field_0 - a2;
-  a3a[3] = a4;
-  a1a.field_0 = v4;
+  a3a[3] = (uintptr_t)(uint32_t)a4;
+
+  a1a.field_0 = (float)v4;
   a1a.field_4 = a1->field_4 - a2;
   a1a.field_8 = a2 + a1->field_0;
   a1a.field_C = a2 + a1->field_4;
-  sub_517C10(&a1a, sub_518000, (int)a3a);
+
+  sub_517C10(&a1a, sub_518000, (int)(uintptr_t)a3a);
 }
 
 //----- (00518000) --------------------------------------------------------

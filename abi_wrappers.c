@@ -311,37 +311,24 @@ int sub_549960(void *p)
     return sub_549960__abi_raw(nox_to_ptrslot(p));
 }
 
-// Fix summoning on i386
-#if defined(__arm__) && defined(__ARM_PCS_VFP)
+// Fix summoning (ARM hard-float + keep i386 sane)
 
+// raw always uses ptrslot(s) on ARM hard-float, normal types elsewhere
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
 int sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2);
 
-/* bit-cast float -> u32 without aliasing UB */
-static inline uint32_t nox_u32_from_float(float f)
-{
-    uint32_t u;
-    memcpy(&u, &f, sizeof(u));
-    return u;
-}
-
-int sub_500F40(int a1, float a2)
+int  sub_500F40(int a1, void *out_xy)
 {
     void *self = (void *)(uintptr_t)(uint32_t)a1;
-    uint32_t out_u32 = nox_u32_from_float(a2);
-    void *out_ptr = (void *)(uintptr_t)out_u32;
-    return sub_500F40__abi_raw(nox_to_ptrslot(self), nox_to_ptrslot(out_ptr));
+    return sub_500F40__abi_raw(nox_to_ptrslot(self), nox_to_ptrslot(out_xy));
 }
-
 #else
+int sub_500F40__abi_raw(int a1, void *out_xy);
 
-int sub_500F40__abi_raw(int a1, float a2);
-
-/* On i386/others, no ABI translation needed; just call the raw version. */
-int sub_500F40(int a1, float a2)
+int  sub_500F40(int a1, void *out_xy)
 {
-    return sub_500F40__abi_raw(a1, a2);
+    return sub_500F40__abi_raw(a1, out_xy);
 }
-
 #endif
 
 // fix arrow wrong direction wiz chpt 3
