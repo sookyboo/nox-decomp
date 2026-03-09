@@ -60,19 +60,40 @@ float input_sensitivity = 1.0;
 // ------------------------------------------------------------
 // Mouse range limiter (NOX_LIMIT_RANGE_ON_RUN)
 // ------------------------------------------------------------
-static int g_limit_range_enabled = -1;  // -1 unknown, 0/1 cached
+static int g_limit_range_enabled_mouse = -1;
+static int g_limit_range_enabled_gamepad = -1;
 static int g_limit_range_radius  = -1;  // cached radius in game pixels
 
-static int nox_limit_range_enabled(void)
+enum nox_limit_source
 {
-    if (g_limit_range_enabled < 0) {
-        g_limit_range_enabled = nox_env_truthy(getenv("NOX_LIMIT_RANGE_ON_RUN")) ? 1 : 0;
-//        fprintf(stderr, "[limit] NOX_LIMIT_RANGE_ON_RUN='%s' => %d\n",
-//                getenv("NOX_LIMIT_RANGE_ON_RUN") ? getenv("NOX_LIMIT_RANGE_ON_RUN") : "(null)",
-//                g_limit_range_enabled);
-//        fflush(stderr);
+    NOX_LIMIT_SRC_MOUSE = 0,
+    NOX_LIMIT_SRC_GAMEPAD = 1
+};
+
+static int nox_limit_range_enabled_for(int source)
+{
+    int *cached = (source == NOX_LIMIT_SRC_GAMEPAD)
+        ? &g_limit_range_enabled_gamepad
+        : &g_limit_range_enabled_mouse;
+
+    if (*cached < 0) {
+        const char *name = (source == NOX_LIMIT_SRC_GAMEPAD)
+            ? "NOX_LIMIT_RANGE_ON_RUN_GAMEPAD"
+            : "NOX_LIMIT_RANGE_ON_RUN_MOUSE";
+
+        const char *specific = getenv(name);
+        if (specific && *specific) {
+            *cached = nox_env_truthy(specific) ? 1 : 0;
+        } else {
+            const char *legacy = getenv("NOX_LIMIT_RANGE_ON_RUN");
+            if (legacy && *legacy) {
+                *cached = nox_env_truthy(legacy) ? 1 : 0;
+            } else {
+                *cached = (source == NOX_LIMIT_SRC_GAMEPAD) ? 1 : 0;
+            }
+        }
     }
-    return g_limit_range_enabled;
+    return *cached;
 }
 
 static int nox_limit_range_radius(void)
@@ -238,13 +259,13 @@ void nox_ctrl_capture_event(const SDL_Event *ev)
     fflush(stderr);
 }
 
-static void nox_apply_radial_limit(double *pdx, double *pdy)
+static void nox_apply_radial_limit(double *pdx, double *pdy, int source)
 {
     double dx = *pdx, dy = *pdy;
 
     if ((dx == 0.0 && dy == 0.0)) return;
     if (!g_rmb_down_sdl) { g_limit_latched = 0; return; }
-    if (!nox_limit_range_enabled()) return;
+    if (!nox_limit_range_enabled_for(source)) return;
 
     int *vp = (int *)sub_437250();
     if (!vp) return;
@@ -322,7 +343,7 @@ void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
     double ddx = (double)dx * (double)input_sensitivity;
     double ddy = (double)dy * (double)input_sensitivity;
 
-    nox_apply_radial_limit(&ddx, &ddy);
+    nox_apply_radial_limit(&ddx, &ddy, NOX_LIMIT_SRC_GAMEPAD);
 
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
     me->type = MOUSE_MOTION;
@@ -350,7 +371,7 @@ void nox_ctrl_inject_mouse_button(int button, int down)
             g_limit_clamp_count = 0;
         } else if (!was) {
             /* OPTIONAL: on RMB-down, try to latch if already inside circle */
-            if (nox_limit_range_enabled()) {
+            if (nox_limit_range_enabled_for(NOX_LIMIT_SRC_GAMEPAD)) {
                 int *vp = (int *)sub_437250();
                 if (vp) {
                     int vw = vp[2] - vp[0];
@@ -482,7 +503,7 @@ void process_mouse_event(const SDL_MouseButtonEvent *event)
         if (g_rmb_down_sdl) {
             /* On RMB down: if we start inside the circle, latch immediately.
                Only do this when viewport is valid (not menus). */
-            if (nox_limit_range_enabled()) {
+            if (nox_limit_range_enabled_for(NOX_LIMIT_SRC_MOUSE)) {
                 int *vp = (int *)sub_437250();
                 if (vp) {
                     int vw = vp[2] - vp[0];
@@ -536,7 +557,7 @@ void process_motion_event(const SDL_MouseMotionEvent *event)
     double ddx = (double)event->xrel * (double)input_sensitivity;
     double ddy = (double)event->yrel * (double)input_sensitivity;
 
-    nox_apply_radial_limit(&ddx, &ddy);
+    nox_apply_radial_limit(&ddx, &ddy, NOX_LIMIT_SRC_MOUSE);
 
     struct mouse_event *me = &mouse_event_queue[mouse_event_widx];
 

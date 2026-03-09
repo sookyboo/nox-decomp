@@ -902,8 +902,10 @@ fi
 
 # NOX_LIMIT_RANGE_ON_RUN - useful for gamepads and steam deck
 # limits the range of the mouse when running but only if starting close to center or passing through center
-: "${NOX_LIMIT_RANGE_ON_RUN:=1}"
-export NOX_LIMIT_RANGE_ON_RUN
+: "${NOX_LIMIT_RANGE_ON_RUN_GAMEPAD:=1}"
+export NOX_LIMIT_RANGE_ON_RUN_GAMEPAD
+: "${NOX_LIMIT_RANGE_ON_RUN_MOUSE:=0}"
+export NOX_LIMIT_RANGE_ON_RUN_MOUSE
 : "${NOX_LIMIT_RANGE_ON_RUN_RADIUS:=118}"
 export NOX_LIMIT_RANGE_ON_RUN_RADIUS
 
