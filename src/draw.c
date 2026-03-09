@@ -951,6 +951,13 @@ static void set_viewport(float srcw, float srch)
 //    );
     float ratio = srcw / srch, offx = 0, offy = 0;
 	int vpw, vph, vpx, vpy;
+    int used_integer = 0;
+    static int prev_vpx = -1;
+    static int prev_vpy = -1;
+    static int prev_vpw = -1;
+    static int prev_vph = -1;
+    static int prev_rotated = -1;
+    static int prev_used_integer = -1;
 
 #ifdef __EMSCRIPTEN__
 	EM_ASM_({
@@ -976,21 +983,76 @@ static void set_viewport(float srcw, float srch)
     if (g_rotated)
       ratio = 1.0f / ratio;
 
-    if (ratio * vph <= vpw) {
-      offx = (vpw - vph * ratio) / 2;
-      vpw = vph * ratio;
-    } else {
-      offy = (vph - vpw / ratio) / 2;
-      vph = vpw / ratio;
+    {
+      int win_w = vpw;
+      int win_h = vph;
+      int use_integer = 0;
+      int scale_x, scale_y, scale;
+
+      const char *force_integer = getenv("NOX_INTEGER_SCALING");
+
+      if (nox_env_truthy(force_integer)) {
+        use_integer = 1;
+      } else {
+        float int_srcw = g_rotated ? srch : srcw;
+        float int_srch = g_rotated ? srcw : srch;
+
+        if (int_srcw > 0.0f && int_srch > 0.0f) {
+          int isw = (int)int_srcw;
+          int ish = (int)int_srch;
+          if ((float)isw == int_srcw && (float)ish == int_srch && isw > 0 && ish > 0) {
+            if (win_w % isw == 0 && win_h % ish == 0)
+              use_integer = 1;
+          }
+        }
+      }
+
+      if (use_integer) {
+        float int_srcw = g_rotated ? srch : srcw;
+        float int_srch = g_rotated ? srcw : srch;
+
+        scale_x = (int)((float)win_w / int_srcw);
+        scale_y = (int)((float)win_h / int_srch);
+        scale = (scale_x < scale_y) ? scale_x : scale_y;
+        if (scale < 1)
+          scale = 1;
+
+        vpw = (int)(int_srcw * (float)scale);
+        vph = (int)(int_srch * (float)scale);
+
+        offx = (win_w - vpw) / 2.0f;
+        offy = (win_h - vph) / 2.0f;
+        used_integer = 1;
+      } else {
+        if (ratio * vph <= vpw) {
+          offx = (vpw - vph * ratio) / 2;
+          vpw = vph * ratio;
+        } else {
+          offy = (vph - vpw / ratio) / 2;
+          vph = vpw / ratio;
+        }
+      }
     }
+
     vpx = offx;
     vpy = offy;
 
+    if (vpx != prev_vpx || vpy != prev_vpy || vpw != prev_vpw || vph != prev_vph ||
+        g_rotated != prev_rotated || used_integer != prev_used_integer) {
+        fprintf(
+            stderr,
+            "[glViewport] x=%d y=%d w=%d h=%d src=%gx%g rotated=%d integer=%d\n",
+            vpx, vpy, vpw, vph, srcw, srch, g_rotated, used_integer
+        );
+        prev_vpx = vpx;
+        prev_vpy = vpy;
+        prev_vpw = vpw;
+        prev_vph = vph;
+        prev_rotated = g_rotated;
+        prev_used_integer = used_integer;
+    }
+
     glViewport(vpx, vpy, vpw, vph);
-//    fprintf(stderr,
-//        "[glViewport] x=%d y=%d w=%d h=%d (window drawable)\n",
-//        vpx, vpy, vpw, vph
-//    );
 }
 
 static void glCheckErrorAt(const char *where)
