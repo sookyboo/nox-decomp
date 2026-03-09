@@ -11,6 +11,7 @@ if (MSVC)
     add_compile_options ("$<$<CONFIG:DEBUG>:/RTCs>")
 else ()
     add_compile_options (-g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0)
+    add_compile_options (-m32 -fcommon -Wno-error=int-conversion -Wno-error=incompatible-pointer-types)
     if (USE_ASAN)
         add_compile_options (-fsanitize=address)
     endif ()
@@ -136,6 +137,8 @@ add_executable (
     upnp.c
     "${COMPAT_SOURCES}"
 )
+
+target_link_options(out PRIVATE -m32)
 
 # ---- ABI wrapper integration ----
 add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)

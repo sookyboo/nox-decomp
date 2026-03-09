@@ -1,4 +1,6 @@
 #include "proto.h"
+extern void nox_gamepad_update(void);
+extern void sdl_present();
 
 
 
@@ -4590,7 +4592,7 @@ int __cdecl sub_559C40(int a1)
 	v1 = &byte_5D4594[200 * *(_DWORD *)(a1 + 52) + 2515988];
 	if (byte_5D4594[200 * *(_DWORD *)(a1 + 52) + 2516024] & 1)
 		return *((_DWORD *)v1 + 7);
-	v3 = sub_55A740(0);
+	v3 = sub_55A740();
 	v4 = sub_559D00(a1, (unsigned int)v1, a1 + 64);
 	if (v4 && v4 <= *((_DWORD *)v1 + 5))
 	{

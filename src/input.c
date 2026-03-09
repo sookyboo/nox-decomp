@@ -4,6 +4,7 @@
 #endif
 
 #include "proto.h"
+extern void process_textinput_event(const SDL_TextInputEvent *event);
 
 #ifdef USE_SDL
 #include "sdl2_scancode_to_dinput.h"

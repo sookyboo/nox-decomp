@@ -4,6 +4,7 @@
 #define DIRECTINPUT_VERSION 0x0700
 #include <math.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -36,7 +37,6 @@ typedef unsigned char _BYTE;
 typedef unsigned short _WORD;
 typedef unsigned int _DWORD;
 typedef unsigned __int64 _QWORD;
-typedef int bool;
  
 #if !defined(__MMINTRIN_H) && !defined(_MMINTRIN_H_INCLUDED)
 typedef struct __m64 __m64;
