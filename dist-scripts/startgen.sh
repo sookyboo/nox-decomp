@@ -603,43 +603,187 @@ NOX_GAME_HEIGHT=768
 NOX_GAME_BITS=16
 NOX_GAME_FULLSCREEN=1
 
+detect_display_wh() {
+  local w="" h=""
+  local method=""
+
+  echo "[display] detect_display_wh: DISPLAY='${DISPLAY:-}' WAYLAND_DISPLAY='${WAYLAND_DISPLAY:-}'" >&2
+
+  # 1) X11: xrandr (best if available)
+  if command -v xrandr >/dev/null 2>&1; then
+    if [[ -n "${DISPLAY:-}" ]]; then
+      echo "[display] trying xrandr (--current)" >&2
+      local line res
+      line="$(xrandr --current 2>/dev/null | awk '
+        $2=="connected" && $3=="primary" {print; exit}
+        $2=="connected" {print; exit}
+      ')"
+      if [[ -n "$line" ]]; then
+        echo "[display] xrandr picked line: $line" >&2
+        # Example: eDP-1 connected primary 1280x800+0+0 ...
+        res="$(awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+x[0-9]+\+/){gsub(/\+.*/,"",$i); print $i; exit}}' <<<"$line")"
+        echo "[display] xrandr parsed res: '${res:-}'" >&2
+        if [[ "$res" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+          w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+          method="xrandr"
+          echo "[display] xrandr success: ${w}x${h}" >&2
+        else
+          echo "[display] xrandr did not yield a usable WxH" >&2
+        fi
+      else
+        echo "[display] xrandr: no connected outputs found" >&2
+      fi
+    else
+      echo "[display] xrandr available but DISPLAY is unset; skipping xrandr" >&2
+    fi
+  else
+    echo "[display] xrandr not found; skipping" >&2
+  fi
+
+  # 2) X11: xdpyinfo fallback
+  if [[ -z "$w" ]]; then
+    if command -v xdpyinfo >/dev/null 2>&1; then
+      if [[ -n "${DISPLAY:-}" ]]; then
+        echo "[display] trying xdpyinfo" >&2
+        local dims
+        dims="$(xdpyinfo 2>/dev/null | awk -F'[ x]+' '/dimensions:/{print $3" "$4; exit}')"
+        echo "[display] xdpyinfo parsed dims: '${dims:-}'" >&2
+        if [[ "$dims" =~ ^([0-9]+)[[:space:]]+([0-9]+)$ ]]; then
+          w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+          method="xdpyinfo"
+          echo "[display] xdpyinfo success: ${w}x${h}" >&2
+        else
+          echo "[display] xdpyinfo did not yield a usable WxH" >&2
+        fi
+      else
+        echo "[display] xdpyinfo available but DISPLAY is unset; skipping xdpyinfo" >&2
+      fi
+    else
+      echo "[display] xdpyinfo not found; skipping" >&2
+    fi
+  fi
+
+  # 3) DRM sysfs (good for docked + wayland/gamescope when tools aren’t there)
+  if [[ -z "$w" ]]; then
+    echo "[display] trying DRM sysfs: /sys/class/drm/card*-*/status" >&2
+    local status_file modes_file mode
+    shopt -s nullglob
+    local status_files=(/sys/class/drm/card*-*/status)
+    shopt -u nullglob
+
+    if (( ${#status_files[@]} == 0 )); then
+      echo "[display] DRM sysfs: no status files found" >&2
+    else
+      echo "[display] DRM sysfs: found ${#status_files[@]} status files" >&2
+      for status_file in "${status_files[@]}"; do
+        [[ -r "$status_file" ]] || { echo "[display] DRM sysfs: unreadable: $status_file" >&2; continue; }
+
+        local st conn
+        st="$(cat "$status_file" 2>/dev/null || true)"
+        conn="$(basename "$(dirname "$status_file")")"  # e.g. card0-eDP-1
+        echo "[display] DRM sysfs: ${conn} status='${st}'" >&2
+
+        [[ "$st" == "connected" ]] || continue
+
+        modes_file="${status_file%/status}/modes"
+        if [[ -r "$modes_file" ]]; then
+          mode="$(head -n1 "$modes_file" 2>/dev/null || true)"
+          echo "[display] DRM sysfs: ${conn} first mode='${mode}' (from $modes_file)" >&2
+
+          if [[ "$mode" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+            w="${BASH_REMATCH[1]}"; h="${BASH_REMATCH[2]}"
+
+            # Steam Deck / internal panels sometimes report 800x1280 (portrait ordering).
+            # If it's eDP (internal) and looks portrait, swap to landscape.
+            if [[ "$conn" == *"-eDP-"* || "$conn" == *"eDP-"* ]]; then
+              if (( w < h )); then
+                echo "[display] DRM sysfs: ${conn} looks portrait (${w}x${h}); swapping to ${h}x${w}" >&2
+                local tmp="$w"; w="$h"; h="$tmp"
+                echo "[display] DRM sysfs: ${conn} after swap: ${w}x${h}" >&2
+              fi
+            fi
+
+            method="drm:${conn}"
+            echo "[display] DRM sysfs success: ${w}x${h} via ${conn}" >&2
+            break
+          else
+            echo "[display] DRM sysfs: ${conn} mode not usable" >&2
+          fi
+        else
+          echo "[display] DRM sysfs: modes file unreadable/missing: $modes_file" >&2
+        fi
+      done
+    fi
+  fi
+
+  # 4) Last resort: assume internal Deck panel
+  if [[ -z "$w" ]]; then
+    w=1280; h=800
+    method="fallback:1280x800"
+    echo "[display] fallback to ${w}x${h}" >&2
+  fi
+
+  echo "[display] detect_display_wh result: ${w}x${h} (method=${method:-unknown})" >&2
+  printf '%s %s\n' "$w" "$h"
+}
+
+read DISPLAY_WIDTH DISPLAY_HEIGHT < <(detect_display_wh)
+export DISPLAY_WIDTH DISPLAY_HEIGHT
+
+echo "[config] defaults: width=$NOX_GAME_WIDTH height=$NOX_GAME_HEIGHT bits=$NOX_GAME_BITS fullscreen=$NOX_GAME_FULLSCREEN"
+
 if [ -n "$DISPLAY_WIDTH" ] && [ -n "$DISPLAY_HEIGHT" ]; then
+    echo "[display] detected: width=$DISPLAY_WIDTH height=$DISPLAY_HEIGHT"
+
     case "$DISPLAY_WIDTH$DISPLAY_HEIGHT" in
         (*[!0-9]*)
-            # Non-numeric input â keep defaults
+            echo "[display] non-numeric display size, keeping defaults"
             ;;
         (*)
             # Calculate aspect ratio as a float
             ASPECT=$(awk "BEGIN { printf \"%.4f\", $DISPLAY_WIDTH / $DISPLAY_HEIGHT }")
+            echo "[display] aspect ratio calculated: $ASPECT"
 
-            # 4:3 â 1.3333
+            # 4:3 ≈ 1.3333
             if awk "BEGIN { exit !($ASPECT > 1.30 && $ASPECT < 1.36) }"; then
+                echo "[display] aspect class: 4:3"
+
                 if [ "$DISPLAY_WIDTH" -lt 1024 ] && [ "$DISPLAY_HEIGHT" -lt 768 ]; then
                     NOX_GAME_WIDTH="$DISPLAY_WIDTH"
                     NOX_GAME_HEIGHT="$DISPLAY_HEIGHT"
+                    echo "[display] using smaller native 4:3 resolution: ${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}"
                 else
                     NOX_GAME_WIDTH=1024
                     NOX_GAME_HEIGHT=768
+                    echo "[display] capping 4:3 resolution to ${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}"
                 fi
 
-            # 1:1 â 1.0
+            # 1:1 ≈ 1.0
             elif awk "BEGIN { exit !($ASPECT > 0.98 && $ASPECT < 1.02) }"; then
+                echo "[display] aspect class: 1:1"
+
                 # Square resolution, capped
                 if [ "$DISPLAY_WIDTH" -lt 768 ]; then
                     NOX_GAME_WIDTH="$DISPLAY_WIDTH"
                     NOX_GAME_HEIGHT="$DISPLAY_WIDTH"
+                    echo "[display] using square native resolution: ${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}"
                 else
                     NOX_GAME_WIDTH=768
                     NOX_GAME_HEIGHT=768
+                    echo "[display] capping square resolution to ${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}"
                 fi
 
             # Widescreen (everything else)
             else
+                echo "[display] aspect class: widescreen/other"
+
                 # Cap width at 1024
                 if [ "$DISPLAY_WIDTH" -gt 1024 ]; then
                     NOX_GAME_WIDTH=1024
+                    echo "[display] width capped to $NOX_GAME_WIDTH"
                 else
                     NOX_GAME_WIDTH="$DISPLAY_WIDTH"
+                    echo "[display] width kept at native value $NOX_GAME_WIDTH"
                 fi
 
                 # Scale height to preserve aspect ratio
@@ -648,33 +792,47 @@ if [ -n "$DISPLAY_WIDTH" ] && [ -n "$DISPLAY_HEIGHT" ]; then
                     if (h > 768) h = 768;
                     printf \"%d\", h
                 }")
+                echo "[display] scaled widescreen resolution to ${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}"
             fi
+
+            echo "[config] final game resolution: ${NOX_GAME_WIDTH}x${NOX_GAME_HEIGHT}x${NOX_GAME_BITS} fullscreen=$NOX_GAME_FULLSCREEN"
             ;;
     esac
+else
+    echo "[display] display size not provided, keeping defaults"
 fi
 
 # Ensure asset directory exists
 mkdir -p "$ASSET_DIR"
+echo "[assets] ensured asset directory exists: $ASSET_DIR"
 
 # If config does not exist in assets, copy it from game dir
 if [ ! -f "$ASSET_DIR/nox.cfg" ]; then
+  echo "[config] asset config missing: $ASSET_DIR/nox.cfg"
+
   if [ -f "$GAMEDIR/nox.cfg" ]; then
+    echo "[config] copying source config from $GAMEDIR/nox.cfg to $ASSET_DIR/nox.cfg"
     cp "$GAMEDIR/nox.cfg" "$ASSET_DIR/nox.cfg"
   else
-    echo "ERROR: Source config not found at $GAMEDIR/nox.cfg" >&2
+    echo "[config] ERROR: source config not found at $GAMEDIR/nox.cfg" >&2
     exit 1
   fi
+else
+  echo "[config] found existing asset config: $ASSET_DIR/nox.cfg"
 fi
 
 if [ -f "$ASSET_DIR/nox.cfg" ]; then
-  # Update VideoMode line in config
+  echo "[config] updating VideoMode to ${NOX_GAME_WIDTH} ${NOX_GAME_HEIGHT} ${NOX_GAME_BITS}"
   sed -i -E \
     "s/^VideoMode.*/VideoMode = ${NOX_GAME_WIDTH} ${NOX_GAME_HEIGHT} ${NOX_GAME_BITS}/" \
     "$ASSET_DIR/nox.cfg"
 
+  echo "[config] updating Fullscreen to ${NOX_GAME_FULLSCREEN}"
   sed -i -E \
     "s/^Fullscreen.*/Fullscreen = ${NOX_GAME_FULLSCREEN}/" \
     "$ASSET_DIR/nox.cfg"
+
+  echo "[config] config update complete: $ASSET_DIR/nox.cfg"
 fi
 
 #export LD_LIBRARY_PATH="/usr/lib32:$LD_LIBRARY_PATH"
