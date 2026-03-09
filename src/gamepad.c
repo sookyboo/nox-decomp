@@ -854,6 +854,10 @@ static void update_right_stick_dirs(struct right_stick_dirs *out, int rx, int ry
     }
 }
 
+int mouse_base_percent(void) {
+    // 100 = current baseline, 250 ≈ what you liked (because 100/40 = 2.5x)
+    return nox_env_int_default("NOX_GAMEPAD_MOUSE_BASE", 250);
+}
 
 static void do_mouse_movement(Uint32 now_ms)
 {
@@ -1432,11 +1436,6 @@ static void maybe_exit_combo(void)
         SDL_PushEvent(&ev);
         NOX_GAMEPAD_LOG("[pad] exit combo start+select => SDL_QUIT\n");
     }
-}
-
-int mouse_base_percent(void) {
-    // 100 = current baseline, 250 ≈ what you liked (because 100/40 = 2.5x)
-    return nox_env_int_default("NOX_GAMEPAD_MOUSE_BASE", 250);
 }
 
 // --------------------------
