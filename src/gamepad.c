@@ -242,6 +242,13 @@ struct pad_snapshot {
 
 static struct pad_snapshot g_prev, g_cur;
 
+struct right_stick_dirs {
+    int up, down, left, right;
+};
+
+static int g_right_stick_armed = 1;
+static struct right_stick_dirs g_rs_cur, g_rs_prev;
+
 static int g_enabled_cached = -1;
 static int nox_gamepad_enabled(void)
 {
@@ -276,6 +283,36 @@ static int nox_gamepad_flip_abxy(void)
         g_flip_cached = nox_env_truthy_default("NOX_GAMEPAD_FLIP_ABXY", 0) ? 1 : 0;
     }
     return g_flip_cached;
+}
+
+static int g_right_stick_threshold_cached = -1;
+static int nox_gamepad_right_stick_threshold(void)
+{
+    if (g_right_stick_threshold_cached < 0) {
+        g_right_stick_threshold_cached =
+            nox_env_int_default("NOX_GAMEPAD_RIGHT_STICK_THRESHOLD", 20000);
+    }
+    return g_right_stick_threshold_cached;
+}
+
+static int g_right_stick_center_threshold_cached = -1;
+static int nox_gamepad_right_stick_center_threshold(void)
+{
+    if (g_right_stick_center_threshold_cached < 0) {
+        g_right_stick_center_threshold_cached =
+            nox_env_int_default("NOX_GAMEPAD_RIGHT_STICK_CENTER_THRESHOLD", 8000);
+    }
+    return g_right_stick_center_threshold_cached;
+}
+
+static int g_right_stick_rearm_cached = -1;
+static int nox_gamepad_right_stick_rearm(void)
+{
+    if (g_right_stick_rearm_cached < 0) {
+        g_right_stick_rearm_cached =
+            nox_env_truthy_default("NOX_GAMEPAD_RIGHT_STICK_REARM", 1) ? 1 : 0;
+    }
+    return g_right_stick_rearm_cached;
 }
 
 static int str_icontains(const char *hay, const char *needle)
@@ -737,10 +774,10 @@ static int phys_is_down(enum phys_input in)
         case IN_DOWN:   return g_cur.dpad_down;
         case IN_LEFT:   return g_cur.dpad_left;
         case IN_RIGHT:  return g_cur.dpad_right;
-        case IN_RU:     return (g_cur.ry < -AXIS_DIGITAL_THRESHOLD);
-        case IN_RD:     return (g_cur.ry >  AXIS_DIGITAL_THRESHOLD);
-        case IN_RL:     return (g_cur.rx < -AXIS_DIGITAL_THRESHOLD);
-        case IN_RR:     return (g_cur.rx >  AXIS_DIGITAL_THRESHOLD);
+        case IN_RU:     return g_rs_cur.up;
+        case IN_RD:     return g_rs_cur.down;
+        case IN_RL:     return g_rs_cur.left;
+        case IN_RR:     return g_rs_cur.right;
         default:        return 0;
     }
 }
@@ -754,6 +791,67 @@ static int mouse_slow_active(void)
         if (a.type == ACT_MOUSE_SLOW) return 1;
     }
     return 0;
+}
+
+static int nox_abs_i(int v)
+{
+    return (v < 0) ? -v : v;
+}
+
+static void update_right_stick_dirs(struct right_stick_dirs *out, int rx, int ry)
+{
+    memset(out, 0, sizeof(*out));
+
+    {
+        int th = nox_gamepad_right_stick_threshold();
+        if (th < 0) th = 0;
+
+        if (!nox_gamepad_right_stick_rearm()) {
+            out->up    = (ry < -th);
+            out->down  = (ry >  th);
+            out->left  = (rx < -th);
+            out->right = (rx >  th);
+            return;
+        }
+    }
+
+    {
+        int center_th = nox_gamepad_right_stick_center_threshold();
+        int th = nox_gamepad_right_stick_threshold();
+
+        if (center_th < 0) center_th = 0;
+        if (th < 0) th = 0;
+
+        /* Re-arm only once both axes are back near center. */
+        if (!g_right_stick_armed) {
+            if (nox_abs_i(rx) <= center_th && nox_abs_i(ry) <= center_th) {
+                g_right_stick_armed = 1;
+            } else {
+                return;
+            }
+        }
+
+        if (ry < -th) {
+            out->up = 1;
+            g_right_stick_armed = 0;
+            return;
+        }
+        if (ry > th) {
+            out->down = 1;
+            g_right_stick_armed = 0;
+            return;
+        }
+        if (rx < -th) {
+            out->left = 1;
+            g_right_stick_armed = 0;
+            return;
+        }
+        if (rx > th) {
+            out->right = 1;
+            g_right_stick_armed = 0;
+            return;
+        }
+    }
 }
 
 
@@ -1156,6 +1254,10 @@ static void nox_gamepad_open_if_needed(void)
         memset(&g_prev, 0, sizeof(g_prev));
         memset(&g_cur, 0, sizeof(g_cur));
 
+        memset(&g_rs_prev, 0, sizeof(g_rs_prev));
+        memset(&g_rs_cur, 0, sizeof(g_rs_cur));
+        g_right_stick_armed = 1;
+
         /* FIX: reset trigger hysteresis when (re)opening controller */
         g_l2_state = 0;
         g_r2_state = 0;
@@ -1189,6 +1291,9 @@ void nox_gamepad_shutdown(void)
     /* also clear hysteresis so a later open starts clean */
     g_l2_state = 0;
     g_r2_state = 0;
+    memset(&g_rs_prev, 0, sizeof(g_rs_prev));
+    memset(&g_rs_cur, 0, sizeof(g_rs_cur));
+    g_right_stick_armed = 1;
     for (int i = 0; i < IN__COUNT; ++i) g_hold_layer_for_in[i] = -1;
 }
 
@@ -1354,7 +1459,9 @@ void nox_gamepad_update(void)
     if (!g_gc) return;
 
     g_prev = g_cur;
+    g_rs_prev = g_rs_cur;
     poll_snapshot(&g_cur);
+    update_right_stick_dirs(&g_rs_cur, g_cur.rx, g_cur.ry);
 
     maybe_exit_combo();
 
@@ -1391,10 +1498,10 @@ void nox_gamepad_update(void)
         { IN_DOWN, g_cur.dpad_down, g_prev.dpad_down },
         { IN_LEFT, g_cur.dpad_left, g_prev.dpad_left },
         { IN_RIGHT, g_cur.dpad_right, g_prev.dpad_right },
-        { IN_RU, (g_cur.ry < -AXIS_DIGITAL_THRESHOLD), (g_prev.ry < -AXIS_DIGITAL_THRESHOLD) },
-        { IN_RD, (g_cur.ry >  AXIS_DIGITAL_THRESHOLD), (g_prev.ry >  AXIS_DIGITAL_THRESHOLD) },
-        { IN_RL, (g_cur.rx < -AXIS_DIGITAL_THRESHOLD), (g_prev.rx < -AXIS_DIGITAL_THRESHOLD) },
-        { IN_RR, (g_cur.rx >  AXIS_DIGITAL_THRESHOLD), (g_prev.rx >  AXIS_DIGITAL_THRESHOLD) },
+        { IN_RU, g_rs_cur.up,    g_rs_prev.up },
+        { IN_RD, g_rs_cur.down,  g_rs_prev.down },
+        { IN_RL, g_rs_cur.left,  g_rs_prev.left },
+        { IN_RR, g_rs_cur.right, g_rs_prev.right },
     };
 
     Uint32 now_ms = SDL_GetTicks();
@@ -1453,8 +1560,8 @@ void nox_gamepad_update(void)
 
     // Repeat prev/next when held for right stick left/right (as per your sample INI)
     {
-        int left_held  = (g_cur.rx < -AXIS_DIGITAL_THRESHOLD);
-        int right_held = (g_cur.rx >  AXIS_DIGITAL_THRESHOLD);
+        int left_held  = g_rs_cur.left;
+        int right_held = g_rs_cur.right;
 
         struct action al = resolve_binding(IN_RL);
         struct action ar = resolve_binding(IN_RR);
