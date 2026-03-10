@@ -8,12 +8,17 @@
 #    endif ()
 #endif ()
 if (MSVC)
-    add_compile_options ("$<$<CONFIG:DEBUG>:/RTCs>")
+    add_compile_options("$<$<CONFIG:DEBUG>:/RTCs>")
 else ()
-    add_compile_options (-g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0)
-    add_compile_options (-m32 -fcommon -Wno-error=int-conversion -Wno-error=incompatible-pointer-types)
+    add_compile_options(-g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0)
+    add_compile_options(-fcommon -Wno-error=int-conversion -Wno-error=incompatible-pointer-types)
+
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        add_compile_options(-m32)
+    endif()
+
     if (USE_ASAN)
-        add_compile_options (-fsanitize=address)
+        add_compile_options(-fsanitize=address)
     endif ()
 endif ()
 include_directories (external/include)
@@ -138,7 +143,9 @@ add_executable (
     "${COMPAT_SOURCES}"
 )
 
-target_link_options(out PRIVATE -m32)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+    target_link_options(out PRIVATE -m32)
+endif()
 
 # ---- ABI wrapper integration ----
 add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)
