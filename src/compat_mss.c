@@ -95,6 +95,11 @@ struct _STREAM
         {
             WAVEFORMAT wf;
             unsigned int position;
+        } mulaw;
+        struct
+        {
+            WAVEFORMAT wf;
+            unsigned int position;
             unsigned int samples;
         } adpcm;
         struct 
@@ -543,6 +548,70 @@ static unsigned int stream_pcm_tell(HSTREAM stream)
     return stream->pcm.position;
 }
 
+static int16_t mulaw_to_s16(uint8_t u_val)
+{
+    u_val = (uint8_t)~u_val;
+
+    {
+        int sign = u_val & 0x80;
+        int exponent = (u_val >> 4) & 0x07;
+        int mantissa = u_val & 0x0F;
+        int sample = ((mantissa << 3) + 0x84) << exponent;
+        sample -= 0x84;
+        return sign ? -(int16_t)sample : (int16_t)sample;
+    }
+}
+
+static unsigned int stream_mulaw_decode(HSTREAM stream, int16_t *out, unsigned int max_samples)
+{
+    unsigned int channels = stream->stereo ? 2u : 1u;
+    unsigned int remaining = stream->chunk_size - stream->chunk_pos;
+    unsigned int max_bytes;
+    size_t got;
+    size_t i;
+
+    if (!remaining)
+    {
+        stream_find_data(stream);
+        remaining = stream->chunk_size - stream->chunk_pos;
+        if (!remaining)
+        {
+            stream->playing = 0;
+            return 0;
+        }
+    }
+
+    max_bytes = max_samples / channels;
+    if (remaining > max_bytes)
+        remaining = max_bytes;
+
+    got = fread(stream->buffer, 1, remaining * channels, stream->file);
+    if (got == 0)
+    {
+        stream->playing = 0;
+        return 0;
+    }
+
+    for (i = 0; i < got; i++)
+        out[i] = mulaw_to_s16(stream->buffer[i]);
+
+    stream->chunk_pos += (unsigned int)got;
+    stream->mulaw.position += (unsigned int)(got / channels);
+
+    return (unsigned int)got;
+}
+
+static void stream_mulaw_seek(HSTREAM stream, unsigned int position)
+{
+    (void)position;
+    stream->mulaw.position = 0;
+}
+
+static unsigned int stream_mulaw_tell(HSTREAM stream)
+{
+    return stream->mulaw.position;
+}
+
 static unsigned int stream_adpcm_decode(HSTREAM stream, int16_t *out, unsigned int max_samples)
 {
     unsigned int block_size = stream->adpcm.wf.nBlockAlign;
@@ -727,6 +796,17 @@ DXDEC HSTREAM AILCALL AIL_open_stream(HDIGDRIVER dig, char const FAR * filename,
     if (fread(tmp, size, 1, f) != 1)
         goto error;
 
+    fprintf(stderr,
+            "[AIL] open_stream %s: fmt=0x%04X channels=%u rate=%u avgbytes=%u blockalign=%u fmt_size=%u\n",
+            filename,
+            (unsigned)wf->wFormatTag,
+            (unsigned)wf->nChannels,
+            (unsigned)wf->nSamplesPerSec,
+            (unsigned)wf->nAvgBytesPerSec,
+            (unsigned)wf->nBlockAlign,
+            size);
+    fflush(stderr);
+
     stream = calloc(1, sizeof(*stream));
     stream->dig = dig;
     stream->file = f;
@@ -740,6 +820,15 @@ DXDEC HSTREAM AILCALL AIL_open_stream(HDIGDRIVER dig, char const FAR * filename,
         stream->decode = stream_pcm_decode;
         stream->seek = stream_pcm_seek;
         stream->tell = stream_pcm_tell;
+    }
+    else if (wf->wFormatTag == 0x07 || wf->wFormatTag == 0x0101) // mu-law / IBM mu-law
+    {
+        stream->playback_rate = wf->nSamplesPerSec;
+        stream->stereo = wf->nChannels > 1;
+        stream->mulaw.wf = *wf;
+        stream->decode = stream_mulaw_decode;
+        stream->seek = stream_mulaw_seek;
+        stream->tell = stream_mulaw_tell;
     }
     else if (wf->wFormatTag == 0x11) // ADPCM
     {
@@ -778,7 +867,17 @@ DXDEC HSTREAM AILCALL AIL_open_stream(HDIGDRIVER dig, char const FAR * filename,
     }
     else
     {
-        DebugBreak();
+        fprintf(stderr,
+                "[AIL] unsupported WAV format in %s: fmt=0x%04X channels=%u rate=%u avgbytes=%u blockalign=%u fmt_size=%u\n",
+                filename,
+                (unsigned)wf->wFormatTag,
+                (unsigned)wf->nChannels,
+                (unsigned)wf->nSamplesPerSec,
+                (unsigned)wf->nAvgBytesPerSec,
+                (unsigned)wf->nBlockAlign,
+                size);
+        fflush(stderr);
+        goto error;
     }
 
     alGenSources(1, &stream->source);
