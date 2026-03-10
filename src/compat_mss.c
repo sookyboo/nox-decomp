@@ -888,15 +888,44 @@ DXDEC HSTREAM AILCALL AIL_open_stream(HDIGDRIVER dig, char const FAR * filename,
 
         stream->adpcm.samples = *(DWORD *)tmp;
     }
-    else if (wf->wFormatTag == 0x55) // MP3
+    else if (wf->wFormatTag == 0x55) // MP3 in WAV
     {
-        if (size < sizeof(MPEGLAYER3WAVEFORMAT))
+        unsigned int channels;
+        unsigned int rate;
+        unsigned int cbSize;
+
+        /* Parse manually from the fmt chunk bytes.
+           Offsets are standard WAVEFORMATEX/MPEGLAYER3WAVEFORMAT layout:
+             0  WORD  wFormatTag
+             2  WORD  nChannels
+             4  DWORD nSamplesPerSec
+             8  DWORD nAvgBytesPerSec
+             12 WORD  nBlockAlign
+             14 WORD  wBitsPerSample
+             16 WORD  cbSize
+             18 WORD  wID
+             20 DWORD fdwFlags
+             24 WORD  nBlockSize
+             26 WORD  nFramesPerBlock
+             28 WORD  nCodecDelay
+        */
+        if (size < 30)
             goto error;
-        if (mp3wf->wfx.cbSize != 12)
+
+        channels = *(WORD *)(tmp + 2);
+        rate     = *(DWORD *)(tmp + 4);
+        cbSize   = *(WORD *)(tmp + 16);
+
+        fprintf(stderr,
+                "[AIL] mp3-wav %s: channels=%u rate=%u cbSize=%u fmt_size=%u\n",
+                filename, channels, rate, cbSize, size);
+        fflush(stderr);
+
+        if (cbSize != 12)
             goto error;
-        stream->playback_rate = mp3wf->wfx.nSamplesPerSec;
-        stream->stereo = mp3wf->wfx.nChannels > 1;
-        stream->mp3.wf = *mp3wf;
+
+        stream->playback_rate = rate;
+        stream->stereo = channels > 1;
         mp3dec_init(&stream->mp3.dec);
         stream->decode = stream_mp3_decode;
         stream->seek = stream_mp3_seek;
