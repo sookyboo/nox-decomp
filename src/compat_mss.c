@@ -363,9 +363,46 @@ static void sample_eob(HSAMPLE S)
 
 DXDEC void AILCALL AIL_close_stream(HSTREAM stream)
 {
-    // fprintf(stderr, "%s\n", __FUNCTION__);
+    HSTREAM *pp;
+
+    if (!stream)
+        return;
+
     SDL_LockMutex(stream->dig->mutex);
+
+    stream->playing = 0;
+
+    if (stream->source)
+    {
+        alSourceStop(stream->source);
+
+        ALint queued = 0;
+        alGetSourcei(stream->source, AL_BUFFERS_QUEUED, &queued);
+        if (queued > 2) queued = 2;
+        if (queued > 0)
+        {
+            ALuint tmp[2];
+            alSourceUnqueueBuffers(stream->source, queued, tmp);
+        }
+    }
+
+    pp = &stream->dig->stream_head;
+    while (*pp && *pp != stream)
+        pp = &(*pp)->next;
+    if (*pp == stream)
+        *pp = stream->next;
+
     SDL_UnlockMutex(stream->dig->mutex);
+
+    if (stream->source)
+        alDeleteSources(1, &stream->source);
+    if (stream->hwbuf[0] || stream->hwbuf[1])
+        alDeleteBuffers(2, stream->hwbuf);
+
+    if (stream->file)
+        fclose(stream->file);
+
+    free(stream);
 }
 
 DXDEC void AILCALL AIL_digital_configuration (HDIGDRIVER dig, S32 FAR *rate, S32 FAR *format, char FAR *string)
