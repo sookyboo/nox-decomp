@@ -180,8 +180,11 @@ Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 Unpack nox-decomp and run launch-nox-decomp.exe.
 
 On Windows 11 you will get a prompt like "Windows protected your PC"
+
 Click "More info"
+
 Click "Run anyway"
+
 (Still too early in development for us to become a known Microsoft Windows publisher)
 
 Hit the Launch button it will ask you for your `setup_nox_2.0.0.20.exe` file.
