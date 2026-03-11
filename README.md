@@ -173,13 +173,14 @@ Click "OK" and you should enter the game.
 
 
 ## Windows
-Download  noxd.win32.x86-beta.zip from [release 9.2](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.2).
+Download [noxd.win32.x86-beta.zip](https://github.com/sookyboo/nox-decomp/releases/download/v0.9.2/noxd.win32.x86-beta.zip) from [release 9.2](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.2).
 
 Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 
 Unpack nox-decomp and run launch-nox-decomp.exe.
 
-On Windows 11 you will get a prompt like "Windows protected your PC"
+### Windows Security
+On Windows 11 (and other versions) you will get a prompt like "Windows protected your PC"
 
 Click "More info"
 
@@ -187,11 +188,20 @@ Click "Run anyway"
 
 (Still too early in development for us to become a known Microsoft Windows publisher)
 
+If it still doesn't work.
+
+You may need to go to:
+Windows Security > Virus and threat protection > Exclusions
+And add the installation directory.
+
+### Windows Launcher
 Hit the Launch button it will ask you for your `setup_nox_2.0.0.20.exe` file.
 
-After extraction it should start the game.
+After extraction, it should start the game.
 
 Extraction can take up to a minute on a fast computer.
+
+If the mouse is too fast adjust "Mouse sensitivity" to 0.5
 
 ## Mac
 This works with crossover (macos wine can't run 32bit binaries).
