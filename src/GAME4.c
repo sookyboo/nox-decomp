@@ -62291,7 +62291,7 @@ LABEL_19:
         }
         else
         {
-          LOBYTE(v9) = sub_500D70(a1, v8 - 74);
+          v9 = sub_500D70(a1, v8 - 74);
           if ( v9 )
             goto LABEL_19;
           if ( v11 )
