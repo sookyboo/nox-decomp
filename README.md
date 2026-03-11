@@ -380,7 +380,8 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - [/u/awesie](https://www.reddit.com/u/awesie)
 - neuromancer (for some Linux fixes)
 - Sookyboo (for fixing 16bit cursor color, solo game fix, audio fixes, performance fixes, rendering fixes, game logic fixes, arm32bit crashes, adding video support, opennox lobby internet game support, windows support, steamdeck support, gamepad support)
-- szhublox (finding original binary, spell rendering fixes, npc summon fixes, tons of testing) 
+- szhublox (finding original binary, spell rendering fixes, npc summon fixes, tons of testing)
+- Everyone in the Nox community keeping the game alive.
 
 Are you the one that should be mentioned here? Let me know I will add your name.
 
