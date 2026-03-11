@@ -566,7 +566,7 @@ See log.txt for details."
 # Install game data
 # -------------------------------------------------
 install
-convert_dialog
+#convert_dialog
 
 # ---------------------------
 # Runtime environment

@@ -226,7 +226,7 @@ zenity_pulse() {
 # Game data extraction + dialog conversion (one-time)
 # ---------------------------
 : "${NOX_SKIP_EXTRACT:=0}"
-: "${NOX_SKIP_DIALOG_CONVERT:=0}"
+: "${NOX_SKIP_DIALOG_CONVERT:=1}"
 : "${NOX_FORCE_EXTRACT:=0}"
 : "${NOX_FORCE_DIALOG_CONVERT:=0}"
 
