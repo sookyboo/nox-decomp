@@ -37,5 +37,5 @@ rm -rf ../noxd.win32 && \
 docker cp noxdecomp_tmp-win-x86-light:/build/nox-decomp/build/src/noxd.win32 ../noxd.win32 && \
 docker cp noxdecomp_tmp-win-x86-light:/build/nox-decomp/build/src/launch-nox-decomp.exe ../noxd.win32 && \
 # optional rename if you want a nicer exe name locally
-( test -f ../noxd.win32/out.exe && mv -f ../noxd.win32/out.exe ../noxd.win32/noxd.winx86.exe || true ) && \
+( test -f ../noxd.win32/out.exe && mv -f ../noxd.win32/out.exe ../noxd.win32/noxd.i386.exe || true ) && \
 docker rm noxdecomp_tmp-win-x86-light
