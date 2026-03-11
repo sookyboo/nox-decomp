@@ -58,7 +58,9 @@ Thanks to OpenNox for implementing a modern lobby server which enables internet 
 Thanks to klops, JanTrueno, Dia, Fraxinus88, OGM, Ganimoth, NotYerAvgPorter, Hades-Arcadius, MrGiKILL and Cebion from the [PortMaster discord](https://discord.com/invite/JxYBp9HTAY) for contributing fixes, advice and testing for the PortMaster port.
 
 Thanks to szhublox and Lovyxia from the [NoX RPG Unofficial discord](https://discord.gg/4bYwu68) for testing, good suggestions and knowing the original game so well.
+
 Thanks to szhublox for the following:
+
 - finding the original decompiled binary version 1.2b with sha256: e6e1b56029f8871c25d0caf8bcedf7bf1699580d0dc24c90d79eb27e9d7e05b2
 - pairing on obliterate rendering fixes, finding where the spell renders and uncovering a hint of where to look for a fix.
 - test videos of force of nature, obliterate and mana drain problems.
@@ -359,7 +361,8 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - Westwood Studios
 - [/u/awesie](https://www.reddit.com/u/awesie)
 - neuromancer (for some Linux fixes)
-- Sookyboo (for fixing 16bit cursor color, solo game, spell rendering fixes, arm32bit crashes, adding video support and internet game support)
+- Sookyboo (for fixing 16bit cursor color, solo game fix, audio fixes, performance fixes, rendering fixes, game logic fixes, arm32bit crashes, adding video support, opennox lobby internet game support, windows support, steamdeck support, gamepad support)
+- szhublox (finding original binary, spell rendering fixes, npc summon fixes, tons of testing) 
 
 Are you the one that should be mentioned here? Let me know I will add your name.
 
