@@ -103,6 +103,12 @@ struct _STREAM
             mp3dec_t dec;
         } mp3;
     };
+
+    /* Decoded PCM cached when ADPCM seek lands in the middle of a block */
+    int16_t adpcm_seek_pcm[16 * 1024 * 2];
+    unsigned int adpcm_seek_pcm_samples;
+    unsigned int adpcm_seek_pcm_pos;
+
     unsigned int (*decode)(HSTREAM, int16_t *, unsigned int);
     void (*seek)(HSTREAM, unsigned int);
     unsigned int (*tell)(HSTREAM);
@@ -586,6 +592,29 @@ static unsigned int stream_adpcm_decode(HSTREAM stream, int16_t *out, unsigned i
     unsigned int samples;
     unsigned int channels = stream->stereo ? 2 : 1;
 
+    if (stream->adpcm_seek_pcm_pos < stream->adpcm_seek_pcm_samples)
+    {
+        unsigned int available = stream->adpcm_seek_pcm_samples - stream->adpcm_seek_pcm_pos;
+        unsigned int to_copy = available;
+
+        if (to_copy > max_samples)
+            to_copy = max_samples;
+
+        memcpy(out,
+               stream->adpcm_seek_pcm + stream->adpcm_seek_pcm_pos,
+               to_copy * sizeof(int16_t));
+
+        stream->adpcm_seek_pcm_pos += to_copy;
+
+        if (stream->adpcm_seek_pcm_pos >= stream->adpcm_seek_pcm_samples)
+        {
+            stream->adpcm_seek_pcm_pos = 0;
+            stream->adpcm_seek_pcm_samples = 0;
+        }
+
+        return to_copy;
+    }
+
     if (stream->adpcm.position >= stream->adpcm.samples)
     {
         stream->playing = 0;
@@ -633,30 +662,83 @@ static void stream_adpcm_seek(HSTREAM stream, unsigned int position)
     unsigned int block_size = stream->adpcm.wf.nBlockAlign;
     unsigned int channels = stream->stereo ? 2 : 1;
     unsigned int samples_per_block = (block_size / channels - 4) * 2;
-    unsigned int blocks = position / samples_per_block;
-    stream->adpcm.position = 0;
+    unsigned int target_block;
+    unsigned int intra_block_samples;
+    unsigned int remaining_position;
+    int16_t tmp[16 * 1024 * 2];
+    unsigned int decoded_samples;
+    unsigned int skip_samples;
+    unsigned int keep_samples;
 
-    while (stream->adpcm.position < position)
+    stream->buffered = 0;
+    stream->chunk_size = 0;
+    stream->chunk_pos = 0;
+    stream->adpcm.position = 0;
+    stream->adpcm_seek_pcm_samples = 0;
+    stream->adpcm_seek_pcm_pos = 0;
+
+    if (samples_per_block == 0)
+        return;
+
+    target_block = position / samples_per_block;
+    intra_block_samples = position % samples_per_block;
+    remaining_position = target_block;
+
+    /* Walk data chunks until we reach the chunk containing the target block */
+    for (;;)
     {
         unsigned int chunk_blocks;
+
         stream_find_data(stream);
         if (stream->chunk_size == 0)
-            break;
+            return;
+
         chunk_blocks = stream->chunk_size / block_size;
-        if (blocks < chunk_blocks)
+
+        if (remaining_position < chunk_blocks)
         {
-            fseek(stream->file, blocks * block_size, SEEK_CUR);
-            stream->adpcm.position += blocks * samples_per_block;
+            /* Target block is inside this chunk */
+            fseek(stream->file, (long)(remaining_position * block_size), SEEK_CUR);
+            stream->chunk_pos += remaining_position * block_size;
+            stream->adpcm.position += remaining_position * samples_per_block;
             break;
         }
-        else
-        {
-            fseek(stream->file, stream->chunk_size, SEEK_CUR);
-            stream->adpcm.position += chunk_blocks * samples_per_block;
-        }
+
+        /* Skip whole chunk */
+        fseek(stream->file, (long)stream->chunk_size, SEEK_CUR);
+        stream->adpcm.position += chunk_blocks * samples_per_block;
+        remaining_position -= chunk_blocks;
     }
 
-    // TODO seek within an ADPCM block
+    /* Exact block boundary seek: done */
+    if (intra_block_samples == 0)
+        return;
+
+    /* Read and decode the target block, then cache the remaining PCM after the intra-block offset */
+    if (stream->chunk_pos + block_size > stream->chunk_size)
+        return;
+
+    if (fread(stream->buffer, 1, block_size, stream->file) != block_size)
+        return;
+
+    stream->chunk_pos += block_size;
+
+    if (stream->stereo)
+        decoded_samples = decode_adpcm_stereo(tmp, stream->buffer, block_size);
+    else
+        decoded_samples = decode_adpcm(tmp, stream->buffer, block_size);
+
+    skip_samples = intra_block_samples * channels;
+    if (skip_samples > decoded_samples)
+        skip_samples = decoded_samples;
+
+    keep_samples = decoded_samples - skip_samples;
+    if (keep_samples > 0)
+        memcpy(stream->adpcm_seek_pcm, tmp + skip_samples, keep_samples * sizeof(int16_t));
+
+    stream->adpcm_seek_pcm_samples = keep_samples;
+    stream->adpcm_seek_pcm_pos = 0;
+    stream->adpcm.position += intra_block_samples;
 }
 
 static unsigned int stream_adpcm_tell(HSTREAM stream)
@@ -733,7 +815,6 @@ DXDEC HSTREAM AILCALL AIL_open_stream(HDIGDRIVER dig, char const FAR * filename,
     FILE *f;
     HSTREAM stream = NULL;
     WAVEFORMAT *wf = (WAVEFORMAT *)tmp;
-    MPEGLAYER3WAVEFORMAT *mp3wf = (MPEGLAYER3WAVEFORMAT *)tmp;
 
     f = fopen(filename, "rb");
     if (f == NULL)
