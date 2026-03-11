@@ -5,8 +5,6 @@ The game is fully playable on [PortMaster](https://portmaster.games/detail.html?
 
 Nox-Decomp requires an original copy of Nox. None of the Nox game assets are provided by this project. To get a legitimate copy of the game assets, please refer to the [GoG release of Nox](https://www.gog.com/game/nox).
 
-The dialog audio files need to be converted in order for the dialog to work. See below for details. Many of the releases include scripts to automatically convert.
-
 If you enjoy this please consider giving me a tip on [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y8Y61U19WK)
 
 This is a fork of https://github.com/neuromancer/nox-decomp this fork fixes all the bugs, adds movie, LAN, Internet (via OpenNox lobby servers) support and compiles for ARMHF devices.
@@ -28,11 +26,12 @@ Project Goals and progress:
 (This is the order goals are prioritised)
 
 - Fix any seg faults on armhf and i386 - progress 100% (game stable - no known seg faults - all solo wizard/conjurer/warrior play tests completed)
-- Easy setup for new players - progress 99% (launchers that automatically extract game and convert audio for linux, portmaster, windows and steamdeck flatpak. Windows launcher sometimes fails to launch game)
+- Fix game logic issues - progress 95% (no known issues - only likely remaining will probably be subtle enemy behavior)
+- Easy setup for new players - progress 99% (launchers that automatically extract game for linux, portmaster, windows and steamdeck flatpak. Windows launcher sometimes fails to launch game)
 - Fix any networking issues - progress 100% (no known issues)
 - Fix any known rendering issues - progress 99% (no known rendering issues)
-- Fix any known audio issues - progress 97% (minor noisy glitch between song changes, auto dialog conversion required)
-- Gamepad support - progress 98% (emulates mouse and keyboard, config file, no direct player movement yet, thumb sticks might be too sensitive and skip dialog screens between chapters)
+- Fix any known audio issues - progress 99% (no known issues)
+- Gamepad support - progress 98% (emulates mouse and keyboard, config file, no direct player movement yet)
 - Try and port to 64bit - progress 2% (have planned two possible options forward but requires many changes)
 - New features
   - opennox lobby integration works but no hd support for lobby
@@ -130,7 +129,7 @@ Choose "select GOG installer" and click "OK"
 
 Go to your Downloads and select `setup_nox_2.0.0.20.exe` and click "OK"
 
-Wait for the extraction and conversion process to finish.
+Wait for the extraction process to finish.
 
 Note: You will only see it in your steam library the next time steam restarts.
 
@@ -166,7 +165,7 @@ Note: You will only see it in your steam library the next time steam restarts.
 
 When the steam launcher step is finished click "OK"
 
-Wait for the extraction and conversion process to finish.
+Wait for the extraction process to finish.
 
 Click "OK" and you should enter the game.
 
