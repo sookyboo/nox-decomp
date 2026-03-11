@@ -59,10 +59,14 @@ Thanks to OpenNox for implementing a modern lobby server which enables internet 
 Thanks to klops, JanTrueno, Dia, Fraxinus88, OGM, Ganimoth, NotYerAvgPorter, Hades-Arcadius, MrGiKILL and Cebion from the [PortMaster discord](https://discord.com/invite/JxYBp9HTAY) for contributing fixes, advice and testing for the PortMaster port.
 
 Thanks to szhublox and Lovyxia from the [NoX RPG Unofficial discord](https://discord.gg/4bYwu68) for testing, good suggestions and knowing the original game so well.
-Thanks to szhublox for finding the original decompiled binary version 1.2b with sha256: e6e1b56029f8871c25d0caf8bcedf7bf1699580d0dc24c90d79eb27e9d7e05b2
-Thanks to szhublox for pairing on obliterate rendering fixes, finding where the spell renders and uncovering a hint of where to look for a fix.
-Thanks to szhublox for videos of force of nature, obliterate and mana drain problems.
-Thanks to szhublox for fixing rendering for Ring of Fire spell.
+Thanks to szhublox for the following:
+- finding the original decompiled binary version 1.2b with sha256: e6e1b56029f8871c25d0caf8bcedf7bf1699580d0dc24c90d79eb27e9d7e05b2
+- pairing on obliterate rendering fixes, finding where the spell renders and uncovering a hint of where to look for a fix.
+- test videos of force of nature, obliterate and mana drain problems.
+- fixing rendering for Ring of Fire spell.
+- fixing summon counter for lich lord.
+- helping to track down a fix for playing dialog audio without conversion
+- massive amounts of testing to get nox-decomp into a very well working and faithful to the original state!
 
 # Running the game
 
