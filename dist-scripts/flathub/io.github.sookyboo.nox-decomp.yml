@@ -168,4 +168,4 @@ modules:
       - type: git
         url: https://github.com/sookyboo/nox-decomp.git
         #        tag: "v0.9.2"
-        commit: "ca66a5f66660b81d4ea8d9951a7bd37f68ff761e"
+        commit: "0377565a9585de0f3ec878a0709ac50a3c8eddd5"
