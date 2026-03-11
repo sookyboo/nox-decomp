@@ -173,17 +173,17 @@ Click "OK" and you should enter the game.
 
 
 ## Windows
-Download the zip from releases.
+Download  noxd.win32.x86-beta.zip from [release 9.2](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.2).
 
 Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
 
-Unpack nox-decomp and copy the gog setup program into gamefiles.
+Unpack nox-decomp and run launch-nox-decomp.exe.
 
-Run the included Nox-Decomp.bat script which expects the nox installation file in the nox-decomp `gamefiles` directory.
+Hit the Launch button it will ask you for your `setup_nox_2.0.0.20.exe` file.
 
 After extraction it should start the game.
 
-Can take up to a minute on a fast computer.
+Extraction can take up to a minute on a fast computer.
 
 ## Mac
 This works with crossover (macos wine can't run 32bit binaries).
