@@ -117,7 +117,8 @@ call :log "Game data present."
 REM ---------------------------
 REM Convert dialog (skip if already done)
 REM ---------------------------
-if exist "%MARKER%" goto :after_convert
+goto :after_convert
+@REM if exist "%MARKER%" goto :after_convert
 
 REM Skip conversion on 32-bit Windows (ffmpeg assumed 64-bit)
 if /i "%PROCESSOR_ARCHITECTURE%"=="x86" (
