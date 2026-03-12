@@ -1,4 +1,5 @@
 // gamepad.c - is MIT License and hopefully will be used in future projects that need gptokeyb2 support
+// inspired by the ini format of https://github.com/PortsMaster/gptokeyb2
 //# MIT License
 //#
 //# Copyright (c) 2026 sookyboo
