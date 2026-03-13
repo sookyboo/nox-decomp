@@ -6423,18 +6423,16 @@ _DWORD *sub_4AAA70()
   sub_46B490((int)v1, 16392, 1, 0);
   sub_46B490(sub_46B0C0(*(_DWORD **)&byte_5D4594[1309820], 316), 16394, (draw_gamma - 0.5f) * 50, 0);
   sub_46B490(sub_46B0C0(*(_DWORD **)&byte_5D4594[1309820], 318), 16394, (log10f(input_sensitivity) + 1.0f) * 50, 0);
-#if 0
-  if ( !sub_4300D0(0) )
-  {
-    v2 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 331);
-    sub_46AD80((int)v2, 8);
-  }
-  if ( !sub_4300D0(1) )
-  {
-    v3 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 332);
-    sub_46AD80((int)v3, 8);
-  }
-#endif
+  // if ( !sub_4300D0(0) )
+  // {
+  v2 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 331);
+  sub_46AD80((int)v2, 8);
+  // }
+  // if ( !sub_4300D0(1) )
+  // {
+  v3 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 332);
+  sub_46AD80((int)v3, 8);
+  // }
   v4 = sub_4766D0();
   *(_DWORD *)&byte_587000[172884] = v4;
   if ( v4 > 69 )
