@@ -921,6 +921,9 @@ export NOX_LINEAR_SCALING
 : "${NOX_INTEGER_SCALING:=0}"
 export NOX_INTEGER_SCALING
 
+: "${NOX_HIDE_MAIN_RES_UI:=1}"
+export NOX_HIDE_MAIN_RES_UI
+
 export # for debug
 
 "${LOADER}" --library-path "${LIBPATH}" "${PKG_NOXD}"

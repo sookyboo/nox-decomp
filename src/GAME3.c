@@ -6433,6 +6433,26 @@ _DWORD *sub_4AAA70()
   v3 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 332);
   sub_46AD80((int)v3, 8);
   // }
+
+  const char *hide_res_ui = getenv("NOX_HIDE_MAIN_RES_UI");
+  if (nox_env_truthy(hide_res_ui)) {
+    // sub_46AD60 set ui control flags
+    // sub_46AD80 clear ui control flags
+    // sub_46ADA0 get ui control flags
+    _DWORD *first_res_control = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 321);
+    //  fprintf(stderr, "ui control 332 flags 0x%X\n", sub_46ADA0((int)v2));
+    sub_46AD80((int)first_res_control, 8); // disable
+    sub_46AD60((int)first_res_control, 16); // set visibility 0
+
+    _DWORD *second_res_control = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 322); // second res box
+    sub_46AD80((int)second_res_control, 8); // disable
+    sub_46AD60((int)second_res_control, 16); // set visibility 0
+
+    _DWORD *third_res_control = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 323); // third res box
+    sub_46AD80((int)third_res_control, 8); // disable
+    sub_46AD60((int)third_res_control, 16); // set visibility 0
+  }
+
   v4 = sub_4766D0();
   *(_DWORD *)&byte_587000[172884] = v4;
   if ( v4 > 69 )
