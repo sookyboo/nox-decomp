@@ -1,0 +1,256 @@
+name: Build nox-decomp artifacts
+
+on:
+  workflow_dispatch:
+#  push:
+#    branches:
+#      - main
+#    tags:
+#      - 'v*'
+#  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            flatpak \
+            flatpak-builder \
+            ostree
+
+      - name: Add Flathub remote
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Show initial disk usage
+        run: |
+          df -h
+          docker system df || true
+
+      - name: Clean up old containers
+        run: |
+          docker rm -f noxdecomp_tmp || true
+          docker rm -f noxdecomp_tmp-x86 || true
+          docker rm -f noxdecomp_tmp-winx86 || true
+
+      - name: Build ARM image and extract artifacts
+        run: |
+          set -euxo pipefail
+
+          mkdir -p artifacts/noxd.armhf
+          mkdir -p artifacts/gl4es.armhf
+          mkdir -p artifacts/ffmpeg.armhf
+
+          docker buildx build \
+            --load \
+            --platform=linux/arm64 \
+            --progress=plain \
+            -f Dockerfile \
+            -t noxdecomp-build .
+
+          docker create --name noxdecomp_tmp noxdecomp-build
+          docker cp noxdecomp_tmp:/build/nox-decomp/build/src/out artifacts/noxd.armhf
+          docker cp noxdecomp_tmp:/build/gl4es/lib/libGL.so.1 artifacts/gl4es.armhf/libGL.so.1
+          docker cp noxdecomp_tmp:/opt/ffmpeg-armhf/lib/. artifacts/ffmpeg.armhf/
+          docker rm -f noxdecomp_tmp
+
+      - name: Build x86 Linux image and extract artifacts
+        run: |
+          set -euxo pipefail
+
+          mkdir -p artifacts/noxd.i386
+          mkdir -p artifacts/ffmpeg.i386
+
+          docker buildx build \
+            --load \
+            --platform=linux/amd64 \
+            --progress=plain \
+            -f Dockerfile.x86 \
+            -t noxdecomp-build-x86 .
+
+          docker create --name noxdecomp_tmp-x86 noxdecomp-build-x86
+          docker cp noxdecomp_tmp-x86:/build/nox-decomp/build/src/out artifacts/noxd.i386
+          docker cp noxdecomp_tmp-x86:/opt/ffmpeg-i386/lib/. artifacts/ffmpeg.i386/
+          docker rm -f noxdecomp_tmp-x86
+
+      - name: Build Win32 image and extract artifacts
+        run: |
+          set -euxo pipefail
+
+          rm -rf artifacts/noxd.win32
+
+          docker buildx build \
+            --load \
+            --platform=linux/amd64 \
+            --progress=plain \
+            -f Dockerfile.winx86 \
+            -t noxdecomp-build-winx86 .
+
+          docker create --name noxdecomp_tmp-winx86 noxdecomp-build-winx86
+          docker cp noxdecomp_tmp-winx86:/build/nox-decomp/build/src/noxd.win32 artifacts/noxd.win32
+
+          if [ -f artifacts/noxd.win32/out.exe ]; then
+            mv -f artifacts/noxd.win32/out.exe artifacts/noxd.win32/noxd.winx86.exe
+          fi
+
+          docker rm -f noxdecomp_tmp-winx86
+
+      - name: Build innoextract artifacts
+        working-directory: dist-scripts/innoextract
+        run: |
+          set -euxo pipefail
+
+          rm -rf out
+          mkdir -p out/linux-x86_64 out/linux-aarch64 out/windows-x86_64
+
+          docker buildx build \
+            --platform=linux/amd64 \
+            --target linux-amd64 \
+            -f Dockerfile.innoextract \
+            -o type=local,dest=./out/linux-x86_64 \
+            .
+
+          docker buildx build \
+            --platform=linux/arm64 \
+            --target linux-arm64 \
+            -f Dockerfile.innoextract \
+            -o type=local,dest=./out/linux-aarch64 \
+            .
+
+          docker buildx build \
+            --platform=linux/amd64 \
+            --target windows-amd64 \
+            -f Dockerfile.innoextract \
+            -o type=local,dest=./out/windows-x86_64 \
+            .
+
+      - name: Show disk usage after Docker builds
+        run: |
+          df -h
+          docker system df || true
+
+      - name: Build Flatpak bundle
+        working-directory: dist-scripts/flathub
+        run: |
+          set -euxo pipefail
+          chmod +x deps.sh build.sh
+          sed -i 's/^flatpak install /sudo flatpak install /' deps.sh
+          ./deps.sh
+          ./build.sh
+
+      - name: Show disk usage after Flatpak build
+        run: |
+          df -h
+          docker system df || true
+
+      - name: Upload ARM build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-armhf
+          path: |
+            artifacts/noxd.armhf
+            artifacts/gl4es.armhf
+            artifacts/ffmpeg.armhf
+
+      - name: Upload x86 Linux build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-i386
+          path: |
+            artifacts/noxd.i386
+            artifacts/ffmpeg.i386
+
+      - name: Upload Win32 build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-win32
+          path: artifacts/noxd.win32
+
+      - name: Upload innoextract artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: innoextract
+          path: |
+            dist-scripts/innoextract/out/linux-x86_64
+            dist-scripts/innoextract/out/linux-aarch64
+            dist-scripts/innoextract/out/windows-x86_64
+
+      - name: Upload Flatpak bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-flatpak
+          path: dist-scripts/flathub/io.github.sookyboo.nox-decomp.flatpak
+
+      - name: Cleanup temporary build state
+        if: always()
+        run: |
+          docker rm -f noxdecomp_tmp || true
+          docker rm -f noxdecomp_tmp-x86 || true
+          docker rm -f noxdecomp_tmp-winx86 || true
+          docker image prune -af || true
+          docker builder prune -af || true
+
+  publish-server:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push amd64 server image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --progress=plain \
+            -f dist-scripts/Dockerfile.x86 \
+            -t ghcr.io/nox-decomp/nox-decomp-server:amd64 \
+            --push \
+            .
+
+      - name: Build and push arm64 server image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --progress=plain \
+            -f dist-scripts/Dockerfile.armhf \
+            -t ghcr.io/nox-decomp/nox-decomp-server:arm64 \
+            --push \
+            .
+
+      - name: Create multi-arch latest tag
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/nox-decomp/nox-decomp-server:latest \
+            ghcr.io/nox-decomp/nox-decomp-server:amd64 \
+            ghcr.io/nox-decomp/nox-decomp-server:arm64
