@@ -222,8 +222,8 @@ jobs:
           fi
 
           # Innoextract binary from prior build
-          if [ -f dist-scripts/innoextract/out/windows-x86_64/innoextract.exe ]; then
-            cp dist-scripts/innoextract/out/windows-x86_64/innoextract.exe \
+          if [ -f dist-scripts/innoextract/out/windows-x86_64/innoextract-win64.exe ]; then
+            cp dist-scripts/innoextract/out/windows-x86_64/innoextract-win64.exe \
               "$PKG_DIR/utils/innoextract.x86_64.exe"
           else
             find dist-scripts/innoextract/out/windows-x86_64 -maxdepth 1 -type f | head -n 1 | while read -r f; do
@@ -309,8 +309,8 @@ jobs:
           fi
 
           # Innoextract binary
-          if [ -f dist-scripts/innoextract/out/linux-x86_64/innoextract ]; then
-            cp dist-scripts/innoextract/out/linux-x86_64/innoextract \
+          if [ -f dist-scripts/innoextract/out/linux-x86_64/innoextract-linux-x86_64 ]; then
+            cp dist-scripts/innoextract/out/linux-x86_64/innoextract-linux-x86_64 \
               "$PKG_DIR/utils/innoextract.x86_64"
             chmod +x "$PKG_DIR/utils/innoextract.x86_64"
           else
@@ -409,8 +409,8 @@ jobs:
           fi
 
           # Innoextract binary
-          if [ -f dist-scripts/innoextract/out/linux-aarch64/innoextract ]; then
-            cp dist-scripts/innoextract/out/linux-aarch64/innoextract \
+          if [ -f dist-scripts/innoextract/out/linux-aarch64/innoextract-linux-aarch64 ]; then
+            cp dist-scripts/innoextract/out/linux-aarch64/innoextract-linux-aarch64 \
               "$PKG_DIR/utils/innoextract.aarch64"
             chmod +x "$PKG_DIR/utils/innoextract.aarch64"
           else
