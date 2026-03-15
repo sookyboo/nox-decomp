@@ -6477,6 +6477,11 @@ _DWORD *sub_4AAA70()
 LABEL_22:
   if ( result )
     result = (_DWORD *)sub_46B490((int)result, 16392, 1, 0);
+
+  _DWORD *unlock_dx_surfaces = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 2010);
+  sub_46AD80((int)unlock_dx_surfaces, 8); // disable
+  sub_46AD60((int)unlock_dx_surfaces, 16); // set visibility 0
+
   return result;
 }
 
@@ -8557,6 +8562,10 @@ int sub_4ADAD0()
       sub_46AC00(*(int *)&byte_5D4594[1309820], 1);
       sub_46AC00(*(int *)&byte_5D4594[1309824], 1);
       result = 1;
+
+      _DWORD *unlock_dx_surfaces = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309820], 2010);
+      sub_46AD80((int)unlock_dx_surfaces, 8); // disable
+      sub_46AD60((int)unlock_dx_surfaces, 16); // set visibility 0
     }
   }
   return result;
