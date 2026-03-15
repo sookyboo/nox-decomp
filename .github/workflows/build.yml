@@ -117,24 +117,9 @@ jobs:
           mkdir -p out/linux-x86_64 out/linux-aarch64 out/windows-x86_64
 
           docker buildx build \
-            --platform=linux/amd64 \
-            --target linux-amd64 \
+            --target artifacts \
             -f Dockerfile \
-            -o type=local,dest=./out/linux-x86_64 \
-            .
-
-          docker buildx build \
-            --platform=linux/arm64 \
-            --target linux-arm64 \
-            -f Dockerfile \
-            -o type=local,dest=./out/linux-aarch64 \
-            .
-
-          docker buildx build \
-            --platform=linux/amd64 \
-            --target windows-amd64 \
-            -f Dockerfile \
-            -o type=local,dest=./out/windows-x86_64 \
+            -o type=local,dest=./out \
             .
 
       - name: Show disk usage after Docker builds
@@ -286,7 +271,7 @@ jobs:
           cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
 
           # Starter script
-          cp dist-scripts/start.sh "$PKG_DIR/Nox-Decomp.sh"
+          cp dist-scripts/startgen.sh "$PKG_DIR/Nox-Decomp.sh"
           chmod +x "$PKG_DIR/Nox-Decomp.sh"
 
           # Steam assets
@@ -378,7 +363,7 @@ jobs:
           cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
 
           # Starter script
-          cp dist-scripts/start.sh "$PKG_DIR/Nox-Decomp.sh"
+          cp dist-scripts/startgen.sh "$PKG_DIR/Nox-Decomp.sh"
           chmod +x "$PKG_DIR/Nox-Decomp.sh"
 
           # Steam assets
