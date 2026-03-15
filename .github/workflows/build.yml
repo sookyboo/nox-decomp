@@ -194,6 +194,286 @@ jobs:
           name: noxd-flatpak
           path: dist-scripts/flathub/io.github.sookyboo.nox-decomp.flatpak
 
+      - name: Assemble Win32 package
+        run: |
+          set -euxo pipefail
+
+          PKG_DIR="artifacts/noxd.win32.package"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR"
+          mkdir -p "$PKG_DIR/gamefiles"
+          mkdir -p "$PKG_DIR/licenses"
+          mkdir -p "$PKG_DIR/licenses/innoextract"
+          mkdir -p "$PKG_DIR/utils"
+
+          # Main Win32 build output, including launch-nox-decomp.exe
+          cp -a artifacts/noxd.win32/. "$PKG_DIR/"
+
+          # Rename main exe if needed
+          if [ -f "$PKG_DIR/noxd.winx86.exe" ]; then
+            mv -f "$PKG_DIR/noxd.winx86.exe" "$PKG_DIR/noxd.i386.exe"
+          elif [ -f "$PKG_DIR/out.exe" ]; then
+            mv -f "$PKG_DIR/out.exe" "$PKG_DIR/noxd.i386.exe"
+          fi
+
+          # Config
+          cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
+          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+
+          # Launcher config
+          cp dist-scripts/winlaunch/launch-nox-decomp.ini "$PKG_DIR/launch-nox-decomp.ini"
+
+          # Licenses
+          cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/gl4es_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/innoextract_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/libopenal_LICENCE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/nox_decomp_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/sdl_LICENSE.txt "$PKG_DIR/licenses/"
+
+          # Optional extra innoextract license files if present in repo
+          if [ -d dist-scripts/licenses/innoextract ]; then
+            cp -a dist-scripts/licenses/innoextract/. "$PKG_DIR/licenses/innoextract/"
+          fi
+
+          # Innoextract binary from prior build
+          if [ -f dist-scripts/innoextract/out/windows-x86_64/innoextract.exe ]; then
+            cp dist-scripts/innoextract/out/windows-x86_64/innoextract.exe \
+              "$PKG_DIR/utils/innoextract.x86_64.exe"
+          else
+            find dist-scripts/innoextract/out/windows-x86_64 -maxdepth 1 -type f | head -n 1 | while read -r f; do
+              cp "$f" "$PKG_DIR/utils/innoextract.x86_64.exe"
+            done
+          fi
+
+      - name: Create Win32 release zip
+        run: |
+          set -euxo pipefail
+          cd artifacts/noxd.win32.package
+          zip -r ../noxd.win32.x86-beta.zip .
+
+      - name: Upload Win32 release zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-win32-zip
+          path: artifacts/noxd.win32.x86-beta.zip
+
+      - name: Assemble Linux i386 package
+        run: |
+          set -euxo pipefail
+
+          PKG_DIR="artifacts/noxd.i386.package"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR"
+          mkdir -p "$PKG_DIR/gamefiles"
+          mkdir -p "$PKG_DIR/licenses"
+          mkdir -p "$PKG_DIR/licenses/innoextract"
+          mkdir -p "$PKG_DIR/utils"
+          mkdir -p "$PKG_DIR/ffmpeg.i386"
+          mkdir -p "$PKG_DIR/steam"
+          mkdir -p "$PKG_DIR/steam/libs.i386.x11"
+
+          # Main Linux i386 build output
+          cp -a artifacts/noxd.i386/. "$PKG_DIR/"
+
+          # Normalize main binary name if needed
+          if [ -f "$PKG_DIR/out" ]; then
+            mv -f "$PKG_DIR/out" "$PKG_DIR/noxd.i386"
+          fi
+
+          # Configs
+          cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
+          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+
+          # Starter script
+          cp dist-scripts/start.sh "$PKG_DIR/Nox-Decomp.sh"
+          chmod +x "$PKG_DIR/Nox-Decomp.sh"
+
+          # Steam assets
+          cp dist-scripts/steamv.png "$PKG_DIR/steam/steamv.png"
+          cp dist-scripts/steamh.png "$PKG_DIR/steam/steamh.png"
+          cp dist-scripts/io.github.sookyboo.nox-decomp.png \
+            "$PKG_DIR/steam/io.github.sookyboo.nox-decomp.png"
+
+          # Optional steam extras if present
+          if [ -f dist-scripts/gamecontrollerdb.txt ]; then
+            cp dist-scripts/gamecontrollerdb.txt "$PKG_DIR/steam/gamecontrollerdb.txt"
+          fi
+
+          # SDL for steam libs bundle, copied from Linux build output if present
+          if [ -f "$PKG_DIR/libSDL2-2.0.so.0" ]; then
+            cp "$PKG_DIR/libSDL2-2.0.so.0" "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
+          elif [ -f artifacts/noxd.i386/libSDL2-2.0.so.0 ]; then
+            cp artifacts/noxd.i386/libSDL2-2.0.so.0 "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
+          fi
+
+          # FFmpeg shared libs
+          cp -a artifacts/ffmpeg.i386/. "$PKG_DIR/ffmpeg.i386/"
+
+          # Licenses
+          cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/gl4es_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/innoextract_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/libopenal_LICENCE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/nox_decomp_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/sdl_LICENSE.txt "$PKG_DIR/licenses/"
+
+          # Optional extra innoextract license files if present in repo
+          if [ -d dist-scripts/licenses/innoextract ]; then
+            cp -a dist-scripts/licenses/innoextract/. "$PKG_DIR/licenses/innoextract/"
+          fi
+
+          # Innoextract binary
+          if [ -f dist-scripts/innoextract/out/linux-x86_64/innoextract ]; then
+            cp dist-scripts/innoextract/out/linux-x86_64/innoextract \
+              "$PKG_DIR/utils/innoextract.x86_64"
+            chmod +x "$PKG_DIR/utils/innoextract.x86_64"
+          else
+            find dist-scripts/innoextract/out/linux-x86_64 -maxdepth 1 -type f | head -n 1 | while read -r f; do
+              cp "$f" "$PKG_DIR/utils/innoextract.x86_64"
+              chmod +x "$PKG_DIR/utils/innoextract.x86_64"
+            done
+          fi
+
+          # Keep empty gamefiles dir in tar
+          touch "$PKG_DIR/gamefiles/.gitkeep"
+          
+      - name: Create Linux i386 release tarball
+        run: |
+          set -euxo pipefail
+          tar -C artifacts/noxd.i386.package -czf artifacts/nox-decomp-linux-i386-beta.tar.gz .
+
+      - name: Upload Linux i386 release tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-linux-i386-tarball
+          path: artifacts/nox-decomp-linux-i386-beta.tar.gz
+
+      - name: Assemble Linux ARMHF package
+        run: |
+          set -euxo pipefail
+
+          PKG_DIR="artifacts/noxd.armhf.package"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR"
+          mkdir -p "$PKG_DIR/gamefiles"
+          mkdir -p "$PKG_DIR/licenses"
+          mkdir -p "$PKG_DIR/licenses/innoextract"
+          mkdir -p "$PKG_DIR/utils"
+          mkdir -p "$PKG_DIR/ffmpeg.armhf"
+          mkdir -p "$PKG_DIR/gl4es.armhf"
+          mkdir -p "$PKG_DIR/openal.armhf"
+          mkdir -p "$PKG_DIR/steam"
+
+          # Main ARMHF build output
+          cp -a artifacts/noxd.armhf/. "$PKG_DIR/"
+
+          # Normalize main binary name if needed
+          if [ -f "$PKG_DIR/out" ]; then
+            mv -f "$PKG_DIR/out" "$PKG_DIR/noxd.armhf"
+          fi
+
+          # Configs
+          cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
+          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+
+          # Starter script
+          cp dist-scripts/start.sh "$PKG_DIR/Nox-Decomp.sh"
+          chmod +x "$PKG_DIR/Nox-Decomp.sh"
+
+          # Steam assets
+          cp dist-scripts/steamv.png "$PKG_DIR/steam/steamv.png"
+          cp dist-scripts/steamh.png "$PKG_DIR/steam/steamh.png"
+          cp dist-scripts/io.github.sookyboo.nox-decomp.png \
+            "$PKG_DIR/steam/io.github.sookyboo.nox-decomp.png"
+
+          if [ -f dist-scripts/gamecontrollerdb.txt ]; then
+            cp dist-scripts/gamecontrollerdb.txt "$PKG_DIR/steam/gamecontrollerdb.txt"
+          fi
+
+          if [ -f dist-scripts/steam_shortcut.py ]; then
+            cp dist-scripts/steam_shortcut.py "$PKG_DIR/utils/steam_shortcut.py"
+          fi
+
+          # FFmpeg shared libs
+          cp -a artifacts/ffmpeg.armhf/. "$PKG_DIR/ffmpeg.armhf/"
+
+          # gl4es
+          if [ -f artifacts/gl4es.armhf/libGL.so.1 ]; then
+            cp artifacts/gl4es.armhf/libGL.so.1 "$PKG_DIR/gl4es.armhf/libGL.so.1"
+          fi
+
+          # OpenAL
+          if [ -f artifacts/noxd.armhf/libopenal.so.1 ]; then
+            cp artifacts/noxd.armhf/libopenal.so.1 "$PKG_DIR/openal.armhf/libopenal.so.1"
+          elif [ -f "$PKG_DIR/libopenal.so.1" ]; then
+            cp "$PKG_DIR/libopenal.so.1" "$PKG_DIR/openal.armhf/libopenal.so.1"
+          fi
+
+          # Licenses
+          cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/gl4es_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/innoextract_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/libopenal_LICENCE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/nox_decomp_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/sdl_LICENSE.txt "$PKG_DIR/licenses/"
+
+          # Optional extra innoextract license files if present in repo
+          if [ -d dist-scripts/licenses/innoextract ]; then
+            cp -a dist-scripts/licenses/innoextract/. "$PKG_DIR/licenses/innoextract/"
+          fi
+
+          # Innoextract binary
+          if [ -f dist-scripts/innoextract/out/linux-aarch64/innoextract ]; then
+            cp dist-scripts/innoextract/out/linux-aarch64/innoextract \
+              "$PKG_DIR/utils/innoextract.aarch64"
+            chmod +x "$PKG_DIR/utils/innoextract.aarch64"
+          else
+            find dist-scripts/innoextract/out/linux-aarch64 -maxdepth 1 -type f | head -n 1 | while read -r f; do
+              cp "$f" "$PKG_DIR/utils/innoextract.aarch64"
+              chmod +x "$PKG_DIR/utils/innoextract.aarch64"
+            done
+          fi
+
+          # Keep empty gamefiles dir in tar
+          touch "$PKG_DIR/gamefiles/.gitkeep"
+
+      - name: Create Linux ARMHF release tarball
+        run: |
+          set -euxo pipefail
+          tar -C artifacts/noxd.armhf.package -czf artifacts/nox-decomp-linux-armhf-beta.tar.gz .
+
+      - name: Upload Linux ARMHF release tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: noxd-linux-armhf-tarball
+          path: artifacts/nox-decomp-linux-armhf-beta.tar.gz
+
+      - name: Assemble Flatpak beta package
+        run: |
+          set -euxo pipefail
+
+          PKG_DIR="artifacts/flatpak-beta"
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR"
+
+          cp dist-scripts/flathub/io.github.sookyboo.nox-decomp.flatpak \
+            "$PKG_DIR/io.github.sookyboo.nox-decomp.flatpak"
+          cp dist-scripts/flathub/install.sh \
+            "$PKG_DIR/install.sh"
+
+      - name: Create Flatpak beta zip
+        run: |
+          set -euxo pipefail
+          cd artifacts/flatpak-beta
+          zip -r ../flatpak-beta.zip .
+
+      - name: Upload Flatpak beta zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-beta-zip
+          path: artifacts/flatpak-beta.zip
+
       - name: Cleanup temporary build state
         if: always()
         run: |
