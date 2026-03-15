@@ -57,6 +57,8 @@ Thanks to OpenNox for implementing a modern lobby server which enables internet 
 
 Thanks to klops, JanTrueno, Dia, Fraxinus88, OGM, Ganimoth, NotYerAvgPorter, Hades-Arcadius, MrGiKILL and Cebion from the [PortMaster discord](https://discord.com/invite/JxYBp9HTAY) for contributing fixes, advice and testing for the PortMaster port.
 
+Thanks to Butter for testing the Windows version and completing Warrior, Wizard and Conjurer in one weekend! 
+
 Thanks to szhublox and Lovyxia from the [NoX RPG Unofficial discord](https://discord.gg/4bYwu68) for testing, good suggestions and knowing the original game so well.
 
 Thanks to szhublox for the following:
