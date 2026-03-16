@@ -43551,7 +43551,8 @@ int sub_4320B0()
   v0 = strtok(0, (const char *)&byte_587000[82336]);
   if ( !v0 )
     return 1;
-  v1 = atoi(v0);
+  // v1 = atoi(v0);
+  v1 = 0;
   *(_DWORD *)&byte_5D4594[805868] = v1;
   v2 = v1 == 0;
   result = 1;
