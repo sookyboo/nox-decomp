@@ -33,6 +33,7 @@ jobs:
       - name: Clean up old containers
         run: |
           docker rm -f noxdecomp_tmp || true
+          docker rm -f noxdecomp_tmp-x86libs || true
 
       - name: Build ARM image and extract artifacts
         run: |
@@ -131,6 +132,24 @@ jobs:
           docker cp noxdecomp_tmp-x86:/build/nox-decomp/build/src/out artifacts/noxd.i386
           docker cp noxdecomp_tmp-x86:/opt/ffmpeg-i386/lib/. artifacts/ffmpeg.i386/
           docker rm -f noxdecomp_tmp-x86
+
+      - name: Build x86 SDL2 library and extract artifact
+        run: |
+          set -euxo pipefail
+
+          mkdir -p artifacts/noxd.i386.libs
+
+          docker buildx build \
+            --load \
+            --platform=linux/amd64 \
+            --progress=plain \
+            -f Dockerfile.x86libs \
+            -t noxdecomp-build-x86libs .
+
+          docker create --name noxdecomp_tmp-x86libs noxdecomp-build-x86libs
+          docker cp noxdecomp_tmp-x86libs:/usr/i686-linux-gnu/lib/libSDL2-2.0.so.0.2600.2 \
+            artifacts/noxd.i386.libs/libSDL2-2.0.so.0
+          docker rm -f noxdecomp_tmp-x86libs
 
       - name: Build Win32 image and extract artifacts
         run: |
@@ -323,11 +342,16 @@ jobs:
             cp dist-scripts/gamecontrollerdb.txt "$PKG_DIR/steam/gamecontrollerdb.txt"
           fi
 
-          # SDL for steam libs bundle, copied from Linux build output if present
-          if [ -f "$PKG_DIR/libSDL2-2.0.so.0" ]; then
-            cp "$PKG_DIR/libSDL2-2.0.so.0" "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
+          # SDL for steam libs bundle
+          if [ -f artifacts/noxd.i386.libs/libSDL2-2.0.so.0 ]; then
+            cp artifacts/noxd.i386.libs/libSDL2-2.0.so.0 \
+              "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
+          elif [ -f "$PKG_DIR/libSDL2-2.0.so.0" ]; then
+            cp "$PKG_DIR/libSDL2-2.0.so.0" \
+              "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
           elif [ -f artifacts/noxd.i386/libSDL2-2.0.so.0 ]; then
-            cp artifacts/noxd.i386/libSDL2-2.0.so.0 "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
+            cp artifacts/noxd.i386/libSDL2-2.0.so.0 \
+              "$PKG_DIR/steam/libs.i386.x11/libSDL2-2.0.so.0"
           fi
 
           # FFmpeg shared libs
@@ -515,17 +539,24 @@ jobs:
           cp dist-scripts/flathub/install.sh \
             "$PKG_DIR/install.sh"
 
-      - name: Upload Flatpak beta package
+      - name: Create Flatpak beta zip
+        run: |
+          set -euxo pipefail
+          cd artifacts/flatpak-beta
+          zip -r ../flatpak-beta.zip .
+
+      - name: Upload Flatpak beta zip
         uses: actions/upload-artifact@v7
         with:
-          name: flatpak-beta
-          path: artifacts/flatpak-beta
+          path: artifacts/flatpak-beta.zip
+          archive: false
 
       - name: Cleanup temporary build state
         if: always()
         run: |
           docker rm -f noxdecomp_tmp-x86 || true
           docker rm -f noxdecomp_tmp-winx86 || true
+          docker rm -f noxdecomp_tmp-x86libs || true
           docker image prune -af || true
           docker builder prune -af || true
 
