@@ -8,6 +8,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-arm:
     runs-on: ubuntu-24.04-arm
@@ -20,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Show initial disk usage
         run: |
@@ -53,7 +56,7 @@ jobs:
           docker rm -f noxdecomp_tmp
 
       - name: Upload ARM build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-armhf
           path: |
@@ -80,7 +83,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Install Flatpak tooling
         run: |
@@ -185,7 +188,7 @@ jobs:
           docker system df || true
 
       - name: Upload x86 Linux build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-i386
           path: |
@@ -193,13 +196,13 @@ jobs:
             artifacts/ffmpeg.i386
 
       - name: Upload Win32 build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-win32
           path: artifacts/noxd.win32
 
       - name: Upload innoextract artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: innoextract
           path: |
@@ -208,7 +211,7 @@ jobs:
             dist-scripts/innoextract/out/windows-x86_64
 
       - name: Upload Flatpak bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-flatpak
           path: dist-scripts/flathub/io.github.sookyboo.nox-decomp.flatpak
@@ -272,10 +275,11 @@ jobs:
           zip -r ../noxd.win32.x86-beta.zip .
 
       - name: Upload Win32 release zip
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-win32-zip
           path: artifacts/noxd.win32.x86-beta.zip
+          archive: false
 
       - name: Assemble Linux i386 package
         run: |
@@ -328,6 +332,20 @@ jobs:
 
           # FFmpeg shared libs
           cp -a artifacts/ffmpeg.i386/. "$PKG_DIR/ffmpeg.i386/"
+          
+          # Remove pkgconfig and normalize ffmpeg .so names
+          rm -rf "$PKG_DIR/ffmpeg.i386/pkgconfig"
+
+          find "$PKG_DIR/ffmpeg.i386" -maxdepth 1 -type l -delete
+
+          for f in "$PKG_DIR"/ffmpeg.i386/*.so.*; do
+            [ -e "$f" ] || continue
+            base="$(basename "$f")"
+            short="$(printf '%s\n' "$base" | sed -E 's/^(.+\.so\.[0-9]+).*/\1/')"
+            if [ "$base" != "$short" ]; then
+              mv -f "$f" "$PKG_DIR/ffmpeg.i386/$short"
+            fi
+          done
 
           # Licenses
           cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
@@ -363,10 +381,11 @@ jobs:
           tar -C artifacts/noxd.i386.package -czf artifacts/nox-decomp-linux-i386-beta.tar.gz .
 
       - name: Upload Linux i386 release tarball
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-linux-i386-tarball
           path: artifacts/nox-decomp-linux-i386-beta.tar.gz
+          archive: false
 
       - name: Assemble Linux ARMHF package
         run: |
@@ -416,6 +435,20 @@ jobs:
 
           # FFmpeg shared libs
           cp -a artifacts/ffmpeg.armhf/. "$PKG_DIR/ffmpeg.armhf/"
+          
+          # Remove pkgconfig and normalize ffmpeg .so names
+          rm -rf "$PKG_DIR/ffmpeg.armhf/pkgconfig"
+
+          find "$PKG_DIR/ffmpeg.armhf" -maxdepth 1 -type l -delete
+
+          for f in "$PKG_DIR"/ffmpeg.armhf/*.so.*; do
+            [ -e "$f" ] || continue
+            base="$(basename "$f")"
+            short="$(printf '%s\n' "$base" | sed -E 's/^(.+\.so\.[0-9]+).*/\1/')"
+            if [ "$base" != "$short" ]; then
+              mv -f "$f" "$PKG_DIR/ffmpeg.armhf/$short"
+            fi
+          done
 
           # gl4es
           if [ -f artifacts/gl4es.armhf/libGL.so.1 ]; then
@@ -463,10 +496,11 @@ jobs:
           tar -C artifacts/noxd.armhf.package -czf artifacts/nox-decomp-linux-armhf-beta.tar.gz .
 
       - name: Upload Linux ARMHF release tarball
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: noxd-linux-armhf-tarball
           path: artifacts/nox-decomp-linux-armhf-beta.tar.gz
+          archive: false
 
       - name: Assemble Flatpak beta package
         run: |
@@ -481,17 +515,11 @@ jobs:
           cp dist-scripts/flathub/install.sh \
             "$PKG_DIR/install.sh"
 
-      - name: Create Flatpak beta zip
-        run: |
-          set -euxo pipefail
-          cd artifacts/flatpak-beta
-          zip -r ../flatpak-beta.zip .
-
-      - name: Upload Flatpak beta zip
-        uses: actions/upload-artifact@v4
+      - name: Upload Flatpak beta package
+        uses: actions/upload-artifact@v7
         with:
-          name: flatpak-beta-zip
-          path: artifacts/flatpak-beta.zip
+          name: flatpak-beta
+          path: artifacts/flatpak-beta
 
       - name: Cleanup temporary build state
         if: always()
@@ -512,13 +540,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -566,7 +594,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
 
@@ -578,10 +606,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cat > release-notes.md <<EOF
+          Automated release for ${GITHUB_REF_NAME}
+
+          [GamePad Button Mapping Guide](https://github.com/sookyboo/nox-decomp/blob/main/docs/gamepad.md)
+
+          PortMaster stable build for linux handheld consoles is available [here](https://portmaster.games/detail.html?name=nox-decomp)
+
+          [SteamDeck install instructions](https://github.com/sookyboo/nox-decomp?tab=readme-ov-file#steam-deck)
+          [Linux install instructions](https://github.com/sookyboo/nox-decomp?tab=readme-ov-file#linux)
+          [Windows install instructions](https://github.com/sookyboo/nox-decomp?tab=readme-ov-file#windows)
+          [Mac install instructions via crossover](https://github.com/sookyboo/nox-decomp?tab=readme-ov-file#mac)
+
+          [First time playing game tips](https://github.com/sookyboo/nox-decomp/blob/main/docs/gametips.md)
+
+          Server versions:
+          [docker-compose.yml](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/docker-compose.yml)
+          [kubernetes](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/nox-decomp-kube.yml)
+
+          [Multiplayer networking guide](https://github.com/sookyboo/nox-decomp/blob/main/docs/multiplayer.md)
+          EOF
+
           gh release create "${GITHUB_REF_NAME}" \
-            release-assets/noxd-win32-zip/noxd.win32.x86-beta.zip \
-            release-assets/noxd-linux-i386-tarball/nox-decomp-linux-i386-beta.tar.gz \
-            release-assets/noxd-linux-armhf-tarball/nox-decomp-linux-armhf-beta.tar.gz \
-            release-assets/flatpak-beta-zip/flatpak-beta.zip \
+            release-assets/noxd.win32.x86-beta.zip \
+            release-assets/nox-decomp-linux-i386-beta.tar.gz \
+            release-assets/nox-decomp-linux-armhf-beta.tar.gz \
+            release-assets/flatpak-beta.zip \
             --title "${GITHUB_REF_NAME}" \
-            --notes "Automated release for ${GITHUB_REF_NAME}"
+            --notes-file release-notes.md
