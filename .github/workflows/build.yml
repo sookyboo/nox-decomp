@@ -22,6 +22,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set release suffix
+        run: |
+          set -euxo pipefail
+          RAW_NAME="${GITHUB_REF_NAME}"
+          SAFE_NAME="$(printf '%s' "$RAW_NAME" | sed 's#[^A-Za-z0-9._-]#-#g')"
+          echo "RELEASE_SUFFIX=${SAFE_NAME}" >> "$GITHUB_ENV"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -82,6 +89,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set release suffix
+        run: |
+          set -euxo pipefail
+          RAW_NAME="${GITHUB_REF_NAME}"
+          SAFE_NAME="$(printf '%s' "$RAW_NAME" | sed 's#[^A-Za-z0-9._-]#-#g')"
+          echo "RELEASE_SUFFIX=${SAFE_NAME}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -291,13 +305,13 @@ jobs:
         run: |
           set -euxo pipefail
           cd artifacts/noxd.win32.package
-          zip -r ../noxd.win32.x86-beta.zip .
+          zip -r ../noxd.win32.x86-${RELEASE_SUFFIX}.zip .
 
       - name: Upload Win32 release zip
         uses: actions/upload-artifact@v7
         with:
           name: noxd-win32-zip
-          path: artifacts/noxd.win32.x86-beta.zip
+          path: artifacts/noxd.win32.x86-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
       - name: Assemble Linux i386 package
@@ -402,13 +416,13 @@ jobs:
       - name: Create Linux i386 release tarball
         run: |
           set -euxo pipefail
-          tar -C artifacts/noxd.i386.package -czf artifacts/nox-decomp-linux-i386-beta.tar.gz .
+          tar -C artifacts/noxd.i386.package -czf artifacts/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz .
 
       - name: Upload Linux i386 release tarball
         uses: actions/upload-artifact@v7
         with:
           name: noxd-linux-i386-tarball
-          path: artifacts/nox-decomp-linux-i386-beta.tar.gz
+          path: artifacts/nox-decomp-linux-i386-${{ env.RELEASE_SUFFIX }}.tar.gz
           archive: false
 
       - name: Assemble Linux ARMHF package
@@ -517,13 +531,13 @@ jobs:
       - name: Create Linux ARMHF release tarball
         run: |
           set -euxo pipefail
-          tar -C artifacts/noxd.armhf.package -czf artifacts/nox-decomp-linux-armhf-beta.tar.gz .
+          tar -C artifacts/noxd.armhf.package -czf artifacts/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz .
 
       - name: Upload Linux ARMHF release tarball
         uses: actions/upload-artifact@v7
         with:
           name: noxd-linux-armhf-tarball
-          path: artifacts/nox-decomp-linux-armhf-beta.tar.gz
+          path: artifacts/nox-decomp-linux-armhf-${{ env.RELEASE_SUFFIX }}.tar.gz
           archive: false
 
       - name: Assemble Flatpak beta package
@@ -543,12 +557,12 @@ jobs:
         run: |
           set -euxo pipefail
           cd artifacts/flatpak-beta
-          zip -r ../flatpak-beta.zip .
+          zip -r ../flatpak-${RELEASE_SUFFIX}.zip .
 
       - name: Upload Flatpak beta zip
         uses: actions/upload-artifact@v7
         with:
-          path: artifacts/flatpak-beta.zip
+          path: artifacts/flatpak-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
       - name: Cleanup temporary build state
@@ -633,6 +647,13 @@ jobs:
         run: |
           find release-assets -type f | sort
 
+      - name: Set release suffix
+        run: |
+          set -euxo pipefail
+          RAW_NAME="${GITHUB_REF_NAME}"
+          SAFE_NAME="$(printf '%s' "$RAW_NAME" | sed 's#[^A-Za-z0-9._-]#-#g')"
+          echo "RELEASE_SUFFIX=${SAFE_NAME}" >> "$GITHUB_ENV"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -659,9 +680,9 @@ jobs:
           EOF
 
           gh release create "${GITHUB_REF_NAME}" \
-            release-assets/noxd.win32.x86-beta.zip \
-            release-assets/nox-decomp-linux-i386-beta.tar.gz \
-            release-assets/nox-decomp-linux-armhf-beta.tar.gz \
-            release-assets/flatpak-beta.zip \
+            "release-assets/noxd.win32.x86-${RELEASE_SUFFIX}.zip" \
+            "release-assets/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" \
+            "release-assets/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" \
+            "release-assets/flatpak-${RELEASE_SUFFIX}.zip" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file release-notes.md
