@@ -220,35 +220,6 @@ jobs:
           df -h
           docker system df || true
 
-      - name: Upload x86 Linux build artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: noxd-i386
-          path: |
-            artifacts/noxd.i386
-            artifacts/ffmpeg.i386
-
-      - name: Upload Win32 build artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: noxd-win32
-          path: artifacts/noxd.win32
-
-      - name: Upload innoextract artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: innoextract
-          path: |
-            dist-scripts/innoextract/out/linux-x86_64
-            dist-scripts/innoextract/out/linux-aarch64
-            dist-scripts/innoextract/out/windows-x86_64
-
-      - name: Upload Flatpak bundle
-        uses: actions/upload-artifact@v7
-        with:
-          name: noxd-flatpak
-          path: dist-scripts/flathub/io.github.sookyboo.nox-decomp.flatpak
-
       - name: Assemble Win32 package
         run: |
           set -euxo pipefail
