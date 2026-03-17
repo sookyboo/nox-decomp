@@ -7,6 +7,14 @@
 #        add_compile_options (-fsanitize=address)
 #    endif ()
 #endif ()
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" NOX_ARCH)
+
+if (NOX_ARCH MATCHES "^(aarch64|arm64)$")
+    message(FATAL_ERROR
+        "64-bit ARM/x86 builds are not yet supported. "
+        "Please build with a 32-bit ARM target/toolchain instead."
+    )
+endif()
 if (MSVC)
     add_compile_options("$<$<CONFIG:DEBUG>:/RTCs>")
 else ()
