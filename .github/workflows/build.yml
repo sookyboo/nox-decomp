@@ -668,6 +668,25 @@ jobs:
           path: artifacts/portmaster-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
+      - name: Create SHA256 sums
+        run: |
+          set -euxo pipefail
+
+          cd artifacts
+          sha256sum \
+            "noxd.win32.x86-${RELEASE_SUFFIX}.zip" \
+            "nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" \
+            "nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" \
+            "flatpak-${RELEASE_SUFFIX}.zip" \
+            "portmaster-${RELEASE_SUFFIX}.zip" \
+            > "SHA256SUMS-${RELEASE_SUFFIX}.txt"
+
+      - name: Upload SHA256 sums
+        uses: actions/upload-artifact@v7
+        with:
+          path: artifacts/SHA256SUMS-${{ env.RELEASE_SUFFIX }}.txt
+          archive: false
+
       - name: Cleanup temporary build state
         if: always()
         run: |
@@ -858,5 +877,6 @@ jobs:
             "release-assets/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" \
             "release-assets/flatpak-${RELEASE_SUFFIX}.zip" \
             "release-assets/portmaster-${RELEASE_SUFFIX}.zip" \
+            "release-assets/SHA256SUMS-${RELEASE_SUFFIX}.txt" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file release-notes.md
