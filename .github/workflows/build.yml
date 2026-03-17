@@ -54,6 +54,8 @@ jobs:
             --load \
             --platform=linux/arm64 \
             --progress=plain \
+            --cache-from type=gha,scope=noxdecomp-arm \
+            --cache-to type=gha,scope=noxdecomp-arm,mode=max \
             -f Dockerfile \
             -t noxdecomp-build .
 
@@ -139,6 +141,8 @@ jobs:
             --load \
             --platform=linux/amd64 \
             --progress=plain \
+            --cache-from type=gha,scope=noxdecomp-x86 \
+            --cache-to type=gha,scope=noxdecomp-x86,mode=max \
             -f Dockerfile.x86 \
             -t noxdecomp-build-x86 .
 
@@ -157,6 +161,8 @@ jobs:
             --load \
             --platform=linux/amd64 \
             --progress=plain \
+            --cache-from type=gha,scope=noxdecomp-x86libs \
+            --cache-to type=gha,scope=noxdecomp-x86libs,mode=max \
             -f Dockerfile.x86libs \
             -t noxdecomp-build-x86libs .
 
@@ -175,6 +181,8 @@ jobs:
             --load \
             --platform=linux/amd64 \
             --progress=plain \
+            --cache-from type=gha,scope=noxdecomp-winx86 \
+            --cache-to type=gha,scope=noxdecomp-winx86,mode=max \
             -f Dockerfile.winx86 \
             -t noxdecomp-build-winx86 .
 
@@ -197,6 +205,8 @@ jobs:
 
           docker buildx build \
             --target artifacts \
+            --cache-from type=gha,scope=noxdecomp-innoextract \
+            --cache-to type=gha,scope=noxdecomp-innoextract,mode=max \
             -f Dockerfile \
             -o type=local,dest=./out \
             .
@@ -683,6 +693,8 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             --progress=plain \
+            --cache-from type=gha,scope=noxdecomp-server-amd64 \
+            --cache-to type=gha,scope=noxdecomp-server-amd64,mode=max \
             -f dist-scripts/Dockerfile.x86 \
             -t ghcr.io/nox-decomp/nox-decomp-server:amd64 \
             --push \
@@ -693,6 +705,8 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --progress=plain \
+            --cache-from type=gha,scope=noxdecomp-server-arm64 \
+            --cache-to type=gha,scope=noxdecomp-server-arm64,mode=max \
             -f dist-scripts/Dockerfile.armhf \
             -t ghcr.io/nox-decomp/nox-decomp-server:arm64 \
             --push \
