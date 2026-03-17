@@ -125,7 +125,7 @@ jobs:
           docker rm -f noxdecomp_tmp-winx86 || true
 
       - name: Download ARM build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: noxd-armhf
           path: artifacts
