@@ -536,6 +536,120 @@ jobs:
           path: artifacts/flatpak-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
+      - name: Assemble PortMaster package
+        run: |
+          set -euxo pipefail
+
+          PKG_ROOT="artifacts/portmaster.package"
+          PKG_DIR="$PKG_ROOT/nox-decomp"
+
+          rm -rf "$PKG_ROOT"
+          mkdir -p "$PKG_DIR"
+          mkdir -p "$PKG_DIR/ffmpeg.armhf"
+          mkdir -p "$PKG_DIR/ffmpeg.i386"
+          mkdir -p "$PKG_DIR/gamefiles"
+          mkdir -p "$PKG_DIR/gl4es.armhf"
+          mkdir -p "$PKG_DIR/licenses"
+          mkdir -p "$PKG_DIR/openal.armhf"
+          mkdir -p "$PKG_DIR/src"
+          mkdir -p "$PKG_DIR/utils"
+
+          # Top-level launcher script
+          cp dist-scripts/portmasterstart.sh "$PKG_ROOT/Nox-Decomp.sh"
+          chmod +x "$PKG_ROOT/Nox-Decomp.sh"
+
+          # PortMaster metadata/assets
+          cp dist-scripts/portmaster/cover.png "$PKG_DIR/cover.png"
+          cp dist-scripts/portmaster/screenshot.png "$PKG_DIR/screenshot.png"
+          cp dist-scripts/portmaster/gameinfo.xml "$PKG_DIR/gameinfo.xml"
+          cp dist-scripts/portmaster/port.json "$PKG_DIR/port.json"
+          cp dist-scripts/portmaster/README.md "$PKG_DIR/nox-decomp.md"
+
+          # Main binaries
+          if [ -f artifacts/noxd.armhf/out ]; then
+            cp artifacts/noxd.armhf/out "$PKG_DIR/noxd.armhf"
+          elif [ -f artifacts/noxd.armhf/noxd.armhf ]; then
+            cp artifacts/noxd.armhf/noxd.armhf "$PKG_DIR/noxd.armhf"
+          else
+            cp artifacts/noxd.armhf/* "$PKG_DIR/" || true
+            [ -f "$PKG_DIR/out" ] && mv "$PKG_DIR/out" "$PKG_DIR/noxd.armhf"
+          fi
+
+          if [ -f artifacts/noxd.i386/out ]; then
+            cp artifacts/noxd.i386/out "$PKG_DIR/noxd.i386"
+          elif [ -f artifacts/noxd.i386/noxd.i386 ]; then
+            cp artifacts/noxd.i386/noxd.i386 "$PKG_DIR/noxd.i386"
+          else
+            cp artifacts/noxd.i386/* "$PKG_DIR/" || true
+            [ -f "$PKG_DIR/out" ] && mv "$PKG_DIR/out" "$PKG_DIR/noxd.i386"
+          fi
+
+          # Configs
+          cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
+          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+
+          # FFmpeg shared libs
+          cp -a artifacts/ffmpeg.armhf/. "$PKG_DIR/ffmpeg.armhf/"
+          cp -a artifacts/ffmpeg.i386/. "$PKG_DIR/ffmpeg.i386/"
+
+          # Remove pkgconfig and normalize ffmpeg .so names
+          rm -rf "$PKG_DIR/ffmpeg.armhf/pkgconfig" "$PKG_DIR/ffmpeg.i386/pkgconfig"
+          find "$PKG_DIR/ffmpeg.armhf" -maxdepth 1 -type l -delete
+          find "$PKG_DIR/ffmpeg.i386" -maxdepth 1 -type l -delete
+
+          for dir in "$PKG_DIR/ffmpeg.armhf" "$PKG_DIR/ffmpeg.i386"; do
+            for f in "$dir"/*.so.*; do
+              [ -e "$f" ] || continue
+              base="$(basename "$f")"
+              short="$(printf '%s\n' "$base" | sed -E 's/^(.+\.so\.[0-9]+).*/\1/')"
+              if [ "$base" != "$short" ]; then
+                mv -f "$f" "$dir/$short"
+              fi
+            done
+          done
+
+          # gl4es / openal
+          cp artifacts/gl4es.armhf/libGL.so.1 "$PKG_DIR/gl4es.armhf/libGL.so.1"
+          if [ -f artifacts/noxd.armhf/libopenal.so.1 ]; then
+            cp artifacts/noxd.armhf/libopenal.so.1 "$PKG_DIR/openal.armhf/libopenal.so.1"
+          fi
+
+          # Licenses
+          cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/gl4es_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/innoextract_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/libopenal_LICENCE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/nox_decomp_LICENSE.txt "$PKG_DIR/licenses/"
+          cp dist-scripts/licenses/sdl_LICENSE.txt "$PKG_DIR/licenses/"
+
+          # Empty gamefiles dir
+          touch "$PKG_DIR/gamefiles/.gitkeep"
+
+          # Source bundle / build files
+          cp dist-scripts/Dockerfile "$PKG_DIR/src/Dockerfile"
+          cp dist-scripts/Dockerfile.x86 "$PKG_DIR/src/Dockerfile.x86"
+          cp Dockerfile.x86libs "$PKG_DIR/src/Dockerfile.x86libs"
+          [ -f build.txt ] && cp build.txt "$PKG_DIR/src/build.txt"
+
+          # Repo snapshot
+          cp nox-decomp-main.zip "$PKG_DIR/src/nox-decomp-main.zip"
+
+          # Utility ffmpeg binaries
+          cp ffmpeg.aarch64 "$PKG_DIR/utils/ffmpeg.aarch64"
+          cp ffmpeg.amd64 "$PKG_DIR/utils/ffmpeg.amd64"
+
+      - name: Create PortMaster zip
+        run: |
+          set -euxo pipefail
+          cd artifacts/portmaster.package
+          zip -r "../portmaster-${RELEASE_SUFFIX}.zip" .
+
+      - name: Upload PortMaster zip
+        uses: actions/upload-artifact@v7
+        with:
+          path: artifacts/portmaster-${{ env.RELEASE_SUFFIX }}.zip
+          archive: false
+
       - name: Cleanup temporary build state
         if: always()
         run: |
@@ -655,5 +769,6 @@ jobs:
             "release-assets/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" \
             "release-assets/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" \
             "release-assets/flatpak-${RELEASE_SUFFIX}.zip" \
+            "release-assets/portmaster-${RELEASE_SUFFIX}.zip" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file release-notes.md
