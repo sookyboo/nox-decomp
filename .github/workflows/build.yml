@@ -680,7 +680,7 @@ jobs:
   publish-server:
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
 
     permissions:
       contents: read
@@ -689,6 +689,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+
+      - name: Set image tag
+        run: |
+          set -euxo pipefail
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            echo "IMAGE_TAG=main" >> "$GITHUB_ENV"
+            echo "ALSO_TAG_LATEST=false" >> "$GITHUB_ENV"
+          else
+            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+            echo "ALSO_TAG_LATEST=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -711,7 +722,7 @@ jobs:
             --cache-from type=gha,scope=noxdecomp-server-amd64 \
             --cache-to type=gha,scope=noxdecomp-server-amd64,mode=max \
             -f dist-scripts/Dockerfile.x86 \
-            -t ghcr.io/nox-decomp/nox-decomp-server:amd64 \
+            -t ghcr.io/nox-decomp/nox-decomp-server:amd64-${IMAGE_TAG} \
             --push \
             .
 
@@ -723,16 +734,24 @@ jobs:
             --cache-from type=gha,scope=noxdecomp-server-arm64 \
             --cache-to type=gha,scope=noxdecomp-server-arm64,mode=max \
             -f dist-scripts/Dockerfile.armhf \
-            -t ghcr.io/nox-decomp/nox-decomp-server:arm64 \
+            -t ghcr.io/nox-decomp/nox-decomp-server:arm64-${IMAGE_TAG} \
             --push \
             .
 
+      - name: Create multi-arch image tag
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/nox-decomp/nox-decomp-server:${IMAGE_TAG} \
+            ghcr.io/nox-decomp/nox-decomp-server:amd64-${IMAGE_TAG} \
+            ghcr.io/nox-decomp/nox-decomp-server:arm64-${IMAGE_TAG}
+
       - name: Create multi-arch latest tag
+        if: env.ALSO_TAG_LATEST == 'true'
         run: |
           docker buildx imagetools create \
             -t ghcr.io/nox-decomp/nox-decomp-server:latest \
-            ghcr.io/nox-decomp/nox-decomp-server:amd64 \
-            ghcr.io/nox-decomp/nox-decomp-server:arm64
+            ghcr.io/nox-decomp/nox-decomp-server:amd64-${IMAGE_TAG} \
+            ghcr.io/nox-decomp/nox-decomp-server:arm64-${IMAGE_TAG}
 
   release:
     runs-on: ubuntu-latest
