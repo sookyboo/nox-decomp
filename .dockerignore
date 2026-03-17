@@ -1,0 +1,101 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# Build directories
+build/
+build-*/
+cmake-build-*/
+out/
+bin/
+obj/
+dist/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+Makefile
+
+# Autotools
+autom4te.cache/
+aclocal.m4
+configure
+config.log
+config.status
+libtool
+m4/
+Makefile.in
+
+# Generic compiled objects and libraries
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# Debug / profiling / coverage
+*.dSYM/
+*.gcno
+*.gcda
+*.gcov
+*.prof
+*.profraw
+*.profdata
+coverage/
+lcov.info
+
+# Logs
+*.log
+
+# Archives / packages
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.deb
+*.rpm
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python caches sometimes created by tooling
+__pycache__/
+*.pyc
+
+# Test/result/temp files
+tmp/
+temp/
+.cache/
+
+# Docker files you may not want in build context
+docker-compose*.yml
+
+# Docs/generated assets
+docs/_build/
