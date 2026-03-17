@@ -701,6 +701,47 @@ jobs:
             echo "ALSO_TAG_LATEST=true" >> "$GITHUB_ENV"
           fi
 
+      - name: Set release suffix
+        run: |
+          set -euxo pipefail
+          RAW_NAME="${GITHUB_REF_NAME}"
+          SAFE_NAME="$(printf '%s' "$RAW_NAME" | sed 's#[^A-Za-z0-9._-]#-#g')"
+          echo "RELEASE_SUFFIX=${SAFE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Download Linux i386 release tarball
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: nox-decomp-linux-i386-*.tar.gz
+          merge-multiple: true
+
+      - name: Download Linux ARMHF release tarball
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: nox-decomp-linux-armhf-*.tar.gz
+          merge-multiple: true
+
+      - name: Stage server build inputs from release tarballs
+        run: |
+          set -euxo pipefail
+
+          rm -rf extracted.i386 extracted.armhf
+          rm -rf ffmpeg.i386 ffmpeg.armhf
+          rm -f noxd.i386 noxd.armhf server.sh
+
+          mkdir -p extracted.i386 extracted.armhf
+
+          tar -C extracted.i386 -xzf "artifacts/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz"
+          tar -C extracted.armhf -xzf "artifacts/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz"
+
+          cp -a extracted.i386/ffmpeg.i386 ./ffmpeg.i386
+          cp -a extracted.armhf/ffmpeg.armhf ./ffmpeg.armhf
+          cp extracted.i386/noxd.i386 ./noxd.i386
+          cp extracted.armhf/noxd.armhf ./noxd.armhf
+
+          cp dist-scripts/server.sh ./server.sh
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
