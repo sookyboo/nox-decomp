@@ -577,7 +577,6 @@ jobs:
           mkdir -p "$PKG_DIR/licenses"
           mkdir -p "$PKG_DIR/openal.armhf"
           mkdir -p "$PKG_DIR/src"
-          mkdir -p "$PKG_DIR/utils"
 
           # Top-level launcher script
           cp dist-scripts/portmasterstart.sh "$PKG_ROOT/Nox-Decomp.sh"
@@ -611,6 +610,7 @@ jobs:
 
           # Configs
           cp dist-scripts/nox.cfg "$PKG_DIR/nox.cfg.default"
+          cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg.hires"
           cp dist-scripts/nox.gptk2.nintendo.ini "$PKG_DIR/nox.gptk2.ini"
 
           # FFmpeg shared libs

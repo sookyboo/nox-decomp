@@ -322,6 +322,13 @@ RUN --mount=type=cache,target=/root/.ccache \
     cd /build/nox-decomp/build && \
     cmake --build . -j $(nproc)
 
+RUN --mount=type=cache,target=/root/.ccache \
+    set -eux; \
+    cd /build/nox-decomp/dist-scripts/winlaunch; \
+    i686-w64-mingw32-gcc -O2 -s -municode \
+      -o /build/nox-decomp/build/src/launch-nox-decomp.exe winlaunch.c \
+      -lcomdlg32 -lshell32 -ladvapi32 -lgdi32 -luser32
+
 RUN mkdir -p /build/nox-decomp/build/src/lib && \
     cp -av ${FFMPEG_PREFIX}/bin/av*.dll /build/nox-decomp/build/src/lib/ || true
 
