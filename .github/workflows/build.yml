@@ -585,8 +585,8 @@ jobs:
           fi
 
           # Configs
-          cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
-          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+          cp dist-scripts/nox.cfg "$PKG_DIR/nox.cfg"
+          cp dist-scripts/nox.gptk2.nintendo.ini "$PKG_DIR/nox.gptk2.ini"
 
           # FFmpeg shared libs
           cp -a artifacts/ffmpeg.armhf/. "$PKG_DIR/ffmpeg.armhf/"
@@ -626,17 +626,10 @@ jobs:
           touch "$PKG_DIR/gamefiles/.gitkeep"
 
           # Source bundle / build files
-          cp dist-scripts/Dockerfile "$PKG_DIR/src/Dockerfile"
-          cp dist-scripts/Dockerfile.x86 "$PKG_DIR/src/Dockerfile.x86"
-          cp Dockerfile.x86libs "$PKG_DIR/src/Dockerfile.x86libs"
           [ -f build.txt ] && cp build.txt "$PKG_DIR/src/build.txt"
 
           # Repo snapshot
           cp nox-decomp-main.zip "$PKG_DIR/src/nox-decomp-main.zip"
-
-          # Utility ffmpeg binaries
-          cp ffmpeg.aarch64 "$PKG_DIR/utils/ffmpeg.aarch64"
-          cp ffmpeg.amd64 "$PKG_DIR/utils/ffmpeg.amd64"
 
       - name: Create PortMaster zip
         run: |
