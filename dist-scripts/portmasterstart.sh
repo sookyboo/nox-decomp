@@ -362,11 +362,14 @@ mkdir -p "$ASSET_DIR"
 
 # If config does not exist in assets, copy it from game dir
 if [ ! -f "$ASSET_DIR/nox.cfg" ]; then
-  if [ -f "$GAMEDIR/nox.cfg" ]; then
-    cp "$GAMEDIR/nox.cfg" "$ASSET_DIR/nox.cfg"
-    echo "Copied $GAMEDIR/nox.cfg to $ASSET_DIR/nox.cfg"
+  if [ -n "$DISPLAY_WIDTH" ] && [ "$DISPLAY_WIDTH" -gt 1024 ] && [ -f "$GAMEDIR/nox.cfg.hires" ]; then
+    cp "$GAMEDIR/nox.cfg.hires" "$ASSET_DIR/nox.cfg"
+    echo "Copied $GAMEDIR/nox.cfg.hires to $ASSET_DIR/nox.cfg"
+  elif [ -f "$GAMEDIR/nox.cfg.default" ]; then
+    cp "$GAMEDIR/nox.cfg.default" "$ASSET_DIR/nox.cfg"
+    echo "Copied $GAMEDIR/nox.cfg.default to $ASSET_DIR/nox.cfg"
   else
-    echo "ERROR: Source config not found at $GAMEDIR/nox.cfg" >&2
+    echo "ERROR: Source config not found at $GAMEDIR/nox.cfg.default or $GAMEDIR/nox.cfg.hires" >&2
     exit 1
   fi
 fi

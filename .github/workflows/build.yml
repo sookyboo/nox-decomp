@@ -546,6 +546,21 @@ jobs:
           path: artifacts/flatpak-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
+      - name: Create source snapshot tarball
+        run: |
+          set -euxo pipefail
+
+          rm -rf artifacts/source-snapshot
+          rm -f nox-decomp-main.tar.gz
+          mkdir -p artifacts/source-snapshot
+
+          git archive --format=tar HEAD | tar -xf - -C artifacts/source-snapshot
+
+          rm -f artifacts/source-snapshot/dist-scripts/steamh.png
+          rm -f artifacts/source-snapshot/dist-scripts/steamv.png
+
+          tar -C artifacts/source-snapshot -czf nox-decomp-main.tar.gz .
+
       - name: Assemble PortMaster package
         run: |
           set -euxo pipefail
@@ -595,7 +610,7 @@ jobs:
           fi
 
           # Configs
-          cp dist-scripts/nox.cfg "$PKG_DIR/nox.cfg"
+          cp dist-scripts/nox.cfg "$PKG_DIR/nox.cfg.default"
           cp dist-scripts/nox.gptk2.nintendo.ini "$PKG_DIR/nox.gptk2.ini"
 
           # FFmpeg shared libs
@@ -639,7 +654,7 @@ jobs:
           [ -f build.txt ] && cp build.txt "$PKG_DIR/src/build.txt"
 
           # Repo snapshot
-          cp nox-decomp-main.zip "$PKG_DIR/src/nox-decomp-main.zip"
+          cp nox-decomp-main.tar.gz "$PKG_DIR/src/nox-decomp-main.tar.gz"
 
       - name: Create PortMaster zip
         run: |
