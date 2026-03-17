@@ -39,6 +39,9 @@ Project Goals and progress:
   - 1024x768ish resolution is automatically scaled to hd displays when using launcher without changing aspect ratio
   - limit mouse movement for gamepad compatibility - toggleable
   - HD might be possible by directly editing nox.cfg and launcher but untested
+  - prevent resolution changes within the game when the launcher supplies the resolution
+  - remove unlock surfaces option
+  - remove 8bit colour support and default to 16bit 
 - Rewrite game functions to be easily readable
 
 # Screenshots
@@ -69,6 +72,7 @@ Thanks to szhublox for the following:
 - fixing rendering for Ring of Fire spell.
 - fixing summon counter for lich lord.
 - helping to track down a fix for playing dialog audio without conversion
+- removing 8-bit support and unlock surfaces from options menu to prevent issues
 - massive amounts of testing to get nox-decomp into a very well working and faithful to the original state!
 
 # Running the game
@@ -82,8 +86,8 @@ The file is also included in releases here.
 Please note the flatpak requirements:
 - It  needs access to your devices for gamepad support (all flatpaks do for gamepad support until flatpak 1.16 is released on steam deck) .
 - It requires access to your steam config folders to add a launcher for steam
-- It requires a copy of `setup_nox_2.0.0.20.exe` from gog in ~/nox-decomp/gamesfiles
-
+- It requires a copy of `setup_nox_2.0.0.20.exe` [from gog](https://github.com/sookyboo/nox-decomp/blob/main/docs/gog.md) in ~/nox-decomp/gamesfiles
+  
 Go to Power -> Switch to Desktop
 
 Controlling the mouse in Steam Deck desktop mode: 
@@ -140,7 +144,7 @@ Note: You will only see it in your steam library the next time steam restarts.
 Restart your device or launch the game from the start menu and enjoy!
 
 ## Linux
-Log in to your [gog.com](https://www.gog.com/en/game/nox) account and buy/download nox the setup file should be something like `setup_nox_2.0.0.20.exe`
+Log in to your [gog.com](https://www.gog.com/en/game/nox) account and buy then [download](https://github.com/sookyboo/nox-decomp/blob/main/docs/gog.md) nox the setup file should be something like `setup_nox_2.0.0.20.exe`
 
 From [releases section](https://github.com/sookyboo/nox-decomp/releases) :
 
@@ -177,7 +181,7 @@ Click "OK" and you should enter the game.
 ## Windows
 Download [noxd.win32.x86-beta.zip](https://github.com/sookyboo/nox-decomp/releases/download/v0.9.2/noxd.win32.x86-beta.zip) from [release 9.2](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.2).
 
-Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox) and [download the offline installer for the game](https://github.com/sookyboo/nox-decomp/blob/main/docs/gog.md)
 
 Unpack nox-decomp and run launch-nox-decomp.exe.
 
@@ -210,7 +214,7 @@ This works with crossover (macos wine can't run 32bit binaries).
 
 Download the windows zip from releases.
 
-Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox)
+Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox) and [download the offline installer for the game](https://github.com/sookyboo/nox-decomp/blob/main/docs/gog.md)
 
 Unpack nox-decomp and copy the gog setup program into gamefiles.
 
@@ -224,7 +228,7 @@ Intel Macs:
 Building for Intel Macs should be possible but that won't run on m series macs - rosetta doesn't support 32bit binaries
 
 M series macs:
-M series macs can't run 32bit arm binaries
+M series macs can't run 32bit arm binaries so we can't compile it directly but crossover can run the 32bit windows version
 
 ## Server
 There are docker arm64 and amd64 images that run the 32bit version
@@ -345,9 +349,10 @@ export NOX_INTEGER_SCALING=0 # only scale to the highest integer value that fits
 # Known issues
 The game is fully playable on PortMaster, SteamDeck with flatpack, Linux and Windows for both single player and multiplayer and all classes warrior, wizard and conjurer!
 
-* Minor - 16-bit graphics work perfectly but 8-bit doesn't work
+* Minor - 16-bit graphics work perfectly - 8-bit support has been removed
 * Minor - all text is legible - but there might be distortion based on your scaling settings and resolution enabling smoothing with NOX_LINEAR_SCALING on small consoles may fix.
 * Minor - On low power devices fade ins and fade outs are slightly slower
+* There has been a reported seg fault on Solo Quest on level 7 - we have not been able to replicate it but no other issues are known. 
 
 # Building from source
 
@@ -382,7 +387,7 @@ That's a tricky question. Under the DMCA, reverse-engineering has exceptions for
 - [/u/awesie](https://www.reddit.com/u/awesie)
 - neuromancer (for some Linux fixes)
 - Sookyboo (for fixing 16bit cursor color, solo game fix, audio fixes, performance fixes, rendering fixes, game logic fixes, arm32bit crashes, adding video support, opennox lobby internet game support, windows support, steamdeck support, gamepad support)
-- szhublox (finding original binary, spell rendering fixes, npc summon fixes, tons of testing)
+- szhublox (finding original binary, spell rendering fixes, npc summon fixes, removing troublesome menu setting and tons of testing)
 - Everyone in the Nox community keeping the game alive.
 
 Are you the one that should be mentioned here? Let me know I will add your name.
