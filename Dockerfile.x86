@@ -191,6 +191,7 @@ COPY . /build/nox-decomp
 
 
 RUN --mount=type=cache,target=/root/.ccache \
+    mkdir -p /build/nox-decomp/build && \
     cd /build/nox-decomp/build && \
     cmake .. \
       -DCMAKE_BUILD_TYPE=Debug \

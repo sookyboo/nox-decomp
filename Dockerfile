@@ -200,6 +200,7 @@ COPY . /build/nox-decomp
 WORKDIR /build/nox-decomp/build
 
 RUN --mount=type=cache,target=/root/.ccache \
+    mkdir -p /build/nox-decomp/build && \
     cd /build/nox-decomp/build && \
     cmake .. \
       -DCMAKE_TOOLCHAIN_FILE=/toolchain-armhf.cmake \
