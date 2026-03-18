@@ -130,6 +130,60 @@ RUN cd gl4es/build && \
     make -j"$(nproc)"
 
 RUN file /build/gl4es-armhf/usr/lib*/libGL.so* || true
+#
+#
+## -------------------------------------------------
+## Build OpenAL Soft 1.22.2 (armhf)
+## -------------------------------------------------
+#ARG OPENAL_GIT_REF=1.22.2
+#ARG OPENAL_PREFIX=/opt/openal-armhf
+#ENV OPENAL_PREFIX=${OPENAL_PREFIX}
+#
+#ENV CC="ccache arm-linux-gnueabihf-gcc"
+#ENV CXX="ccache arm-linux-gnueabihf-g++"
+#ENV AR="arm-linux-gnueabihf-ar"
+#ENV RANLIB="arm-linux-gnueabihf-ranlib"
+#ENV STRIP="arm-linux-gnueabihf-strip"
+#
+#WORKDIR /build
+#
+#
+#
+#RUN git clone https://github.com/kcat/openal-soft.git /build/openal-soft && \
+#    cd /build/openal-soft && \
+#    git checkout ${OPENAL_GIT_REF}
+#
+#RUN --mount=type=cache,target=/root/.ccache \
+#    mkdir -p /build/openal-soft/build && \
+#    cd /build/openal-soft/build && \
+#    cmake .. \
+#      -G Ninja \
+#      -DCMAKE_TOOLCHAIN_FILE=/toolchain-armhf.cmake \
+#      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+#      -DCMAKE_INSTALL_PREFIX=${OPENAL_PREFIX} \
+#      -DCMAKE_INSTALL_LIBDIR=lib \
+#      -DBUILD_SHARED_LIBS=ON \
+#      -DALSA_LIBRARY=/usr/lib/arm-linux-gnueabihf/libasound.so \
+#      -DALSA_INCLUDE_DIR=/usr/include/alsa \
+#      -DALSOFT_EXAMPLES=OFF \
+#      -DALSOFT_UTILS=OFF \
+#      -DALSOFT_TESTS=OFF \
+#      -DALSOFT_INSTALL_CONFIG=OFF \
+#      -DALSOFT_NO_CONFIG_UTIL=ON \
+#      -DALSOFT_REQUIRE_ALSA=ON \
+#      -DALSOFT_BACKEND_PULSEAUDIO=OFF \
+#      -DALSOFT_BACKEND_OSS=OFF \
+#      -DALSOFT_BACKEND_SNDIO=OFF \
+#      -DALSOFT_BACKEND_PORTAUDIO=OFF \
+#      -DALSOFT_BACKEND_JACK=OFF
+#
+#RUN --mount=type=cache,target=/root/.ccache \
+#    cd /build/openal-soft/build && \
+#    ninja -j"$(nproc)" && \
+#    ninja install
+#
+#RUN file ${OPENAL_PREFIX}/lib/libopenal.so* && \
+#    PKG_CONFIG_LIBDIR=${OPENAL_PREFIX}/lib/pkgconfig pkg-config --libs openal
 
 # ffmpeg for videos
 

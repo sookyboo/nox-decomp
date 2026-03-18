@@ -419,7 +419,7 @@ jobs:
           mkdir -p "$PKG_DIR/utils"
           mkdir -p "$PKG_DIR/ffmpeg.armhf"
           mkdir -p "$PKG_DIR/gl4es.armhf"
-          mkdir -p "$PKG_DIR/openal.armhf"
+          #mkdir -p "$PKG_DIR/openal.armhf"
           mkdir -p "$PKG_DIR/steam"
 
           # Main ARMHF build output
@@ -475,11 +475,11 @@ jobs:
           fi
 
           # OpenAL
-          if [ -f artifacts/noxd.armhf/libopenal.so.1 ]; then
-            cp artifacts/noxd.armhf/libopenal.so.1 "$PKG_DIR/openal.armhf/libopenal.so.1"
-          elif [ -f "$PKG_DIR/libopenal.so.1" ]; then
-            cp "$PKG_DIR/libopenal.so.1" "$PKG_DIR/openal.armhf/libopenal.so.1"
-          fi
+          #if [ -f artifacts/noxd.armhf/libopenal.so.1 ]; then
+          #  cp artifacts/noxd.armhf/libopenal.so.1 "$PKG_DIR/openal.armhf/libopenal.so.1"
+          #elif [ -f "$PKG_DIR/libopenal.so.1" ]; then
+          #  cp "$PKG_DIR/libopenal.so.1" "$PKG_DIR/openal.armhf/libopenal.so.1"
+          #fi
 
           # Licenses
           cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
@@ -635,9 +635,13 @@ jobs:
 
           # gl4es / openal
           cp artifacts/gl4es.armhf/libGL.so.1 "$PKG_DIR/gl4es.armhf/libGL.so.1"
-          if [ -f artifacts/noxd.armhf/libopenal.so.1 ]; then
-            cp artifacts/noxd.armhf/libopenal.so.1 "$PKG_DIR/openal.armhf/libopenal.so.1"
-          fi
+          #if [ -f artifacts/noxd.armhf/libopenal.so.1 ]; then
+          #  cp artifacts/noxd.armhf/libopenal.so.1 "$PKG_DIR/openal.armhf/libopenal.so.1"
+          #fi
+          #Download openal from PortMaster
+          curl -fL \
+            -o "$PKG_DIR/openal.armhf/libopenal.so.1" \
+            https://raw.githubusercontent.com/PortsMaster/PortMaster-New/main/ports/nox-decomp/nox-decomp/openal.armhf/libopenal.so.1
 
           # Licenses
           cp dist-scripts/licenses/ffmpeg_LICENSE.txt "$PKG_DIR/licenses/"
