@@ -254,14 +254,137 @@ int nox_should_inject_internet_servers(void)
     return nox_env_truthy(v) ? 0 : 1;
 }
 
-static const char *nox_lobby_host(void)
+#define NOX_ENV_LOBBY_LIST "NOX_LOBBY_LIST"
+#define NOX_DEFAULT_LOBBY_LIST "nox.nwca.xyz:8088,noxdecomp.qzz.io"
+
+typedef struct nox_lobby_endpoint {
+    char host[256];
+    uint16_t port;
+} nox_lobby_endpoint;
+
+/* Parse "host[:port]" into endpoint.
+   - default port = 80 when omitted
+   - trims surrounding whitespace
+   - returns 0 on success, -1 on failure
+*/
+static int nox_parse_lobby_endpoint(const char *s, nox_lobby_endpoint *ep)
 {
-    return nox_env_str("NOX_LOBBY_HOST", "nox.nwca.xyz");
+    const char *start, *end, *colon;
+    size_t host_len;
+    unsigned long port = 80;
+
+    if (!s || !ep) return -1;
+
+    while (*s && (unsigned char)*s <= ' ') s++;
+    if (!*s) return -1;
+
+    start = s;
+    end = s + strlen(s);
+    while (end > start && (unsigned char)end[-1] <= ' ') end--;
+    if (end <= start) return -1;
+
+    colon = NULL;
+
+    /* Simple host[:port] parser.
+       For now we assume hostnames / IPv4 like your examples.
+       If you later want [IPv6]:port support, we can add it cleanly. */
+    for (const char *p = start; p < end; ++p) {
+        if (*p == ':') colon = p;
+    }
+
+    if (colon) {
+        const char *pp = colon + 1;
+        if (pp >= end) return -1;
+
+        port = 0;
+        while (pp < end) {
+            if (!isdigit((unsigned char)*pp)) return -1;
+            port = port * 10ul + (unsigned long)(*pp - '0');
+            if (port > 65535ul) return -1;
+            pp++;
+        }
+        host_len = (size_t)(colon - start);
+    } else {
+        host_len = (size_t)(end - start);
+    }
+
+    while (host_len > 0 && (unsigned char)start[host_len - 1] <= ' ') host_len--;
+    while (host_len > 0 && (unsigned char)*start <= ' ') {
+        start++;
+        host_len--;
+    }
+
+    if (host_len == 0 || host_len >= sizeof(ep->host)) return -1;
+
+    memcpy(ep->host, start, host_len);
+    ep->host[host_len] = 0;
+    ep->port = (uint16_t)port;
+    return 0;
 }
 
-static uint16_t nox_lobby_port(void)
+static const char *nox_lobby_list(void)
 {
-    return nox_env_u16("NOX_LOBBY_PORT", 8088);
+    return nox_env_str(NOX_ENV_LOBBY_LIST, NOX_DEFAULT_LOBBY_LIST);
+}
+
+/* Iterates comma-separated NOX_LOBBY_LIST and parses next valid endpoint.
+   Usage:
+       const char *p = nox_lobby_list();
+       nox_lobby_endpoint ep;
+       while ((p = nox_next_lobby_endpoint(p, &ep)) != NULL) { ... }
+*/
+static const char *nox_next_lobby_endpoint(const char *csv, nox_lobby_endpoint *ep)
+{
+    char tok[320];
+    const char *next;
+
+    if (!csv || !ep) return NULL;
+
+    for (;;) {
+        next = csv_next_token(csv, tok, sizeof(tok));
+        if (!next) return NULL;
+
+        if (nox_parse_lobby_endpoint(tok, ep) == 0) {
+            return next;
+        }
+
+        /* skip malformed entry and continue */
+        csv = next;
+    }
+}
+
+static nox_lobby_endpoint g_last_good_lobby = { "", 0 };
+static int g_last_good_lobby_valid = 0;
+
+static void nox_set_last_good_lobby(const nox_lobby_endpoint *ep)
+{
+    if (!ep || !ep->host[0] || ep->port == 0) return;
+
+    memcpy(&g_last_good_lobby, ep, sizeof(g_last_good_lobby));
+    g_last_good_lobby.host[sizeof(g_last_good_lobby.host) - 1] = 0;
+    g_last_good_lobby_valid = 1;
+}
+
+static int nox_get_last_good_lobby(nox_lobby_endpoint *ep)
+{
+    if (!ep || !g_last_good_lobby_valid) return -1;
+    memcpy(ep, &g_last_good_lobby, sizeof(*ep));
+    ep->host[sizeof(ep->host) - 1] = 0;
+    return 0;
+}
+
+static int nox_first_lobby_endpoint(nox_lobby_endpoint *ep)
+{
+    const char *p = nox_lobby_list();
+    if (!p || !ep) return -1;
+    return nox_next_lobby_endpoint(p, ep) ? 0 : -1;
+}
+
+static void nox_clear_last_good_lobby(void)
+{
+    g_last_good_lobby.host[0] = 0;
+    g_last_good_lobby.port = 0;
+    g_last_good_lobby_valid = 0;
 }
 
 static const char *nox_lobby_path(void)
@@ -822,29 +945,30 @@ int nox_lobby_register_game(const char *name,
                            unsigned max,
                            unsigned port)
 {
-    const char *host = nox_lobby_host();
-    uint16_t hp = nox_lobby_port();
+    nox_lobby_endpoint ep;
     const char *path = nox_lobby_register_path();
 
-    // Provide required fields the Go server validates.
-    // mode/vers may not be in the LAN packet; make them env-configurable.
+    /* Prefer the lobby that most recently responded successfully with valid JSON. */
+    if (nox_get_last_good_lobby(&ep) < 0) {
+        if (nox_first_lobby_endpoint(&ep) < 0) {
+            return -1;
+        }
+    }
+
     const char *vers = nox_env_str("NOX_SERVER_VERS", "1.2");
 
     uint16_t flags = nox_lobby_get_last_serverinfo_flags();
     const char *mode = nox_mode_from_flags(flags);
     if (!mode) mode = "chat";
-    NETLOG( "compat_net: lobby register mode='%s' (flags=0x%04x)\n",
-            mode,
-            (unsigned)flags);
+    NETLOG("compat_net: lobby register mode='%s' (flags=0x%04x)\n",
+           mode,
+           (unsigned)flags);
 
-    // clamp
     if (max == 0) max = 31;
     if (cur > max) cur = max;
     if (port == 0) port = 18590;
 
     char body[512];
-    // IMPORTANT: keep this simple (no escaping). If you might have quotes in names,
-    // we can add a tiny JSON escaper later.
     int n = snprintf(body, sizeof(body),
         "{"
           "\"name\":\"%s\","
@@ -863,7 +987,10 @@ int nox_lobby_register_game(const char *name,
 
     if (n <= 0 || (size_t)n >= sizeof(body)) return -1;
 
-    return nox_http_post_json(host, hp, path, body);
+    NETLOG("compat_net: registering lobby game to %s:%u%s\n",
+           ep.host, (unsigned)ep.port, path);
+
+    return nox_http_post_json(ep.host, ep.port, path, body);
 }
 
 static int looks_like_json(const char *s)
@@ -877,15 +1004,42 @@ static int looks_like_json(const char *s)
 /* Convenience wrapper for your endpoint */
 int nox_fetch_games_list_json(char *out, size_t out_cap)
 {
-    int n = nox_http_get_body(nox_lobby_host(), nox_lobby_port(), nox_lobby_path(), out, out_cap);
-    if (n <= 0) return -1;
 
-    /* If it’s HTML (example.com) or anything else, treat as failure. */
-    if (!looks_like_json(out)) {
-        fprintf(stderr, "compat_net: lobby response not json (first bytes: %.16s)\n", out ? out : "");
-        return -1;
+    const char *p = nox_lobby_list();
+    nox_lobby_endpoint ep;
+
+    if (out && out_cap) out[0] = 0;
+
+    /* Clear previous success so we only remember a currently successful lobby. */
+    nox_clear_last_good_lobby();
+
+    while ((p = nox_next_lobby_endpoint(p, &ep)) != NULL) {
+        int n;
+
+        NETLOG("compat_net: trying lobby list %s:%u%s\n",
+               ep.host, (unsigned)ep.port, nox_lobby_path());
+
+        n = nox_http_get_body(ep.host, ep.port, nox_lobby_path(), out, out_cap);
+        if (n <= 0) {
+            NETLOG("compat_net: lobby list fetch failed for %s:%u\n",
+                   ep.host, (unsigned)ep.port);
+            continue;
+        }
+
+        if (!looks_like_json(out)) {
+            NETLOG("compat_net: lobby response not json from %s:%u (first bytes: %.16s)\n",
+                   ep.host, (unsigned)ep.port, out ? out : "");
+            continue;
+        }
+
+        nox_set_last_good_lobby(&ep);
+
+        NETLOG("compat_net: lobby list fetch ok from %s:%u\n",
+               ep.host, (unsigned)ep.port);
+        return n;
     }
-    return n;
+
+    return -1;
 }
 
 #include <stddef.h>
