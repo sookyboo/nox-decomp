@@ -4,11 +4,17 @@
 // and converting them into accurate nox_server_row entries, using the
 // 326 payload decode (G1P3) you pasted.
 //
-// list-only. No persistent connection. No JOIN/PART.
+// Refrence implementation https://github.com/opennox/xwis/blob/master/gameinfo.go
+//
 // No extra deps beyond sockets + SDL2 (for random nick).
 //
 // Exports (no header; netextras.c should declare extern):
 //   int nox_xwis_list_nox_games(nox_server_row *out, size_t out_cap, size_t *out_n);
+//
+// Host-side (added, minimal state; persistent connection; JOIN/PART/TOPIC):
+//   int  nox_xwis_host_update_game(const char *name, const char *map, const char *mode,
+//                                 unsigned cur, unsigned max, unsigned port);
+//   void nox_xwis_host_stop(void);
 //
 // Env:
 //   NOX_XWIS_HOST  (default "xwis.net")
@@ -44,6 +50,10 @@
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #include <windows.h>
+
+  #ifndef strcasecmp
+  #define strcasecmp _stricmp
+  #endif
 
   #ifndef SHUT_RDWR
   #define SHUT_RDWR SD_BOTH
@@ -711,4 +721,339 @@ fail:
     (void)xwis_send_linef(fd, tmp, sizeof(tmp), "QUIT");
     close(fd);
     return -1;
+}
+
+// ============================================================================
+// Host-side (persistent connection): JOINGAME + TOPIC + PART
+// ============================================================================
+
+static int g_xwis_host_fd = -1;
+static int g_xwis_host_logged_in = 0;
+static int g_xwis_host_joined = 0;
+static char g_xwis_host_nick[32];
+static char g_xwis_host_chan[64];
+
+static void xwis_host_reset_state(void)
+{
+    g_xwis_host_fd = -1;
+    g_xwis_host_logged_in = 0;
+    g_xwis_host_joined = 0;
+    g_xwis_host_nick[0] = 0;
+    g_xwis_host_chan[0] = 0;
+}
+
+static int xwis_host_handshake(int fd, const char *host, const char *nick)
+{
+    char tmp[512];
+
+    if (xwis_send_linef(fd, tmp, sizeof(tmp), "CVERS 11015 9472") < 0) return -1;
+    if (xwis_send_linef(fd, tmp, sizeof(tmp), "PASS supersecret") < 0) return -1;
+    if (xwis_send_linef(fd, tmp, sizeof(tmp), "NICK %s", nick) < 0) return -1;
+    if (xwis_send_linef(fd, tmp, sizeof(tmp), "apgar %s 0", nick) < 0) return -1;
+    if (xwis_send_linef(fd, tmp, sizeof(tmp), "USER UserName HostName %s :RealName", host) < 0) return -1;
+
+    if (xwis_read_until_numeric(fd, "376", 250) < 0) return -1;
+    return 0;
+}
+
+static int xwis_host_ensure_connected(void)
+{
+    if (g_xwis_host_fd >= 0 && g_xwis_host_logged_in) return 0;
+
+    const char *host = xwis_env_str("NOX_XWIS_HOST", "xwis.net");
+    int port = xwis_env_int("NOX_XWIS_PORT", 4000);
+    if (port <= 0 || port > 65535) port = 4000;
+
+    const char *nick_env = getenv("NOX_XWIS_NICK");
+    if (nick_env && *nick_env) {
+        snprintf(g_xwis_host_nick, sizeof(g_xwis_host_nick), "%s", nick_env);
+        g_xwis_host_nick[sizeof(g_xwis_host_nick) - 1] = 0;
+    } else {
+        xwis_make_random_nick(g_xwis_host_nick, sizeof(g_xwis_host_nick));
+    }
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", port);
+
+    int timeout_ms = xwis_env_int("NOX_LOBBY_CONNECT_TIMEOUT", 2000);
+    if (timeout_ms < 100) timeout_ms = 100;
+    if (timeout_ms > 60000) timeout_ms = 60000;
+
+    int fd = xwis_connect_tcp(host, port_str, timeout_ms);
+    if (fd < 0) return -1;
+
+    if (xwis_host_handshake(fd, host, g_xwis_host_nick) != 0) {
+        char tmp[256];
+        (void)xwis_send_linef(fd, tmp, sizeof(tmp), "QUIT");
+        close(fd);
+        return -1;
+    }
+
+    g_xwis_host_fd = fd;
+    g_xwis_host_logged_in = 1;
+    g_xwis_host_joined = 0;
+    g_xwis_host_chan[0] = 0;
+    return 0;
+}
+
+static int xwis_host_ensure_joined(unsigned max_players)
+{
+    if (g_xwis_host_fd < 0 || !g_xwis_host_logged_in) return -1;
+    if (g_xwis_host_joined && g_xwis_host_chan[0]) return 0;
+
+    // Channel name: #<nick>'s_game
+    snprintf(g_xwis_host_chan, sizeof(g_xwis_host_chan), "#%s's_game", g_xwis_host_nick);
+    g_xwis_host_chan[sizeof(g_xwis_host_chan) - 1] = 0;
+
+    char tmp[512];
+    if (max_players == 0) max_players = 31;
+    if (max_players > 31) max_players = 31;
+
+    // Match Go: JOINGAME <channel> 1 <maxPlayers> 37 3 1 1 13893824
+    if (xwis_send_linef(g_xwis_host_fd, tmp, sizeof(tmp),
+                        "JOINGAME %s 1 %u 37 3 1 1 13893824",
+                        g_xwis_host_chan, (unsigned)max_players) < 0) {
+        return -1;
+    }
+
+    // Wait for end-of-names (366) for the channel join to be "complete"
+    if (xwis_read_until_numeric(g_xwis_host_fd, "366", 200) < 0) {
+        return -1;
+    }
+
+    g_xwis_host_joined = 1;
+    return 0;
+}
+
+// --- payload encode/encrypt (ported from Go) ---
+
+static const unsigned char g_xwis_header8[8] = {':','G','1','P','3', 0x9a, 0x03, 0x01};
+
+static void xwis_encrypt_to(unsigned char *out, size_t out_cap, const unsigned char *data, size_t data_len)
+{
+    // Port of Go encryptTo(out, data):
+    // expects out points to destination buffer (len >= data_len, but algorithm writes bit-packed bytes)
+    int ind = 0;
+    size_t cnt = 0;
+    int loc = 0;
+    int loc2 = 0;
+    int acc = 0;
+
+    (void)cnt;
+
+    // The Go code loops i := 0; i <= len(data)-10; i++ { for j := 0; j <= 7; j++ { ... } }
+    // Note: it effectively reads from data[ind] while advancing loc/ind, and writes packed bytes to out[cnt].
+    // We'll mirror logic exactly.
+    ind = 0;
+    cnt = 0;
+    loc = 0;
+    loc2 = 0;
+    acc = 0;
+
+    if (!out || !data || data_len < 10) return;
+
+    for (size_t i = 0; i + 10 <= data_len; i++) {
+        for (int j = 0; j <= 7; j++) {
+            if (loc == 8) {
+                ind++;
+                loc = 0;
+            }
+            if (loc2 == 7) {
+                acc ^= 1 << 7;
+                if (cnt >= out_cap) return;   // prevent overflow
+                out[cnt] = (unsigned char)acc;
+                cnt++;
+                acc = 0;
+                loc2 = 0;
+            }
+            unsigned char v6 = 0;
+            if (ind < (int)data_len) v6 = data[ind];
+            int v5 = 1 << loc;
+            int v4 = ((int)v6) & v5;
+            int v3 = v4 >> loc;
+            acc ^= (v3 << loc2) & 0xFF;
+            loc++;
+            loc2++;
+        }
+    }
+}
+
+static uint16_t xwis_mode_to_maptype_bits(const char *mode)
+{
+    if (!mode || !*mode) return 0x0080; // chat default
+    // minimal, consistent with decode table / Go MapType
+    if (!strcasecmp(mode, "kotr")) return 0x0010;
+    if (!strcasecmp(mode, "ctf")) return 0x0020;
+    if (!strcasecmp(mode, "flagball")) return 0x0040;
+    if (!strcasecmp(mode, "chat")) return 0x0080;
+    if (!strcasecmp(mode, "arena")) return 0x0100;
+    if (!strcasecmp(mode, "elimination")) return 0x0400;
+    if (!strcasecmp(mode, "coop")) return 0x0A00;
+    if (!strcasecmp(mode, "quest")) return 0x1000;
+    return 0x0080;
+}
+
+static void xwis_fill_gameinfo(unsigned char *out69,
+                               const char *name,
+                               const char *map,
+                               const char *mode,
+                               unsigned cur,
+                               unsigned max)
+{
+    // Layout per Go MarshalBinary (base 69 bytes + optional Unknown; we use Unknown=9 but only encrypt base+unknown rules;
+    // For XWIS topic payload we only need the marshaled bytes; Go uses Unknown length 9.
+    // We'll write 69 bytes here, with Unknown handled separately by caller if desired.
+    memset(out69, 0, 69);
+
+    // byte 0: access/disallow. AccessOpen=0, disallow=0
+    out69[0] = 0;
+
+    // byte 1: unk1 = 0xff
+    out69[1] = 0xff;
+
+    // byte 2: resolution + limit flag (we keep 0)
+    out69[2] = 0;
+
+    // byte 3: players
+    out69[3] = (unsigned char)(cur & 0xFFu);
+
+    // byte 4: max players (Go clamps 32->31)
+    if (max == 32) max = 31;
+    if (max == 0) max = 31;
+    out69[4] = (unsigned char)(max & 0xFFu);
+
+    // byte 5-6: min ping (0xffff means -1)
+    out69[5] = 0xff;
+    out69[6] = 0xff;
+
+    // byte 7-8: max ping (0xffff means -1)
+    out69[7] = 0xff;
+    out69[8] = 0xff;
+
+    // byte 9-10: unk2 = 0x489e (LE)
+    out69[9]  = 0x9e;
+    out69[10] = 0x48;
+
+    // byte 11-19: map (9 bytes)
+    if (map && *map) {
+        size_t mlen = strlen(map);
+        if (mlen > 9) mlen = 9;
+        memcpy(&out69[11], map, mlen);
+    }
+
+    // byte 20-34: name (15 bytes)
+    if (name && *name) {
+        size_t nlen = strlen(name);
+        if (nlen > 15) nlen = 15;
+        memcpy(&out69[20], name, nlen);
+    }
+
+    // byte 35-62: unk3Data (28 bytes)
+    // from Go: mostly 0xff, with byte5 (index 5) = 0xef
+    for (int i = 0; i < 28; i++) out69[35 + i] = 0xff;
+    out69[35 + 5] = 0xef;
+
+    // byte 63-64: flags | maptype (LE). defaultFlags=8199 (0x2007)
+    {
+        uint16_t flags = 0x2007u;
+        uint16_t mt = xwis_mode_to_maptype_bits(mode);
+        flags = (uint16_t)(flags | mt);
+        out69[63] = (unsigned char)(flags & 0xFFu);
+        out69[64] = (unsigned char)((flags >> 8) & 0xFFu);
+    }
+
+    // byte 65-66 frag limit
+    out69[65] = 0;
+    out69[66] = 0;
+
+    // byte 67-68 time limit
+    out69[67] = 0;
+    out69[68] = 0;
+}
+
+static int xwis_send_topic_raw(int fd, const char *channel, const unsigned char *payload, size_t payload_len)
+{
+    if (fd < 0 || !channel || !*channel || !payload || payload_len == 0) return -1;
+
+    // Send: "TOPIC <channel> " + payload + "\r\n"
+    const char *prefix1 = "TOPIC ";
+    const char *sp = " ";
+
+    if (xwis_send_all(fd, prefix1, strlen(prefix1)) < 0) return -1;
+    if (xwis_send_all(fd, channel, strlen(channel)) < 0) return -1;
+    if (xwis_send_all(fd, sp, 1) < 0) return -1;
+    if (xwis_send_all(fd, (const void*)payload, payload_len) < 0) return -1;
+    if (xwis_send_all(fd, "\r\n", 2) < 0) return -1;
+    return 0;
+}
+
+int nox_xwis_host_update_game(const char *name,
+                             const char *map,
+                             const char *mode,
+                             unsigned cur,
+                             unsigned max,
+                             unsigned port)
+{
+    (void)port; // XWIS topic payload doesn’t carry port in the pasted Go code; keep signature for callers.
+
+    if (xwis_host_ensure_connected() != 0) {
+        nox_xwis_host_stop();
+        return -1;
+    }
+
+    if (xwis_host_ensure_joined(max) != 0) {
+        // Connection may be desynced; drop and let caller retry later.
+        nox_xwis_host_stop();
+        return -1;
+    }
+
+    // Build GameInfo bytes: 69 + Unknown(9)
+    unsigned char gdata[69 + 9];
+    memset(gdata, 0, sizeof(gdata));
+    xwis_fill_gameinfo(gdata, name ? name : "", map ? map : "", mode ? mode : "", cur, max);
+    // Unknown bytes (9) already zero.
+
+    // Encrypt (bit-pack) into payload tail. Go allocates headerLength+len(gdata), then encryptTo writes into tail.
+    unsigned char enc[sizeof(gdata)];
+    memset(enc, 0, sizeof(enc));
+    // encryptTo uses data_len >= 10; ours is 78 so OK
+    xwis_encrypt_to(enc, sizeof(enc), gdata, sizeof(gdata));
+
+    // Build full payload: "128:" + header8 + enc...
+    // This results in "128::G1P3..." because header8 begins with ':'
+    unsigned char payload[4 + 8 + sizeof(enc)];
+    size_t payload_len = 0;
+    payload[payload_len++] = '1';
+    payload[payload_len++] = '2';
+    payload[payload_len++] = '8';
+    payload[payload_len++] = ':';
+    memcpy(payload + payload_len, g_xwis_header8, sizeof(g_xwis_header8));
+    payload_len += sizeof(g_xwis_header8);
+    memcpy(payload + payload_len, enc, sizeof(enc));
+    payload_len += sizeof(enc);
+
+    if (xwis_send_topic_raw(g_xwis_host_fd, g_xwis_host_chan, payload, payload_len) != 0) {
+        nox_xwis_host_stop();
+        return -1;
+    }
+
+    return 0;
+}
+
+void nox_xwis_host_stop(void)
+{
+    if (g_xwis_host_fd < 0) {
+        xwis_host_reset_state();
+        return;
+    }
+
+    char tmp[256];
+
+    if (g_xwis_host_joined && g_xwis_host_chan[0]) {
+        (void)xwis_send_linef(g_xwis_host_fd, tmp, sizeof(tmp), "PART %s", g_xwis_host_chan);
+    }
+    (void)xwis_send_linef(g_xwis_host_fd, tmp, sizeof(tmp), "QUIT");
+    close(g_xwis_host_fd);
+
+    xwis_host_reset_state();
 }
