@@ -73,7 +73,6 @@ Thanks to szhublox for the following:
 - fixing summon counter for lich lord.
 - helping to track down a fix for playing dialog audio without conversion
 - removing 8-bit support and unlock surfaces from options menu to prevent issues
-- investigating xwis support
 - massive amounts of testing to get nox-decomp into a very well working and faithful to the original state!
 
 # Running the game
@@ -293,12 +292,6 @@ export NOX_UPNP_DEBUG=0
 export NOX_UPNP_PORT=18590
 export NOX_UPNP_PROTO=udp
 export NOX_UPNP_TIMEOUT_MS=2000
-
-# XWIS join support no ability to host yet
-#NOX_XWIS_HOST=xwis.net # default xwis.net
-#NOX_XWIS_PORT=4000 # default 4000
-#NOX_XWIS_NICK=probeXXXX # (optional; if empty -> random probeXXXX)
-#NOX_LOBBY_BACKEND=auto # auto|json|xwis (default auto - auto tries opennox lobby first and fallsback to xwis)
 ```
 
 # Control server and env vars

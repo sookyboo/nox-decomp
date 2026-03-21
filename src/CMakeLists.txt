@@ -147,7 +147,6 @@ add_executable (
     string.c
     win.c
     lobby.c
-    xwis.c
     upnp.c
     "${COMPAT_SOURCES}"
 )

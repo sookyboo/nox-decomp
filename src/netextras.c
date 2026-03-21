@@ -40,11 +40,6 @@
   #include <winsock2.h>
   #include <ws2tcpip.h>
   typedef int socklen_t;
-
-  // MinGW doesn't always provide strcasecmp
-  #ifndef strcasecmp
-  #define strcasecmp _stricmp
-  #endif
 #else
   #include <unistd.h>
   #include <sys/time.h>
@@ -98,9 +93,6 @@ extern int nox_fetch_games_list_json(char *out, size_t outsz);
 
 // Parse JSON into rows; returns number of rows filled.
 extern size_t nox_parse_games_list_json(const char *json, nox_server_row *out, size_t out_cap);
-
-// XWIS list (Design 1: list-only; implemented in xwis.c)
-extern int nox_xwis_list_nox_games(nox_server_row *out, size_t out_cap, size_t *out_n);
 
 // Env helpers
 extern int  nox_env_int(const char *name, int defval);
@@ -280,84 +272,25 @@ static void nox_refresh_server_cache_once(void)
         if (g_srv_cache_next_try != 0 && now < g_srv_cache_next_try) return;
     }
 
-    const char *backend = getenv("NOX_LOBBY_BACKEND"); // auto|json|xwis (default auto)
-
-    // Force XWIS if requested
-    if (backend && *backend && strcasecmp(backend, "xwis") == 0) {
-        size_t xn = 0;
-        int xrc = nox_xwis_list_nox_games(g_srv_cache, sizeof(g_srv_cache)/sizeof(g_srv_cache[0]), &xn);
-        if (xrc != 0) {
-            fprintf(stderr, "netextras: xwis LIST failed\n");
-            g_srv_cache_valid = 1;
-            g_srv_cache_next_try = now + 10;
-            return;
-        }
-        g_srv_cache_n = xn;
+    char json[64 * 1024];
+    int n = nox_fetch_games_list_json(json, sizeof(json));
+    if (n <= 0) {
+        fprintf(stderr, "netextras: fetch games/list failed\n");
+        // Keep any existing cache; just back off retries.
         g_srv_cache_valid = 1;
-        g_srv_cache_last_ok = now;
-        g_srv_cache_next_try = 0;
-        NETLOG("netextras: xwis parsed %zu servers\n", g_srv_cache_n);
+        g_srv_cache_next_try = now + 10;
         return;
     }
 
-    // JSON-only mode (no fallback)
-    if (backend && *backend && strcasecmp(backend, "json") == 0) {
-        char json[64 * 1024];
-        int n = nox_fetch_games_list_json(json, sizeof(json));
-        if (n <= 0) {
-            fprintf(stderr, "netextras: fetch games/list failed\n");
-            g_srv_cache_valid = 1;
-            g_srv_cache_next_try = now + 10;
-            return;
-        }
-        g_srv_cache_n = nox_parse_games_list_json(
-            json, g_srv_cache, sizeof(g_srv_cache) / sizeof(g_srv_cache[0])
-        );
-        g_srv_cache_valid = 1;
-        g_srv_cache_last_ok = now;
-        g_srv_cache_next_try = 0;
-        NETLOG("netextras: games/list parsed %zu servers\n", g_srv_cache_n);
-        return;
-    }
+    g_srv_cache_n = nox_parse_games_list_json(
+        json, g_srv_cache, sizeof(g_srv_cache) / sizeof(g_srv_cache[0])
+    );
 
-    // AUTO (default): JSON first, fallback to XWIS on JSON fetch failure only.
-    {
-        char json[64 * 1024];
-        int n = nox_fetch_games_list_json(json, sizeof(json));
-        if (n > 0) {
-            g_srv_cache_n = nox_parse_games_list_json(
-                json, g_srv_cache, sizeof(g_srv_cache) / sizeof(g_srv_cache[0])
-            );
+    g_srv_cache_valid = 1;
+    g_srv_cache_last_ok = now;
+    g_srv_cache_next_try = 0;
 
-            g_srv_cache_valid = 1;
-            g_srv_cache_last_ok = now;
-            g_srv_cache_next_try = 0;
-
-            NETLOG("netextras: games/list parsed %zu servers\n", g_srv_cache_n);
-            return;
-        }
-
-        // JSON fetch failed -> fallback to XWIS
-        {
-            size_t xn = 0;
-            int xrc = nox_xwis_list_nox_games(g_srv_cache, sizeof(g_srv_cache)/sizeof(g_srv_cache[0]), &xn);
-            if (xrc != 0) {
-                fprintf(stderr, "netextras: fetch games/list failed (json + xwis)\n");
-                g_srv_cache_valid = 1;
-                g_srv_cache_next_try = now + 10;
-                return;
-            }
-
-            g_srv_cache_n = xn;
-
-            g_srv_cache_valid = 1;
-            g_srv_cache_last_ok = now;
-            g_srv_cache_next_try = 0;
-
-            NETLOG("netextras: xwis parsed %zu servers\n", g_srv_cache_n);
-            return;
-        }
-    }
+    NETLOG("netextras: games/list parsed %zu servers\n", g_srv_cache_n);
 }
 
 // -----------------------------------------------------------------------------
