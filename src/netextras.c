@@ -54,11 +54,6 @@
   #include <netinet/in.h>
 #endif
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#endif
-
 #include "netextras_types.h"
 
 /* ---- IPv4-only inet_pton shim (avoids missing inet_pton link issues) ---- */
@@ -102,6 +97,11 @@ extern size_t nox_parse_games_list_json(const char *json, nox_server_row *out, s
 // XWIS list (Design 1: list-only; implemented in xwis.c)
 extern int nox_xwis_list_nox_games(nox_server_row *out, size_t out_cap, size_t *out_n);
 
+// XWIS host-side (persistent connection; JOIN/PART/TOPIC)
+extern int  nox_xwis_host_update_game(const char *name, const char *map, const char *mode,
+                                      unsigned cur, unsigned max, unsigned port);
+extern void nox_xwis_host_stop(void);
+
 // Env helpers
 extern int  nox_env_int(const char *name, int defval);
 extern int  nox_env_truthy(const char *s);
@@ -127,7 +127,7 @@ extern uint16_t nox_mode_to_flagbit(const char *mode);
 // UPnP optional
 extern int nox_upnp_ensure_mapped_from_env(void);
 
-// Lobby register API
+// Lobby register API (HTTP-style)
 extern int nox_lobby_register_game(const char *name, const char *map,
                                   unsigned cur, unsigned max, unsigned port);
 
@@ -215,6 +215,36 @@ static unsigned nox_server_port_override_or(unsigned defport)
         if (pv > 0 && pv < 65536) return (unsigned)pv;
     }
     return defport;
+}
+
+static int nox_host_backend_is_xwis(void)
+{
+    // none|http|xwis (default http-style behavior unless explicitly set to xwis)
+    const char *b = getenv("NOX_LOBBY_HOST_BACKEND");
+    return (b && *b && strcasecmp(b, "xwis") == 0);
+}
+
+// Best-effort: infer XWIS mode string from serverinfo flags.
+static const char *nox_mode_from_flags(uint16_t flags)
+{
+    uint16_t mt = 0;
+
+    if (NOX_MODE_MASK != 0) mt = (uint16_t)(flags & (uint16_t)NOX_MODE_MASK);
+    if (mt == 0) mt = (uint16_t)(flags & 0x1FF0u); // XWIS maptype bits fallback
+
+    switch (mt) {
+        case 0x0010: return "kotr";
+        case 0x0020: return "ctf";
+        case 0x0040: return "flagball";
+        case 0x0080: return "chat";
+        case 0x0100: return "arena";
+        case 0x0200: return "coop";
+        case 0x0400: return "elimination";
+        case 0x0800: return "coop";
+        case 0x0A00: return "coop";
+        case 0x1000: return "quest";
+        default: return "";
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -395,8 +425,6 @@ static void queue_internet_server_reply(int sockfd, const unsigned char *ping, s
             continue;
         }
 
-
-
         unsigned char *out = slot->data;
         memset(out, 0, sizeof(slot->data));
 
@@ -570,6 +598,9 @@ static long g_last_lobby_reg = 0;
 
 static SDL_atomic_t g_lobby_poll_started = {0};
 
+// Serialize host publishing calls (kickoff vs poll thread) when using XWIS backend.
+static SDL_mutex *g_host_pub_mu = NULL;
+
 static int lobby_register_thread_fn(void *arg)
 {
     reg_job_t *j = (reg_job_t *)arg;
@@ -658,6 +689,53 @@ static void maybe_register_lobby_from_serverinfo(int sockfd, const unsigned char
     }
 }
 
+static void maybe_publish_xwis_from_serverinfo(const unsigned char *pkt, size_t len)
+{
+    if (!nox_should_register_lobby()) return;
+    if (!pkt || len < 73) return;
+    if (pkt[2] != 0x0D) return;
+
+    if (!g_host_pub_mu) {
+        g_host_pub_mu = SDL_CreateMutex();
+        if (!g_host_pub_mu) return;
+    }
+
+    SDL_LockMutex(g_host_pub_mu);
+
+    // Cache serverinfo flags for later baseline use (also useful for injection)
+    if (len >= 30) {
+        uint16_t flags = (uint16_t)((unsigned)pkt[28] | ((unsigned)pkt[29] << 8));
+        nox_lobby_set_last_serverinfo_flags(flags);
+    }
+
+    unsigned cur = (unsigned)(uint8_t)pkt[3];
+    unsigned max = (unsigned)(uint8_t)pkt[4];
+    if (max == 0) max = 31;
+
+    char map[32];
+    char name[64];
+    memset(map, 0, sizeof(map));
+    memset(name, 0, sizeof(name));
+
+    strncpy(map,  (const char *)&pkt[10], sizeof(map)  - 1);
+    strncpy(name, (const char *)&pkt[72], sizeof(name) - 1);
+
+    uint16_t flags = (uint16_t)((unsigned)pkt[28] | ((unsigned)pkt[29] << 8));
+    const char *mode = nox_mode_from_flags(flags);
+
+    unsigned port = nox_server_port_override_or(18590);
+
+    int rc = nox_xwis_host_update_game(name, map, mode, cur, max, port);
+    if (rc != 0) {
+        fprintf(stderr, "netextras: xwis host update FAILED name='%s' map='%s'\n", name, map);
+    } else {
+        NETLOG("netextras: xwis host update OK name='%s' map='%s' mode='%s' %u/%u port=%u\n",
+               name, map, mode ? mode : "", cur, max, port);
+    }
+
+    SDL_UnlockMutex(g_host_pub_mu);
+}
+
 static int lobby_poll_thread_fn(void *arg)
 {
     (void)arg;
@@ -679,8 +757,13 @@ static int lobby_poll_thread_fn(void *arg)
 
         if (len > 0 && len >= 73 && buf[2] == 0x0D) {
             compat_hexdump("NET host serverinfo", buf, (size_t)len);
-            // Use the packet fields to register (rate-limited + async)
-            maybe_register_lobby_from_serverinfo(-1, buf, (size_t)len);
+
+            if (nox_host_backend_is_xwis()) {
+                maybe_publish_xwis_from_serverinfo(buf, (size_t)len);
+            } else {
+                // Use the packet fields to register (rate-limited + async)
+                maybe_register_lobby_from_serverinfo(-1, buf, (size_t)len);
+            }
         }
 
         SDL_Delay((Uint32)period * 1000u);
@@ -704,7 +787,7 @@ static void lobby_poll_thread_start_once(void)
     }
 }
 
-// Build one server-info immediately and attempt a single registration.
+// Build one server-info immediately and attempt a single registration/publish.
 static void lobby_kickoff_once(int sockfd)
 {
     (void)sockfd;
@@ -715,8 +798,27 @@ static void lobby_kickoff_once(int sockfd)
     int dummy[3] = {0,0,0};
     int len = sub_554040(dummy, (int)sizeof(buf), (char *)buf);
     if (len > 0 && len >= 73 && buf[2] == 0x0D) {
-        maybe_register_lobby_from_serverinfo(sockfd, buf, (size_t)len);
+        if (nox_host_backend_is_xwis()) {
+            maybe_publish_xwis_from_serverinfo(buf, (size_t)len);
+        } else {
+            maybe_register_lobby_from_serverinfo(sockfd, buf, (size_t)len);
+        }
     }
+}
+
+// Public API: best-effort stop of hosted listing (call from lobby/game exit hook - not found where to call this yet might not need it)
+void nox_netextras_on_host_game_stop(void)
+{
+    if (!nox_host_backend_is_xwis()) return;
+
+    if (!g_host_pub_mu) {
+        g_host_pub_mu = SDL_CreateMutex();
+        if (!g_host_pub_mu) return;
+    }
+
+    SDL_LockMutex(g_host_pub_mu);
+    nox_xwis_host_stop();
+    SDL_UnlockMutex(g_host_pub_mu);
 }
 
 // -----------------------------------------------------------------------------
@@ -732,6 +834,11 @@ void nox_netextras_on_host_bind_success(int sockfd, unsigned bound_port)
     // if (bound_port != 18590) return;
 
     NETLOG("netextras: host bind success fd=%d port=%u\n", sockfd, bound_port);
+
+    // If we're using XWIS host backend, stop any previous hosted listing before starting a new one.
+    if (nox_host_backend_is_xwis()) {
+        nox_netextras_on_host_game_stop();
+    }
 
     lobby_poll_thread_start_once();
     lobby_kickoff_once(sockfd);
@@ -752,4 +859,3 @@ int nox_netextras_fake_pending(int sockfd)
     SDL_UnlockMutex(g_fake_mu);
     return 0;
 }
-

@@ -1004,6 +1004,8 @@ uint16_t nox_mode_to_flagbit(const char *mode)
     if (!strcasecmp(mode, "quest"))       return NOX_GF_MODE_QUEST;
     if (!strcasecmp(mode, "coop"))        return NOX_GF_MODE_COOP;
     if (!strcasecmp(mode, "coopteam"))    return NOX_GF_MODE_COOPTEAM;
+//    Possibly this is correct according to xwis?
+//    if (!strcasecmp(mode, "coop"))        return (NOX_GF_MODE_COOPTEAM | NOX_GF_MODE_COOP); // 0x0A00
     return 0;
 }
 

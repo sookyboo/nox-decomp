@@ -299,6 +299,7 @@ export NOX_UPNP_TIMEOUT_MS=2000
 #NOX_XWIS_PORT=4000 # default 4000
 #NOX_XWIS_NICK=probeXXXX # (optional; if empty -> random probeXXXX)
 #NOX_LOBBY_BACKEND=auto # auto|json|xwis (default auto - auto tries opennox lobby first and fallsback to xwis)
+#NOX_LOBBY_HOST_BACKEND=http # http|xwis (default http)
 ```
 
 # Control server and env vars
