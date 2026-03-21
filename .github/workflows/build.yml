@@ -64,6 +64,20 @@ jobs:
           docker cp noxdecomp_tmp:/build/gl4es/lib/libGL.so.1 artifacts/gl4es.armhf/libGL.so.1
           docker cp noxdecomp_tmp:/opt/ffmpeg-armhf/lib/. artifacts/ffmpeg.armhf/
           docker rm -f noxdecomp_tmp
+          
+          # Remove pkgconfig and normalize ffmpeg .so names before upload
+          rm -rf artifacts/ffmpeg.armhf/pkgconfig
+
+          find artifacts/ffmpeg.armhf -maxdepth 1 -type l -delete
+
+          for f in artifacts/ffmpeg.armhf/*.so.*; do
+            [ -e "$f" ] || continue
+            base="$(basename "$f")"
+            short="$(printf '%s\n' "$base" | sed -E 's/^(.+\.so\.[0-9]+).*/\1/')"
+            if [ "$base" != "$short" ]; then
+              mv -f "$f" "artifacts/ffmpeg.armhf/$short"
+            fi
+          done
 
       - name: Upload ARM build artifacts
         uses: actions/upload-artifact@v7
