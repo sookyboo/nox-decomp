@@ -1,0 +1,11 @@
+name = "nox-lobby"
+main = "worker.js"
+compatibility_date = "2026-03-21"
+
+durable_objects.bindings = [
+    { name = "LOBBY_DO", class_name = "LobbyDO" }
+]
+
+migrations = [
+    { tag = "v1", new_classes = ["LobbyDO"] }
+]
