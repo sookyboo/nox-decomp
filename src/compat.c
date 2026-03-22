@@ -1793,11 +1793,7 @@ BOOL WINAPI SetCurrentDirectoryA(LPCSTR lpPathName)
 
 int _chmod(const char *filename, int mode)
 {
-    int result;
-    char *converted = dos_to_unix(filename);
-    result = chmod(converted, mode);
-    free(converted);
-    return result;
+    return 0;
 }
 
 int _access(const char *filename, int mode)
