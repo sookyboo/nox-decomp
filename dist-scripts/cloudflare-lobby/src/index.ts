@@ -621,6 +621,7 @@ export class LobbyDO {
     }
 
     async refreshAll() {
+        const MAX_AGE_MS = 90_000;
         log("refreshAll begin");
 
         // 1) internal registrations
@@ -629,9 +630,11 @@ export class LobbyDO {
         log("refreshAll storage.list prefix=game: count=", list.size);
 
         for (const [key, row] of list) {
-            log("refreshAll storage row", key, JSON.stringify(row));
-            if (!row?.addr || !row?.name) {
-                log("refreshAll skipping invalid internal row", key);
+            if (!row?.addr || !row?.name) continue;
+
+            const ts = typeof row._ts === "number" ? row._ts : 0;
+            if (!ts || Date.now() - ts > MAX_AGE_MS) {
+                await this.state.storage.delete(key);
                 continue;
             }
             internal.push({ ...row, _src: "internal" });
