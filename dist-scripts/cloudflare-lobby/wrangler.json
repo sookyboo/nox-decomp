@@ -1,0 +1,30 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "nox-decomp-lobby",
+    "main": "src/index.ts",
+    "compatibility_date": "2025-10-08",
+    "upload_source_maps": true,
+    "routes": [
+        {
+            "pattern": "noxdecomp.qzz.io",
+            "custom_domain": true
+        }
+    ],
+    "migrations": [
+        {
+            "new_sqlite_classes": ["LobbyDO"],
+            "tag": "v1"
+        }
+    ],
+    "durable_objects": {
+        "bindings": [
+            {
+                "class_name": "LobbyDO",
+                "name": "LOBBY_DO"
+            }
+        ]
+    },
+    "observability": {
+        "enabled": true
+    }
+}
