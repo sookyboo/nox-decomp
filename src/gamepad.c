@@ -43,6 +43,8 @@ static int g_gamepad_log_enabled(void);
 extern void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel);
 extern void nox_ctrl_inject_mouse_button(int button, int down);
 extern void nox_ctrl_inject_key_scancode(int sdl_scancode, int down);
+extern void nox_ctrl_set_thumbstick_move(int active, int orientation, int move_cmd);
+extern void nox_ctrl_set_thumbstick_jump(int jump);
 //extern void nox_ctrl_inject_text_utf8(const char *utf8);
 
 // --------------------------
@@ -92,6 +94,16 @@ static int nox_env_int_default(const char *name, int def_val)
     const char *s = getenv(name);
     if (!s || !*s) return def_val;
     return atoi(s);
+}
+
+static int nox_gamepad_abs_deadzone_pct(void)
+{
+    return nox_env_int_default("NOX_GAMEPAD_ABS_DEADZONE_PERCENT", 18);
+}
+
+static int nox_gamepad_abs_run_pct(void)
+{
+    return nox_env_int_default("NOX_GAMEPAD_ABS_RUN_PERCENT", 85);
 }
 
 // --------------------------
@@ -174,6 +186,7 @@ enum phys_input {
 enum action_type {
     ACT_NONE = 0,
     ACT_MOUSE_MOVEMENT,
+    ACT_MOUSE_ABSOLUTE,
     ACT_MOUSE_LEFT,
     ACT_MOUSE_RIGHT,
     ACT_MOUSE_MIDDLE,
@@ -505,6 +518,7 @@ static struct action action_from_value(const char *v)
     if (!v) return a;
 
     if (!strcmp(v, "mouse_movement")) { a.type = ACT_MOUSE_MOVEMENT; return a; }
+    if (!strcmp(v, "mouse_absolute")) { a.type = ACT_MOUSE_ABSOLUTE; return a; }
     if (!strcmp(v, "mouse_left"))     { a.type = ACT_MOUSE_LEFT; return a; }
     if (!strcmp(v, "mouse_right"))    { a.type = ACT_MOUSE_RIGHT; return a; }
     if (!strcmp(v, "mouse_middle"))   { a.type = ACT_MOUSE_MIDDLE; return a; }
@@ -815,6 +829,17 @@ static int mouse_slow_active(void)
     return 0;
 }
 
+static int mouse_right_active(void)
+{
+    for (int in = 0; in < IN__COUNT; ++in) {
+        if (!phys_is_down((enum phys_input)in)) continue;
+
+        struct action a = resolve_binding((enum phys_input)in);
+        if (a.type == ACT_MOUSE_RIGHT) return 1;
+    }
+    return 0;
+}
+
 static int nox_abs_i(int v)
 {
     return (v < 0) ? -v : v;
@@ -925,7 +950,8 @@ static void do_mouse_movement(Uint32 now_ms)
         }
     }
 
-    if (la_act.type == ACT_MOUSE_MOVEMENT) {
+    if (la_act.type == ACT_MOUSE_MOVEMENT ||
+        (la_act.type == ACT_MOUSE_ABSOLUTE && !mouse_right_active())) {
         int lx = apply_deadzone(g_cur.lx, g_cfg.deadzone_x);
         int ly = apply_deadzone(g_cur.ly, g_cfg.deadzone_y);
 
@@ -950,6 +976,64 @@ static void do_mouse_movement(Uint32 now_ms)
     }
 
     nox_ctrl_inject_mouse_move(dx, dy, 0);
+}
+
+static void update_left_analog_absolute(void)
+{
+    struct action la_act = resolve_binding(IN_LEFT_ANALOG);
+
+    if (la_act.type != ACT_MOUSE_ABSOLUTE) {
+        nox_ctrl_set_thumbstick_move(0, 0, 0);
+        return;
+    }
+
+    /* Only use direct thumbstick movement while RMB/run is held. */
+    if (!mouse_right_active()) {
+        nox_ctrl_set_thumbstick_move(0, 0, 0);
+        return;
+    }
+
+    {
+        int lx = g_cur.lx;
+        int ly = g_cur.ly;
+        double fx = (double)lx / 32767.0;
+        double fy = (double)ly / 32767.0;
+        double mag = sqrt(fx * fx + fy * fy);
+
+        int deadzone_pct = nox_gamepad_abs_deadzone_pct();
+        int run_pct = nox_gamepad_abs_run_pct();
+
+        double deadzone = (double)deadzone_pct / 100.0;
+        double run_th   = (double)run_pct / 100.0;
+
+        int move_cmd = 0;
+        int orientation;
+
+        if (deadzone < 0.0) deadzone = 0.0;
+        if (deadzone > 0.95) deadzone = 0.95;
+
+        if (run_th < deadzone) run_th = deadzone;
+        if (run_th > 1.0) run_th = 1.0;
+
+        /* Center deadzone: pressing run alone should not move. */
+        if (mag <= deadzone) {
+            nox_ctrl_set_thumbstick_move(0, 0, 0);
+            return;
+        }
+
+        {
+            double theta = atan2(-fy, -fx) / M_PI;
+            orientation = ((int)((theta + 1.0) * 128.0 + 0.5)) & 255;
+        }
+
+        /* Medium stick = walk, far stick = run */
+        if (mag >= run_th)
+            move_cmd = 3;
+        else
+            move_cmd = 1;
+
+        nox_ctrl_set_thumbstick_move(1, orientation, move_cmd);
+    }
 }
 
 // --------------------------
@@ -1410,12 +1494,30 @@ static int edge_up(int cur, int prev)   { return (!cur && prev); }
 static void exec_action_edge(struct action a, int down)
 {
     switch (a.type) {
-        case ACT_MOUSE_LEFT:   nox_ctrl_inject_mouse_button(0, down); break;
-        case ACT_MOUSE_RIGHT:  nox_ctrl_inject_mouse_button(1, down); break;
-        case ACT_MOUSE_MIDDLE: nox_ctrl_inject_mouse_button(2, down); break;
+        case ACT_MOUSE_LEFT:
+            nox_ctrl_inject_mouse_button(0, down);
+            break;
+
+        case ACT_MOUSE_RIGHT: {
+            struct action la_act = resolve_binding(IN_LEFT_ANALOG);
+
+            /* In absolute mode, RMB can still be "logically held" by the
+               gamepad layer system via mouse_right_active(), but we suppress
+               the real injected mouse click. In relative mode, keep normal RMB. */
+            if (la_act.type != ACT_MOUSE_ABSOLUTE) {
+                nox_ctrl_inject_mouse_button(1, down);
+            }
+            break;
+        }
+
+        case ACT_MOUSE_MIDDLE:
+            nox_ctrl_inject_mouse_button(2, down);
+            break;
+
         case ACT_KEY:
             nox_ctrl_inject_key_scancode(a.payload, down);
             break;
+
         default:
             break;
     }
@@ -1557,6 +1659,8 @@ void nox_gamepad_update(void)
             }
         }
     }
+
+    update_left_analog_absolute();
 
     // Mouse movement from left analog / dpad
     do_mouse_movement(now_ms);

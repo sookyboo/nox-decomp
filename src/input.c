@@ -65,6 +65,11 @@ static int g_limit_range_enabled_mouse = -1;
 static int g_limit_range_enabled_gamepad = -1;
 static int g_limit_range_radius  = -1;  // cached radius in game pixels
 
+static int g_thumbstick_move_active = 0;
+static int g_thumbstick_orientation = 0;
+static int g_thumbstick_move_cmd = 0;
+static int g_thumbstick_jump = 0;
+
 enum nox_limit_source
 {
     NOX_LIMIT_SRC_MOUSE = 0,
@@ -203,6 +208,22 @@ static void nox_escape_and_print_type(const char *s)
         fputc((int)*p, stderr);
     }
     fputs("\";\n", stderr);
+}
+
+void nox_ctrl_set_thumbstick_move(int active, int orientation, int move_cmd)
+{
+    g_thumbstick_move_active = active ? 1 : 0;
+    g_thumbstick_orientation = orientation & 255;
+
+    if (move_cmd != 1 && move_cmd != 3)
+        move_cmd = 0;
+
+    g_thumbstick_move_cmd = move_cmd;
+}
+
+void nox_ctrl_set_thumbstick_jump(int jump)
+{
+    if (jump) g_thumbstick_jump = 1;
 }
 
 void nox_ctrl_capture_event(const SDL_Event *ev)
@@ -1529,6 +1550,68 @@ int __cdecl sub_42D6B0(_DWORD *a3, int a4)
       }
     }
   }
+#if defined(USE_SDL) && !defined(__EMSCRIPTEN__)
+    if (g_thumbstick_move_active)
+    {
+        int *vp;
+        int screen_x, screen_y;
+        int world_x, world_y;
+        int radius;
+        double ang;
+        double dx, dy;
+
+        /* Keep the facing/orientation command, same as before. */
+        sub_42E670(1, g_thumbstick_orientation);
+
+        /* NEW: explicitly issue walk/run while thumbstick movement is active. */
+        if (g_thumbstick_move_cmd)
+            sub_42E670(2, g_thumbstick_move_cmd);
+
+        vp = (int *)sub_437250();
+
+        if (vp && (vp[2] - vp[0]) > 0 && (vp[3] - vp[1]) > 0)
+        {
+            screen_x = vp[0] + (vp[2] - vp[0]) / 2;
+            screen_y = vp[1] + (vp[3] - vp[1]) / 2;
+        }
+        else
+        {
+            int2 *gm = sub_4309F0();
+            screen_x = gm->field_0;
+            screen_y = gm->field_4;
+        }
+
+        ang = (((double)g_thumbstick_orientation / 128.0) - 1.0) * M_PI;
+
+        radius = (g_thumbstick_move_cmd == 3) ? 140 : 80;
+
+        dx = -cos(ang) * (double)radius;
+        dy = -sin(ang) * (double)radius;
+
+        screen_x += (int)lrint(dx);
+        screen_y += (int)lrint(dy);
+
+        {
+            int2 *gm = sub_4309F0();
+            if (gm) {
+                gm->field_0 = screen_x;
+                gm->field_4 = screen_y;
+            }
+        }
+
+        world_x = *(_DWORD *)&byte_5D4594[811084] + screen_x - *(_DWORD *)&byte_5D4594[811068];
+        world_y = *(_DWORD *)&byte_5D4594[811088] + screen_y - *(_DWORD *)&byte_5D4594[811072];
+
+        sub_43C8F0(31, world_x, world_y);
+
+        if (g_thumbstick_jump)
+        {
+            sub_42E670(7, 0);
+            g_thumbstick_jump = 0;
+        }
+    }
+  else
+#endif
 #ifdef __EMSCRIPTEN__
   if (!SDL_GetEventState(SDL_MOUSEBUTTONDOWN))
   {
