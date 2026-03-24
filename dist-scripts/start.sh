@@ -226,9 +226,7 @@ zenity_pulse() {
 # Game data extraction + dialog conversion (one-time)
 # ---------------------------
 : "${NOX_SKIP_EXTRACT:=0}"
-: "${NOX_SKIP_DIALOG_CONVERT:=1}"
 : "${NOX_FORCE_EXTRACT:=0}"
-: "${NOX_FORCE_DIALOG_CONVERT:=0}"
 
 NOX_GAME_DATA_BIN="${NOX_GAMEFILES_DIR}/app/gamedata.bin"
 NOX_INSTALLER_GLOB="${NOX_GAMEFILES_DIR}/setup_nox"*.exe
@@ -445,136 +443,11 @@ is_steam_deck() {
   return 1
 }
 
-convert_dialog() {
-  local marker_file="${NOX_ASSET_DIR}/converted_dialog.txt"
-  local dialog_dir="${NOX_ASSET_DIR}/Dialog"
-
-  # Skip unless missing marker (or forced)
-  if [[ "${NOX_FORCE_DIALOG_CONVERT}" == "0" && -f "${marker_file}" ]]; then
-    return 0
-  fi
-
-  # Skip on 32-bit systems (ffmpeg is 64-bit only)
-  if [[ "$(getconf LONG_BIT)" == "32" ]]; then
-    echo "32-bit system detected, skipping dialog audio conversion"
-    return 0
-  fi
-
-  # Only run if game data exists
-  if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
-    echo "Game data not present, skipping dialog conversion"
-    return 0
-  fi
-
-  if [[ ! -x "${PKG_FFMPEG_X64}" ]]; then
-    echo "WARN: ffmpeg not found/executable at ${PKG_FFMPEG_X64}; skipping dialog conversion" >&2
-    return 0
-  fi
-
-  if [[ ! -d "${dialog_dir}" ]]; then
-    echo "Dialog directory not found, skipping conversion"
-    return 0
-  fi
-
-  shopt -s nullglob nocaseglob
-  local wav_files=("${dialog_dir}"/*.wav)
-  local total="${#wav_files[@]}"
-  shopt -u nocaseglob
-
-  if [[ "${total}" -eq 0 ]]; then
-    echo "No dialog WAV files found, skipping conversion"
-    return 0
-  fi
-
-  echo "Converting dialog audio (${total} files)"
-
-  # --- Start pulsing dialog, but keep its text updated via a status file ---
-  local zpid=""
-  local zstatus=""
-  if [[ "${have_gui:-0}" == "1" ]]; then
-    zstatus="$(mktemp)"
-    printf 'Converting dialog audio… (0/%s)\n' "$total" >"$zstatus"
-
-    (
-      # Feed zenity: pulse + current status text
-      while :; do
-        echo "10"
-        echo "# $(cat "$zstatus" 2>/dev/null || echo "Converting dialog audio…")"
-        sleep 0.8
-      done
-    ) | zenity --progress \
-          --title="Nox-Decomp" \
-          --text="Converting dialog audio…" \
-          --pulsate \
-          --no-cancel \
-          --auto-close \
-          --width=520 \
-          >/dev/null 2>&1 &
-    zpid=$!
-  fi
-
-  local i=0
-  for wav in "${wav_files[@]}"; do
-    i=$((i + 1))
-    local base
-    base="$(basename "$wav")"
-
-    # (Optional) write a breadcrumb to your log
-    echo "Converting (${i}/${total}): ${base}"
-    if [[ -n "${zstatus:-}" ]]; then
-      printf 'Converting audio (%s/%s): %s\n' "$i" "$total" "$base" >"$zstatus" 2>/dev/null || true
-    fi
-
-    local tmp="${wav}.tmp"
-    if "${PKG_FFMPEG_X64}" -y \
-        -loglevel error \
-        -i "${wav}" \
-        -ac 1 \
-        -ar 22050 \
-        -c:a pcm_s16le \
-        -f wav \
-        "${tmp}"; then
-      mv "${tmp}" "${wav}"
-    else
-      if [[ -n "${zpid}" ]]; then
-        kill "${zpid}" >/dev/null 2>&1 || true
-        wait "${zpid}" 2>/dev/null || true
-      fi
-      [[ -n "${zstatus:-}" ]] && rm -f "$zstatus" 2>/dev/null || true
-      echo "ERROR converting ${base}" >&2
-      return 1
-    fi
-  done
-
-  if [[ -n "${zpid}" ]]; then
-    kill "${zpid}" >/dev/null 2>&1 || true
-    wait "${zpid}" 2>/dev/null || true
-  fi
-  [[ -n "${zstatus:-}" ]] && rm -f "$zstatus" 2>/dev/null || true
-
-  echo "Dialog audio converted to PCM on $(date)" > "${marker_file}"
-  echo "Dialog audio conversion complete"
-
-  # If we’re on Steam Deck + have zenity GUI, tell the user to restart into Gaming Mode and exit.
-  if [[ "${have_gui:-0}" == "1" ]] && is_steam_deck; then
-    zenity --info \
-      --title="Nox-Decomp" \
-      --width=520 \
-      --text=$'Dialog audio conversion finished.\n\nPlease restart the Steam Deck into Gaming Mode (Steam button → Power → Restart).\n\nAfter restarting, launch Nox-Decomp from Steam.' \
-      >/dev/null 2>&1 || true
-    exit 0
-  fi
-}
-
 if [[ "${NOX_SKIP_EXTRACT}" == "0" ]]; then
   install_game_data
 fi
 
 ensure_nox_cfg
-
-if [[ "${NOX_SKIP_DIALOG_CONVERT}" == "0" ]]; then
-  convert_dialog
-fi
 
 # Optional: force X11 (helps GLX visual issues on some setups)
 : "${NOX_FORCE_X11:=0}"

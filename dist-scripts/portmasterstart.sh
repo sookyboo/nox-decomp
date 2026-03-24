@@ -127,106 +127,10 @@ install() {
   fi
 }
 
-convert_dialog() {
-  MARKER_FILE="$ASSET_DIR/converted_dialog.txt"
-  DIALOG_DIR="$ASSET_DIR/Dialog"
-  FFMPEG_BIN="$UTILDIR/ffmpeg.${DEVICE_ARCH}"
-
-  # -------------------------------------------------
-  # Skip if already converted
-  # -------------------------------------------------
-  if [ -f "$MARKER_FILE" ]; then
-    return 0
-  fi
-
-  # -------------------------------------------------
-  # Skip on 32-bit systems (ffmpeg is 64-bit only)
-  # -------------------------------------------------
-  if [ "$(getconf LONG_BIT)" = "32" ]; then
-    pm_message "32-bit system detected, skipping dialog audio conversion"
-    return 0
-  fi
-
-  # -------------------------------------------------
-  # Only run if game data exists
-  # -------------------------------------------------
-  if [ ! -f "$NEEDED" ]; then
-    pm_message "Game data not present, skipping dialog conversion"
-    return 0
-  fi
-
-  # -------------------------------------------------
-  # Preconditions
-  # -------------------------------------------------
-  if [ ! -x "$FFMPEG_BIN" ]; then
-    pm_message "ERROR: ffmpeg not found at $FFMPEG_BIN"
-    return 1
-  fi
-
-  if [ ! -d "$DIALOG_DIR" ]; then
-    pm_message "ERROR: Dialog directory not found"
-    return 1
-  fi
-
-  # -------------------------------------------------
-  # Gather WAV files
-  # -------------------------------------------------
-  shopt -s nullglob nocaseglob
-  wav_files=("$DIALOG_DIR"/*.wav)
-  total="${#wav_files[@]}"
-
-  if [ "$total" -eq 0 ]; then
-    pm_message "No dialog WAV files found, skipping conversion"
-    return 0
-  fi
-
-  pm_message "Part 2 of 2 - Converting dialog audio ($total files)"
-  sleep 1
-
-  i=0
-  PortMasterDialog "progress" "message" "$i" "$total"
-
-  # -------------------------------------------------
-  # Convert with progress updates
-  # -------------------------------------------------
-  for wav in "${wav_files[@]}"; do
-    tmp="${wav}.tmp"
-
-    if "$FFMPEG_BIN" -y \
-        -loglevel error \
-        -i "$wav" \
-        -ac 1 \
-        -ar 22050 \
-        -c:a pcm_s16le \
-        -f wav \
-        "$tmp"; then
-      mv "$tmp" "$wav"
-    else
-      rm -f "$tmp"
-      PortMasterDialog "progress_clear"
-      pm_message "ERROR converting $(basename "$wav")"
-      return 1
-    fi
-
-    i=$((i + 1))
-    PortMasterDialog "progress" "Converting dialog audio" "$i" "$total"
-  done
-
-  # -------------------------------------------------
-  # Finish up
-  # -------------------------------------------------
-  PortMasterDialog "progress_clear"
-  echo "Dialog audio converted to PCM on $(date)" > "$MARKER_FILE"
-
-  pm_message "Dialog audio conversion complete"
-  sleep 1
-}
-
 # -------------------------------------------------
 # Install game data
 # -------------------------------------------------
 install
-#convert_dialog # game should not need conversion of audio files anymore
 
 # ---------------------------
 # Runtime environment
