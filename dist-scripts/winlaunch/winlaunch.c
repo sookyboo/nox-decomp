@@ -994,6 +994,7 @@ typedef struct AppState {
     wchar_t markerAbs[MAX_PATH * 4];
     wchar_t logAbs[MAX_PATH * 4];
     wchar_t templateCfgAbs[MAX_PATH * 4];
+    wchar_t gamepadIniAbs[MAX_PATH * 4];
 
     wchar_t srcDirAbs[MAX_PATH * 4];
     wchar_t neededAbs[MAX_PATH * 4];
@@ -2249,6 +2250,14 @@ static DWORD WINAPI worker_thread(LPVOID param) {
             if (save_and_set_env(&saved[sn], s->name, val)) sn++;
         }
     }
+    // Force gamepad config to the file next to the launcher exe
+    if (sn < saveCap) {
+        if (save_and_set_env(&saved[sn], L"NOX_GAMEPAD_INI", a->gamepadIniAbs)) {
+            sn++;
+        } else {
+            ui_log_line(L"WARNING: failed to set NOX_GAMEPAD_INI.");
+        }
+    }
 
     // Stop launcher logging before handing off (unchanged behavior)
     if (g_logFile != INVALID_HANDLE_VALUE) {
@@ -2600,6 +2609,8 @@ static void resolve_paths(AppState* a) {
     resolve_path(a->assetsDirAbs, ARRAYSIZE(a->assetsDirAbs), a->gamedir, a->cfg.assets_dir);
     resolve_path(a->dialogDirAbs, ARRAYSIZE(a->dialogDirAbs), a->gamedir, a->cfg.dialog_dir);
     resolve_path(a->markerAbs, ARRAYSIZE(a->markerAbs), a->gamedir, a->cfg.convert_marker);
+
+    path_join(a->gamepadIniAbs, ARRAYSIZE(a->gamepadIniAbs), a->gamedir, L"nox.gptk2.ini");
 
     // src dir = gamedir\gamefiles
     path_join(a->srcDirAbs, ARRAYSIZE(a->srcDirAbs), a->gamedir, L"gamefiles");
