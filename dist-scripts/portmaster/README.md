@@ -82,6 +82,7 @@ Extraction of the GOG installer will take around 10 minutes and conversion of th
 
 ## Tips
 -   It is worth watching the game story video introduction once in the main menu by pressing "Play Intro"
+-   You can change how the left analogue stick works by pressing **START** + **L1** for mouse mode or **START** + **R2** for absolute mode 
 -   Your device might be able to handle better graphics - when in the game go to main menu->options (**Select**) experiment with these:
   -   High Res Front Walls
   -   High Res Floors
@@ -242,22 +243,22 @@ This layer is intended to let you manage and cast spells quickly without reachin
 
 While holding **Start**, the face buttons and D-Pad control map functions and quick save/load:
 
-| Button (Start held) | Keyboard            | Action in Nox                   |
-|---------------------|---------------------|---------------------------------|
-| **D-Pad Left**      | `F4`                | Quick load                      |
-| **D-Pad Right**     | `F2`                | Quick save                      |
-| **X**               | `2`                 | Zoom **out** minimap            |
-| **A**               | `Tab`               | Toggle minimap                  |
-| **B**               | `1`                 | Zoom **in** minimap             |
-| **R2**              | `T`                 | Set Trap                        |
-| **L2**              | `Z`                 | Poison Potion                   |
-| **L1**              | `delete`            | Decrease gamma                  |
-| **R1**              | `insert`            | Increase gamma                  |
-| **Right Analog ↑**  | `F1`                | Open/close console              |
-| **Right Analog →**  | cycle cheats        | Cycle cheats in console         |
-| **Right Analog ←**  | cycle cheats        | Cycle cheats in console         |
-| **Right Analog ↓**  | apply active cheat  | Apply selected cheat in console |
-| **Y**               | cancel active cheat | cancel active cheat             |
+| Button (Start held) | Keyboard            | Action in Nox                                |
+|---------------------|---------------------|----------------------------------------------|
+| **D-Pad Left**      | `F4`                | Quick load                                   |
+| **D-Pad Right**     | `F2`                | Quick save                                   |
+| **X**               | `2`                 | Zoom **out** minimap                         |
+| **A**               | `Tab`               | Toggle minimap                               |
+| **B**               | `1`                 | Zoom **in** minimap                          |
+| **R2**              | `T`                 | Set Trap                                     |
+| **L2**              | `Z`                 | Poison Potion                                |
+| **L1**              | mouse mode          | Left Analogue Stick Mouse Mode               |
+| **R1**              | absolute mode       | Left Analogue Stick Mouse Mode Absolute Mode |
+| **Right Analog ↑**  | `F1`                | Open/close console                           |
+| **Right Analog →**  | cycle cheats        | Cycle cheats in console                      |
+| **Right Analog ←**  | cycle cheats        | Cycle cheats in console                      |
+| **Right Analog ↓**  | apply active cheat  | Apply selected cheat in console              |
+| **Y**               | cancel active cheat | cancel active cheat                          |
 
 This layer centralises all “meta” controls (saving, loading, console, and map) on the controller.
 

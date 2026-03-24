@@ -1,4 +1,5 @@
 ## Tips when playing with a gamepad, smallscreen or for the first time
+-   You can change how the left analogue stick works by pressing **START** + **L1** for mouse mode or **START** + **R2** for absolute mode
 -   It is worth watching the game story video introduction once in the main menu by pressing "Play Intro"
 -   Your device might be able to handle better graphics - when in the game go to main menu->options (**Select**) experiment with these:
   -   High Res Front Walls
