@@ -2473,15 +2473,27 @@ static void build_env_controls(HWND hwnd) {
 // WinProc
 // -------------------------
 static void start_pipeline(HWND hwnd) {
+    WorkerArgs* wa = (WorkerArgs*)malloc(sizeof(WorkerArgs));
+    if (!wa) {
+        ui_log_line(L"ERROR: failed to allocate worker args.");
+        ui_set_status(L"Ready");
+        return;
+    }
+
+    wa->hwnd = hwnd;
+
+    HANDLE th = CreateThread(NULL, 0, worker_thread, wa, 0, NULL);
+    if (!th) {
+        free(wa);
+        ui_log_line(L"ERROR: failed to create worker thread.");
+        ui_set_status(L"Ready");
+        return;
+    }
+    CloseHandle(th);
+
     EnableWindow(g_app.hBtnLaunch, FALSE);
     EnableWindow(g_app.hBtnSave, FALSE);
-//    EnableWindow(g_app.hBtnBrowse, FALSE);
-
     ui_set_status(L"Working...");
-    WorkerArgs* wa = (WorkerArgs*)malloc(sizeof(WorkerArgs));
-    if (!wa) return;
-    wa->hwnd = hwnd;
-    CreateThread(NULL, 0, worker_thread, wa, 0, NULL);
 }
 
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -2665,7 +2677,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow
     // Open log file (launcher writes until just before game launch)
     log_file_open_append(g_app.logAbs);
 
-    LoadLibraryW(L"Msftedit.dll");
+
 
     // Optional: if hide_when_ready and gamefiles exist, we can auto-launch (no UI) and exit on success.
     // But extraction/conversion may still be needed; only auto-launch when ready.
@@ -2686,6 +2698,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = cls;
     RegisterClassW(&wc);
+
+    LoadLibraryW(L"Msftedit.dll");
 
     HWND hwnd = CreateWindowExW(
         0, cls, L"Nox-Decomp Launcher",
