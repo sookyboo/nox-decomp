@@ -259,14 +259,13 @@ export NOX_BAD_SERVER_NAMES="Kor) Newbies,Kor] Newbies"
 # NOX_LIMIT_RANGE_ON_RUN - useful for gamepads and steam deck
 # limits the range of the mouse when running but only if starting close to center or passing through center
 export NOX_LIMIT_RANGE_ON_RUN_GAMEPAD=1
-export NOX_LIMIT_RANGE_ON_RUN_MOUSE=1
+export NOX_LIMIT_RANGE_ON_RUN_MOUSE=0
 # export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle
 
 # Disable built-in gamepad support to use gptokeyb2 (might change in future but known to be stable)
 export NOX_GAMEPAD=1
-#export NOX_GAMEPAD_EXIT=1
-#export NOX_GAMEPAD_INI="$GAMEDIR/$GPTK_CFG"
-export NOX_LIMIT_RANGE_ON_RUN_MOUSE=1
+export NOX_GAMEPAD_EXIT=1
+export NOX_GAMEPAD_INI="$GAMEDIR/$GPTK_CFG"
 export NOX_HIDE_MAIN_RES_UI=1
 
 # ------------------------------------------------------------
