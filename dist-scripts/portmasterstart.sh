@@ -132,6 +132,18 @@ install() {
 # -------------------------------------------------
 install
 
+export NOX_FORCE_INTRO_AT_START=1
+MOVIE_MARKER_FILE="$ASSET_DIR/played_intro.txt"
+
+# -------------------------------------------------
+# Skip movie if already played once
+# -------------------------------------------------
+if [ -f "$MOVIE_MARKER_FILE" ]; then
+  export NOX_FORCE_INTRO_AT_START=0
+else
+  echo "Intro played on $(date)" > "$MOVIE_MARKER_FILE"
+fi
+
 # ---------------------------
 # Runtime environment
 # ---------------------------

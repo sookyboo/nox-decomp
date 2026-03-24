@@ -992,6 +992,7 @@ typedef struct AppState {
     wchar_t assetsDirAbs[MAX_PATH * 4];
     wchar_t dialogDirAbs[MAX_PATH * 4];
     wchar_t markerAbs[MAX_PATH * 4];
+    wchar_t introMarkerAbs[MAX_PATH * 4];
     wchar_t logAbs[MAX_PATH * 4];
     wchar_t templateCfgAbs[MAX_PATH * 4];
     wchar_t gamepadIniAbs[MAX_PATH * 4];
@@ -1993,6 +1994,15 @@ static bool copy_template_if_missing(const wchar_t* templateCfgAbs, const wchar_
     return CopyFileW(templateCfgAbs, dstCfgAbs, FALSE) ? true : false;
 }
 
+static bool write_text_file_utf8(const wchar_t* path, const char* text) {
+    ensure_parent_dir(path);
+    FILE* f = _wfopen(path, L"wb");
+    if (!f) return false;
+    if (text && *text) fwrite(text, 1, strlen(text), f);
+    fclose(f);
+    return true;
+}
+
 static DWORD WINAPI worker_thread(LPVOID param) {
     WorkerArgs* wa = (WorkerArgs*)param;
     HWND hwnd = wa ? wa->hwnd : NULL;
@@ -2256,6 +2266,35 @@ static DWORD WINAPI worker_thread(LPVOID param) {
             sn++;
         } else {
             ui_log_line(L"WARNING: failed to set NOX_GAMEPAD_INI.");
+        }
+    }
+
+    // Force Intro after WWLogo only until we've marked it as already handled once.
+    {
+        bool introMarkerExists = file_exists(a->introMarkerAbs);
+        const wchar_t* introForceVal = introMarkerExists ? L"0" : L"1";
+
+        if (sn < saveCap) {
+            if (save_and_set_env(&saved[sn], L"NOX_FORCE_INTRO_AT_START", introForceVal)) {
+                sn++;
+
+                if (introMarkerExists) {
+                    ui_log_line(L"Intro marker exists; disabling NOX_FORCE_INTRO_AT_START.");
+                } else {
+                    ui_log_line(L"Intro marker missing; enabling NOX_FORCE_INTRO_AT_START.");
+
+                    // Same marker-file approach as dialog conversion:
+                    // once we decide to force the intro on this run, write the marker now
+                    // so future launches do not force it again.
+                    if (write_text_file_utf8(a->introMarkerAbs, "intro handled\n")) {
+                        ui_log_line(L"Wrote intro marker file.");
+                    } else {
+                        ui_log_line(L"WARNING: failed to write intro marker file.");
+                    }
+                }
+            } else {
+                ui_log_line(L"WARNING: failed to set NOX_FORCE_INTRO_AT_START.");
+            }
         }
     }
 
@@ -2621,6 +2660,7 @@ static void resolve_paths(AppState* a) {
     resolve_path(a->assetsDirAbs, ARRAYSIZE(a->assetsDirAbs), a->gamedir, a->cfg.assets_dir);
     resolve_path(a->dialogDirAbs, ARRAYSIZE(a->dialogDirAbs), a->gamedir, a->cfg.dialog_dir);
     resolve_path(a->markerAbs, ARRAYSIZE(a->markerAbs), a->gamedir, a->cfg.convert_marker);
+    path_join(a->introMarkerAbs, ARRAYSIZE(a->introMarkerAbs), a->assetsDirAbs, L"played_intro.txt");
 
     path_join(a->gamepadIniAbs, ARRAYSIZE(a->gamepadIniAbs), a->gamedir, L"nox.gptk2.ini");
 

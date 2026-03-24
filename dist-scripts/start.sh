@@ -447,6 +447,18 @@ if [[ "${NOX_SKIP_EXTRACT}" == "0" ]]; then
   install_game_data
 fi
 
+export NOX_FORCE_INTRO_AT_START=1
+MOVIE_MARKER_FILE="$NOX_ASSET_DIR/played_intro.txt"
+
+# -------------------------------------------------
+# Skip movie if already played once
+# -------------------------------------------------
+if [ -f "$MOVIE_MARKER_FILE" ]; then
+  export NOX_FORCE_INTRO_AT_START=0
+else
+  echo "Intro played on $(date)" > "$MOVIE_MARKER_FILE"
+fi
+
 ensure_nox_cfg
 
 # Optional: force X11 (helps GLX visual issues on some setups)

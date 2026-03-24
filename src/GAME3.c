@@ -6798,8 +6798,15 @@ int sub_4AB170()
   unsigned __int8 v0; // al
   int result; // eax
   char v2[128]; // [esp+0h] [ebp-80h]
+  const char *force_intro; // [esp+80h] [ebp+0h]
+  int force; // [esp+84h] [ebp+4h]
 
-  if ( (sub_578DF0() & 0x80u) != 0 || sub_40A5C0(0x2000000) || !sub_4CB230((const char *)&byte_587000[173276], v2) )
+  force_intro = getenv("NOX_FORCE_INTRO_AT_START");
+  force = nox_env_truthy(force_intro);
+
+  if ( ((!force) && ((sub_578DF0() & 0x80u) != 0))
+    || sub_40A5C0(0x2000000)
+    || !sub_4CB230((const char *)&byte_587000[173276], v2) )
   {
     sub_4AB0F0();
     result = 1;
