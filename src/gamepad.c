@@ -193,6 +193,7 @@ enum action_type {
     ACT_MOUSE_SLOW,
     ACT_KEY,          // payload: scancode
     ACT_HOLD_STATE,   // payload: group index
+    ACT_SET_STATE,
     ACT_PREV_WORD,
     ACT_NEXT_WORD,
     ACT_FINISH_TEXT,
@@ -239,6 +240,7 @@ static struct cfg g_cfg;
 // layers: [0] is base [controls]
 static struct layer g_layers[MAX_LAYERS];
 static int g_layer_count = 0;
+static int g_set_layer_idx = -1;
 // Which layer is currently being held by each physical input (or -1).
 static int g_hold_layer_for_in[IN__COUNT];
 
@@ -545,6 +547,22 @@ static struct action action_from_value(const char *v)
         return a;
     }
 
+    if (!strncmp(v, "set_state", 9)) {
+        const char *p = v + 9;
+        while (*p && (unsigned char)*p <= ' ') p++;
+        if (*p) {
+            char gname[MAX_GROUP_NAME];
+            strncpy(gname, p, sizeof(gname)-1);
+            gname[sizeof(gname)-1] = 0;
+            int gi = ensure_layer(gname);
+            if (gi >= 0) {
+                a.type = ACT_SET_STATE;
+                a.payload = gi;
+            }
+        }
+        return a;
+    }
+
     int sc = scancode_from_name(v);
     if (sc >= 0) {
         a.type = ACT_KEY;
@@ -569,10 +587,11 @@ static struct action resolve_binding(enum phys_input in)
 {
     struct action none = { ACT_NONE, 0 };
 
-    for (int start = g_active_count - 1; start >= 0; --start) {
+    /* First: held overlays only (skip base layer at slot 0). */
+    for (int start = g_active_count - 1; start >= 1; --start) {
         int slot = start;
 
-        while (slot >= 0) {
+        while (slot >= 1) {
             int li = g_active_stack[slot].layer_idx;
             if (li < 0 || li >= g_layer_count) break;
 
@@ -581,12 +600,28 @@ static struct action resolve_binding(enum phys_input in)
             if (a.type != ACT_NONE) return a;
 
             if (L->overlay == OVERLAY_CLEAR) {
-                // IMPORTANT: clear blocks everything below this active layer
                 return none;
             }
 
             slot = g_active_stack[slot].parent_slot;
+            if (slot == 0) break; /* do not consume base here */
         }
+    }
+
+    /* Second: persistent set_state layer. */
+    if (g_set_layer_idx >= 0 && g_set_layer_idx < g_layer_count) {
+        struct layer *L = &g_layers[g_set_layer_idx];
+        struct action a = L->binds[in];
+        if (a.type != ACT_NONE) return a;
+
+        if (L->overlay == OVERLAY_CLEAR)
+            return none;
+    }
+
+    /* Last: base [controls] layer. */
+    if (g_layer_count > 0) {
+        struct action a = g_layers[0].binds[in];
+        if (a.type != ACT_NONE) return a;
     }
 
     return none;
@@ -594,10 +629,11 @@ static struct action resolve_binding(enum phys_input in)
 
 static int resolve_wordset_idx(void)
 {
-    for (int start = g_active_count - 1; start >= 0; --start) {
+    /* First: held overlays only (skip base layer at slot 0). */
+    for (int start = g_active_count - 1; start >= 1; --start) {
         int slot = start;
 
-        while (slot >= 0) {
+        while (slot >= 1) {
             int li = g_active_stack[slot].layer_idx;
             if (li < 0 || li >= g_layer_count) break;
 
@@ -605,13 +641,25 @@ static int resolve_wordset_idx(void)
             if (L->wordset_idx >= 0) return L->wordset_idx;
 
             if (L->overlay == OVERLAY_CLEAR) {
-                // clear blocks everything below
                 return -1;
             }
 
             slot = g_active_stack[slot].parent_slot;
+            if (slot == 0) break; /* do not consume base here */
         }
     }
+
+    /* Second: persistent set_state layer. */
+    if (g_set_layer_idx >= 0 && g_set_layer_idx < g_layer_count) {
+        struct layer *L = &g_layers[g_set_layer_idx];
+        if (L->wordset_idx >= 0) return L->wordset_idx;
+        if (L->overlay == OVERLAY_CLEAR) return -1;
+    }
+
+    /* Last: base [controls] layer. */
+    if (g_layer_count > 0)
+        return g_layers[0].wordset_idx;
+
     return -1;
 }
 
@@ -1193,6 +1241,8 @@ static void reset_mappings(void)
 {
     free_wordsets();
 
+    g_set_layer_idx = -1;
+
     g_layer_count = 0;
     ensure_layer(""); // base layer
 
@@ -1379,6 +1429,7 @@ static void nox_gamepad_open_if_needed(void)
         g_active_stack[g_active_count].layer_idx = 0;
         g_active_stack[g_active_count].parent_slot = -1;
         g_active_count = 1;
+        g_set_layer_idx = -1;
 
         NOX_GAMEPAD_LOG("[pad] opened controller idx=%d id=%d\n", i, (int)g_joy_id);
         return;
@@ -1397,6 +1448,7 @@ void nox_gamepad_shutdown(void)
     free_wordsets();
     g_layer_count = 0;
     g_active_count = 0;
+    g_set_layer_idx = -1;
 
     /* also clear hysteresis so a later open starts clean */
     g_l2_state = 0;
@@ -1674,6 +1726,14 @@ void nox_gamepad_update(void)
         struct action a = resolve_binding(buttons[i].in);
 
         if (a.type == ACT_HOLD_STATE) continue;
+
+        if (a.type == ACT_SET_STATE) {
+            if (down_edge) {
+                g_set_layer_idx = a.payload;
+                NOX_GAMEPAD_LOG("[pad] set state '%s'\n", g_layers[a.payload].name);
+            }
+            continue;
+        }
 
         if (a.type == ACT_PREV_WORD || a.type == ACT_NEXT_WORD || a.type == ACT_FINISH_TEXT || a.type == ACT_CANCEL_TEXT) {
             if (down_edge) exec_action_press(a, now_ms);
