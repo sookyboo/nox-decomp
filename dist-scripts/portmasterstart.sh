@@ -263,8 +263,7 @@ export NOX_LIMIT_RANGE_ON_RUN_MOUSE=1
 # export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle
 
 # Disable built-in gamepad support to use gptokeyb2 (might change in future but known to be stable)
-export NOX_GAMEPAD=0
-#export NOX_GAMEPAD=1
+export NOX_GAMEPAD=1
 #export NOX_GAMEPAD_EXIT=1
 #export NOX_GAMEPAD_INI="$GAMEDIR/$GPTK_CFG"
 export NOX_LIMIT_RANGE_ON_RUN_MOUSE=1
@@ -396,7 +395,7 @@ export LD_LIBRARY_PATH="$GAMEDIR/ffmpeg.${RUN_ARCH}:$LD_LIBRARY_PATH"
 # Help debug OpenAL issues
 #export ALSOFT_LOGLEVEL=3
 
-$GPTOKEYB2 "$BINARY" -c "$GAMEDIR/$GPTK_CFG" >/dev/null &
+#$GPTOKEYB2 "$BINARY" -c "$GAMEDIR/$GPTK_CFG" >/dev/null &
 
 #Custom build of gptokeyb2
 #$ESUDO env LD_PRELOAD=$controlfolder/libinterpose.${DEVICE_ARCH}.so $GAMEDIR/gptokeyb2.${DEVICE_ARCH} $ESUDOKILL2 "$BINARY" -c "$GAMEDIR/$GPTK_CFG" >/dev/null &
