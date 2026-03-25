@@ -202,6 +202,7 @@ jobs:
 
           docker create --name noxdecomp_tmp-winx86 noxdecomp-build-winx86
           docker cp noxdecomp_tmp-winx86:/build/nox-decomp/build/src/noxd.win32 artifacts/noxd.win32
+          docker cp noxdecomp_tmp-winx86:/build/nox-decomp/build/src/launch-nox-decomp.exe artifacts/noxd.win32/launch-nox-decomp.exe
 
           if [ -f artifacts/noxd.win32/out.exe ]; then
             mv -f artifacts/noxd.win32/out.exe artifacts/noxd.win32/noxd.winx86.exe
