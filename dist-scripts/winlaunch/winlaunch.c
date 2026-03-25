@@ -7,15 +7,16 @@
 // - Launches noxd.*.exe with stdout/stderr redirected to log.txt, then exits (no tailing)
 //
 // Build (MSVC):
-//   cl /O2 /W4 /DUNICODE /D_UNICODE nox_launcher.c comdlg32.lib user32.lib gdi32.lib shell32.lib advapi32.lib
+//   cl /O2 /W4 /DUNICODE /D_UNICODE nox_launcher.c comdlg32.lib user32.lib gdi32.lib shell32.lib ole32.lib advapi32.lib
 //
 // Build (MinGW-w64):
-//   x86_64-w64-mingw32-gcc -O2 -municode nox_launcher.c -lcomdlg32 -lshell32 -ladvapi32 -lgdi32 -luser32
+//   x86_64-w64-mingw32-gcc -O2 -municode nox_launcher.c -lcomdlg32 -lshell32 -lole32 -ladvapi32 -lgdi32 -luser32
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -172,6 +173,59 @@ static void ensure_parent_dir(const wchar_t* filePath) {
     *cut = 0;                  // keep parent only
     if (*tmp) ensure_dir(tmp); // create parent chain
 }
+
+static bool get_drive_root_from_path(const wchar_t* path, wchar_t* out, size_t cap) {
+    if (!path || !*path || !out || cap < 4) return false;
+
+    // Drive path: C:\...
+    if (wcslen(path) >= 3 && path[1] == L':' && (path[2] == L'\\' || path[2] == L'/')) {
+        out[0] = path[0];
+        out[1] = L':';
+        out[2] = L'\\';
+        out[3] = 0;
+        return true;
+    }
+
+    // UNC path: \\server\share\...
+    if (wcslen(path) >= 2 && path[0] == L'\\' && path[1] == L'\\') {
+        const wchar_t* p = path + 2;
+        const wchar_t* s1 = wcschr(p, L'\\');
+        if (!s1) return false;
+        const wchar_t* s2 = wcschr(s1 + 1, L'\\');
+        if (!s2) s2 = path + wcslen(path);
+
+        size_t len = (size_t)(s2 - path);
+        if (len + 2 > cap) return false;
+
+        wcsncpy(out, path, len);
+        out[len] = L'\\';
+        out[len + 1] = 0;
+        return true;
+    }
+
+    return false;
+}
+
+static bool has_required_free_space(const wchar_t* pathOnTargetVolume,
+                                    ULONGLONG requiredBytes,
+                                    ULONGLONG* outFreeBytes) {
+    wchar_t root[MAX_PATH * 4];
+    ULARGE_INTEGER freeAvail, totalBytes, totalFree;
+
+    if (outFreeBytes) *outFreeBytes = 0;
+
+    if (!get_drive_root_from_path(pathOnTargetVolume, root, ARRAYSIZE(root))) {
+        return false;
+    }
+
+    if (!GetDiskFreeSpaceExW(root, &freeAvail, &totalBytes, &totalFree)) {
+        return false;
+    }
+
+    if (outFreeBytes) *outFreeBytes = freeAvail.QuadPart;
+    return freeAvail.QuadPart >= requiredBytes;
+}
+
 
 // -------------------------
 // Logging: UI ring buffer + file
@@ -602,7 +656,12 @@ static bool ini_set_env_value_preserve(IniDoc* doc, const wchar_t* key, const wc
 // -------------------------
 // Schema model: [ui.env]
 // -------------------------
-typedef enum VarType { VT_BOOL, VT_INT, VT_FLOAT, VT_STRING } VarType;
+typedef enum VarType {
+    VAR_BOOL,
+    VAR_INT,
+    VAR_FLOAT,
+    VAR_STRING
+} VarType;
 
 typedef struct VarSpec {
     wchar_t* name;   // env var name
@@ -814,10 +873,10 @@ static bool load_schema(const IniDoc* doc, VarList* outVars) {
                 if (kl) {
                     if (wcs_ieq(kl, L"type")) {
                         hasType = true;
-                        if (wcs_ieq(v, L"bool")) s.type = VT_BOOL;
-                        else if (wcs_ieq(v, L"int")) s.type = VT_INT;
-                        else if (wcs_ieq(v, L"float")) s.type = VT_FLOAT;
-                        else s.type = VT_STRING;
+                        if (wcs_ieq(v, L"bool")) s.type = VAR_BOOL;
+                        else if (wcs_ieq(v, L"int")) s.type = VAR_INT;
+                        else if (wcs_ieq(v, L"float")) s.type = VAR_FLOAT;
+                        else s.type = VAR_STRING;
                     } else if (wcs_ieq(kl, L"label")) {
                         free(s.label); s.label = wcsdup_heap(v);
                     } else if (wcs_ieq(kl, L"help")) {
@@ -863,9 +922,9 @@ static bool load_schema(const IniDoc* doc, VarList* outVars) {
         else if (s.defval) s.curval = wcsdup_heap(s.defval);
         else {
             // neutral default
-            if (s.type == VT_BOOL) s.curval = wcsdup_heap(s.false_val ? s.false_val : L"0");
-            else if (s.type == VT_INT) s.curval = wcsdup_heap(L"0");
-            else if (s.type == VT_FLOAT) s.curval = wcsdup_heap(L"0.0");
+            if (s.type == VAR_BOOL) s.curval = wcsdup_heap(s.false_val ? s.false_val : L"0");
+            else if (s.type == VAR_INT) s.curval = wcsdup_heap(L"0");
+            else if (s.type == VAR_FLOAT) s.curval = wcsdup_heap(L"0.0");
             else s.curval = wcsdup_heap(L"");
         }
 
@@ -969,6 +1028,9 @@ static void resolve_path(wchar_t* out, size_t cap, const wchar_t* gamedir, const
 #define IDC_STATUS     1004
 #define IDC_LOG        1005
 #define IDC_SCROLLPANE 1006
+#define IDC_SRC_GOG       2001
+#define IDC_SRC_INSTALLED 2002
+#define IDC_SRC_CANCEL    2003
 
 typedef struct AppState {
     HINSTANCE hInst;
@@ -982,8 +1044,12 @@ typedef struct AppState {
     HWND hScrollPane; // container with WS_VSCROLL
     HWND hLogEdit;
 
+    wchar_t launcherDir[MAX_PATH * 4];
     wchar_t gamedir[MAX_PATH * 4];
     wchar_t iniPath[MAX_PATH * 4];
+
+    wchar_t chosenInstallerAbs[MAX_PATH * 4];  // setup file picked for this run only
+    wchar_t chosenInstallAppAbs[MAX_PATH * 4]; // installed game app dir picked for this run only
 
     IniDoc ini;
     VarList vars;
@@ -1010,6 +1076,37 @@ typedef struct AppState {
 } AppState;
 
 static AppState g_app = {0};
+
+static bool ensure_required_free_space_for_install(HWND hwnd, const AppState* a) {
+    const ULONGLONG required = 700ULL * 1024ULL * 1024ULL;
+    ULONGLONG freeBytes = 0;
+    bool installWillHappen = false;
+
+    if (a->chosenInstallerAbs[0]) installWillHappen = true;
+    if (a->chosenInstallAppAbs[0]) installWillHappen = true;
+
+    if (!installWillHappen) {
+        return true;
+    }
+
+    if (has_required_free_space(a->launcherDir, required, &freeBytes)) {
+        return true;
+    }
+
+    wchar_t msg[512];
+    _snwprintf(
+        msg, ARRAYSIZE(msg),
+        L"Not enough free disk space on the launcher drive.\n\n"
+        L"Required: 700 MB\n"
+        L"Available: %llu MB\n\n"
+        L"Please free some space and try again.",
+        (unsigned long long)(freeBytes / (1024ULL * 1024ULL))
+    );
+    msg[ARRAYSIZE(msg) - 1] = 0;
+
+    MessageBoxW(hwnd, msg, L"Nox Launcher", MB_ICONERROR);
+    return false;
+}
 
 static void ui_set_status(const wchar_t* s) {
     if (g_app.hStatus) SetWindowTextW(g_app.hStatus, s ? s : L"");
@@ -1207,6 +1304,290 @@ static bool pick_installer(HWND hwnd, wchar_t* outPath, size_t cap) {
     wcsncpy(outPath, buf, cap-1);
     outPath[cap-1]=0;
     return true;
+}
+
+static bool pick_folder(HWND hwnd, wchar_t* outPath, size_t cap, const wchar_t* title) {
+    BROWSEINFOW bi;
+    ZeroMemory(&bi, sizeof(bi));
+    bi.hwndOwner = hwnd;
+    bi.lpszTitle = title;
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE | BIF_USENEWUI;
+
+    PIDLIST_ABSOLUTE pidl = SHBrowseForFolderW(&bi);
+    if (!pidl) return false;
+
+    bool ok = false;
+    wchar_t buf[MAX_PATH * 4] = {0};
+    if (SHGetPathFromIDListW(pidl, buf)) {
+        wcsncpy(outPath, buf, cap - 1);
+        outPath[cap - 1] = 0;
+        ok = true;
+    }
+
+    CoTaskMemFree(pidl);
+    return ok;
+}
+
+static bool path_is_dot_or_dotdot(const wchar_t* name) {
+    return wcs_ieq(name, L".") || wcs_ieq(name, L"..");
+}
+
+static bool copy_file_simple(const wchar_t* src, const wchar_t* dst) {
+    ensure_parent_dir(dst);
+    return CopyFileW(src, dst, FALSE) ? true : false;
+}
+
+static bool copy_tree_recursive(const wchar_t* srcDir, const wchar_t* dstDir) {
+    WIN32_FIND_DATAW fd;
+    wchar_t pattern[MAX_PATH * 4];
+    path_join(pattern, ARRAYSIZE(pattern), srcDir, L"*");
+
+    HANDLE h = FindFirstFileW(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return false;
+
+    ensure_dir(dstDir);
+
+    bool ok = true;
+    do {
+        if (path_is_dot_or_dotdot(fd.cFileName)) continue;
+
+        wchar_t srcPath[MAX_PATH * 4];
+        wchar_t dstPath[MAX_PATH * 4];
+        path_join(srcPath, ARRAYSIZE(srcPath), srcDir, fd.cFileName);
+        path_join(dstPath, ARRAYSIZE(dstPath), dstDir, fd.cFileName);
+
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            if (!copy_tree_recursive(srcPath, dstPath)) {
+                ok = false;
+                break;
+            }
+        } else {
+            if (!copy_file_simple(srcPath, dstPath)) {
+                ok = false;
+                break;
+            }
+        }
+    } while (FindNextFileW(h, &fd));
+
+    FindClose(h);
+    return ok;
+}
+
+static bool resolve_install_app_dir_from_pick(const wchar_t* pickedDir, wchar_t* outAppDir, size_t cap) {
+    wchar_t p[MAX_PATH * 4];
+
+    // case 1: user picked the app dir directly
+    path_join(p, ARRAYSIZE(p), pickedDir, L"gamedata.bin");
+    if (file_exists(p)) {
+        wcsncpy(outAppDir, pickedDir, cap - 1);
+        outAppDir[cap - 1] = 0;
+        return true;
+    }
+
+    // case 2: user picked game root containing gamefiles/app
+    path_join(p, ARRAYSIZE(p), pickedDir, L"gamefiles\\app\\gamedata.bin");
+    if (file_exists(p)) {
+        path_join(outAppDir, cap, pickedDir, L"gamefiles\\app");
+        return true;
+    }
+
+    return false;
+}
+
+static bool copy_installed_files_into_local_app(const wchar_t* srcAppDir, const wchar_t* dstAppDir) {
+    wchar_t srcGameData[MAX_PATH * 4];
+    path_join(srcGameData, ARRAYSIZE(srcGameData), srcAppDir, L"gamedata.bin");
+    if (!file_exists(srcGameData)) return false;
+
+    ensure_dir(dstAppDir);
+    return copy_tree_recursive(srcAppDir, dstAppDir);
+}
+
+typedef struct SourceChoiceState {
+    int result;
+} SourceChoiceState;
+
+static LRESULT CALLBACK SourceChoiceWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    SourceChoiceState* st = (SourceChoiceState*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+
+    switch (msg) {
+        case WM_CREATE: {
+            CREATESTRUCTW* cs = (CREATESTRUCTW*)lParam;
+            st = (SourceChoiceState*)cs->lpCreateParams;
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)st);
+
+            HFONT hf = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+
+            HWND hText = CreateWindowExW(
+                0, L"STATIC",
+                L"Game data was not found in gamefiles\\app.\n\nChoose how to provide it:\n- GOG setup: extracts files into this launcher folder and uses about 700 MB of disk space.\n- Installed files: copies files from an existing Nox installation including save files into this launcher folder and also uses about 700 MB of disk space.",
+                WS_CHILD | WS_VISIBLE,
+                16, 16, 430, 110,
+                hwnd, NULL, g_app.hInst, NULL
+            );
+            SendMessageW(hText, WM_SETFONT, (WPARAM)hf, TRUE);
+
+            HWND hInstalled = CreateWindowExW(
+                0, L"BUTTON", L"Installed files",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
+                16, 150, 140, 30,
+                hwnd, (HMENU)(INT_PTR)IDC_SRC_INSTALLED, g_app.hInst, NULL
+            );
+            SendMessageW(hInstalled, WM_SETFONT, (WPARAM)hf, TRUE);
+
+            HWND hGog = CreateWindowExW(
+                0, L"BUTTON", L"GOG setup",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
+                168, 150, 140, 30,
+                hwnd, (HMENU)(INT_PTR)IDC_SRC_GOG, g_app.hInst, NULL
+            );
+            SendMessageW(hGog, WM_SETFONT, (WPARAM)hf, TRUE);
+
+            HWND hCancel = CreateWindowExW(
+                0, L"BUTTON", L"Cancel",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
+                320, 150, 80, 30,
+                hwnd, (HMENU)(INT_PTR)IDC_SRC_CANCEL, g_app.hInst, NULL
+            );
+            SendMessageW(hCancel, WM_SETFONT, (WPARAM)hf, TRUE);
+
+            SetFocus(hInstalled);
+            return 0;
+        }
+
+        case WM_COMMAND: {
+            int id = LOWORD(wParam);
+            if (!st) return 0;
+
+            if (id == IDC_SRC_INSTALLED) {
+                st->result = IDC_SRC_INSTALLED;
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            if (id == IDC_SRC_GOG) {
+                st->result = IDC_SRC_GOG;
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            if (id == IDC_SRC_CANCEL) {
+                st->result = IDCANCEL;
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            return 0;
+        }
+
+        case WM_CLOSE:
+            if (st) st->result = IDCANCEL;
+            DestroyWindow(hwnd);
+            return 0;
+    }
+
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+static int choose_source_dialog(HWND parent) {
+    const wchar_t* cls = L"NoxSourceChoiceWnd";
+    static bool registered = false;
+
+    if (!registered) {
+        WNDCLASSW wc;
+        ZeroMemory(&wc, sizeof(wc));
+        wc.lpfnWndProc = SourceChoiceWndProc;
+        wc.hInstance = g_app.hInst;
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+        wc.lpszClassName = cls;
+        if (!RegisterClassW(&wc)) return IDCANCEL;
+        registered = true;
+    }
+
+    SourceChoiceState st;
+    st.result = IDCANCEL;
+
+    HWND hwnd = CreateWindowExW(
+        WS_EX_DLGMODALFRAME,
+        cls,
+        L"Nox Launcher",
+        WS_CAPTION | WS_SYSMENU | WS_POPUP,
+        CW_USEDEFAULT, CW_USEDEFAULT, 470, 230,
+        parent, NULL, g_app.hInst, &st
+    );
+    if (!hwnd) return IDCANCEL;
+
+    EnableWindow(parent, FALSE);
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
+
+    MSG msg;
+    while (IsWindow(hwnd) && GetMessageW(&msg, NULL, 0, 0) > 0) {
+        if (!IsDialogMessageW(hwnd, &msg)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+
+    EnableWindow(parent, TRUE);
+    SetActiveWindow(parent);
+    return st.result;
+}
+
+static void resolve_paths(AppState* a);
+
+static bool choose_game_source_and_target(HWND hwnd, AppState* a) {
+    // Launcher always runs from its own local files.
+    wcsncpy(a->gamedir, a->launcherDir, ARRAYSIZE(a->gamedir) - 1);
+    a->gamedir[ARRAYSIZE(a->gamedir) - 1] = 0;
+
+    a->chosenInstallerAbs[0] = 0;
+    a->chosenInstallAppAbs[0] = 0;
+
+    // If local game data already exists, nothing to ask.
+    resolve_paths(a);
+    if (file_exists(a->neededAbs)) {
+        return true;
+    }
+
+    int r = choose_source_dialog(hwnd);
+    if (r == IDCANCEL) return false;
+
+    if (r == IDC_SRC_GOG) {
+        wchar_t installer[MAX_PATH * 4] = {0};
+        if (!pick_installer(hwnd, installer, ARRAYSIZE(installer))) {
+            return false;
+        }
+
+        wcsncpy(a->chosenInstallerAbs, installer, ARRAYSIZE(a->chosenInstallerAbs) - 1);
+        a->chosenInstallerAbs[ARRAYSIZE(a->chosenInstallerAbs) - 1] = 0;
+        return true;
+    }
+
+    if (r == IDC_SRC_INSTALLED) {
+        wchar_t pickedDir[MAX_PATH * 4] = {0};
+        wchar_t appDir[MAX_PATH * 4] = {0};
+
+        if (!pick_folder(hwnd, pickedDir, ARRAYSIZE(pickedDir),
+                         L"Select the installed Nox folder or its gamefiles\\app folder")) {
+            return false;
+        }
+
+        if (!resolve_install_app_dir_from_pick(pickedDir, appDir, ARRAYSIZE(appDir))) {
+            MessageBoxW(
+                hwnd,
+                L"The selected location does not contain a valid gamedata.bin.\n"
+                L"Please choose either the installed game root or its gamefiles\\app folder.",
+                L"Nox Launcher",
+                MB_ICONERROR
+            );
+            return false;
+        }
+
+        wcsncpy(a->chosenInstallAppAbs, appDir, ARRAYSIZE(a->chosenInstallAppAbs) - 1);
+        a->chosenInstallAppAbs[ARRAYSIZE(a->chosenInstallAppAbs) - 1] = 0;
+        return true;
+    }
+
+    return false;
 }
 
 // -------------------------
@@ -1716,7 +2097,7 @@ static wchar_t* build_env_block_with_overrides(const IniDoc* doc, const VarList*
 static void var_update_from_ctrl(VarSpec* s) {
     if (!s || !s->hCtrl) return;
 
-    if (s->type == VT_BOOL) {
+    if (s->type == VAR_BOOL) {
         LRESULT checked = SendMessageW(s->hCtrl, BM_GETCHECK, 0, 0);
         const wchar_t* v = (checked == BST_CHECKED) ? (s->true_val ? s->true_val : L"1")
                                                     : (s->false_val ? s->false_val : L"0");
@@ -1735,7 +2116,7 @@ static void var_update_from_ctrl(VarSpec* s) {
     bool ok = true;
     wchar_t outVal[256] = {0};
 
-    if (s->type == VT_INT) {
+    if (s->type == VAR_INT) {
         int iv;
         if (!parse_int32(buf, &iv)) ok = false;
         if (ok) {
@@ -1746,7 +2127,7 @@ static void var_update_from_ctrl(VarSpec* s) {
             int clamped = (int)dv;
             _snwprintf(outVal, ARRAYSIZE(outVal), L"%d", clamped);
         }
-    } else if (s->type == VT_FLOAT) {
+    } else if (s->type == VAR_FLOAT) {
         double fv;
         if (!parse_double(buf, &fv)) ok = false;
         if (ok) {
@@ -1765,9 +2146,9 @@ static void var_update_from_ctrl(VarSpec* s) {
     if (!ok) {
         // revert to default (schema default if present else neutral)
         const wchar_t* def = s->defval ? s->defval : L"";
-        if (s->type == VT_INT && (!def || !*def)) def = L"0";
-        if (s->type == VT_FLOAT && (!def || !*def)) def = L"0.0";
-        if (s->type == VT_STRING && !def) def = L"";
+        if (s->type == VAR_INT && (!def || !*def)) def = L"0";
+        if (s->type == VAR_FLOAT && (!def || !*def)) def = L"0.0";
+        if (s->type == VAR_STRING && !def) def = L"";
         wcsncpy(outVal, def, ARRAYSIZE(outVal)-1);
         outVal[ARRAYSIZE(outVal)-1]=0;
     }
@@ -2036,48 +2417,74 @@ static DWORD WINAPI worker_thread(LPVOID param) {
 
     // 4) If gamedata missing -> extract
     if (!file_exists(a->neededAbs)) {
-        ui_set_status(L"Extraction required...");
+        ui_set_status(L"Preparing game data...");
         ui_log_line(L"Game data missing (gamedata.bin).");
+        ui_log_line(L"Please supply either a GOG setup or Installed files.");
 
-        wchar_t installer[MAX_PATH * 4] = {0};
-        if (!find_installer(a->srcDirAbs, installer, ARRAYSIZE(installer))) {
-            ui_log_line(L"No installer found in gamefiles (setup_nox*.exe).");
-            if (!pick_installer(hwnd, installer, ARRAYSIZE(installer))) {
-                ui_log_line(L"Installer selection cancelled.");
+        if (a->chosenInstallAppAbs[0]) {
+            ui_log_line(L"Copying files from installed game directory...");
+
+            if (!copy_installed_files_into_local_app(a->chosenInstallAppAbs, a->assetsDirAbs)) {
+                ui_log_line(L"ERROR: failed to copy files from installed game directory.");
                 PostMessageW(hwnd, WM_APP_DONE, 0, 0);
                 return 0;
             }
-        }
-        ui_log_line(L"Running innoextract...");
 
-        if (!file_exists(a->innoextractAbs)) {
-            ui_log_line(L"ERROR: innoextract missing.");
-            PostMessageW(hwnd, WM_APP_DONE, 0, 0);
-            return 0;
-        }
+            if (!file_exists(a->neededAbs)) {
+                ui_log_line(L"ERROR: copied files but gamedata.bin is still missing.");
+                PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+                return 0;
+            }
 
-        // Run: innoextract "<installer>" -d "<srcdir>"
-        wchar_t args[8192];
-        _snwprintf(args, ARRAYSIZE(args), L"\"%s\" -d \"%s\"", installer, a->srcDirAbs);
-        args[ARRAYSIZE(args)-1]=0;
+            ui_log_line(L"Installed files copied successfully.");
+        } else {
+            wchar_t installer[MAX_PATH * 4] = {0};
 
-        ui_set_status(L"Extracting...");
-        ProcRunResult r = run_process_capture(a->innoextractAbs, args, a->srcDirAbs);
-        if (!r.started || r.exit_code != 0 || !file_exists(a->neededAbs)) {
-            ui_log_line(L"ERROR: innoextract failed or gamedata.bin still missing.");
-            PostMessageW(hwnd, WM_APP_DONE, 0, 0);
-            return 0;
-        }
+            if (a->chosenInstallerAbs[0]) {
+                wcsncpy(installer, a->chosenInstallerAbs, ARRAYSIZE(installer) - 1);
+                installer[ARRAYSIZE(installer) - 1] = 0;
+                ui_log_line(L"Using GOG setup selected by the user.");
+            } else if (find_installer(a->srcDirAbs, installer, ARRAYSIZE(installer))) {
+                ui_log_line(L"Found GOG setup in gamefiles.");
+            } else {
+                ui_log_line(L"No GOG setup available.");
+                ui_log_line(L"Please supply either a GOG setup or Installed files.");
+                PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+                return 0;
+            }
 
-        a->extraction_succeeded_this_run = true;
-        ui_log_line(L"innoextract succeeded.");
+            ui_log_line(L"Running innoextract...");
 
-        // Delete gamefiles/app/nox.cfg ONLY after successful extraction
-        wchar_t appCfg[MAX_PATH * 4];
-        path_join(appCfg, ARRAYSIZE(appCfg), a->assetsDirAbs, L"nox.cfg");
-        if (file_exists(appCfg)) {
-            if (DeleteFileW(appCfg)) ui_log_line(L"Deleted gamefiles/app/nox.cfg after extraction.");
-            else ui_log_line(L"WARNING: failed to delete gamefiles/app/nox.cfg.");
+            if (!file_exists(a->innoextractAbs)) {
+                ui_log_line(L"ERROR: innoextract missing.");
+                PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+                return 0;
+            }
+
+            wchar_t args[8192];
+            _snwprintf(args, ARRAYSIZE(args), L"\"%s\" -d \"%s\"", installer, a->srcDirAbs);
+            args[ARRAYSIZE(args)-1]=0;
+
+            ui_set_status(L"Extracting...");
+            ProcRunResult r = run_process_capture(a->innoextractAbs, args, a->srcDirAbs);
+            if (!r.started || r.exit_code != 0 || !file_exists(a->neededAbs)) {
+                ui_log_line(L"ERROR: innoextract failed or gamedata.bin still missing.");
+                PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+                return 0;
+            }
+
+            a->extraction_succeeded_this_run = true;
+            ui_log_line(L"innoextract succeeded.");
+
+            // Delete launcher-local gamefiles/app/nox.cfg only after successful extraction
+            {
+                wchar_t appCfg[MAX_PATH * 4];
+                path_join(appCfg, ARRAYSIZE(appCfg), a->assetsDirAbs, L"nox.cfg");
+                if (file_exists(appCfg)) {
+                    if (DeleteFileW(appCfg)) ui_log_line(L"Deleted gamefiles/app/nox.cfg after extraction.");
+                    else ui_log_line(L"WARNING: failed to delete gamefiles/app/nox.cfg.");
+                }
+            }
         }
     } else {
         ui_log_line(L"Game data present.");
@@ -2377,7 +2784,6 @@ static void create_controls(HWND hwnd) {
     SendMessageW(g_app.hStatus, WM_SETFONT, (WPARAM)hf, TRUE);
     SendMessageW(g_app.hBtnLaunch, WM_SETFONT, (WPARAM)hf, TRUE);
     SendMessageW(g_app.hBtnSave, WM_SETFONT, (WPARAM)hf, TRUE);
-    SendMessageW(g_app.hBtnBrowse, WM_SETFONT, (WPARAM)hf, TRUE);
     SendMessageW(g_app.hScrollPane, WM_SETFONT, (WPARAM)hf, TRUE);
 
     g_logState.hEdit = g_app.hLogEdit;
@@ -2448,11 +2854,11 @@ static void layout_controls(HWND hwnd) {
 
     for (size_t i = 0; i < g_app.vars.n; i++) {
         VarSpec* s = &g_app.vars.v[i];
-        int rowH = (s->type == VT_BOOL) ? m.row_h_bool : m.row_h_edit;
+        int rowH = (s->type == VAR_BOOL) ? m.row_h_bool : m.row_h_edit;
 
         if (s->hLabel) MoveWindow(s->hLabel, px, y + (rowH - dpi_scale(hwnd, 18))/2, labelW, dpi_scale(hwnd, 18), TRUE);
 
-        if (s->type == VT_BOOL) {
+        if (s->type == VAR_BOOL) {
             if (s->hCtrl) MoveWindow(s->hCtrl, ctrlX, y, min(ctrlW, dpi_scale(hwnd, 200)), rowH, TRUE);
         } else {
             if (s->hCtrl) MoveWindow(s->hCtrl, ctrlX, y, ctrlW, rowH, TRUE);
@@ -2477,7 +2883,7 @@ static void build_env_controls(HWND hwnd) {
         );
         SendMessageW(s->hLabel, WM_SETFONT, (WPARAM)hf, TRUE);
 
-        if (s->type == VT_BOOL) {
+        if (s->type == VAR_BOOL) {
             s->hCtrl = CreateWindowExW(
                 0, L"BUTTON", L"",
                 WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
@@ -2512,6 +2918,20 @@ static void build_env_controls(HWND hwnd) {
 // WinProc
 // -------------------------
 static void start_pipeline(HWND hwnd) {
+    if (!choose_game_source_and_target(hwnd, &g_app)) {
+        ui_log_line(L"Launch cancelled.");
+        ui_set_status(L"Ready");
+        return;
+    }
+
+    resolve_paths(&g_app);
+
+    if (!ensure_required_free_space_for_install(hwnd, &g_app)) {
+        ui_log_line(L"Not enough free disk space on the launcher drive.");
+        ui_set_status(L"Ready");
+        return;
+    }
+
     WorkerArgs* wa = (WorkerArgs*)malloc(sizeof(WorkerArgs));
     if (!wa) {
         ui_log_line(L"ERROR: failed to allocate worker args.");
@@ -2622,7 +3042,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_APP_DONE:
             EnableWindow(g_app.hBtnLaunch, TRUE);
             EnableWindow(g_app.hBtnSave, TRUE);
-            EnableWindow(g_app.hBtnBrowse, TRUE);
             ui_set_status(L"Ready");
             return 0;
 
@@ -2652,46 +3071,55 @@ static void get_exe_dir(wchar_t* out, size_t cap) {
 }
 
 static void resolve_paths(AppState* a) {
-    resolve_path(a->iniPath, ARRAYSIZE(a->iniPath), a->gamedir, L"launch-nox-decomp.ini");
+    // launcher-local files
+    resolve_path(a->iniPath, ARRAYSIZE(a->iniPath), a->launcherDir, L"launch-nox-decomp.ini");
+    resolve_path(a->logAbs, ARRAYSIZE(a->logAbs), a->launcherDir, a->cfg.log_file);
+    resolve_path(a->templateCfgAbs, ARRAYSIZE(a->templateCfgAbs), a->launcherDir, a->cfg.template_cfg);
+    path_join(a->gamepadIniAbs, ARRAYSIZE(a->gamepadIniAbs), a->launcherDir, L"nox.gptk2.ini");
 
-    resolve_path(a->logAbs, ARRAYSIZE(a->logAbs), a->gamedir, a->cfg.log_file);
-    resolve_path(a->templateCfgAbs, ARRAYSIZE(a->templateCfgAbs), a->gamedir, a->cfg.template_cfg);
-
-    resolve_path(a->assetsDirAbs, ARRAYSIZE(a->assetsDirAbs), a->gamedir, a->cfg.assets_dir);
-    resolve_path(a->dialogDirAbs, ARRAYSIZE(a->dialogDirAbs), a->gamedir, a->cfg.dialog_dir);
-    resolve_path(a->markerAbs, ARRAYSIZE(a->markerAbs), a->gamedir, a->cfg.convert_marker);
+    // runtime game files are always launcher-local
+    resolve_path(a->assetsDirAbs, ARRAYSIZE(a->assetsDirAbs), a->launcherDir, a->cfg.assets_dir);
+    resolve_path(a->dialogDirAbs, ARRAYSIZE(a->dialogDirAbs), a->launcherDir, a->cfg.dialog_dir);
+    resolve_path(a->markerAbs, ARRAYSIZE(a->markerAbs), a->launcherDir, a->cfg.convert_marker);
     path_join(a->introMarkerAbs, ARRAYSIZE(a->introMarkerAbs), a->assetsDirAbs, L"played_intro.txt");
 
-    path_join(a->gamepadIniAbs, ARRAYSIZE(a->gamepadIniAbs), a->gamedir, L"nox.gptk2.ini");
-
-    // src dir = gamedir\gamefiles
-    path_join(a->srcDirAbs, ARRAYSIZE(a->srcDirAbs), a->gamedir, L"gamefiles");
-    // needed = assets\gamedata.bin
+    // source/extraction area
+    path_join(a->srcDirAbs, ARRAYSIZE(a->srcDirAbs), a->launcherDir, L"gamefiles");
     path_join(a->neededAbs, ARRAYSIZE(a->neededAbs), a->assetsDirAbs, L"gamedata.bin");
 
-    // tools
-    wchar_t utilDir[MAX_PATH * 4];
-    path_join(utilDir, ARRAYSIZE(utilDir), a->gamedir, L"utils");
+    // tools stay next to launcher
+    {
+        wchar_t utilDir[MAX_PATH * 4];
+        path_join(utilDir, ARRAYSIZE(utilDir), a->launcherDir, L"utils");
 
-    wchar_t innoName[128];
-    _snwprintf(innoName, ARRAYSIZE(innoName), L"innoextract.%s.exe", a->deviceArch);
-    innoName[ARRAYSIZE(innoName)-1]=0;
-    path_join(a->innoextractAbs, ARRAYSIZE(a->innoextractAbs), utilDir, innoName);
+        wchar_t innoName[128];
+        _snwprintf(innoName, ARRAYSIZE(innoName), L"innoextract.%s.exe", a->deviceArch);
+        innoName[ARRAYSIZE(innoName)-1] = 0;
+        path_join(a->innoextractAbs, ARRAYSIZE(a->innoextractAbs), utilDir, innoName);
 
-    wchar_t ffName[128];
-    _snwprintf(ffName, ARRAYSIZE(ffName), L"ffmpeg.%s.exe", a->deviceArch);
-    ffName[ARRAYSIZE(ffName)-1]=0;
-    path_join(a->ffmpegAbs, ARRAYSIZE(a->ffmpegAbs), utilDir, ffName);
+        wchar_t ffName[128];
+        _snwprintf(ffName, ARRAYSIZE(ffName), L"ffmpeg.%s.exe", a->deviceArch);
+        ffName[ARRAYSIZE(ffName)-1] = 0;
+        path_join(a->ffmpegAbs, ARRAYSIZE(a->ffmpegAbs), utilDir, ffName);
+    }
+
+    // actual exe root is launcher-local too
+    wcsncpy(a->gamedir, a->launcherDir, ARRAYSIZE(a->gamedir) - 1);
+    a->gamedir[ARRAYSIZE(a->gamedir) - 1] = 0;
 }
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShowCmd) {
     (void)hPrev; (void)lpCmdLine;
 
     g_app.hInst = hInst;
-    get_exe_dir(g_app.gamedir, ARRAYSIZE(g_app.gamedir));
+    get_exe_dir(g_app.launcherDir, ARRAYSIZE(g_app.launcherDir));
 
-    // Load ini (must exist)
-    resolve_path(g_app.iniPath, ARRAYSIZE(g_app.iniPath), g_app.gamedir, L"launch-nox-decomp.ini");
+    g_app.gamedir[0] = 0;
+    g_app.chosenInstallerAbs[0] = 0;
+    g_app.chosenInstallAppAbs[0] = 0;
+
+    // Load ini (must exist) next to launcher
+    resolve_path(g_app.iniPath, ARRAYSIZE(g_app.iniPath), g_app.launcherDir, L"launch-nox-decomp.ini");
     if (!ini_load(g_app.iniPath, &g_app.ini)) {
         MessageBoxW(NULL, L"Missing or unreadable launch-nox-decomp.ini next to the launcher.", L"Nox Launcher", MB_ICONERROR);
         return 1;
@@ -2706,6 +3134,11 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow
     // Load launcher cfg + schema
     load_launcher_cfg(&g_app.ini, &g_app.cfg);
     detect_arch(&g_app);
+
+    // default to launcher-local game root until a source is chosen
+    wcsncpy(g_app.gamedir, g_app.launcherDir, ARRAYSIZE(g_app.gamedir) - 1);
+    g_app.gamedir[ARRAYSIZE(g_app.gamedir) - 1] = 0;
+
     resolve_paths(&g_app);
 
     if (!load_schema(&g_app.ini, &g_app.vars)) {
