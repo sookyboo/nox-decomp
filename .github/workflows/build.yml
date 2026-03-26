@@ -753,16 +753,19 @@ jobs:
       - name: Download Linux i386 release tarball
         uses: actions/download-artifact@v8
         with:
+          name: noxd-linux-i386-tarball
           path: artifacts
-          pattern: noxd-linux-i386-tarball
-          merge-multiple: true
 
       - name: Download Linux ARMHF release tarball
         uses: actions/download-artifact@v8
         with:
+          name: noxd-linux-armhf-tarball
           path: artifacts
-          pattern: noxd-linux-armhf-tarball
-          merge-multiple: true
+
+      - name: Show downloaded server artifacts
+        run: |
+          set -euxo pipefail
+          find artifacts -type f | sort
 
       - name: Stage server build inputs from release tarballs
         run: |
@@ -774,8 +777,14 @@ jobs:
 
           mkdir -p extracted.i386 extracted.armhf
 
-          tar -C extracted.i386 -xzf "artifacts/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz"
-          tar -C extracted.armhf -xzf "artifacts/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz"
+          I386_TARBALL="$(find artifacts -type f -name "nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" | head -n 1)"
+          ARMHF_TARBALL="$(find artifacts -type f -name "nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" | head -n 1)"
+
+          test -n "$I386_TARBALL"
+          test -n "$ARMHF_TARBALL"
+
+          tar -C extracted.i386 -xzf "$I386_TARBALL"
+          tar -C extracted.armhf -xzf "$ARMHF_TARBALL"
 
           cp -a extracted.i386/ffmpeg.i386 ./ffmpeg.i386
           cp -a extracted.armhf/ffmpeg.armhf ./ffmpeg.armhf
