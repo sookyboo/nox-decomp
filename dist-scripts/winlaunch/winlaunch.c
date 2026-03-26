@@ -1183,6 +1183,26 @@ static void ui_log_line(const wchar_t* s)
     ui_log_enqueue_line(s);
 }
 
+static void ui_log_kv(const wchar_t* key, const wchar_t* value)
+{
+    wchar_t buf[4096];
+    _snwprintf(buf, ARRAYSIZE(buf), L"%s: %s",
+               key ? key : L"(null)",
+               value ? value : L"(null)");
+    buf[ARRAYSIZE(buf) - 1] = 0;
+    ui_log_line(buf);
+}
+
+static void ui_log_kv_u32(const wchar_t* key, unsigned long value)
+{
+    wchar_t buf[256];
+    _snwprintf(buf, ARRAYSIZE(buf), L"%s: %lu",
+               key ? key : L"(null)",
+               value);
+    buf[ARRAYSIZE(buf) - 1] = 0;
+    ui_log_line(buf);
+}
+
 // -------------------------
 // Process runner (captures output to UI + log file)
 // -------------------------
@@ -2296,33 +2316,41 @@ static void path_dirname(wchar_t* out, size_t cap, const wchar_t* fullpath)
 }
 
 static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir, wchar_t* envBlock, const wchar_t* logPathAbs) {
-    (void)logPathAbs; // no longer used for stdio redirection
+    (void)logPathAbs;
 
     wchar_t cmd[4096];
     _snwprintf(cmd, ARRAYSIZE(cmd), L"\"%s\"", exePath);
     cmd[ARRAYSIZE(cmd)-1]=0;
+
+    HANDLE hOutR = NULL, hOutW = NULL;
+    if (!create_pipe_inheritable(&hOutR, &hOutW)) {
+        log_last_error(L"create_pipe_inheritable failed");
+        return false;
+    }
 
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
     si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput  = GetStdHandle(STD_INPUT_HANDLE);
+    si.hStdOutput = hOutW;
+    si.hStdError  = hOutW;
 
     DWORD flags = 0;
     LPVOID envp = NULL;
 
-    // If caller provides an env block, it is UTF-16 and needs CREATE_UNICODE_ENVIRONMENT.
-    // If envBlock is NULL, Windows will inherit the current environment (BAT parity).
     if (envBlock) {
         flags |= CREATE_UNICODE_ENVIRONMENT;
         envp = envBlock;
     }
 
     BOOL ok = CreateProcessW(
-        exePath,     // lpApplicationName (more deterministic)
-        cmd,         // lpCommandLine
+        exePath,
+        cmd,
         NULL, NULL,
-        FALSE,       // no handle inheritance (you said you want no handles)
+        TRUE,   // child must inherit pipe write end
         flags,
         envp,
         workdir,
@@ -2330,31 +2358,64 @@ static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir,
         &pi
     );
 
+    CloseHandle(hOutW);
+    hOutW = NULL;
+
     if (!ok) {
+        CloseHandle(hOutR);
         log_last_error(L"CreateProcessW failed");
         return false;
     }
 
-    // keep your “instant exit” detection
-    DWORD wait = WaitForSingleObject(pi.hProcess, 1500);
+    ui_log_line(L"CreateProcessW succeeded.");
+
+    HANDLE hReader = CreateThread(NULL, 0, reader_thread, (LPVOID)hOutR, 0, NULL);
+    if (!hReader) {
+        log_last_error(L"Failed to create game log reader thread");
+    }
+
+    DWORD wait = WaitForSingleObject(pi.hProcess, 3000);
+
     if (wait == WAIT_OBJECT_0) {
         DWORD code = 0;
         GetExitCodeProcess(pi.hProcess, &code);
 
         wchar_t msg[256];
         _snwprintf(msg, ARRAYSIZE(msg),
-                   L"Game exited immediately (exit code %lu).",
+                   L"Game exited within 3000 ms (exit code %lu).",
                    (unsigned long)code);
         msg[ARRAYSIZE(msg)-1]=0;
         ui_log_line(msg);
 
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
+
+        CloseHandle(hOutR);
+        if (hReader) {
+            WaitForSingleObject(hReader, 2000);
+            CloseHandle(hReader);
+        }
         return false;
     }
 
+    if (wait == WAIT_TIMEOUT) {
+        ui_log_line(L"Child still running after 3000 ms; treating launch as successful.");
+    } else {
+        log_last_error(L"WaitForSingleObject on child process failed");
+    }
+
+    // Do not wait for child exit here on success.
+    // Leave the reader thread alive only briefly, then detach by closing our read handle later.
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
+
+    // Keep launcher behavior simple: stop reading once we hand off.
+    CloseHandle(hOutR);
+    if (hReader) {
+        WaitForSingleObject(hReader, 2000);
+        CloseHandle(hReader);
+    }
+
     return true;
 }
 
@@ -2390,6 +2451,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     free(wa);
 
     AppState* a = &g_app;
+    ui_log_line(L"Worker thread started.");
 
     a->extraction_succeeded_this_run = false;
 
@@ -2635,6 +2697,15 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     // 11) Launch game with stdout/stderr -> log.txt, with CWD=gamefiles/app
     ui_set_status(L"Launching game...");
     ui_log_line(L"Launching game...");
+    ui_log_kv(L"Run arch", a->runArch);
+    ui_log_kv(L"Device arch", a->deviceArch);
+    ui_log_kv(L"Game exe", gameExe);
+    ui_log_kv(L"Assets dir", a->assetsDirAbs);
+    ui_log_kv(L"Launcher dir", a->launcherDir);
+    ui_log_kv(L"Template cfg", a->templateCfgAbs);
+    ui_log_kv(L"Log file", a->logAbs);
+    ui_log_kv(L"Chosen installer", a->chosenInstallerAbs[0] ? a->chosenInstallerAbs : L"(none)");
+    ui_log_kv(L"Chosen installed app", a->chosenInstallAppAbs[0] ? a->chosenInstallAppAbs : L"(none)");
 
     // Apply env overrides in THIS process temporarily (BAT parity), then launch with lpEnvironment=NULL.
     size_t saveCap = a->ini.count + a->vars.n + 16;
@@ -2671,6 +2742,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     if (sn < saveCap) {
         if (save_and_set_env(&saved[sn], L"NOX_GAMEPAD_INI", a->gamepadIniAbs)) {
             sn++;
+            ui_log_kv(L"NOX_GAMEPAD_INI", a->gamepadIniAbs);
         } else {
             ui_log_line(L"WARNING: failed to set NOX_GAMEPAD_INI.");
         }
@@ -2684,6 +2756,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
         if (sn < saveCap) {
             if (save_and_set_env(&saved[sn], L"NOX_FORCE_INTRO_AT_START", introForceVal)) {
                 sn++;
+                ui_log_kv(L"NOX_FORCE_INTRO_AT_START", introForceVal);
 
                 if (introMarkerExists) {
                     ui_log_line(L"Intro marker exists; disabling NOX_FORCE_INTRO_AT_START.");
@@ -2705,13 +2778,12 @@ static DWORD WINAPI worker_thread(LPVOID param) {
         }
     }
 
-    // Stop launcher logging before handing off (unchanged behavior)
     if (g_logFile != INVALID_HANDLE_VALUE) {
+        FlushFileBuffers(g_logFile);
         CloseHandle(g_logFile);
         g_logFile = INVALID_HANDLE_VALUE;
     }
 
-    // Launch with lpEnvironment=NULL (Windows builds env like BAT would)
     bool launched = launch_game_and_exit(gameExe, a->assetsDirAbs, NULL, a->logAbs);
 
     // Always restore env overrides
@@ -2726,7 +2798,16 @@ static DWORD WINAPI worker_thread(LPVOID param) {
         return 0;
     }
 
-    PostMessageW(hwnd, WM_CLOSE, 0, 0);
+    ui_log_line(L"Launch succeeded; leaving launcher open for debugging.");
+    ui_set_status(L"Game launched");
+
+    if (g_logFile != INVALID_HANDLE_VALUE) {
+        FlushFileBuffers(g_logFile);
+    }
+    EnableWindow(g_app.hBtnLaunch, TRUE);
+    EnableWindow(g_app.hBtnSave, TRUE);
+    PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+//    PostMessageW(hwnd, WM_CLOSE, 0, 0);
     return 0;
 }
 
@@ -2949,6 +3030,7 @@ static void start_pipeline(HWND hwnd) {
         return;
     }
     CloseHandle(th);
+    ui_log_line(L"Worker thread created successfully.");
 
     EnableWindow(g_app.hBtnLaunch, FALSE);
     EnableWindow(g_app.hBtnSave, FALSE);
@@ -2988,6 +3070,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 else ui_log_line(L"WARNING: Failed to save launch-nox-decomp.ini.");
                 return 0;
             } else if (id == IDC_BTN_LAUNCH) {
+                ui_log_line(L"Launch button clicked.");
                 start_pipeline(hwnd);
                 return 0;
             }
