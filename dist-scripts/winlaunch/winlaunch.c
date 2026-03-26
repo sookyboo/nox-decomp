@@ -2374,7 +2374,7 @@ static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir,
         log_last_error(L"Failed to create game log reader thread");
     }
 
-    DWORD wait = WaitForSingleObject(pi.hProcess, 3000);
+    DWORD wait = WaitForSingleObject(pi.hProcess, 15000);
 
     if (wait == WAIT_OBJECT_0) {
         DWORD code = 0;
@@ -2382,7 +2382,7 @@ static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir,
 
         wchar_t msg[256];
         _snwprintf(msg, ARRAYSIZE(msg),
-                   L"Game exited within 3000 ms (exit code %lu).",
+                   L"Game exited within 15000 ms (exit code %lu).",
                    (unsigned long)code);
         msg[ARRAYSIZE(msg)-1]=0;
         ui_log_line(msg);
@@ -2399,7 +2399,7 @@ static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir,
     }
 
     if (wait == WAIT_TIMEOUT) {
-        ui_log_line(L"Child still running after 3000 ms; treating launch as successful.");
+        ui_log_line(L"Child still running after 15000 ms; treating launch as successful.");
     } else {
         log_last_error(L"WaitForSingleObject on child process failed");
     }
