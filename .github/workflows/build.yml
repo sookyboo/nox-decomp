@@ -849,10 +849,14 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
           path: release-assets
+          merge-multiple: true
 
       - name: Show release files
         run: |
@@ -891,6 +895,7 @@ jobs:
           EOF
 
           gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
             "release-assets/noxd.win32.x86-${RELEASE_SUFFIX}.zip" \
             "release-assets/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" \
             "release-assets/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" \
