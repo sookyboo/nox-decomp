@@ -39,7 +39,8 @@ jobs:
 
       - name: Clean up old containers
         run: |
-          docker rm -f noxdecomp_tmp || true
+          docker rm -f noxdecomp_tmp-x86 || true
+          docker rm -f noxdecomp_tmp-winx86 || true
           docker rm -f noxdecomp_tmp-x86libs || true
 
       - name: Build ARM image and extract artifacts
@@ -558,6 +559,7 @@ jobs:
       - name: Upload Flatpak beta zip
         uses: actions/upload-artifact@v7
         with:
+          name: noxd-flatpak-zip
           path: artifacts/flatpak-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
@@ -684,6 +686,7 @@ jobs:
       - name: Upload PortMaster zip
         uses: actions/upload-artifact@v7
         with:
+          name: noxd-portmaster-zip
           path: artifacts/portmaster-${{ env.RELEASE_SUFFIX }}.zip
           archive: false
 
@@ -703,6 +706,7 @@ jobs:
       - name: Upload SHA256 sums
         uses: actions/upload-artifact@v7
         with:
+          name: noxd-sha256sums
           path: artifacts/SHA256SUMS-${{ env.RELEASE_SUFFIX }}.txt
           archive: false
 
@@ -750,14 +754,14 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-          pattern: nox-decomp-linux-i386-*.tar.gz
+          pattern: noxd-linux-i386-tarball
           merge-multiple: true
 
       - name: Download Linux ARMHF release tarball
         uses: actions/download-artifact@v8
         with:
           path: artifacts
-          pattern: nox-decomp-linux-armhf-*.tar.gz
+          pattern: noxd-linux-armhf-tarball
           merge-multiple: true
 
       - name: Stage server build inputs from release tarballs
@@ -860,6 +864,7 @@ jobs:
 
       - name: Show release files
         run: |
+          set -euxo pipefail
           find release-assets -type f | sort
 
       - name: Set release suffix
@@ -869,10 +874,37 @@ jobs:
           SAFE_NAME="$(printf '%s' "$RAW_NAME" | sed 's#[^A-Za-z0-9._-]#-#g')"
           echo "RELEASE_SUFFIX=${SAFE_NAME}" >> "$GITHUB_ENV"
 
+      - name: Resolve release asset paths
+        run: |
+          set -euxo pipefail
+
+          WIN_ZIP="$(find release-assets -type f -name "noxd.win32.x86-${RELEASE_SUFFIX}.zip" | head -n 1)"
+          LINUX_I386_TARBALL="$(find release-assets -type f -name "nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" | head -n 1)"
+          LINUX_ARMHF_TARBALL="$(find release-assets -type f -name "nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" | head -n 1)"
+          FLATPAK_ZIP="$(find release-assets -type f -name "flatpak-${RELEASE_SUFFIX}.zip" | head -n 1)"
+          PORTMASTER_ZIP="$(find release-assets -type f -name "portmaster-${RELEASE_SUFFIX}.zip" | head -n 1)"
+          SHA256_FILE="$(find release-assets -type f -name "SHA256SUMS-${RELEASE_SUFFIX}.txt" | head -n 1)"
+
+          test -n "$WIN_ZIP"
+          test -n "$LINUX_I386_TARBALL"
+          test -n "$LINUX_ARMHF_TARBALL"
+          test -n "$FLATPAK_ZIP"
+          test -n "$PORTMASTER_ZIP"
+          test -n "$SHA256_FILE"
+
+          echo "WIN_ZIP=$WIN_ZIP" >> "$GITHUB_ENV"
+          echo "LINUX_I386_TARBALL=$LINUX_I386_TARBALL" >> "$GITHUB_ENV"
+          echo "LINUX_ARMHF_TARBALL=$LINUX_ARMHF_TARBALL" >> "$GITHUB_ENV"
+          echo "FLATPAK_ZIP=$FLATPAK_ZIP" >> "$GITHUB_ENV"
+          echo "PORTMASTER_ZIP=$PORTMASTER_ZIP" >> "$GITHUB_ENV"
+          echo "SHA256_FILE=$SHA256_FILE" >> "$GITHUB_ENV"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euxo pipefail
+
           cat > release-notes.md <<EOF
           Automated release for ${GITHUB_REF_NAME}
 
@@ -896,11 +928,11 @@ jobs:
 
           gh release create "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
-            "release-assets/noxd.win32.x86-${RELEASE_SUFFIX}.zip" \
-            "release-assets/nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" \
-            "release-assets/nox-decomp-linux-armhf-${RELEASE_SUFFIX}.tar.gz" \
-            "release-assets/flatpak-${RELEASE_SUFFIX}.zip" \
-            "release-assets/portmaster-${RELEASE_SUFFIX}.zip" \
-            "release-assets/SHA256SUMS-${RELEASE_SUFFIX}.txt" \
+            "${WIN_ZIP}" \
+            "${LINUX_I386_TARBALL}" \
+            "${LINUX_ARMHF_TARBALL}" \
+            "${FLATPAK_ZIP}" \
+            "${PORTMASTER_ZIP}" \
+            "${SHA256_FILE}" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file release-notes.md
