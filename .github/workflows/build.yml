@@ -858,6 +858,7 @@ jobs:
         with:
           path: release-assets
           merge-multiple: true
+          skip-decompress: true
 
       - name: Show release files
         run: |
