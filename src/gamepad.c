@@ -286,6 +286,9 @@ struct right_stick_dirs {
 static int g_right_stick_armed = 1;
 static struct right_stick_dirs g_rs_cur, g_rs_prev;
 
+static int g_thumbstick_abs_inverted = 0;
+static int g_thumbstick_mode_combo_latched = 0;
+
 static int g_enabled_cached = -1;
 static int nox_gamepad_enabled(void)
 {
@@ -888,6 +891,17 @@ static int mouse_right_active(void)
     return 0;
 }
 
+static int nox_thumbstick_absolute_active(void)
+{
+    struct action la_act = resolve_binding(IN_LEFT_ANALOG);
+    int run_held = mouse_right_active() ? 1 : 0;
+
+    if (la_act.type != ACT_MOUSE_ABSOLUTE)
+        return 0;
+
+    return g_thumbstick_abs_inverted ? !run_held : run_held;
+}
+
 static int nox_abs_i(int v)
 {
     return (v < 0) ? -v : v;
@@ -999,7 +1013,7 @@ static void do_mouse_movement(Uint32 now_ms)
     }
 
     if (la_act.type == ACT_MOUSE_MOVEMENT ||
-        (la_act.type == ACT_MOUSE_ABSOLUTE && !mouse_right_active())) {
+        (la_act.type == ACT_MOUSE_ABSOLUTE && !nox_thumbstick_absolute_active())) {
         int lx = apply_deadzone(g_cur.lx, g_cfg.deadzone_x);
         int ly = apply_deadzone(g_cur.ly, g_cfg.deadzone_y);
 
@@ -1036,7 +1050,7 @@ static void update_left_analog_absolute(void)
     }
 
     /* Only use direct thumbstick movement while RMB/run is held. */
-    if (!mouse_right_active()) {
+    if (!nox_thumbstick_absolute_active()) {
         nox_ctrl_set_thumbstick_move(0, 0, 0);
         return;
     }
@@ -1422,6 +1436,9 @@ static void nox_gamepad_open_if_needed(void)
         g_l2_state = 0;
         g_r2_state = 0;
 
+        g_thumbstick_abs_inverted = 0;
+        g_thumbstick_mode_combo_latched = 0;
+
         ini_load();
 
         // Base layer active, with no parent.
@@ -1453,6 +1470,10 @@ void nox_gamepad_shutdown(void)
     /* also clear hysteresis so a later open starts clean */
     g_l2_state = 0;
     g_r2_state = 0;
+
+    g_thumbstick_abs_inverted = 0;
+    g_thumbstick_mode_combo_latched = 0;
+
     memset(&g_rs_prev, 0, sizeof(g_rs_prev));
     memset(&g_rs_cur, 0, sizeof(g_rs_cur));
     g_right_stick_armed = 1;
@@ -1639,6 +1660,43 @@ void nox_gamepad_update(void)
     update_right_stick_dirs(&g_rs_cur, g_cur.rx, g_cur.ry);
 
     maybe_exit_combo();
+
+    {
+        int combo_relative     = g_cur.start && g_cur.l1;
+        int combo_abs_inverted = g_cur.start && g_cur.r1 && g_cur.r2_btn;
+        int combo_abs_normal   = g_cur.start && g_cur.r1 && !g_cur.r2_btn;
+
+        if (combo_relative || combo_abs_normal || combo_abs_inverted) {
+            g_thumbstick_mode_combo_latched = 1;
+
+            if (combo_abs_inverted) {
+                int li = find_layer("absolute_mode");
+                if (li >= 0)
+                    g_set_layer_idx = li;
+                g_thumbstick_abs_inverted = 1;
+                NOX_GAMEPAD_LOG("[pad] thumbstick mode: absolute inverted\n");
+            } else if (combo_abs_normal) {
+                int li = find_layer("absolute_mode");
+                if (li >= 0)
+                    g_set_layer_idx = li;
+                g_thumbstick_abs_inverted = 0;
+                NOX_GAMEPAD_LOG("[pad] thumbstick mode: absolute normal\n");
+            } else {
+                int li = find_layer("relative_mode");
+                if (li >= 0)
+                    g_set_layer_idx = li;
+                g_thumbstick_abs_inverted = 0;
+                NOX_GAMEPAD_LOG("[pad] thumbstick mode: relative\n");
+            }
+
+            nox_ctrl_set_thumbstick_move(0, 0, 0);
+        } else {
+            g_thumbstick_mode_combo_latched = 0;
+        }
+    }
+
+    if (g_thumbstick_mode_combo_latched)
+        return;
 
     // ---- MOVIE SKIP REQUEST ----
         if (edge_down(g_cur.select, g_prev.select)) {

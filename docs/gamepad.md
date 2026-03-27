@@ -62,22 +62,23 @@ This layer is intended to let you manage and cast spells quickly without reachin
 
 While holding **Start**, the face buttons and D-Pad control map functions and quick save/load:
 
-| Button (Start held) | Keyboard            | Action in Nox                                |
-|---------------------|---------------------|----------------------------------------------|
-| **D-Pad Left**      | `F4`                | Quick load                                   |
-| **D-Pad Right**     | `F2`                | Quick save                                   |
-| **X**               | `2`                 | Zoom **out** minimap                         |
-| **A**               | `Tab`               | Toggle minimap                               |
-| **B**               | `1`                 | Zoom **in** minimap                          |
-| **R2**              | `T`                 | Set Trap                                     |
-| **L2**              | `Z`                 | Poison Potion                                |
-| **L1**              | mouse mode          | Left Analogue Stick Mouse Mode               |
-| **R1**              | absolute mode       | Left Analogue Stick Mouse Mode Absolute Mode |
-| **Right Analog ↑**  | `F1`                | Open/close console                           |
-| **Right Analog →**  | cycle cheats        | Cycle cheats in console                      |
-| **Right Analog ←**  | cycle cheats        | Cycle cheats in console                      |
-| **Right Analog ↓**  | apply active cheat  | Apply selected cheat in console              |
-| **Y**               | cancel active cheat | cancel active cheat                          |
+| Button (Start held) | Keyboard                   | Action in Nox                                |
+|---------------------|----------------------------|----------------------------------------------|
+| **D-Pad Left**      | `F4`                       | Quick load                                   |
+| **D-Pad Right**     | `F2`                       | Quick save                                   |
+| **X**               | `2`                        | Zoom **out** minimap                         |
+| **A**               | `Tab`                      | Toggle minimap                               |
+| **B**               | `1`                        | Zoom **in** minimap                          |
+| **R2**              | `T`                        | Set Trap                                     |
+| **L2**              | `Z`                        | Poison Potion                                |
+| **L1**              | mouse mode                 | Left Analogue Stick Mouse Mode               |
+| **R1**              | absolute mode              | Left Analogue Stick Mouse Mode Absolute Mode |
+| **R1** + **R2**     | absolute mode inverted run | Left Analogue Stick Mouse Mode Absolute Mode invert run button function |
+| **Right Analog ↑**  | `F1`                       | Open/close console                           |
+| **Right Analog →**  | cycle cheats               | Cycle cheats in console                      |
+| **Right Analog ←**  | cycle cheats               | Cycle cheats in console                      |
+| **Right Analog ↓**  | apply active cheat         | Apply selected cheat in console              |
+| **Y**               | cancel active cheat        | cancel active cheat                          |
 
 This layer centralises all “meta” controls (saving, loading, console, and map) on the controller.
 
