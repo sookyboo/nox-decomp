@@ -267,6 +267,13 @@ if [ -n "$DISPLAY_WIDTH" ] && [ -n "$DISPLAY_HEIGHT" ]; then
     esac
 fi
 
+if [ "$DEVICE_NAME" = "RGB30" ] && [ "$DISPLAY_HEIGHT" = "720" ] && [ "$DISPLAY_WIDTH" = "720" ]; then
+  export NOX_LINEAR_SCALING=0
+  export NOX_INTEGER_SCALING=1
+  export NOX_GAME_WIDTH=640
+  export NOX_GAME_HEIGHT=640
+fi
+
 # force scaling options
 #export NOX_LINEAR_SCALING=1
 #export NOX_INTEGER_SCALING=0
