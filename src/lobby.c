@@ -255,7 +255,7 @@ int nox_should_inject_internet_servers(void)
 }
 
 #define NOX_ENV_LOBBY_LIST "NOX_LOBBY_LIST"
-#define NOX_DEFAULT_LOBBY_LIST "nox.nwca.xyz:8088,noxdecomp.qzz.io"
+#define NOX_DEFAULT_LOBBY_LIST "nox.nwca.xyz:8088,noxdecomp.qzz.io,noxdecomp2.qzz.io"
 
 typedef struct nox_lobby_endpoint {
     char host[256];
