@@ -270,7 +270,7 @@ jobs:
 
           # Config
           cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
-          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+          cp dist-scripts/nox.gptk2.nintendo.ini "$PKG_DIR/nox.gptk2.ini"
 
           # Launcher config
           cp dist-scripts/winlaunch/launch-nox-decomp.ini "$PKG_DIR/launch-nox-decomp.ini"
@@ -336,7 +336,7 @@ jobs:
 
           # Configs
           cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
-          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+          cp dist-scripts/nox.gptk2.nintendo.ini "$PKG_DIR/nox.gptk2.ini"
 
           # Starter script
           cp dist-scripts/startgen.sh "$PKG_DIR/Nox-Decomp.sh"
@@ -448,7 +448,7 @@ jobs:
 
           # Configs
           cp dist-scripts/nox.cfg.hires "$PKG_DIR/nox.cfg"
-          cp dist-scripts/nox.gptk2.ini "$PKG_DIR/nox.gptk2.ini"
+          cp dist-scripts/nox.gptk2.nintendo.ini "$PKG_DIR/nox.gptk2.ini"
 
           # Starter script
           cp dist-scripts/startgen.sh "$PKG_DIR/Nox-Decomp.sh"
