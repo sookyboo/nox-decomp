@@ -176,7 +176,7 @@ export NOX_BAD_SERVER_NAMES="Kor) Newbies,Kor] Newbies"
 # limits the range of the mouse when running but only if starting close to center or passing through center
 export NOX_LIMIT_RANGE_ON_RUN_GAMEPAD=1
 export NOX_LIMIT_RANGE_ON_RUN_MOUSE=0
-# export NOX_LIMIT_RANGE_ON_RUN_RADIUS=110 # default is 110 - the radius of the circle
+export NOX_LIMIT_RANGE_ON_RUN_RADIUS=118 # default is 118 - the radius of the circle
 
 # Disable built-in gamepad support to use gptokeyb2 (might change in future but known to be stable)
 export NOX_GAMEPAD=1

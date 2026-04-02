@@ -105,7 +105,7 @@ static int nox_limit_range_enabled_for(int source)
 static int nox_limit_range_radius(void)
 {
     if (g_limit_range_radius < 0) {
-        g_limit_range_radius = nox_env_int("NOX_LIMIT_RANGE_ON_RUN_RADIUS", 110);
+        g_limit_range_radius = nox_env_int("NOX_LIMIT_RANGE_ON_RUN_RADIUS", 118);
         if (g_limit_range_radius < 0) g_limit_range_radius = 0;
 //        fprintf(stderr, "[limit] NOX_LIMIT_RANGE_ON_RUN_RADIUS=%d\n", g_limit_range_radius);
 //        fflush(stderr);
