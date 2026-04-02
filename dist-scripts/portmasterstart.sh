@@ -215,7 +215,7 @@ NOX_GAME_FULLSCREEN=1
 if [ -n "$DISPLAY_WIDTH" ] && [ -n "$DISPLAY_HEIGHT" ]; then
     case "$DISPLAY_WIDTH$DISPLAY_HEIGHT" in
         (*[!0-9]*)
-            # Non-numeric input â keep defaults
+            # Non-numeric input - keep defaults
             ;;
         (*)
             # Turn on linear scaling if display is larger than 1024x768
@@ -226,7 +226,7 @@ if [ -n "$DISPLAY_WIDTH" ] && [ -n "$DISPLAY_HEIGHT" ]; then
             # Calculate aspect ratio as a float
             ASPECT=$(awk "BEGIN { printf \"%.4f\", $DISPLAY_WIDTH / $DISPLAY_HEIGHT }")
 
-            # 4:3 â 1.3333
+            # 4:3 - 1.3333
             if awk "BEGIN { exit !($ASPECT > 1.30 && $ASPECT < 1.36) }"; then
                 if [ "$DISPLAY_WIDTH" -lt 1024 ] && [ "$DISPLAY_HEIGHT" -lt 768 ]; then
                     NOX_GAME_WIDTH="$DISPLAY_WIDTH"
@@ -236,7 +236,7 @@ if [ -n "$DISPLAY_WIDTH" ] && [ -n "$DISPLAY_HEIGHT" ]; then
                     NOX_GAME_HEIGHT=768
                 fi
 
-            # 1:1 â 1.0
+            # 1:1 - 1.0
             elif awk "BEGIN { exit !($ASPECT > 0.98 && $ASPECT < 1.02) }"; then
                 # Square resolution, capped
                 if [ "$DISPLAY_WIDTH" -lt 768 ]; then
