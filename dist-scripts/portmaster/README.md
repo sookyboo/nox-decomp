@@ -304,8 +304,7 @@ These are the default assumed values for these env vars if not present:
 ```
 export NOX_NO_INTERNET_SERVERS=0 # 1 switches off internet access but keeps LAN access, 0 allows internet access
 
-export NOX_LOBBY_HOST=nox.nwca.xyz
-export NOX_LOBBY_PORT=8088
+export NOX_LOBBY_LIST=nox.nwca.xyz:8088,noxdecomp.qzz.io,noxdecomp2.qzz.io
 export NOX_LOBBY_PATH="/api/v0/games/list"
 
 export NOX_LOBBY_CONNECT_TIMEOUT=2000 # in milliseconds
