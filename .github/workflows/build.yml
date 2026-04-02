@@ -897,6 +897,13 @@ jobs:
 
           [Multiplayer networking guide](https://github.com/sookyboo/nox-decomp/blob/main/docs/multiplayer.md)
           EOF
+          
+          if [ -f docs/release-notes/latest.md ]; then
+          echo "" >> release-notes.md
+          echo "---" >> release-notes.md
+          echo "" >> release-notes.md
+          cat docs/release-notes/latest.md >> release-notes.md
+          fi
 
           WIN_ZIP="$(find release-assets -type f -name "noxd.win32.x86-${RELEASE_SUFFIX}.zip" | head -n 1)"
           I386_TGZ="$(find release-assets -type f -name "nox-decomp-linux-i386-${RELEASE_SUFFIX}.tar.gz" | head -n 1)"

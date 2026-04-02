@@ -179,7 +179,7 @@ Click "OK" and you should enter the game.
 
 
 ## Windows
-Download [noxd.win32.x86-beta.zip](https://github.com/sookyboo/nox-decomp/releases/download/v0.9.2/noxd.win32.x86-beta.zip) from [release 9.2](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.2).
+Download [noxd.win32.x86-beta.zip](https://github.com/sookyboo/nox-decomp/releases/download/v0.9.3-rc2/noxd.win32.x86-v0.9.3-rc2.zip) from [release 9.3](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.3-rc2).
 
 Buy the game from here [GoG Nox](https://www.gog.com/en/game/nox) and [download the offline installer for the game](https://github.com/sookyboo/nox-decomp/blob/main/docs/gog.md)
 
