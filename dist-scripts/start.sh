@@ -809,6 +809,9 @@ export NOX_INTEGER_SCALING
 : "${NOX_HIDE_MAIN_RES_UI:=1}"
 export NOX_HIDE_MAIN_RES_UI
 
+: "${NOX_BAD_SERVER_NAMES:=Kor) Newbies,Kor] Newbies}"
+export NOX_BAD_SERVER_NAMES
+
 export # for debug
 
 "${LOADER}" --library-path "${LIBPATH}" "${PKG_NOXD}"

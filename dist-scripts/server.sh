@@ -302,8 +302,8 @@ export LD_LIBRARY_PATH="$GAMEDIR/ffmpeg.${RUN_ARCH}:$LD_LIBRARY_PATH"
 : "${NOX_LOBBY_CONNECT_TIMEOUT:=2000}"  # ms
 : "${NOX_SERVER_CACHE_TTL:=30}"         # seconds (min 30)
 
-: "${NOX_BAD_SERVER_IPS:=127.1.1.1,127.1.1.2}"
-: "${NOX_BAD_SERVER_NAMES:=VeryBadServerName1,VeryBadServerName2}"
+#: "${NOX_BAD_SERVER_IPS:=127.1.1.1,127.1.1.2}"
+: "${NOX_BAD_SERVER_NAMES:=Kor) Newbies,Kor] Newbies}"
 
 # Register game on lobby
 : "${NOX_LOBBY_REGISTER_ENABLE:=0}"
