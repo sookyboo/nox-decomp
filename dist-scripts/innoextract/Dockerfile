@@ -37,30 +37,84 @@ RUN apt-get update \
       libtool \
       gettext \
       dpkg-dev \
+      python3 \
  && rm -rf /var/lib/apt/lists/*
 
 ARG INNOEXTRACT_VERSION=1.9
 RUN git clone --branch ${INNOEXTRACT_VERSION} --depth 1 https://github.com/dscharrer/innoextract.git /build/innoextract \
  && sed -i 's/^cmake_minimum_required(VERSION 2\\.8)$/cmake_minimum_required(VERSION 3.5)/' /build/innoextract/cmake/VersionScript.cmake
 
+COPY CMakeLists.txt /build/innoextract/CMakeLists.txt
 # ------------------------------
 # Linux x86_64
 # ------------------------------
 FROM base AS linux-amd64
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && echo "DEB_HOST_MULTIARCH=$arch" \
+ && uname -a \
+ && dpkg --print-architecture
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && echo "Checking expected static libs..." \
+ && ls -l \
+      /usr/lib/${arch}/liblzma.a \
+      /usr/lib/${arch}/libz.a \
+      /usr/lib/${arch}/libbz2.a
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && echo "Relevant libs in /usr/lib/${arch}:" \
+ && find /usr/lib/${arch} -maxdepth 1 \
+      \( -name 'libboost_*' -o -name 'libz.a' -o -name 'libbz2.a' -o -name 'liblzma.a' \) \
+      | sort
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"; \
+    echo "Checking required static libraries for ${arch}"; \
+    missing=0; \
+    for f in \
+      /usr/lib/${arch}/liblzma.a \
+      /usr/lib/${arch}/libz.a \
+      /usr/lib/${arch}/libbz2.a \
+      /usr/lib/${arch}/libboost_iostreams.a \
+      /usr/lib/${arch}/libboost_filesystem.a \
+      /usr/lib/${arch}/libboost_date_time.a \
+      /usr/lib/${arch}/libboost_system.a \
+      /usr/lib/${arch}/libboost_program_options.a; \
+    do \
+      if [ -f "$f" ]; then \
+        echo "FOUND: $f"; \
+      else \
+        echo "MISSING: $f"; \
+        missing=1; \
+      fi; \
+    done; \
+    test "$missing" -eq 0
+
 RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
  && cmake -S /build/innoextract -B /build/out-linux-amd64 -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DUSE_STATIC_LIBS=ON \
-      -DLZMA_LIBRARY=/usr/lib/${arch}/liblzma.a \
-      -DZLIB_LIBRARY=/usr/lib/${arch}/libz.a \
-      -DBZIP2_LIBRARIES=/usr/lib/${arch}/libbz2.a \
-      -DCMAKE_INSTALL_PREFIX=/dist \
- && cmake --build /build/out-linux-amd64 -j"$(nproc)" \
- && cmake --install /build/out-linux-amd64 \
- && mkdir -p /artifact \
+      -DCMAKE_INSTALL_PREFIX=/dist
+
+RUN echo "---- CMakeCache.txt (relevant) ----" \
+ && grep -E 'CMAKE_|Boost|BZIP|ZLIB|LZMA|STATIC|ICONV' /build/out-linux-amd64/CMakeCache.txt | sort || true
+
+RUN echo "---- link.txt files before build ----" \
+ && find /build/out-linux-amd64 -name link.txt -print -exec sh -c 'echo ">>> $1"; cat "$1"' _ {} \; || true
+
+RUN cmake --build /build/out-linux-amd64 -j"$(nproc)" --verbose
+
+RUN cmake --install /build/out-linux-amd64 \
+ && echo "---- /dist/bin ----" \
+ && ls -l /dist/bin
+
+RUN mkdir -p /artifact \
  && cp -av /dist/bin/innoextract /artifact/innoextract-linux-x86_64 \
- && file /artifact/innoextract-linux-x86_64 \
- && ldd /artifact/innoextract-linux-x86_64 || true
+ && echo "---- /artifact ----" \
+ && ls -l /artifact
+
+RUN file /artifact/innoextract-linux-x86_64 \
+ && (ldd /artifact/innoextract-linux-x86_64 || true)
 
 # ------------------------------
 # Windows x86_64
@@ -180,20 +234,74 @@ RUN cmake -S /build/innoextract -B /build/out-win-amd64 -G Ninja \
 # This stage assumes the container itself is arm64 when invoked that way.
 # ------------------------------
 FROM base AS linux-arm64
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && echo "DEB_HOST_MULTIARCH=$arch" \
+ && uname -a \
+ && dpkg --print-architecture
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && echo "Checking expected static libs..." \
+ && ls -l \
+      /usr/lib/${arch}/liblzma.a \
+      /usr/lib/${arch}/libz.a \
+      /usr/lib/${arch}/libbz2.a
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && echo "Relevant libs in /usr/lib/${arch}:" \
+ && find /usr/lib/${arch} -maxdepth 1 \
+      \( -name 'libboost_*' -o -name 'libz.a' -o -name 'libbz2.a' -o -name 'liblzma.a' \) \
+      | sort
+
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"; \
+    echo "Checking required static libraries for ${arch}"; \
+    missing=0; \
+    for f in \
+      /usr/lib/${arch}/liblzma.a \
+      /usr/lib/${arch}/libz.a \
+      /usr/lib/${arch}/libbz2.a \
+      /usr/lib/${arch}/libboost_iostreams.a \
+      /usr/lib/${arch}/libboost_filesystem.a \
+      /usr/lib/${arch}/libboost_date_time.a \
+      /usr/lib/${arch}/libboost_system.a \
+      /usr/lib/${arch}/libboost_program_options.a; \
+    do \
+      if [ -f "$f" ]; then \
+        echo "FOUND: $f"; \
+      else \
+        echo "MISSING: $f"; \
+        missing=1; \
+      fi; \
+    done; \
+    test "$missing" -eq 0
+
 RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
  && cmake -S /build/innoextract -B /build/out-linux-arm64 -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DUSE_STATIC_LIBS=ON \
-      -DLZMA_LIBRARY=/usr/lib/${arch}/liblzma.a \
-      -DZLIB_LIBRARY=/usr/lib/${arch}/libz.a \
-      -DBZIP2_LIBRARIES=/usr/lib/${arch}/libbz2.a \
-      -DCMAKE_INSTALL_PREFIX=/dist \
- && cmake --build /build/out-linux-arm64 -j"$(nproc)" \
- && cmake --install /build/out-linux-arm64 \
- && mkdir -p /artifact \
+      -DCMAKE_INSTALL_PREFIX=/dist
+
+RUN echo "---- CMakeCache.txt (relevant) ----" \
+ && grep -E 'CMAKE_|Boost|BZIP|ZLIB|LZMA|STATIC|ICONV' /build/out-linux-arm64/CMakeCache.txt | sort || true
+
+RUN echo "---- link.txt files before build ----" \
+ && find /build/out-linux-arm64 -name link.txt -print -exec sh -c 'echo ">>> $1"; cat "$1"' _ {} \; || true
+
+
+
+RUN cmake --build /build/out-linux-arm64 -j"$(nproc)" --verbose
+
+RUN cmake --install /build/out-linux-arm64 \
+ && echo "---- /dist/bin ----" \
+ && ls -l /dist/bin
+
+RUN mkdir -p /artifact \
  && cp -av /dist/bin/innoextract /artifact/innoextract-linux-aarch64 \
- && file /artifact/innoextract-linux-aarch64 \
- && ldd /artifact/innoextract-linux-aarch64 || true
+ && echo "---- /artifact ----" \
+ && ls -l /artifact
+
+RUN file /artifact/innoextract-linux-aarch64 \
+ && (ldd /artifact/innoextract-linux-aarch64 || true)
 
 # ------------------------------
 # Export-only stage
