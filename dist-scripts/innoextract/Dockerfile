@@ -36,6 +36,7 @@ RUN apt-get update \
       automake \
       libtool \
       gettext \
+      dpkg-dev \
  && rm -rf /var/lib/apt/lists/*
 
 ARG INNOEXTRACT_VERSION=1.9
@@ -46,9 +47,13 @@ RUN git clone --branch ${INNOEXTRACT_VERSION} --depth 1 https://github.com/dscha
 # Linux x86_64
 # ------------------------------
 FROM base AS linux-amd64
-RUN cmake -S /build/innoextract -B /build/out-linux-amd64 -G Ninja \
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && cmake -S /build/innoextract -B /build/out-linux-amd64 -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DUSE_STATIC_LIBS=ON \
+      -DLZMA_LIBRARY=/usr/lib/${arch}/liblzma.a \
+      -DZLIB_LIBRARY=/usr/lib/${arch}/libz.a \
+      -DBZIP2_LIBRARIES=/usr/lib/${arch}/libbz2.a \
       -DCMAKE_INSTALL_PREFIX=/dist \
  && cmake --build /build/out-linux-amd64 -j"$(nproc)" \
  && cmake --install /build/out-linux-amd64 \
@@ -175,9 +180,13 @@ RUN cmake -S /build/innoextract -B /build/out-win-amd64 -G Ninja \
 # This stage assumes the container itself is arm64 when invoked that way.
 # ------------------------------
 FROM base AS linux-arm64
-RUN cmake -S /build/innoextract -B /build/out-linux-arm64 -G Ninja \
+RUN arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+ && cmake -S /build/innoextract -B /build/out-linux-arm64 -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DUSE_STATIC_LIBS=ON \
+      -DLZMA_LIBRARY=/usr/lib/${arch}/liblzma.a \
+      -DZLIB_LIBRARY=/usr/lib/${arch}/libz.a \
+      -DBZIP2_LIBRARIES=/usr/lib/${arch}/libbz2.a \
       -DCMAKE_INSTALL_PREFIX=/dist \
  && cmake --build /build/out-linux-arm64 -j"$(nproc)" \
  && cmake --install /build/out-linux-arm64 \
