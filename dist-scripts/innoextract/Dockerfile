@@ -48,12 +48,14 @@ RUN git clone --branch ${INNOEXTRACT_VERSION} --depth 1 https://github.com/dscha
 FROM base AS linux-amd64
 RUN cmake -S /build/innoextract -B /build/out-linux-amd64 -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DUSE_STATIC_LIBS=ON \
       -DCMAKE_INSTALL_PREFIX=/dist \
  && cmake --build /build/out-linux-amd64 -j"$(nproc)" \
  && cmake --install /build/out-linux-amd64 \
  && mkdir -p /artifact \
  && cp -av /dist/bin/innoextract /artifact/innoextract-linux-x86_64 \
- && file /artifact/innoextract-linux-x86_64
+ && file /artifact/innoextract-linux-x86_64 \
+ && ldd /artifact/innoextract-linux-x86_64 || true
 
 # ------------------------------
 # Windows x86_64
@@ -175,12 +177,14 @@ RUN cmake -S /build/innoextract -B /build/out-win-amd64 -G Ninja \
 FROM base AS linux-arm64
 RUN cmake -S /build/innoextract -B /build/out-linux-arm64 -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DUSE_STATIC_LIBS=ON \
       -DCMAKE_INSTALL_PREFIX=/dist \
  && cmake --build /build/out-linux-arm64 -j"$(nproc)" \
  && cmake --install /build/out-linux-arm64 \
  && mkdir -p /artifact \
  && cp -av /dist/bin/innoextract /artifact/innoextract-linux-aarch64 \
- && file /artifact/innoextract-linux-aarch64
+ && file /artifact/innoextract-linux-aarch64 \
+ && ldd /artifact/innoextract-linux-aarch64 || true
 
 # ------------------------------
 # Export-only stage
