@@ -177,6 +177,16 @@ Wait for the extraction process to finish.
 
 Click "OK" and you should enter the game.
 
+### Linux Mint and other debian/ubuntu based systems
+
+You may get a "file not found" error on Linux Mint this is because it doesn't ship with 32bit support 
+
+Nox-Decomp is still 32bit only so your OS needs to have 32bit binary support
+
+sudo dpkg --add-architecture i386
+sudo apt update
+sudo apt install libc6:i386 libsdl2-2.0-0:i386 libopenal1:i386 libgl1:i386
+
 
 ## Windows
 Download [noxd.win32.x86-beta.zip](https://github.com/sookyboo/nox-decomp/releases/download/v0.9.3-rc2/noxd.win32.x86-v0.9.3-rc2.zip) from [release 9.3](https://github.com/sookyboo/nox-decomp/releases/tag/v0.9.3-rc2).
