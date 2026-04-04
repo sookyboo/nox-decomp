@@ -11,6 +11,7 @@ RUNTIMES=(
 )
 
 install_flatpaks() {
+  flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   flatpak install --user -y flathub "${RUNTIMES[@]}"
   flatpak install --user -y --reinstall "$APP_BUNDLE"
 }
