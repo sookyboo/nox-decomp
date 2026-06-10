@@ -4,7 +4,7 @@
 // - Runs innoextract + ffmpeg if needed (logs to UI + log.txt)
 // - Deletes gamefiles/app/nox.cfg ONLY after successful extraction (per spec)
 // - Computes resolution via WinAPI and patches nox.cfg (VideoMode + Fullscreen)
-// - Launches noxd.*.exe with stdout/stderr redirected to log.txt, then exits (no tailing)
+// - Launches noxd.*.exe with stdout/stderr redirected to log.txt, waits, then restores display mode
 //
 // Build (MSVC):
 //   cl /O2 /W4 /DUNICODE /D_UNICODE nox_launcher.c comdlg32.lib user32.lib gdi32.lib shell32.lib ole32.lib advapi32.lib
@@ -624,9 +624,8 @@ static bool ini_insert_line(IniDoc* doc, size_t idx, const wchar_t* text, const 
     return true;
 }
 
-static bool ini_set_env_value_preserve(IniDoc* doc, const wchar_t* key, const wchar_t* value) {
-    const wchar_t* envSec = L"env";
-    ssize_t idx = ini_find_last_key(doc, envSec, key);
+static bool ini_set_value_preserve(IniDoc* doc, const wchar_t* sectionLower, const wchar_t* key, const wchar_t* value) {
+    ssize_t idx = ini_find_last_key(doc, sectionLower, key);
     wchar_t newline[2048];
     _snwprintf(newline, ARRAYSIZE(newline), L"%s=%s", key, value ? value : L"");
     newline[ARRAYSIZE(newline)-1] = 0;
@@ -641,16 +640,22 @@ static bool ini_set_env_value_preserve(IniDoc* doc, const wchar_t* key, const wc
         return doc->lines[idx].raw != NULL && doc->lines[idx].value != NULL;
     }
 
-    // Need to insert at end of [env]
+    // Need to insert at end of section
     ssize_t headerIdx = -1; size_t insertIdx = doc->count;
-    ini_find_section_bounds(doc, envSec, &headerIdx, &insertIdx);
+    ini_find_section_bounds(doc, sectionLower, &headerIdx, &insertIdx);
     if (headerIdx < 0) {
-        // Add section at end
-        if (!ini_insert_line(doc, doc->count, L"[env]", L"env")) return false;
+        wchar_t secLine[256];
+        _snwprintf(secLine, ARRAYSIZE(secLine), L"[%s]", sectionLower);
+        secLine[ARRAYSIZE(secLine)-1] = 0;
+        if (!ini_insert_line(doc, doc->count, secLine, sectionLower)) return false;
         insertIdx = doc->count;
     }
     // Insert just before insertIdx (end of section)
-    return ini_insert_line(doc, insertIdx, newline, L"env");
+    return ini_insert_line(doc, insertIdx, newline, sectionLower);
+}
+
+static bool ini_set_env_value_preserve(IniDoc* doc, const wchar_t* key, const wchar_t* value) {
+    return ini_set_value_preserve(doc, L"env", key, value);
 }
 
 // -------------------------
@@ -950,6 +955,7 @@ typedef struct LauncherCfg {
     wchar_t log_file[MAX_PATH * 4];
     int fullscreen;
     int bits;
+    wchar_t system_resolution[32];
 } LauncherCfg;
 
 static void cfg_defaults(LauncherCfg* c) {
@@ -963,6 +969,7 @@ static void cfg_defaults(LauncherCfg* c) {
     wcscpy_s(c->log_file, ARRAYSIZE(c->log_file), L"log.txt");
     c->fullscreen = 1;
     c->bits = 16;
+    wcscpy_s(c->system_resolution, ARRAYSIZE(c->system_resolution), L"native");
 }
 
 static wchar_t* ini_get_launcher_value(const IniDoc* doc, const wchar_t* key) {
@@ -1007,6 +1014,9 @@ static void load_launcher_cfg(const IniDoc* doc, LauncherCfg* c) {
 
     v = ini_get_launcher_value(doc, L"bits");
     if (v) { if (parse_int32(v, &iv) && iv > 0) c->bits = iv; free(v); }
+
+    v = ini_get_launcher_value(doc, L"system_resolution");
+    if (v) { wcsncpy(c->system_resolution, v, ARRAYSIZE(c->system_resolution)-1); c->system_resolution[ARRAYSIZE(c->system_resolution)-1]=0; free(v); }
 }
 
 // Resolve config path possibly relative to gamedir.
@@ -1028,6 +1038,7 @@ static void resolve_path(wchar_t* out, size_t cap, const wchar_t* gamedir, const
 #define IDC_STATUS     1004
 #define IDC_LOG        1005
 #define IDC_SCROLLPANE 1006
+#define IDC_RESOLUTION 1007
 #define IDC_SRC_GOG       2001
 #define IDC_SRC_INSTALLED 2002
 #define IDC_SRC_CANCEL    2003
@@ -1043,6 +1054,8 @@ typedef struct AppState {
 
     HWND hScrollPane; // container with WS_VSCROLL
     HWND hLogEdit;
+    HWND hResolutionLabel;
+    HWND hResolutionCombo;
 
     wchar_t launcherDir[MAX_PATH * 4];
     wchar_t gamedir[MAX_PATH * 4];
@@ -1623,6 +1636,246 @@ static bool get_desktop_resolution(int* outW, int* outH) {
     *outW = (int)dm.dmPelsWidth;
     *outH = (int)dm.dmPelsHeight;
     return true;
+}
+
+typedef struct ResolutionEntry {
+    int w;
+    int h;
+} ResolutionEntry;
+
+static int __cdecl resolution_entry_cmp_desc(const void* a, const void* b) {
+    const ResolutionEntry* A = (const ResolutionEntry*)a;
+    const ResolutionEntry* B = (const ResolutionEntry*)b;
+    int areaA = A->w * A->h;
+    int areaB = B->w * B->h;
+    if (areaA != areaB) return (areaA > areaB) ? -1 : 1;
+    if (A->w != B->w) return (A->w > B->w) ? -1 : 1;
+    return 0;
+}
+
+static const wchar_t* resolution_aspect_label(int w, int h) {
+    if (w <= 0 || h <= 0) return L"Wide";
+    double aspect = (double)w / (double)h;
+    if (aspect > 1.30 && aspect < 1.36) return L"4:3";
+    return L"Wide";
+}
+
+static bool parse_resolution_setting(const wchar_t* s, int* outW, int* outH) {
+    if (outW) *outW = 0;
+    if (outH) *outH = 0;
+    if (!s || !*s || wcs_ieq(s, L"native")) return false;
+
+    int w = 0, h = 0;
+    if (swscanf(s, L"%dx%d", &w, &h) == 2 && w > 0 && h > 0) {
+        if (outW) *outW = w;
+        if (outH) *outH = h;
+        return true;
+    }
+    return false;
+}
+
+static DWORD pack_resolution_item_data(int w, int h) {
+    if (w <= 0 || h <= 0 || w > 65535 || h > 65535) return 0;
+    return ((DWORD)w << 16) | (DWORD)h;
+}
+
+static void unpack_resolution_item_data(DWORD data, int* outW, int* outH) {
+    if (outW) *outW = (int)((data >> 16) & 0xffff);
+    if (outH) *outH = (int)(data & 0xffff);
+}
+
+static void resolution_update_from_ctrl(LauncherCfg* cfg) {
+    if (!cfg || !g_app.hResolutionCombo) return;
+    int sel = (int)SendMessageW(g_app.hResolutionCombo, CB_GETCURSEL, 0, 0);
+    if (sel == CB_ERR) {
+        wcscpy_s(cfg->system_resolution, ARRAYSIZE(cfg->system_resolution), L"native");
+        return;
+    }
+
+    DWORD data = (DWORD)SendMessageW(g_app.hResolutionCombo, CB_GETITEMDATA, (WPARAM)sel, 0);
+    int w = 0, h = 0;
+    unpack_resolution_item_data(data, &w, &h);
+    if (w <= 0 || h <= 0) {
+        wcscpy_s(cfg->system_resolution, ARRAYSIZE(cfg->system_resolution), L"native");
+    } else {
+        _snwprintf(cfg->system_resolution, ARRAYSIZE(cfg->system_resolution), L"%dx%d", w, h);
+        cfg->system_resolution[ARRAYSIZE(cfg->system_resolution)-1] = 0;
+    }
+}
+
+static void populate_resolution_combo(HWND hCombo, const wchar_t* selectedSetting) {
+    if (!hCombo) return;
+
+    SendMessageW(hCombo, CB_RESETCONTENT, 0, 0);
+
+    int nativeIdx = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)L"Native");
+    if (nativeIdx >= 0) SendMessageW(hCombo, CB_SETITEMDATA, (WPARAM)nativeIdx, (LPARAM)0);
+
+    DEVMODEW cur;
+    ZeroMemory(&cur, sizeof(cur));
+    cur.dmSize = sizeof(cur);
+    bool haveCur = EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &cur) ? true : false;
+
+    ResolutionEntry entries[256];
+    int n = 0;
+
+    if (haveCur) {
+        for (DWORD i = 0; ; i++) {
+            DEVMODEW dm;
+            ZeroMemory(&dm, sizeof(dm));
+            dm.dmSize = sizeof(dm);
+            if (!EnumDisplaySettingsW(NULL, i, &dm)) break;
+
+            int w = (int)dm.dmPelsWidth;
+            int h = (int)dm.dmPelsHeight;
+            if (w < 640 || h < 360) continue;
+            if (w > (int)cur.dmPelsWidth || h > (int)cur.dmPelsHeight) continue;
+            if (cur.dmBitsPerPel > 0 && dm.dmBitsPerPel > 0 && dm.dmBitsPerPel != cur.dmBitsPerPel) continue;
+
+            bool exists = false;
+            for (int j = 0; j < n; j++) {
+                if (entries[j].w == w && entries[j].h == h) { exists = true; break; }
+            }
+            if (exists) continue;
+            if (n >= (int)ARRAYSIZE(entries)) break;
+            entries[n].w = w;
+            entries[n].h = h;
+            n++;
+        }
+    }
+
+    qsort(entries, (size_t)n, sizeof(entries[0]), resolution_entry_cmp_desc);
+
+    int selectedIdx = nativeIdx;
+    int selectedW = 0, selectedH = 0;
+    bool wantFixed = parse_resolution_setting(selectedSetting, &selectedW, &selectedH);
+
+    for (int i = 0; i < n; i++) {
+        wchar_t text[128];
+        _snwprintf(text, ARRAYSIZE(text), L"%d x %d (%s)", entries[i].w, entries[i].h, resolution_aspect_label(entries[i].w, entries[i].h));
+        text[ARRAYSIZE(text)-1] = 0;
+
+        int idx = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)text);
+        if (idx >= 0) {
+            SendMessageW(hCombo, CB_SETITEMDATA, (WPARAM)idx, (LPARAM)pack_resolution_item_data(entries[i].w, entries[i].h));
+            if (wantFixed && entries[i].w == selectedW && entries[i].h == selectedH) selectedIdx = idx;
+        }
+    }
+
+    if (selectedIdx >= 0) SendMessageW(hCombo, CB_SETCURSEL, (WPARAM)selectedIdx, 0);
+}
+
+static bool find_display_mode_for_resolution(int w, int h, DEVMODEW* outDm) {
+    if (!outDm || w <= 0 || h <= 0) return false;
+
+    DEVMODEW cur;
+    ZeroMemory(&cur, sizeof(cur));
+    cur.dmSize = sizeof(cur);
+    bool haveCur = EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &cur) ? true : false;
+
+    DEVMODEW fallback;
+    ZeroMemory(&fallback, sizeof(fallback));
+    bool haveFallback = false;
+
+    for (DWORD i = 0; ; i++) {
+        DEVMODEW dm;
+        ZeroMemory(&dm, sizeof(dm));
+        dm.dmSize = sizeof(dm);
+        if (!EnumDisplaySettingsW(NULL, i, &dm)) break;
+        if ((int)dm.dmPelsWidth != w || (int)dm.dmPelsHeight != h) continue;
+        if (haveCur && cur.dmBitsPerPel > 0 && dm.dmBitsPerPel > 0 && dm.dmBitsPerPel != cur.dmBitsPerPel) continue;
+
+        if (!haveFallback) {
+            fallback = dm;
+            haveFallback = true;
+        }
+
+        if (haveCur && dm.dmDisplayFrequency == cur.dmDisplayFrequency) {
+            *outDm = dm;
+            return true;
+        }
+    }
+
+    if (haveFallback) {
+        *outDm = fallback;
+        return true;
+    }
+    return false;
+}
+
+static bool apply_system_resolution_for_launch(const wchar_t* setting,
+                                               DEVMODEW* oldMode,
+                                               bool* oldModeValid,
+                                               bool* changedMode) {
+    if (oldModeValid) *oldModeValid = false;
+    if (changedMode) *changedMode = false;
+
+    int w = 0, h = 0;
+    if (!parse_resolution_setting(setting, &w, &h)) return true; // Native
+
+    DEVMODEW current;
+    ZeroMemory(&current, sizeof(current));
+    current.dmSize = sizeof(current);
+    if (!EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &current)) {
+        ui_log_line(L"ERROR: failed to read current display mode.");
+        return false;
+    }
+
+    if (oldMode) *oldMode = current;
+    if (oldModeValid) *oldModeValid = true;
+
+    if ((int)current.dmPelsWidth == w && (int)current.dmPelsHeight == h) {
+        ui_log_line(L"Selected system resolution already active.");
+        return true;
+    }
+
+    DEVMODEW target;
+    if (!find_display_mode_for_resolution(w, h, &target)) {
+        wchar_t msg[256];
+        _snwprintf(msg, ARRAYSIZE(msg), L"ERROR: selected system resolution is not available: %dx%d", w, h);
+        msg[ARRAYSIZE(msg)-1] = 0;
+        ui_log_line(msg);
+        return false;
+    }
+
+    wchar_t msg[256];
+    _snwprintf(msg, ARRAYSIZE(msg), L"Changing system resolution: %lux%lu -> %dx%d",
+               (unsigned long)current.dmPelsWidth,
+               (unsigned long)current.dmPelsHeight,
+               w, h);
+    msg[ARRAYSIZE(msg)-1] = 0;
+    ui_log_line(msg);
+
+    LONG r = ChangeDisplaySettingsW(&target, CDS_FULLSCREEN);
+    if (r != DISP_CHANGE_SUCCESSFUL) {
+        _snwprintf(msg, ARRAYSIZE(msg), L"ERROR: ChangeDisplaySettingsW failed (%ld).", (long)r);
+        msg[ARRAYSIZE(msg)-1] = 0;
+        ui_log_line(msg);
+        return false;
+    }
+
+    if (changedMode) *changedMode = true;
+    return true;
+}
+
+static void restore_system_resolution_after_launch(const DEVMODEW* oldMode,
+                                                   bool oldModeValid,
+                                                   bool changedMode) {
+    if (!oldModeValid || !changedMode || !oldMode) return;
+
+    wchar_t msg[256];
+    _snwprintf(msg, ARRAYSIZE(msg), L"Restoring system resolution: %lux%lu",
+               (unsigned long)oldMode->dmPelsWidth,
+               (unsigned long)oldMode->dmPelsHeight);
+    msg[ARRAYSIZE(msg)-1] = 0;
+    ui_log_line(msg);
+
+    LONG r = ChangeDisplaySettingsW((DEVMODEW*)oldMode, 0);
+    if (r != DISP_CHANGE_SUCCESSFUL) {
+        _snwprintf(msg, ARRAYSIZE(msg), L"WARNING: failed to restore system resolution (%ld).", (long)r);
+        msg[ARRAYSIZE(msg)-1] = 0;
+        ui_log_line(msg);
+    }
 }
 
 static void compute_nox_resolution(int dispW, int dispH, int* outW, int* outH) {
@@ -2374,7 +2627,7 @@ static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir,
         log_last_error(L"Failed to create game log reader thread");
     }
 
-    DWORD wait = WaitForSingleObject(pi.hProcess, 15000);
+    DWORD wait = WaitForSingleObject(pi.hProcess, INFINITE);
 
     if (wait == WAIT_OBJECT_0) {
         DWORD code = 0;
@@ -2382,41 +2635,24 @@ static bool launch_game_and_exit(const wchar_t* exePath, const wchar_t* workdir,
 
         wchar_t msg[256];
         _snwprintf(msg, ARRAYSIZE(msg),
-                   L"Game exited within 15000 ms (exit code %lu).",
+                   L"Game exited (exit code %lu).",
                    (unsigned long)code);
         msg[ARRAYSIZE(msg)-1]=0;
         ui_log_line(msg);
-
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-
-        CloseHandle(hOutR);
-        if (hReader) {
-            WaitForSingleObject(hReader, 2000);
-            CloseHandle(hReader);
-        }
-        return false;
-    }
-
-    if (wait == WAIT_TIMEOUT) {
-        ui_log_line(L"Child still running after 15000 ms; treating launch as successful.");
     } else {
         log_last_error(L"WaitForSingleObject on child process failed");
     }
 
-    // Do not wait for child exit here on success.
-    // Leave the reader thread alive only briefly, then detach by closing our read handle later.
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
 
-    // Keep launcher behavior simple: stop reading once we hand off.
     CloseHandle(hOutR);
     if (hReader) {
         WaitForSingleObject(hReader, 2000);
         CloseHandle(hReader);
     }
 
-    return true;
+    return wait == WAIT_OBJECT_0;
 }
 
 // -------------------------
@@ -2459,6 +2695,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     for (size_t i = 0; i < a->vars.n; i++) {
         var_update_from_ctrl(&a->vars.v[i]);
     }
+    resolution_update_from_ctrl(&a->cfg);
 
     // 2) Update ini doc [env] with current values (preserve unknown)
     for (size_t i = 0; i < a->vars.n; i++) {
@@ -2468,6 +2705,8 @@ static DWORD WINAPI worker_thread(LPVOID param) {
             ui_log_line(L"Failed to update INI env values.");
         }
     }
+    ini_set_value_preserve(&a->ini, L"launcher", L"system_resolution", a->cfg.system_resolution);
+
     // Save INI (preserve)
     if (!ini_save_preserve(a->iniPath, &a->ini)) {
         ui_log_line(L"WARNING: Failed to save launch-nox-decomp.ini (continuing).");
@@ -2645,7 +2884,18 @@ static DWORD WINAPI worker_thread(LPVOID param) {
         return 0;
     }
 
-    // 7) Detect desktop resolution and compute Nox resolution
+    // 7) Optionally change Windows system resolution before existing auto-detection
+    DEVMODEW oldDisplayMode;
+    ZeroMemory(&oldDisplayMode, sizeof(oldDisplayMode));
+    bool oldDisplayModeValid = false;
+    bool changedDisplayMode = false;
+
+    if (!apply_system_resolution_for_launch(a->cfg.system_resolution, &oldDisplayMode, &oldDisplayModeValid, &changedDisplayMode)) {
+        PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+        return 0;
+    }
+
+    // 8) Detect desktop resolution and compute Nox resolution
     int dispW = 0, dispH = 0;
     if (!get_desktop_resolution(&dispW, &dispH)) {
         dispW = 0; dispH = 0;
@@ -2662,6 +2912,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     ui_set_status(L"Patching config...");
     if (!patch_nox_cfg(dstCfg, noxW, noxH, a->cfg.bits, a->cfg.fullscreen)) {
         ui_log_line(L"ERROR: failed to patch nox.cfg.");
+        restore_system_resolution_after_launch(&oldDisplayMode, oldDisplayModeValid, changedDisplayMode);
         PostMessageW(hwnd, WM_APP_DONE, 0, 0);
         return 0;
     }
@@ -2683,6 +2934,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
 
     if (!gameExe) {
         ui_log_line(L"ERROR: no game binary found (noxd.<arch>.exe or noxd.exe).");
+        restore_system_resolution_after_launch(&oldDisplayMode, oldDisplayModeValid, changedDisplayMode);
         PostMessageW(hwnd, WM_APP_DONE, 0, 0);
         return 0;
     }
@@ -2690,6 +2942,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
     // Ensure working dir exists and is gamefiles/app
     if (!dir_exists(a->assetsDirAbs)) {
         ui_log_line(L"ERROR: assets directory missing (gamefiles/app).");
+        restore_system_resolution_after_launch(&oldDisplayMode, oldDisplayModeValid, changedDisplayMode);
         PostMessageW(hwnd, WM_APP_DONE, 0, 0);
         return 0;
     }
@@ -2714,6 +2967,7 @@ static DWORD WINAPI worker_thread(LPVOID param) {
 
     if (!saved) {
         ui_log_line(L"ERROR: OOM preparing env overrides.");
+        restore_system_resolution_after_launch(&oldDisplayMode, oldDisplayModeValid, changedDisplayMode);
         PostMessageW(hwnd, WM_APP_DONE, 0, 0);
         return 0;
     }
@@ -2786,6 +3040,8 @@ static DWORD WINAPI worker_thread(LPVOID param) {
 
     bool launched = launch_game_and_exit(gameExe, a->assetsDirAbs, NULL, a->logAbs);
 
+    restore_system_resolution_after_launch(&oldDisplayMode, oldDisplayModeValid, changedDisplayMode);
+
     // Always restore env overrides
     for (size_t i = 0; i < sn; i++) restore_env(&saved[i]);
     for (size_t i = 0; i < sn; i++) envsaved_free(&saved[i]);
@@ -2798,8 +3054,8 @@ static DWORD WINAPI worker_thread(LPVOID param) {
         return 0;
     }
 
-    ui_log_line(L"Launch succeeded; leaving launcher open for debugging.");
-    ui_set_status(L"Game launched");
+    ui_log_line(L"Game process finished; launcher ready.");
+    ui_set_status(L"Game exited");
 
     if (g_logFile != INVALID_HANDLE_VALUE) {
         FlushFileBuffers(g_logFile);
@@ -2859,6 +3115,20 @@ static void create_controls(HWND hwnd) {
         hwnd, (HMENU)(INT_PTR)IDC_SCROLLPANE, g_app.hInst, NULL
     );
 
+    g_app.hResolutionLabel = CreateWindowExW(
+        0, L"STATIC", L"Resolution",
+        WS_CHILD | WS_VISIBLE,
+        0, 0, 10, 10,
+        g_app.hScrollPane, NULL, g_app.hInst, NULL
+    );
+
+    g_app.hResolutionCombo = CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"COMBOBOX", L"",
+        WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_TABSTOP,
+        0, 0, 10, 200,
+        g_app.hScrollPane, (HMENU)(INT_PTR)IDC_RESOLUTION, g_app.hInst, NULL
+    );
+
     // Apply font
     HFONT hf = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     SendMessageW(g_app.hLogEdit, WM_SETFONT, (WPARAM)hf, TRUE);
@@ -2866,6 +3136,9 @@ static void create_controls(HWND hwnd) {
     SendMessageW(g_app.hBtnLaunch, WM_SETFONT, (WPARAM)hf, TRUE);
     SendMessageW(g_app.hBtnSave, WM_SETFONT, (WPARAM)hf, TRUE);
     SendMessageW(g_app.hScrollPane, WM_SETFONT, (WPARAM)hf, TRUE);
+    SendMessageW(g_app.hResolutionLabel, WM_SETFONT, (WPARAM)hf, TRUE);
+    SendMessageW(g_app.hResolutionCombo, WM_SETFONT, (WPARAM)hf, TRUE);
+    populate_resolution_combo(g_app.hResolutionCombo, g_app.cfg.system_resolution);
 
     g_logState.hEdit = g_app.hLogEdit;
     g_logState.max_bytes = g_app.cfg.ring_buffer_bytes;
@@ -2932,6 +3205,11 @@ static void layout_controls(HWND hwnd) {
     if (ctrlW < dpi_scale(hwnd, 80)) ctrlW = dpi_scale(hwnd, 80);
 
     int y = py;
+
+    int resRowH = m.row_h_edit;
+    if (g_app.hResolutionLabel) MoveWindow(g_app.hResolutionLabel, px, y + (resRowH - dpi_scale(hwnd, 18))/2, labelW, dpi_scale(hwnd, 18), TRUE);
+    if (g_app.hResolutionCombo) MoveWindow(g_app.hResolutionCombo, ctrlX, y, ctrlW, dpi_scale(hwnd, 200), TRUE);
+    y += resRowH + m.row_gap;
 
     for (size_t i = 0; i < g_app.vars.n; i++) {
         VarSpec* s = &g_app.vars.v[i];
@@ -3062,10 +3340,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (id == IDC_BTN_SAVE) {
                 // clamp/revert and save ini
                 for (size_t i = 0; i < g_app.vars.n; i++) var_update_from_ctrl(&g_app.vars.v[i]);
+                resolution_update_from_ctrl(&g_app.cfg);
                 for (size_t i = 0; i < g_app.vars.n; i++) {
                     VarSpec* s = &g_app.vars.v[i];
                     if (s->name) ini_set_env_value_preserve(&g_app.ini, s->name, s->curval ? s->curval : L"");
                 }
+                ini_set_value_preserve(&g_app.ini, L"launcher", L"system_resolution", g_app.cfg.system_resolution);
                 if (ini_save_preserve(g_app.iniPath, &g_app.ini)) ui_log_line(L"Saved launch-nox-decomp.ini.");
                 else ui_log_line(L"WARNING: Failed to save launch-nox-decomp.ini.");
                 return 0;
