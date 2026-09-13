@@ -7,6 +7,10 @@
 extern int g_fullscreen;
 extern float draw_gamma;
 extern float input_sensitivity;
+#ifdef USE_SDL
+#include <SDL2/SDL.h>
+extern SDL_Window *g_window;
+#endif
 
 void f(int);
 void (*mainloop_enter)(void *);
@@ -43486,9 +43490,9 @@ LABEL_74:
               g_fullscreen = atoi(token);
 
             if (g_fullscreen)
-              SDL_SetWindowFullscreen(sub_401FD0(), SDL_WINDOW_FULLSCREEN_DESKTOP);
+              SDL_SetWindowFullscreen(g_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
             else
-              SDL_SetWindowFullscreen(sub_401FD0(), 0);
+              SDL_SetWindowFullscreen(g_window, 0);
           }
           else if ( !strcmp(v1, "Gamma2") )
           {
@@ -44208,10 +44212,16 @@ int sub_432B00()
 
   strtok(0, (const char *)&byte_587000[82880]);
   v0 = strtok(0, (const char *)&byte_587000[82888]);
+  if ( !v0 )
+    return 0;
   v1 = atoi(v0);
   v2 = strtok(0, (const char *)&byte_587000[82896]);
+  if ( !v2 )
+    return 0;
   v3 = atoi(v2);
   v4 = strtok(0, (const char *)&byte_587000[82904]);
+  if ( !v4 )
+    return 0;
   v5 = atoi(v4);
   v6 = v5;
   if ( v5 == 8 )
@@ -44236,8 +44246,11 @@ int sub_432B00()
 #else
     *(_DWORD *)&byte_587000[91780] = v1;
     *(_DWORD *)&byte_587000[91784] = v3;
-    SDL_SetWindowSize(sub_401FD0(), v1, v3);
-    SDL_SetWindowPosition(sub_401FD0(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    if ( g_window )
+    {
+      SDL_SetWindowSize(g_window, v1, v3);
+      SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
 #endif
     *(_DWORD *)&byte_587000[91788] = v6;
     *(_DWORD *)&byte_587000[91800] = v6;
@@ -49621,10 +49634,10 @@ int __cdecl sub_43BEF0(int a1, int a2, int a3)
   *(_DWORD *)&byte_587000[91788] = a3;
 
   if (g_fullscreen)
-    SDL_SetWindowFullscreen(sub_401FD0(), SDL_WINDOW_FULLSCREEN_DESKTOP);
+    SDL_SetWindowFullscreen(g_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
   else
-    SDL_SetWindowFullscreen(sub_401FD0(), 0);
-  SDL_SetWindowSize(sub_401FD0(), a1, a2);
+    SDL_SetWindowFullscreen(g_window, 0);
+  SDL_SetWindowSize(g_window, a1, a2);
   return result;
 }
 
