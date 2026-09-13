@@ -36,6 +36,9 @@ int nox_netextras_try_fake_recvfrom(int sockfd,
 
 void nox_netextras_on_host_bind_success(int sockfd, unsigned bound_port);
 
+/* Apply the UDP socket options supplied by compat.c on non-Windows builds. */
+void nox_netextras_configure_udp_socket(int sockfd);
+
 int nox_netextras_fake_pending(int sockfd);
 
 

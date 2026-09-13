@@ -56,6 +56,25 @@
 
 #include "netextras_types.h"
 
+
+void nox_netextras_configure_udp_socket(int sockfd)
+{
+#ifdef _WIN32
+    int yes = 1;
+
+    if (sockfd < 0) return;
+
+    /* compat.c applies these to every UDP socket on POSIX builds.  Windows
+       bypasses compat.c, so mirror those options here at the game call sites. */
+    (void)setsockopt((SOCKET)sockfd, SOL_SOCKET, SO_BROADCAST,
+                     (const char *)&yes, (int)sizeof(yes));
+    (void)setsockopt((SOCKET)sockfd, SOL_SOCKET, SO_REUSEADDR,
+                     (const char *)&yes, (int)sizeof(yes));
+#else
+    (void)sockfd;
+#endif
+}
+
 /* ---- IPv4-only inet_pton shim (avoids missing inet_pton link issues) ---- */
 static int nox_inet_pton_ipv4(const char *src, struct in_addr *dst)
 {

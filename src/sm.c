@@ -3,6 +3,7 @@
 #endif
 
 #include "proto.h"
+#include "netextras.h"
 
 void f(int);
 void mainloop_exit_1();
@@ -245,7 +246,7 @@ void NET_CONNECT (sm_args_t *args)
     GOTO_NET_CONNECT_THEN(-4);
   if ( hostshort < 1024 || hostshort > 0x10000 )
     GOTO_NET_CONNECT_THEN(-15);
-  if ( WSAStartup(0x101u, &WSAData) == -1 )
+  if ( WSAStartup(0x101u, &WSAData) != 0 )
     GOTO_NET_CONNECT_THEN(-21);
   v7 = socket(2, 2, 0);
   *v5 = v7;
@@ -254,6 +255,7 @@ void NET_CONNECT (sm_args_t *args)
     WSACleanup();
     GOTO_NET_CONNECT_THEN(-22);
   }
+  nox_netextras_configure_udp_socket(v7);
   if ( (unsigned __int8)*cp < 0x30u || (unsigned __int8)*cp > 0x39u )
   {
     v9 = gethostbyname(cp);
