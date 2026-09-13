@@ -523,8 +523,8 @@ static long g_last_lobby_reg = 0;
 static unsigned g_lobby_bound_port = 18590;
 static unsigned char g_lobby_serverinfo[256];
 static size_t g_lobby_serverinfo_len = 0;
-
-static SDL_atomic_t g_lobby_poll_started = {0};
+static int g_lobby_host_active = 0;
+static Uint32 g_lobby_last_snapshot_tick = 0;
 
 static int lobby_init_once(void)
 {
@@ -643,67 +643,46 @@ void nox_netextras_on_host_serverinfo(const void *packet, size_t len)
     maybe_register_lobby_from_serverinfo(-1, (const unsigned char *)packet, len);
 }
 
-static int lobby_poll_thread_fn(void *arg)
-{
-    (void)arg;
-
-    for (;;) {
-        int period = nox_lobby_register_period_sec();
-        if (period < 5) period = 5;
-
-        // The old implementation called sub_554040() from this detached
-        // thread. That function reads live game/player globals and is not a
-        // thread-safe packet serializer. Only reuse a packet previously built
-        // on the game thread.
-        SDL_Delay((Uint32)period * 1000u);
-
-        if (!nox_should_register_lobby()) continue;
-        if (lobby_init_once() != 0) continue;
-
-        unsigned char buf[256];
-        size_t len = 0;
-
-        SDL_LockMutex(g_lobby_mu);
-        len = g_lobby_serverinfo_len;
-        if (len > sizeof(buf)) len = sizeof(buf);
-        if (len) memcpy(buf, g_lobby_serverinfo, len);
-        SDL_UnlockMutex(g_lobby_mu);
-
-        if (len >= 73 && buf[2] == 0x0D) {
-            maybe_register_lobby_from_serverinfo(-1, buf, len);
-        }
-    }
-}
-
-// Start polling thread once (host-side).
-static void lobby_poll_thread_start_once(void)
-{
-    if (!SDL_AtomicCAS(&g_lobby_poll_started, 0, 1)) return;
-
-    SDL_Thread *th = SDL_CreateThread(lobby_poll_thread_fn, "lobby_poll_register", NULL);
-    if (th) {
-        SDL_DetachThread(th);
-        NETLOG("netextras: lobby polling thread started\n");
-    } else {
-        SDL_AtomicSet(&g_lobby_poll_started, 0);
-        fprintf(stderr, "netextras: lobby polling thread FAILED to start\n");
-    }
-}
+/*
+ * Lobby server-info must be built on the normal game/network thread because
+ * sub_554040() walks live game state. Periodic refresh is driven by
+ * nox_netextras_host_tick() below; the detached worker only performs HTTP.
+ */
 
 // Build one server-info immediately on the caller/game thread and attempt a
 // single registration. Periodic refreshes only reuse the cached result.
-static void lobby_kickoff_once(int sockfd)
+static void lobby_build_serverinfo_on_game_thread(int sockfd)
 {
-    (void)sockfd;
-
-    if (!nox_should_register_lobby()) return;
-
     unsigned char buf[256];
     int dummy[3] = {0,0,0};
     int len = sub_554040(dummy, (int)sizeof(buf), (char *)buf);
     if (len > 0 && len >= 73 && buf[2] == 0x0D) {
         maybe_register_lobby_from_serverinfo(sockfd, buf, (size_t)len);
     }
+}
+
+void nox_netextras_host_tick(void)
+{
+    if (!nox_should_register_lobby()) return;
+    if (lobby_init_once() != 0) return;
+
+    Uint32 now = SDL_GetTicks();
+    int should_refresh = 0;
+
+    SDL_LockMutex(g_lobby_mu);
+    if (g_lobby_host_active &&
+        (g_lobby_last_snapshot_tick == 0 ||
+         (Uint32)(now - g_lobby_last_snapshot_tick) >= 1000u)) {
+        g_lobby_last_snapshot_tick = now ? now : 1u;
+        should_refresh = 1;
+    }
+    SDL_UnlockMutex(g_lobby_mu);
+
+    if (!should_refresh) return;
+
+    /* Called from the game network pump, so reading live game state is safe.
+       Registration HTTP itself remains asynchronous. */
+    lobby_build_serverinfo_on_game_thread(-1);
 }
 
 // -----------------------------------------------------------------------------
@@ -720,15 +699,16 @@ void nox_netextras_on_host_bind_success(int sockfd, unsigned bound_port)
     SDL_LockMutex(g_lobby_mu);
     g_lobby_bound_port = bound_port ? bound_port : 18590;
     g_lobby_serverinfo_len = 0;
+    g_lobby_host_active = 1;
+    g_lobby_last_snapshot_tick = 0;
     g_last_lobby_reg = 0;
     SDL_UnlockMutex(g_lobby_mu);
 
     NETLOG("netextras: host bind success fd=%d port=%u\n", sockfd, bound_port);
 
-    // Kick off on the game thread before starting the detached refresh worker,
-    // avoiding simultaneous calls into the game's server-info builder.
-    lobby_kickoff_once(sockfd);
-    lobby_poll_thread_start_once();
+    /* Try immediately, then let the normal network pump retry once the hosted
+       game has finished initializing. */
+    lobby_build_serverinfo_on_game_thread(sockfd);
 }
 
 int nox_netextras_fake_pending(int sockfd)

@@ -10225,6 +10225,9 @@ int __cdecl sub_552A80(unsigned int a1, char a2)
   struct sockaddr to; // [esp+2Ch] [ebp-110h]
   char buf[256]; // [esp+3Ch] [ebp-100h]
 
+  /* Refresh lobby server-info from the normal network/game thread. */
+  nox_netextras_host_tick();
+
   v2 = *(_DWORD *)&byte_5D4594[4 * a1 + 3843788];
   tolen = 16;
   v29 = v2;
