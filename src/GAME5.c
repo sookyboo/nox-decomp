@@ -10265,6 +10265,7 @@ LABEL_10:
           v6 = sub_554040(*(_DWORD *)(v2 + 40), *(_DWORD *)(v2 + 36) - *(_DWORD *)(v2 + 40), buf);
           if ( v6 > 0 )
           {
+            nox_netextras_on_host_serverinfo(buf, (size_t)v6);
             v6 = sendto(*(_DWORD *)v2, buf, v6, 0, &to, tolen);
             sub_553F40(v6, 1);
           }

@@ -36,6 +36,9 @@ int nox_netextras_try_fake_recvfrom(int sockfd,
 
 void nox_netextras_on_host_bind_success(int sockfd, unsigned bound_port);
 
+/* Cache a server-info packet built by the game thread for lobby refreshes. */
+void nox_netextras_on_host_serverinfo(const void *packet, size_t len);
+
 /* Apply the UDP socket options supplied by compat.c on non-Windows builds. */
 void nox_netextras_configure_udp_socket(int sockfd);
 
