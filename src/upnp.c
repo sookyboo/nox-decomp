@@ -29,18 +29,6 @@
   #include <windows.h>
   #include <ws2tcpip.h>
 
-  // pthread shims (we only need a mutex)
-  typedef CRITICAL_SECTION pthread_mutex_t;
-  #define PTHREAD_MUTEX_INITIALIZER {0}
-
-  static int pthread_mutex_init(pthread_mutex_t *m, void *attr) {
-      (void)attr;
-      InitializeCriticalSection(m);
-      return 0;
-  }
-  static int pthread_mutex_lock(pthread_mutex_t *m) { EnterCriticalSection(m); return 0; }
-  static int pthread_mutex_unlock(pthread_mutex_t *m) { LeaveCriticalSection(m); return 0; }
-
   // basic close/socket types shims
   #define close closesocket
   typedef int socklen_t;
@@ -128,7 +116,41 @@
 #define INET6_ADDRSTRLEN 46
 #endif
 
+#ifdef _WIN32
+static CRITICAL_SECTION g_mu;
+static volatile LONG g_mu_init_state = 0;
+
+static void upnp_mutex_lock(void)
+{
+    LONG state = InterlockedCompareExchange(&g_mu_init_state, 1, 0);
+    if (state == 0) {
+        InitializeCriticalSection(&g_mu);
+        InterlockedExchange(&g_mu_init_state, 2);
+    } else {
+        while (InterlockedCompareExchange(&g_mu_init_state, 2, 2) != 2) {
+            Sleep(0);
+        }
+    }
+    EnterCriticalSection(&g_mu);
+}
+
+static void upnp_mutex_unlock(void)
+{
+    LeaveCriticalSection(&g_mu);
+}
+#else
 static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
+
+static void upnp_mutex_lock(void)
+{
+    pthread_mutex_lock(&g_mu);
+}
+
+static void upnp_mutex_unlock(void)
+{
+    pthread_mutex_unlock(&g_mu);
+}
+#endif
 
 static int g_inited = 0;
 static int g_mapped_udp = 0;
@@ -827,14 +849,14 @@ static int upnp_del_mapping_one(const char *proto, int timeout_ms) {
 }
 
 void nox_upnp_cleanup(void) {
-    pthread_mutex_lock(&g_mu);
+    upnp_mutex_lock();
 
     int timeout_ms = env_int("NOX_UPNP_TIMEOUT_MS", 2000);
 
     if (g_mapped_udp) { (void)upnp_del_mapping_one("UDP", timeout_ms); g_mapped_udp = 0; }
     if (g_mapped_tcp) { (void)upnp_del_mapping_one("TCP", timeout_ms); g_mapped_tcp = 0; }
 
-    pthread_mutex_unlock(&g_mu);
+    upnp_mutex_unlock();
 }
 
 /* Discover and cache control endpoint */
@@ -947,18 +969,18 @@ static int proto_wants(const char *proto_csv, const char *needle_lower) {
 }
 
 int nox_upnp_ensure_mapped_from_env(void) {
-    pthread_mutex_lock(&g_mu);
+    upnp_mutex_lock();
 
     g_debug = env_truthy(getenv("NOX_UPNP_DEBUG")) ? 1 : 0;
 
     if (!env_truthy(getenv("NOX_UPNP_ENABLE"))) {
-        pthread_mutex_unlock(&g_mu);
+        upnp_mutex_unlock();
         return -1;
     }
 
     time_t now = time(NULL);
     if (g_next_try && now < g_next_try) {
-        pthread_mutex_unlock(&g_mu);
+        upnp_mutex_unlock();
         return -1;
     }
 
@@ -987,7 +1009,7 @@ int nox_upnp_ensure_mapped_from_env(void) {
         // ok
     }
     if ((!want_udp || g_mapped_udp) && (!want_tcp || g_mapped_tcp)) {
-        pthread_mutex_unlock(&g_mu);
+        upnp_mutex_unlock();
         return 0;
     }
 
@@ -995,7 +1017,7 @@ int nox_upnp_ensure_mapped_from_env(void) {
         if (upnp_discover_and_cache(timeout_ms) != 0) {
             // backoff 60s on failure
             g_next_try = now + 60;
-            pthread_mutex_unlock(&g_mu);
+            upnp_mutex_unlock();
             return -1;
         }
         g_inited = 1;
@@ -1016,10 +1038,10 @@ int nox_upnp_ensure_mapped_from_env(void) {
     if (!ok) {
         // backoff 60s to avoid hammering
         g_next_try = now + 60;
-        pthread_mutex_unlock(&g_mu);
+        upnp_mutex_unlock();
         return -1;
     }
 
-    pthread_mutex_unlock(&g_mu);
+    upnp_mutex_unlock();
     return 0;
 }

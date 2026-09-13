@@ -56,6 +56,25 @@
 
 #include "netextras_types.h"
 
+
+void nox_netextras_configure_udp_socket(int sockfd)
+{
+#ifdef _WIN32
+    int yes = 1;
+
+    if (sockfd < 0) return;
+
+    /* compat.c applies these to every UDP socket on POSIX builds.  Windows
+       bypasses compat.c, so mirror those options here at the game call sites. */
+    (void)setsockopt((SOCKET)sockfd, SOL_SOCKET, SO_BROADCAST,
+                     (const char *)&yes, (int)sizeof(yes));
+    (void)setsockopt((SOCKET)sockfd, SOL_SOCKET, SO_REUSEADDR,
+                     (const char *)&yes, (int)sizeof(yes));
+#else
+    (void)sockfd;
+#endif
+}
+
 /* ---- IPv4-only inet_pton shim (avoids missing inet_pton link issues) ---- */
 static int nox_inet_pton_ipv4(const char *src, struct in_addr *dst)
 {
@@ -498,18 +517,42 @@ typedef struct {
 } reg_job_t;
 
 static SDL_mutex *g_lobby_mu = NULL;
+static SDL_atomic_t g_lobby_init_state = {0};
 static int g_lobby_reg_inflight = 0;
 static long g_last_lobby_reg = 0;
+static unsigned g_lobby_bound_port = 18590;
+static unsigned char g_lobby_serverinfo[256];
+static size_t g_lobby_serverinfo_len = 0;
+static int g_lobby_host_active = 0;
+static Uint32 g_lobby_last_snapshot_tick = 0;
 
-static SDL_atomic_t g_lobby_poll_started = {0};
+static int lobby_init_once(void)
+{
+    int state = SDL_AtomicGet(&g_lobby_init_state);
+    if (state == 2) return g_lobby_mu ? 0 : -1;
+
+    if (SDL_AtomicCAS(&g_lobby_init_state, 0, 1)) {
+        g_lobby_mu = SDL_CreateMutex();
+        SDL_AtomicSet(&g_lobby_init_state, 2);
+    } else {
+        while (SDL_AtomicGet(&g_lobby_init_state) == 1) {
+            SDL_Delay(0);
+        }
+    }
+
+    return g_lobby_mu ? 0 : -1;
+}
 
 static int lobby_register_thread_fn(void *arg)
 {
     reg_job_t *j = (reg_job_t *)arg;
     if (!j) return 0;
 
-    // optional best-effort UPnP mapping
-    (void)nox_upnp_ensure_mapped_from_env();
+    // Optional best-effort UPnP mapping. Do not enter the UPnP module at all
+    // when it is disabled; registration itself does not depend on UPnP.
+    if (nox_env_truthy(getenv("NOX_UPNP_ENABLE"))) {
+        (void)nox_upnp_ensure_mapped_from_env();
+    }
 
     int rc = nox_lobby_register_game(j->name, j->map, j->cur, j->max, j->port);
     if (rc != 0) {
@@ -520,7 +563,7 @@ static int lobby_register_thread_fn(void *arg)
 
     free(j);
 
-    if (g_lobby_mu) {
+    if (lobby_init_once() == 0) {
         SDL_LockMutex(g_lobby_mu);
         g_lobby_reg_inflight = 0;
         SDL_UnlockMutex(g_lobby_mu);
@@ -536,37 +579,23 @@ static void maybe_register_lobby_from_serverinfo(int sockfd, const unsigned char
     if (!nox_should_register_lobby()) return;
     if (!pkt || len < 73) return;
     if (pkt[2] != 0x0D) return;
+    if (lobby_init_once() != 0) return;
 
-    // Cache serverinfo flags for later baseline use
+    // Cache the last packet built by the game thread. The periodic lobby worker
+    // reuses this snapshot instead of calling into mutable game state itself.
+    unsigned bound_port;
+    SDL_LockMutex(g_lobby_mu);
+    g_lobby_serverinfo_len = len < sizeof(g_lobby_serverinfo) ? len : sizeof(g_lobby_serverinfo);
+    memcpy(g_lobby_serverinfo, pkt, g_lobby_serverinfo_len);
+    bound_port = g_lobby_bound_port;
+    SDL_UnlockMutex(g_lobby_mu);
+
+    // Cache serverinfo flags for later baseline use.
     if (len >= 30) {
         uint16_t flags = (uint16_t)((unsigned)pkt[28] | ((unsigned)pkt[29] << 8));
         nox_lobby_set_last_serverinfo_flags(flags);
         NETLOG("netextras: serverinfo flags=0x%04x\n", (unsigned)flags);
     }
-
-    long now = nox_now_sec();
-    const int period = nox_lobby_register_period_sec();
-
-    if (!g_lobby_mu) {
-        g_lobby_mu = SDL_CreateMutex();
-        if (!g_lobby_mu) return;
-    }
-
-    SDL_LockMutex(g_lobby_mu);
-
-    if (g_lobby_reg_inflight) {
-        SDL_UnlockMutex(g_lobby_mu);
-        return;
-    }
-    if (g_last_lobby_reg != 0 && (now - g_last_lobby_reg) < period) {
-        SDL_UnlockMutex(g_lobby_mu);
-        return;
-    }
-
-    g_last_lobby_reg = now;
-    g_lobby_reg_inflight = 1;
-
-    SDL_UnlockMutex(g_lobby_mu);
 
     reg_job_t *j = (reg_job_t *)calloc(1, sizeof(*j));
     if (!j) return;
@@ -577,8 +606,26 @@ static void maybe_register_lobby_from_serverinfo(int sockfd, const unsigned char
     strncpy(j->map,  (const char *)&pkt[10], sizeof(j->map)  - 1);
     strncpy(j->name, (const char *)&pkt[72], sizeof(j->name) - 1);
 
-    // Default port; allow override
-    j->port = nox_server_port_override_or(18590);
+    // Default to the port that actually bound. Keep NOX_SERVER_PORT as an
+    // explicit external-port override for existing setups.
+    j->port = nox_server_port_override_or(bound_port ? bound_port : 18590);
+
+    long now = nox_now_sec();
+    const int period = nox_lobby_register_period_sec();
+
+    SDL_LockMutex(g_lobby_mu);
+
+    if (g_lobby_reg_inflight ||
+        (g_last_lobby_reg != 0 && (now - g_last_lobby_reg) < period)) {
+        SDL_UnlockMutex(g_lobby_mu);
+        free(j);
+        return;
+    }
+
+    g_last_lobby_reg = now;
+    g_lobby_reg_inflight = 1;
+
+    SDL_UnlockMutex(g_lobby_mu);
 
     SDL_Thread *th = SDL_CreateThread(lobby_register_thread_fn, "lobby_register", j);
     if (th) {
@@ -591,65 +638,51 @@ static void maybe_register_lobby_from_serverinfo(int sockfd, const unsigned char
     }
 }
 
-static int lobby_poll_thread_fn(void *arg)
+void nox_netextras_on_host_serverinfo(const void *packet, size_t len)
 {
-    (void)arg;
-
-    for (;;) {
-        int period = nox_lobby_register_period_sec();
-        if (period < 5) period = 5;
-
-        if (!nox_should_register_lobby()) {
-            SDL_Delay(1000);
-            continue;
-        }
-
-        unsigned char buf[256];
-        int dummy[3] = {0,0,0};
-        int len = sub_554040(dummy, (int)sizeof(buf), (char *)buf);
-
-        PACKETLOG("netextras: sub_554040() -> len=%d\n", len);
-
-        if (len > 0 && len >= 73 && buf[2] == 0x0D) {
-            compat_hexdump("NET host serverinfo", buf, (size_t)len);
-            // Use the packet fields to register (rate-limited + async)
-            maybe_register_lobby_from_serverinfo(-1, buf, (size_t)len);
-        }
-
-        SDL_Delay((Uint32)period * 1000u);
-    }
-    // unreachable
-    // return 0;
+    maybe_register_lobby_from_serverinfo(-1, (const unsigned char *)packet, len);
 }
 
-// Start polling thread once (host-side).
-static void lobby_poll_thread_start_once(void)
+/*
+ * Lobby server-info must be built on the normal game/network thread because
+ * sub_554040() walks live game state. Periodic refresh is driven by
+ * nox_netextras_host_tick() below; the detached worker only performs HTTP.
+ */
+
+// Build one server-info immediately on the caller/game thread and attempt a
+// single registration. Periodic refreshes only reuse the cached result.
+static void lobby_build_serverinfo_on_game_thread(int sockfd)
 {
-    if (!SDL_AtomicCAS(&g_lobby_poll_started, 0, 1)) return;
-
-    SDL_Thread *th = SDL_CreateThread(lobby_poll_thread_fn, "lobby_poll_register", NULL);
-    if (th) {
-        SDL_DetachThread(th);
-        NETLOG("netextras: lobby polling thread started\n");
-    } else {
-        SDL_AtomicSet(&g_lobby_poll_started, 0);
-        fprintf(stderr, "netextras: lobby polling thread FAILED to start\n");
-    }
-}
-
-// Build one server-info immediately and attempt a single registration.
-static void lobby_kickoff_once(int sockfd)
-{
-    (void)sockfd;
-
-    if (!nox_should_register_lobby()) return;
-
     unsigned char buf[256];
     int dummy[3] = {0,0,0};
     int len = sub_554040(dummy, (int)sizeof(buf), (char *)buf);
     if (len > 0 && len >= 73 && buf[2] == 0x0D) {
         maybe_register_lobby_from_serverinfo(sockfd, buf, (size_t)len);
     }
+}
+
+void nox_netextras_host_tick(void)
+{
+    if (!nox_should_register_lobby()) return;
+    if (lobby_init_once() != 0) return;
+
+    Uint32 now = SDL_GetTicks();
+    int should_refresh = 0;
+
+    SDL_LockMutex(g_lobby_mu);
+    if (g_lobby_host_active &&
+        (g_lobby_last_snapshot_tick == 0 ||
+         (Uint32)(now - g_lobby_last_snapshot_tick) >= 1000u)) {
+        g_lobby_last_snapshot_tick = now ? now : 1u;
+        should_refresh = 1;
+    }
+    SDL_UnlockMutex(g_lobby_mu);
+
+    if (!should_refresh) return;
+
+    /* Called from the game network pump, so reading live game state is safe.
+       Registration HTTP itself remains asynchronous. */
+    lobby_build_serverinfo_on_game_thread(-1);
 }
 
 // -----------------------------------------------------------------------------
@@ -661,13 +694,21 @@ void nox_netextras_on_host_bind_success(int sockfd, unsigned bound_port)
 
     if (!nox_should_register_lobby()) return;
 
-    // If you only want to register when on 18590 exactly, gate it here:
-    // if (bound_port != 18590) return;
+    if (lobby_init_once() != 0) return;
+
+    SDL_LockMutex(g_lobby_mu);
+    g_lobby_bound_port = bound_port ? bound_port : 18590;
+    g_lobby_serverinfo_len = 0;
+    g_lobby_host_active = 1;
+    g_lobby_last_snapshot_tick = 0;
+    g_last_lobby_reg = 0;
+    SDL_UnlockMutex(g_lobby_mu);
 
     NETLOG("netextras: host bind success fd=%d port=%u\n", sockfd, bound_port);
 
-    lobby_poll_thread_start_once();
-    lobby_kickoff_once(sockfd);
+    /* Try immediately, then let the normal network pump retry once the hosted
+       game has finished initializing. */
+    lobby_build_serverinfo_on_game_thread(sockfd);
 }
 
 int nox_netextras_fake_pending(int sockfd)

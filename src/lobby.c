@@ -373,13 +373,6 @@ static int nox_get_last_good_lobby(nox_lobby_endpoint *ep)
     return 0;
 }
 
-static int nox_first_lobby_endpoint(nox_lobby_endpoint *ep)
-{
-    const char *p = nox_lobby_list();
-    if (!p || !ep) return -1;
-    return nox_next_lobby_endpoint(p, ep) ? 0 : -1;
-}
-
 static void nox_clear_last_good_lobby(void)
 {
     g_last_good_lobby.host[0] = 0;
@@ -948,13 +941,6 @@ int nox_lobby_register_game(const char *name,
     nox_lobby_endpoint ep;
     const char *path = nox_lobby_register_path();
 
-    /* Prefer the lobby that most recently responded successfully with valid JSON. */
-    if (nox_get_last_good_lobby(&ep) < 0) {
-        if (nox_first_lobby_endpoint(&ep) < 0) {
-            return -1;
-        }
-    }
-
     const char *vers = nox_env_str("NOX_SERVER_VERS", "1.2");
 
     uint16_t flags = nox_lobby_get_last_serverinfo_flags();
@@ -987,10 +973,28 @@ int nox_lobby_register_game(const char *name,
 
     if (n <= 0 || (size_t)n >= sizeof(body)) return -1;
 
-    NETLOG("compat_net: registering lobby game to %s:%u%s\n",
-           ep.host, (unsigned)ep.port, path);
+    /* Prefer the lobby that most recently returned a valid list. */
+    if (nox_get_last_good_lobby(&ep) == 0) {
+        NETLOG("compat_net: registering lobby game to %s:%u%s\n",
+               ep.host, (unsigned)ep.port, path);
+        if (nox_http_post_json(ep.host, ep.port, path, body) == 0) {
+            return 0;
+        }
+    }
 
-    return nox_http_post_json(ep.host, ep.port, path, body);
+    /* A host may register before it has ever fetched games/list. Try every
+       configured endpoint instead of failing permanently on the first one. */
+    const char *p = nox_lobby_list();
+    while ((p = nox_next_lobby_endpoint(p, &ep)) != NULL) {
+        NETLOG("compat_net: registering lobby game to %s:%u%s\n",
+               ep.host, (unsigned)ep.port, path);
+        if (nox_http_post_json(ep.host, ep.port, path, body) == 0) {
+            nox_set_last_good_lobby(&ep);
+            return 0;
+        }
+    }
+
+    return -1;
 }
 
 static int looks_like_json(const char *s)

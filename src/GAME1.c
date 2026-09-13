@@ -7,6 +7,10 @@
 extern int g_fullscreen;
 extern float draw_gamma;
 extern float input_sensitivity;
+#ifdef USE_SDL
+#include <SDL2/SDL.h>
+extern SDL_Window *g_window;
+#endif
 
 void f(int);
 void (*mainloop_enter)(void *);
@@ -39603,6 +39607,33 @@ _DWORD *sub_42CD90()
   return result;
 }
 
+static const char *nox_direct_spell_set_action_name(int action)
+{
+  switch ( action )
+  {
+    case 56: return "SelectSpellSet1";
+    case 57: return "SelectSpellSet2";
+    case 58: return "SelectSpellSet3";
+    case 59: return "SelectSpellSet4";
+    case 60: return "SelectSpellSet5";
+    default: return 0;
+  }
+}
+
+static int nox_direct_spell_set_action_id(const char *name)
+{
+  int action;
+
+  if ( !name )
+    return -1;
+  for ( action = 56; action <= 60; ++action )
+  {
+    if ( !_strcmpi(name, nox_direct_spell_set_action_name(action)) )
+      return action;
+  }
+  return -1;
+}
+
 //----- (0042CDF0) --------------------------------------------------------
 _DWORD *__cdecl sub_42CDF0(FILE *a1)
 {
@@ -39662,17 +39693,24 @@ _DWORD *__cdecl sub_42CDF0(FILE *a1)
         v12 = v4 + 9;
         do
         {
-          if ( *(_DWORD *)&byte_587000[75880] )
           {
-            v9 = &byte_587000[75880];
-            do
+            const char *direct_spell_set_action = nox_direct_spell_set_action_name(*v12);
+            if ( direct_spell_set_action )
             {
-              if ( *v12 == (char *)*((_DWORD *)v9 + 1) )
-                fprintf(v2, (const char *)&byte_587000[80180], *(_DWORD *)v9);
-              v10 = *((_DWORD *)v9 + 3);
-              v9 += 12;
+              fprintf(v2, (const char *)&byte_587000[80180], direct_spell_set_action);
             }
-            while ( v10 );
+            else if ( *(_DWORD *)&byte_587000[75880] )
+            {
+              v9 = &byte_587000[75880];
+              do
+              {
+                if ( *v12 == (char *)*((_DWORD *)v9 + 1) )
+                  fprintf(v2, (const char *)&byte_587000[80180], *(_DWORD *)v9);
+                v10 = *((_DWORD *)v9 + 3);
+                v9 += 12;
+              }
+              while ( v10 );
+            }
           }
           if ( v8 != v4[17] - 1 )
             fprintf(v2, (const char *)&byte_587000[80184]);
@@ -39790,32 +39828,45 @@ LABEL_21:
           {
             if ( *v11 != 43 )
             {
-              v12 = *(const char **)&byte_587000[75880];
-              v13 = 0;
-              if ( *(_DWORD *)&byte_587000[75880] )
+              int direct_spell_set_action = nox_direct_spell_set_action_id(v11);
+              if ( direct_spell_set_action >= 0 )
               {
-                v14 = &byte_587000[75880];
-                while ( strcmp(v12, v11) )
-                {
-                  v12 = (const char *)*((_DWORD *)v14 + 3);
-                  v14 += 12;
-                  ++v13;
-                  if ( !v12 )
-                  {
-                    v3 = (_DWORD *)v17;
-                    goto LABEL_33;
-                  }
-                }
                 v3 = (_DWORD *)v17;
                 v15 = *(_DWORD *)(v17 + 68);
                 if ( v15 == 8 )
                   goto LABEL_38;
-                *(_DWORD *)(v17 + 4 * v15 + 36) = *(_DWORD *)&byte_587000[12 * v13 + 75884];
+                *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action;
                 ++*(_DWORD *)(v17 + 68);
               }
+              else
+              {
+                v12 = *(const char **)&byte_587000[75880];
+                v13 = 0;
+                if ( *(_DWORD *)&byte_587000[75880] )
+                {
+                  v14 = &byte_587000[75880];
+                  while ( strcmp(v12, v11) )
+                  {
+                    v12 = (const char *)*((_DWORD *)v14 + 3);
+                    v14 += 12;
+                    ++v13;
+                    if ( !v12 )
+                    {
+                      v3 = (_DWORD *)v17;
+                      goto LABEL_33;
+                    }
+                  }
+                  v3 = (_DWORD *)v17;
+                  v15 = *(_DWORD *)(v17 + 68);
+                  if ( v15 == 8 )
+                    goto LABEL_38;
+                  *(_DWORD *)(v17 + 4 * v15 + 36) = *(_DWORD *)&byte_587000[12 * v13 + 75884];
+                  ++*(_DWORD *)(v17 + 68);
+                }
 LABEL_33:
-              if ( !*(_DWORD *)&byte_587000[12 * v13 + 75880] )
-                return 0;
+                if ( !*(_DWORD *)&byte_587000[12 * v13 + 75880] )
+                  return 0;
+              }
             }
             v11 = strtok(0, (const char *)&byte_587000[80244]);
             if ( !v11 )
@@ -43439,9 +43490,9 @@ LABEL_74:
               g_fullscreen = atoi(token);
 
             if (g_fullscreen)
-              SDL_SetWindowFullscreen(sub_401FD0(), SDL_WINDOW_FULLSCREEN_DESKTOP);
+              SDL_SetWindowFullscreen(g_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
             else
-              SDL_SetWindowFullscreen(sub_401FD0(), 0);
+              SDL_SetWindowFullscreen(g_window, 0);
           }
           else if ( !strcmp(v1, "Gamma2") )
           {
@@ -44161,10 +44212,16 @@ int sub_432B00()
 
   strtok(0, (const char *)&byte_587000[82880]);
   v0 = strtok(0, (const char *)&byte_587000[82888]);
+  if ( !v0 )
+    return 0;
   v1 = atoi(v0);
   v2 = strtok(0, (const char *)&byte_587000[82896]);
+  if ( !v2 )
+    return 0;
   v3 = atoi(v2);
   v4 = strtok(0, (const char *)&byte_587000[82904]);
+  if ( !v4 )
+    return 0;
   v5 = atoi(v4);
   v6 = v5;
   if ( v5 == 8 )
@@ -44189,8 +44246,11 @@ int sub_432B00()
 #else
     *(_DWORD *)&byte_587000[91780] = v1;
     *(_DWORD *)&byte_587000[91784] = v3;
-    SDL_SetWindowSize(sub_401FD0(), v1, v3);
-    SDL_SetWindowPosition(sub_401FD0(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    if ( g_window )
+    {
+      SDL_SetWindowSize(g_window, v1, v3);
+      SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
 #endif
     *(_DWORD *)&byte_587000[91788] = v6;
     *(_DWORD *)&byte_587000[91800] = v6;
@@ -49574,10 +49634,10 @@ int __cdecl sub_43BEF0(int a1, int a2, int a3)
   *(_DWORD *)&byte_587000[91788] = a3;
 
   if (g_fullscreen)
-    SDL_SetWindowFullscreen(sub_401FD0(), SDL_WINDOW_FULLSCREEN_DESKTOP);
+    SDL_SetWindowFullscreen(g_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
   else
-    SDL_SetWindowFullscreen(sub_401FD0(), 0);
-  SDL_SetWindowSize(sub_401FD0(), a1, a2);
+    SDL_SetWindowFullscreen(g_window, 0);
+  SDL_SetWindowSize(g_window, a1, a2);
   return result;
 }
 

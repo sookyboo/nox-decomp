@@ -10225,6 +10225,9 @@ int __cdecl sub_552A80(unsigned int a1, char a2)
   struct sockaddr to; // [esp+2Ch] [ebp-110h]
   char buf[256]; // [esp+3Ch] [ebp-100h]
 
+  /* Refresh lobby server-info from the normal network/game thread. */
+  nox_netextras_host_tick();
+
   v2 = *(_DWORD *)&byte_5D4594[4 * a1 + 3843788];
   tolen = 16;
   v29 = v2;
@@ -10265,6 +10268,7 @@ LABEL_10:
           v6 = sub_554040(*(_DWORD *)(v2 + 40), *(_DWORD *)(v2 + 36) - *(_DWORD *)(v2 + 40), buf);
           if ( v6 > 0 )
           {
+            nox_netextras_on_host_serverinfo(buf, (size_t)v6);
             v6 = sendto(*(_DWORD *)v2, buf, v6, 0, &to, tolen);
             sub_553F40(v6, 1);
           }
@@ -11764,7 +11768,7 @@ int __cdecl sub_554380(size_t *a1)
   *(_BYTE *)v4[12] = v2;
   v4[5] = -1;
   result = WSAStartup(0x101u, &WSAData);
-  if ( result != -1 )
+  if ( result == 0 )
   {
     v6 = socket(2, 2, 0);
     *v5 = v6;
@@ -11776,6 +11780,7 @@ LABEL_17:
     }
     else
     {
+      nox_netextras_configure_udp_socket((int)v6);
       v7 = a1[2];
       if ( v7 < 1024 || v7 > 0x10000 )
         a1[2] = 18590;
@@ -11960,7 +11965,7 @@ int __cdecl sub_554760(int a1, char *cp, int hostshort, int a4, int a5)
     return -4;
   if ( hostshort < 1024 || hostshort > 0x10000 )
     return -15;
-  if ( WSAStartup(0x101u, &WSAData) == -1 )
+  if ( WSAStartup(0x101u, &WSAData) != 0 )
     return -21;
   v7 = socket(2, 2, 0);
   *v5 = v7;
@@ -11969,6 +11974,7 @@ int __cdecl sub_554760(int a1, char *cp, int hostshort, int a4, int a5)
     WSACleanup();
     return -22;
   }
+  nox_netextras_configure_udp_socket(v7);
   if ( (unsigned __int8)*cp < 0x30u || (unsigned __int8)*cp > 0x39u )
   {
     v9 = gethostbyname(cp);
@@ -12101,7 +12107,7 @@ int __cdecl sub_554B40(u_short hostshort)
   if ( *(_DWORD *)&byte_5D4594[2513916] == 1 )
     return -14;
   result = WSAStartup(0x101u, &WSAData);
-  if ( result != -1 )
+  if ( result == 0 )
   {
     *(_DWORD *)&byte_5D4594[2513920] = socket(2, 2, 0);
     if ( *(int *)&byte_5D4594[2513920] == -1 )
@@ -12111,6 +12117,7 @@ int __cdecl sub_554B40(u_short hostshort)
     }
     else
     {
+      nox_netextras_configure_udp_socket(*(int *)&byte_5D4594[2513920]);
       *(_DWORD *)&byte_5D4594[2513924] = socket(2, 2, 0);
       if ( *(int *)&byte_5D4594[2513924] == -1 )
       {
@@ -12119,6 +12126,9 @@ int __cdecl sub_554B40(u_short hostshort)
       }
       else
       {
+        nox_netextras_configure_udp_socket(*(int *)&byte_5D4594[2513924]);
+        if ( hostshort == 0 )
+          hostshort = 18590;
         name.sa_family = 2;
         *(_DWORD *)&name.sa_data[6] = 0;
         *(_DWORD *)&name.sa_data[10] = 0;
