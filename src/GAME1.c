@@ -39603,6 +39603,33 @@ _DWORD *sub_42CD90()
   return result;
 }
 
+static const char *nox_direct_spell_set_action_name(int action)
+{
+  switch ( action )
+  {
+    case 56: return "SelectSpellSet1";
+    case 57: return "SelectSpellSet2";
+    case 58: return "SelectSpellSet3";
+    case 59: return "SelectSpellSet4";
+    case 60: return "SelectSpellSet5";
+    default: return 0;
+  }
+}
+
+static int nox_direct_spell_set_action_id(const char *name)
+{
+  int action;
+
+  if ( !name )
+    return -1;
+  for ( action = 56; action <= 60; ++action )
+  {
+    if ( !_strcmpi(name, nox_direct_spell_set_action_name(action)) )
+      return action;
+  }
+  return -1;
+}
+
 //----- (0042CDF0) --------------------------------------------------------
 _DWORD *__cdecl sub_42CDF0(FILE *a1)
 {
@@ -39662,17 +39689,24 @@ _DWORD *__cdecl sub_42CDF0(FILE *a1)
         v12 = v4 + 9;
         do
         {
-          if ( *(_DWORD *)&byte_587000[75880] )
           {
-            v9 = &byte_587000[75880];
-            do
+            const char *direct_spell_set_action = nox_direct_spell_set_action_name(*v12);
+            if ( direct_spell_set_action )
             {
-              if ( *v12 == (char *)*((_DWORD *)v9 + 1) )
-                fprintf(v2, (const char *)&byte_587000[80180], *(_DWORD *)v9);
-              v10 = *((_DWORD *)v9 + 3);
-              v9 += 12;
+              fprintf(v2, (const char *)&byte_587000[80180], direct_spell_set_action);
             }
-            while ( v10 );
+            else if ( *(_DWORD *)&byte_587000[75880] )
+            {
+              v9 = &byte_587000[75880];
+              do
+              {
+                if ( *v12 == (char *)*((_DWORD *)v9 + 1) )
+                  fprintf(v2, (const char *)&byte_587000[80180], *(_DWORD *)v9);
+                v10 = *((_DWORD *)v9 + 3);
+                v9 += 12;
+              }
+              while ( v10 );
+            }
           }
           if ( v8 != v4[17] - 1 )
             fprintf(v2, (const char *)&byte_587000[80184]);
@@ -39790,32 +39824,45 @@ LABEL_21:
           {
             if ( *v11 != 43 )
             {
-              v12 = *(const char **)&byte_587000[75880];
-              v13 = 0;
-              if ( *(_DWORD *)&byte_587000[75880] )
+              int direct_spell_set_action = nox_direct_spell_set_action_id(v11);
+              if ( direct_spell_set_action >= 0 )
               {
-                v14 = &byte_587000[75880];
-                while ( strcmp(v12, v11) )
-                {
-                  v12 = (const char *)*((_DWORD *)v14 + 3);
-                  v14 += 12;
-                  ++v13;
-                  if ( !v12 )
-                  {
-                    v3 = (_DWORD *)v17;
-                    goto LABEL_33;
-                  }
-                }
                 v3 = (_DWORD *)v17;
                 v15 = *(_DWORD *)(v17 + 68);
                 if ( v15 == 8 )
                   goto LABEL_38;
-                *(_DWORD *)(v17 + 4 * v15 + 36) = *(_DWORD *)&byte_587000[12 * v13 + 75884];
+                *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action;
                 ++*(_DWORD *)(v17 + 68);
               }
+              else
+              {
+                v12 = *(const char **)&byte_587000[75880];
+                v13 = 0;
+                if ( *(_DWORD *)&byte_587000[75880] )
+                {
+                  v14 = &byte_587000[75880];
+                  while ( strcmp(v12, v11) )
+                  {
+                    v12 = (const char *)*((_DWORD *)v14 + 3);
+                    v14 += 12;
+                    ++v13;
+                    if ( !v12 )
+                    {
+                      v3 = (_DWORD *)v17;
+                      goto LABEL_33;
+                    }
+                  }
+                  v3 = (_DWORD *)v17;
+                  v15 = *(_DWORD *)(v17 + 68);
+                  if ( v15 == 8 )
+                    goto LABEL_38;
+                  *(_DWORD *)(v17 + 4 * v15 + 36) = *(_DWORD *)&byte_587000[12 * v13 + 75884];
+                  ++*(_DWORD *)(v17 + 68);
+                }
 LABEL_33:
-              if ( !*(_DWORD *)&byte_587000[12 * v13 + 75880] )
-                return 0;
+                if ( !*(_DWORD *)&byte_587000[12 * v13 + 75880] )
+                  return 0;
+              }
             }
             v11 = strtok(0, (const char *)&byte_587000[80244]);
             if ( !v11 )

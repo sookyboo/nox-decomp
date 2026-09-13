@@ -1545,6 +1545,21 @@ int __cdecl sub_42D6B0(_DWORD *a3, int a4)
         case 0x37:
           sub_42E670(56, 0);
           break;
+        case 0x38:
+          sub_42E780(44, 1);
+          break;
+        case 0x39:
+          sub_42E780(44, 2);
+          break;
+        case 0x3A:
+          sub_42E780(44, 3);
+          break;
+        case 0x3B:
+          sub_42E780(44, 4);
+          break;
+        case 0x3C:
+          sub_42E780(44, 5);
+          break;
         default:
           continue;
       }
@@ -1925,7 +1940,11 @@ LABEL_149:
           *(_DWORD *)&byte_5D4594[v36 + 747900] = 0;
           break;
         case 44:
-          sub_460590();
+          if ( *(_DWORD *)&byte_5D4594[v36 + 747896] >= 1
+            && *(_DWORD *)&byte_5D4594[v36 + 747896] <= 5 )
+            sub_45E110(*(_DWORD *)&byte_5D4594[v36 + 747896] - 1);
+          else
+            sub_460590();
           *(_DWORD *)&byte_5D4594[v36 + 747900] = 0;
           break;
         case 45:
