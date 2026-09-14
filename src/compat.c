@@ -522,33 +522,6 @@ SOCKET WINAPI socket(int domain, int type, int protocol)
         net_dump_flags(fd, "after socket()");
     }
 
-    if (fd >= 0 && type == SOCK_DGRAM) {
-        int yes = 1;
-
-        if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &yes, sizeof(yes)) < 0) {
-            fprintf(stderr, "compat_net: setsockopt(fd=%d, SO_BROADCAST) FAILED errno=%d (%s)\n",
-                    fd, errno, strerror(errno));
-        } else {
-            fprintf(stderr, "compat_net: setsockopt(fd=%d, SO_BROADCAST) ok\n", fd);
-        }
-
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) < 0) {
-            fprintf(stderr, "compat_net: setsockopt(fd=%d, SO_REUSEADDR) FAILED errno=%d (%s)\n",
-                    fd, errno, strerror(errno));
-        } else {
-            fprintf(stderr, "compat_net: setsockopt(fd=%d, SO_REUSEADDR) ok\n", fd);
-        }
-
-#ifdef SO_REUSEPORT
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes)) < 0) {
-            fprintf(stderr, "compat_net: setsockopt(fd=%d, SO_REUSEPORT) FAILED errno=%d (%s)\n",
-                    fd, errno, strerror(errno));
-        } else {
-            fprintf(stderr, "compat_net: setsockopt(fd=%d, SO_REUSEPORT) ok\n", fd);
-        }
-#endif
-    }
-
     return fd;
 #endif
 }
@@ -597,6 +570,15 @@ int WINAPI setsockopt(SOCKET s, int level, int opt, const void *value, unsigned 
 #ifdef __EMSCRIPTEN__
     return 0;
 #else
+    /* Translate the one Winsock SOL_SOCKET option used by the original game.
+       Windows uses SOL_SOCKET=0xFFFF and SO_BROADCAST=0x20; POSIX uses
+       platform-native constants. Keep the socket behavior identical instead
+       of enabling broadcast/reuse options on every UDP socket. */
+    if (level == 0xFFFF && opt == 0x20) {
+        level = SOL_SOCKET;
+        opt = SO_BROADCAST;
+    }
+
     int r = setsockopt(s, level, opt, value, len);
     if (r < 0) {
         fprintf(stderr,
@@ -901,7 +883,6 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
     ret = 0;
 #else
     const struct sockaddr_in *in = (const struct sockaddr_in *)addr;
-    struct sockaddr_in tmp;
     char ipbuf[INET_ADDRSTRLEN] = "0.0.0.0";
     uint16_t port = 0;
 
@@ -913,31 +894,6 @@ int WINAPI bind(int sockfd, const struct sockaddr *addr, unsigned int addrlen)
                 "compat_net: bind(fd=%d, ip=%s, port=%u)\n",
                 sockfd, ipbuf, port);
 
-        /* Check if this is a UDP broadcast socket the game is binding to port 0.
-           That’s almost certainly the LAN discovery socket – on Linux this needs
-           to listen on the *same* port (18590) that the host is broadcasting to. */
-        int sock_type = 0, broadcast = 0;
-        socklen_t optlen = sizeof(int);
-
-        if (getsockopt(sockfd, SOL_SOCKET, SO_TYPE, &sock_type, &optlen) == 0 &&
-            sock_type == SOCK_DGRAM) {
-            optlen = sizeof(int);
-            NETLOG("compat_net: bind requested fd=%d\n", sockfd);
-            net_dump_sockname(sockfd, "pre-bind getsockname");
-            net_dump_flags(sockfd, "pre-bind flags");
-
-            if (getsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcast, &optlen) == 0 &&
-                broadcast && port == 0) {
-
-                tmp = *in;
-                tmp.sin_port = htons(18590);
-
-                NETLOG("compat_net: FORCING bind fd=%d from port 0 -> 18590 (broadcast discovery heuristic)\n",
-                       sockfd);
-
-                addr = (const struct sockaddr *)&tmp;
-            }
-        }
     }
 
     ret = bind(sockfd, (__CONST_SOCKADDR_ARG)addr, addrlen);
