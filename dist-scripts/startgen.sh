@@ -359,9 +359,10 @@ Please check log.txt for details."
       printf 'Extracting game data…\nStarting innoextract…\n' >"$zstatus"
 
       (
+        trap 'exit 0' PIPE
         while :; do
-          echo "10"
-          echo "# $(cat "$zstatus" 2>/dev/null || echo "Extracting game data…")"
+          printf '%s\n' "10" || exit 0
+          printf '# %s\n' "$(cat "$zstatus" 2>/dev/null || printf '%s' "Extracting game data…")" || exit 0
           sleep 0.8
         done
       ) | zenity --progress \
