@@ -12127,8 +12127,10 @@ int __cdecl sub_554B40(u_short hostshort)
       else
       {
         nox_netextras_configure_udp_socket(*(int *)&byte_5D4594[2513924]);
+#ifdef _WIN32
         if ( hostshort == 0 )
           hostshort = 18590;
+#endif
         name.sa_family = 2;
         *(_DWORD *)&name.sa_data[6] = 0;
         *(_DWORD *)&name.sa_data[10] = 0;
