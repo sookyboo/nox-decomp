@@ -219,6 +219,107 @@ Keep all files belonging to the map together.
 
 Do not rename only the `.map` file without also matching the directory/script names expected by the map package.
 
+## Temporary first-map smoke test
+
+The repository has an opt-in package smoke test for the first EUD target,
+`G_Quest`. It is disabled by default and requires the cloned maps project plus
+the EUD compatibility feature:
+
+```sh
+cmake -S . -B build-i386 \
+  -DUSE_EUD_COMPAT=ON \
+  -DUSE_EUD_MAP_TESTS=ON \
+  -DEUD_MAP_PROJECT_DIR="$PWD/build-deps/eud-maps-project" \
+  -DEUD_GAMEFILES_DIR="$PWD/build-deps/gamefiles/app"
+cmake --build build-i386 --target eud_gquest_map_test
+ctest --test-dir build-i386 -R '^eud_gquest_map_test$' --output-on-failure
+```
+
+This temporary test verifies that the cloned `G_Quest.map` and `g_quest.c`
+are present, contain the expected first-tier EUD operations, and are paired
+with the Nox gamefiles. It does not claim gameplay compatibility: the current
+checkout lacks the complete compiled `G_Quest.nxz` package, and automated
+launch is also display/OpenGL dependent.
+
+## Linux headless OpenGL
+
+The server container runs the 32-bit game through an X11 display provided by
+Xvfb and uses Mesa software rendering. On Ubuntu/Debian, install the runtime
+packages used by `dist-scripts/Dockerfile.x86`:
+
+```sh
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install \
+  xvfb libgl1-mesa-dri libglx-mesa0 libegl1 libegl-mesa0 mesa-utils \
+  libc6:i386 libstdc++6:i386 zlib1g:i386 libgcc-s1:i386 \
+  libasound2:i386 libpulse0:i386 libsdl2-2.0-0:i386 \
+  libx11-6:i386 libxext6:i386 libxrandr2:i386 libxi6:i386 \
+  libxcursor1:i386 libxinerama1:i386 libgl1:i386 libopenal1:i386
+```
+
+Some distributions provide the Mesa EGL loader under a different package
+name. For example, current Ubuntu releases use `libegl1` and `libegl-mesa0`
+instead of the older `libegl1-mesa` name used by the container recipe.
+
+Run from the gamefiles directory, with the map installed under `maps/`, using
+the same environment as `dist-scripts/server.sh`:
+
+```sh
+cd build-deps/gamefiles/app
+export ALSOFT_DRIVERS=null
+export LIBGL_ALWAYS_SOFTWARE=1
+export SDL_VIDEODRIVER=x11
+xvfb-run -a -s "-screen 0 1280x720x24" \
+  /absolute/path/to/build-i386/src/out -serveronly G_Quest
+```
+
+Do not use `SDL_VIDEODRIVER=dummy` for this test: SDL's dummy driver does not
+provide an OpenGL context. `LIBGL_ALWAYS_SOFTWARE=1` makes the result
+independent of a host GPU; `mesa-utils` can verify the setup with:
+
+```sh
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a \
+  -s "-screen 0 1280x720x24" glxinfo -B
+```
+
+The expected renderer is Mesa `llvmpipe`. This only validates the headless
+display/OpenGL environment; actual `G_Quest` gameplay still requires the
+complete map package, including its compiled `.nxz` when supplied.
+
+## Building an NXZ script package
+
+`tools/build_eud_nxz.py` is an opt-in utility for producing a map script
+package. It accepts an existing EUD compiler `SCRIPT03` object, or invokes the
+Windows `eudcc.exe` shipped in the Panic project through Wine and then writes
+the resulting `.nxz`:
+
+```sh
+# Package an already compiled SCRIPT03 object.
+python3 tools/build_eud_nxz.py \
+  --object build-deps/gamefiles/app/nc.obj \
+  --output build-deps/gamefiles/app/maps/G_Quest/G_Quest.nxz
+
+# Compile a source file with the bundled Windows compiler, then package it.
+xvfb-run -a python3 tools/build_eud_nxz.py \
+  --source build-deps/eud-maps-project/eud_project/g_quest.c \
+  --include-dir build-deps/eud-maps-project/eud_project \
+  --output build-deps/gamefiles/app/maps/G_Quest/G_Quest.nxz
+```
+
+The source form requires Wine and a complete EUD compiler project. The current
+clone's `g_quest.c` includes `libs/define.h`, which references the project's
+`noxscript/builtins.h`; if that header is not present, compilation must be
+completed with the matching Panic/NoxScript headers before this utility can
+produce a gameplay script. Compiler diagnostics are not hidden, and incomplete
+compiler output is rejected.
+
+The generated stream uses the original NXZ format's initial Huffman table and
+literal symbols. It is intentionally conservative and may be larger than a
+map editor's adaptive compression. Resource injection (custom images, sounds,
+or other map resources) remains a separate step; this utility only packages
+the compiled script object.
+
 ## What to record when a map fails
 
 For each test, record:

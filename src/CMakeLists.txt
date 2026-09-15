@@ -198,6 +198,18 @@ if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
     endif()
 endif()
 
+if (BUILD_TESTING AND USE_EUD_MAP_TESTS)
+    add_executable(eud_gquest_map_test
+        ${PROJECT_SOURCE_DIR}/tests/eud_gquest_map_test.c
+    )
+    add_test(NAME eud_gquest_map_test
+        COMMAND eud_gquest_map_test
+            "${EUD_MAP_PROJECT_DIR}/eud_project/backupMaps/G_Quest.map"
+            "${EUD_MAP_PROJECT_DIR}/eud_project/g_quest.c"
+            "${EUD_GAMEFILES_DIR}"
+    )
+endif()
+
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
     target_link_options(out PRIVATE -m32)
 endif()

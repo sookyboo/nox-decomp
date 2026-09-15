@@ -3,6 +3,15 @@ project (nox-port)
 
 option (USE_ASAN "Enable address sanitizer" OFF)
 option (USE_EUD_COMPAT "Build and enable Panic EUD/MemoryHack compatibility" OFF)
+option (USE_EUD_MAP_TESTS "Build temporary external EUD map smoke tests" OFF)
+set (EUD_MAP_PROJECT_DIR "${PROJECT_SOURCE_DIR}/build-deps/eud-maps-project" CACHE PATH
+    "Panic EUD maps project checkout used by temporary map smoke tests")
+set (EUD_GAMEFILES_DIR "${PROJECT_SOURCE_DIR}/build-deps/gamefiles/app" CACHE PATH
+    "Nox gamefiles directory used by temporary map smoke tests")
+
+if (USE_EUD_MAP_TESTS AND NOT USE_EUD_COMPAT)
+    message(FATAL_ERROR "USE_EUD_MAP_TESTS requires USE_EUD_COMPAT=ON")
+endif()
 
 include(CTest)
 add_subdirectory (src)
