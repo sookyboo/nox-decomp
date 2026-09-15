@@ -10,6 +10,70 @@ Decomp in an Ubuntu/Debian sandbox for:
 Windows ARM is not in scope. Use a separate CMake build directory and
 `pkg-config` search path for each target.
 
+## Setup performed in the development sandbox
+
+The working environment is Ubuntu 26.04 (Resolute) on amd64. The following
+additional setup was required to build and test the architecture paths:
+
+```sh
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  build-essential cmake ninja-build pkg-config git \
+  gcc-i686-linux-gnu g++-i686-linux-gnu binutils-i686-linux-gnu \
+  libc6-dev-i386-cross linux-libc-dev-i386-cross \
+  libsdl2-dev:i386 libopenal-dev:i386 libgl-dev:i386 \
+  libavformat-dev:i386 libavcodec-dev:i386 libavutil-dev:i386 \
+  libswscale-dev:i386 libswresample-dev:i386 zlib1g-dev:i386
+```
+
+For ARMHF ABI cross-tests, install the compiler, ARM sysroot, and emulator:
+
+```sh
+sudo apt-get install -y --no-install-recommends \
+  gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+  binutils-arm-linux-gnueabihf libc6-dev-armhf-cross \
+  qemu-user
+```
+
+Ubuntu 26.04 did not provide `libsdl2-dev:armhf` in this sandbox. SDL2 2.26.2
+was therefore built from source using the same cross-build shape as
+`Dockerfile.x86libs`:
+
+```sh
+CFLAGS='-std=gnu17' ./configure \
+  --build="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)" \
+  --host=arm-linux-gnueabihf \
+  --prefix=/opt/sdl2-armhf --libdir=/opt/sdl2-armhf/lib \
+  --enable-shared --disable-static \
+  --disable-libsamplerate --disable-alsa \
+  --disable-video-x11 --disable-video-wayland \
+  --disable-video-opengl --disable-video-vulkan \
+  --disable-video-rpi --disable-video-kmsdrm
+make -j"$(nproc)"
+sudo make install
+```
+
+`CFLAGS=-std=gnu17` is needed with the Ubuntu 26.04 compiler because SDL2
+2.26.2 contains an older `false` enum declaration that is rejected under the
+default C23 mode. The `--disable-alsa` and `--disable-libsamplerate` options
+avoid unavailable ARMHF development libraries; the rendering regression test
+only needs SDL surfaces and does not require those backends.
+
+The resulting ARMHF SDL2 test binary can be run without an ARM machine:
+
+```sh
+arm-linux-gnueabihf-gcc -mfloat-abi=hard -O2 \
+  tests/render_arch_test.c -I/opt/sdl2-armhf/include \
+  -L/opt/sdl2-armhf/lib -Wl,-rpath,/opt/sdl2-armhf/lib -lSDL2 \
+  -o /tmp/render-arch-armhf
+qemu-arm -L /usr/arm-linux-gnueabihf /tmp/render-arch-armhf
+```
+
+Keep architecture-specific builds separate (`build-i386`, `build-armhf`) and
+restrict `PKG_CONFIG_LIBDIR` to the target library directories to prevent host
+amd64 libraries from being selected.
+
 ## Enable Linux target architectures
 
 ```sh
