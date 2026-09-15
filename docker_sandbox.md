@@ -180,6 +180,59 @@ sudo apt-get install -y --no-install-recommends \
 The Mesa and X11 packages mirror the root Dockerfile's gl4es build. They may
 be omitted when gl4es will not be built or packaged.
 
+### Install the ARMHF link libraries in this sandbox
+
+This sandbox's Ubuntu release publishes ARMHF packages from
+`ports.ubuntu.com`, not from `archive.ubuntu.com`. Keep the normal source
+stanzas limited to `amd64 i386`, then add an ARMHF deb822 source:
+
+```text
+Types: deb
+Architectures: armhf
+URIs: http://ports.ubuntu.com/ubuntu-ports/
+Suites: resolute resolute-updates resolute-backports resolute-security
+Components: main universe restricted multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+```
+
+Save it as `/etc/apt/sources.list.d/armhf.sources`, add the architecture, and
+refresh the package index:
+
+```sh
+sudo dpkg --add-architecture armhf
+sudo apt-get update
+```
+
+Install the ARMHF development packages used by the normal CMake link. This
+installs OpenAL, GL/Mesa/GLVND, and zlib into the ARMHF sysroot under
+`/usr/lib/arm-linux-gnueabihf`:
+
+```sh
+sudo apt-get install -y --no-install-recommends \
+  libopenal-dev:armhf \
+  libgl1-mesa-dev:armhf \
+  zlib1g-dev:armhf
+```
+
+Verify that the linker names resolve to ARM ELF libraries:
+
+```sh
+file \
+  /usr/lib/arm-linux-gnueabihf/libopenal.so* \
+  /usr/lib/arm-linux-gnueabihf/libGL.so* \
+  /usr/lib/arm-linux-gnueabihf/libz.so*
+
+PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig \
+  pkg-config --modversion openal gl zlib
+```
+
+The root `Dockerfile` also contains an optional gl4es build for packaging a
+software-compatible `libGL.so.1`. That is a runtime/package choice; the
+system Mesa/GLVND development package above is sufficient to link the ARMHF
+game and tests in this sandbox. OpenAL Soft can likewise be built from source
+using the commented Dockerfile recipe, but the packaged `libopenal-dev:armhf`
+path is the reproducible local setup used here.
+
 ### Build FFmpeg for ARMHF
 
 For release parity, build FFmpeg 7.1.1 from source instead of using the
