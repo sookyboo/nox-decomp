@@ -1,7 +1,10 @@
 /* Regression for 2755c9b: ADPCM boundary blocks must not overflow or index
  * outside the IMA step/index tables. */
+#define _XOPEN_SOURCE 700
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -10,6 +13,9 @@ unsigned int nox_test_decode_adpcm(int16_t *out, const unsigned char *data,
 int nox_test_decode_pcm_stream(const char *filename, int16_t *out,
                                unsigned int max_samples);
 int nox_test_pcm_stream_file_size(const char *filename);
+int nox_test_mp3_seek_resets_state(unsigned int *buffered,
+                                   unsigned int *chunk_pos,
+                                   unsigned int *chunk_size);
 
 typedef struct SDL_mutex SDL_mutex;
 void SDL_LockMutex(SDL_mutex *mutex) { (void)mutex; }
@@ -29,6 +35,10 @@ void alGenBuffers(int count, unsigned int *buffers)
 
 int alGetError(void) { return 0; }
 const char *alGetString(int error) { (void)error; return ""; }
+FILE *compat_fopen(const char *path, const char *mode)
+{
+    return fopen(path, mode);
+}
 
 static int samples_are_clipped_safely(const int16_t *samples, unsigned int count)
 {
@@ -90,6 +100,17 @@ static int test_pcm_stream_at_riff_boundary(void)
     return samples == 0 && file_size == (int)sizeof(wav);
 }
 
+static int test_mp3_loop_seek_resets_decoder_state(void)
+{
+    unsigned int buffered;
+    unsigned int chunk_pos;
+    unsigned int chunk_size;
+
+    if (!nox_test_mp3_seek_resets_state(&buffered, &chunk_pos, &chunk_size))
+        return 0;
+    return buffered == 0 && chunk_pos == 0 && chunk_size == 0;
+}
+
 int main(void)
 {
     unsigned char mono[2048];
@@ -98,6 +119,8 @@ int main(void)
     unsigned int count;
 
     if (!test_pcm_stream_at_riff_boundary())
+        return 1;
+    if (!test_mp3_loop_seek_resets_decoder_state())
         return 1;
 
     memset(mono, 0x77, sizeof(mono));

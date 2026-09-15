@@ -257,6 +257,8 @@ static unsigned int decode_adpcm_stereo(int16_t *out, const BYTE *data, unsigned
     return samples;
 }
 
+static void stream_mp3_seek(HSTREAM stream, unsigned int position);
+
 #ifdef NOX_AUDIO_REGRESSION_TEST
 /* Test-only access to the production ADPCM decoder. */
 unsigned int nox_test_decode_adpcm(int16_t *out, const BYTE *data,
@@ -300,6 +302,33 @@ int nox_test_pcm_stream_file_size(const char *filename)
     fclose(stream->file);
     free(stream);
     return (int)file_size;
+}
+
+int nox_test_mp3_seek_resets_state(unsigned int *buffered,
+                                   unsigned int *chunk_pos,
+                                   unsigned int *chunk_size)
+{
+    struct _DIG_DRIVER dig = {0};
+    struct _STREAM stream = {0};
+    FILE *file = tmpfile();
+
+    if (!file)
+        return 0;
+
+    dig.mutex = (SDL_mutex *)1;
+    stream.dig = &dig;
+    stream.file = file;
+    stream.buffered = 37;
+    stream.chunk_pos = 91;
+    stream.chunk_size = 173;
+    stream.seek = stream_mp3_seek;
+
+    AIL_set_stream_position(&stream, 123);
+    *buffered = stream.buffered;
+    *chunk_pos = stream.chunk_pos;
+    *chunk_size = stream.chunk_size;
+    fclose(file);
+    return 1;
 }
 #endif
 

@@ -29,3 +29,10 @@ file-size calculation stopped searching, so the test verifies the `size + 8`
 RIFF bound and processes the final zero-length chunk through the PCM decoder.
 MP3 channel-count reporting and OpenAL queue/lifecycle behavior still require
 an integration fixture with a real decoder/device path.
+
+The `743f879` coverage drives public `AIL_set_stream_position` on a synthetic
+MP3 stream state. The seek lifecycle resets the minimp3 decoder and clears
+buffered compressed bytes plus the current RIFF chunk position and size, which
+forces the next decode to rediscover the chunk from the loop start. Actual
+decoded-frame continuity and audible gaplessness still require a real MP3
+fixture and OpenAL integration.
