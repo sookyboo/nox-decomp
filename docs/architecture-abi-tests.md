@@ -127,3 +127,10 @@ amd64 test: the game ABI and the compatibility fixes under test are 32-bit.
 The harness validates argument transport and pointer safety; it does not claim
 to validate the full summon or monster simulation logic, which requires game
 fixtures/assets and separate integration coverage.
+
+Similarly, `render_arch_test` is intentionally a focused headless SDL test.
+It validates the 16-bit surface dimensions, scaling, and RGB555-to-RGBA5551
+pixel conversion used by the architecture fix, but it does not create an
+OpenGL context or execute the complete `draw.c` presentation pipeline. GPU,
+window-system, and final on-screen rendering behavior still require separate
+platform integration testing.
