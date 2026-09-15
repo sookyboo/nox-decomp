@@ -1,5 +1,9 @@
 #include "proto.h"
 
+#ifdef NOX_EUD_COMPAT
+#include "eud_compat.h"
+#endif
+
 #ifdef NOX_SUMMON_BEHAVIOR_TEST
 int nox_test_sub_500F40(int action, void *out_xy);
 #define sub_500F40 nox_test_sub_500F40
@@ -12457,6 +12461,9 @@ int sub_505360()
   int v37; // [esp+14h] [ebp-408h]
   char v38[1024]; // [esp+1Ch] [ebp-400h]
 
+#ifdef NOX_EUD_COMPAT
+  nox_eud_reset();
+#endif
   strcpy(v36, "%");
   *(_DWORD *)&byte_5D4594[1599620] = fopen((const char *)&byte_587000[229864], (const char *)&byte_587000[229860]);
   if ( !*(_DWORD *)&byte_5D4594[1599620] )
@@ -12678,6 +12685,9 @@ char *sub_5058F0()
   int v7; // edi
   int v8; // esi
 
+#ifdef NOX_EUD_COMPAT
+  nox_eud_reset();
+#endif
   v0 = *(_DWORD *)&byte_5D4594[1599624];
   if ( *(_DWORD *)&byte_5D4594[1599624] < *(int *)&byte_5D4594[1599632] )
   {
@@ -15113,7 +15123,13 @@ int __cdecl sub_508B70(int a1, int a2)
 
   v2 = 48 * a1;
   if ( !*(_DWORD *)(48 * a1 + *(_DWORD *)&byte_5D4594[1599636] + 36) )
+  {
+#ifdef NOX_EUD_COMPAT
+    if ( nox_eud_dispatch_builtin(a2, *(_DWORD *)&byte_587000[4 * a2 + 245900], &result) )
+      return result;
+#endif
     return (*(int (__cdecl **)())&byte_587000[4 * a2 + 245900])();
+  }
   if ( sub_508C30(a2) )
     strcpy((char *)&byte_5D4594[3821644], *(const char **)(v2 + *(_DWORD *)&byte_5D4594[1599636] + 36));
   if ( sub_508C70(a2) )
@@ -15121,7 +15137,10 @@ int __cdecl sub_508B70(int a1, int a2)
     *(_DWORD *)&byte_5D4594[3821636] = *(_DWORD *)(v2 + *(_DWORD *)&byte_5D4594[1599636] + 40);
     *(_DWORD *)&byte_5D4594[3821640] = *(_DWORD *)(v2 + *(_DWORD *)&byte_5D4594[1599636] + 44);
   }
-  result = (*(int (__cdecl **)())&byte_587000[4 * a2 + 245900])();
+#ifdef NOX_EUD_COMPAT
+  if ( !nox_eud_dispatch_builtin(a2, *(_DWORD *)&byte_587000[4 * a2 + 245900], &result) )
+#endif
+    result = (*(int (__cdecl **)())&byte_587000[4 * a2 + 245900])();
   byte_5D4594[3821644] = byte_5D4594[1599672];
   *(_DWORD *)&byte_5D4594[3821640] = 0;
   *(_DWORD *)&byte_5D4594[3821636] = 0;

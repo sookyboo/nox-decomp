@@ -1,3 +1,7 @@
+- Added Tier 4.5/5 Reloaded/Panic EUD compatibility for discard-handler chaining, portable EUD allocations, typed ThingDB/GameData access, DwordCopy and MagicMissile without executing injected x86
+- Added Tier 3 Reloaded/Panic EUD semantic compatibility for known spell, object, monster-action, wall, NPC equipment, sound and simple FX helpers without executing injected x86
+- Extended Reloaded/Panic EUD compatibility with portable live object/player pointer tokens and semantic UnitToPtr support without executing injected x86
+- Added initial Reloaded/Panic EUD map compatibility for checked legacy BYTE/WORD/DWORD data-memory access without executing injected x86
 - Fixed all known rendering issues (obliterate, force of nature, dispell undead, lasers, unclear fonts caused due to scaling)
 - Fixed all known audio glitches
 - Play native audio formats instead of requiring conversion

@@ -2,12 +2,13 @@ cmake_minimum_required (VERSION 3.11)
 project (nox-port)
 
 option (USE_ASAN "Enable address sanitizer" OFF)
+option (USE_EUD_COMPAT "Build and enable Panic EUD/MemoryHack compatibility" OFF)
 
+include(CTest)
 add_subdirectory (src)
 
 # Small ABI regression test.  It links only the wrapper under test (unused
 # wrappers are removed by --gc-sections), so it can run without game assets.
-include(CTest)
 if (BUILD_TESTING)
     if (WIN32)
         # Standalone tests provide their own main(); SDL2 otherwise remaps it
@@ -35,6 +36,7 @@ if (BUILD_TESTING)
         target_link_options(render_arch_test PRIVATE -m32)
     endif()
     add_test(NAME render_arch_test COMMAND render_arch_test)
+
     add_executable(mana_abi_bits_test tests/mana_abi_bits_test.c)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
         target_compile_options(mana_abi_bits_test PRIVATE -m32)

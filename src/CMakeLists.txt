@@ -149,6 +149,11 @@ set(NOX_RUNTIME_SOURCES
     "${COMPAT_SOURCES}"
 )
 
+if (USE_EUD_COMPAT)
+    list(APPEND NOX_RUNTIME_SOURCES eud_compat.c)
+    add_compile_definitions(NOX_EUD_COMPAT)
+endif()
+
 add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
 
 # Standalone regression tests compile a focused translation unit directly so
@@ -171,6 +176,23 @@ if (WIN32 AND BUILD_TESTING)
         ${FFMPEG_LIBRARY_DIRS}
     )
     target_link_options(nox_test_runtime PUBLIC ${SDL2_LDFLAGS} ${FFMPEG_LDFLAGS_OTHER})
+
+    if (USE_EUD_COMPAT)
+        add_executable(eud_compat_memory_test
+            ${PROJECT_SOURCE_DIR}/tests/eud_compat_memory_test.c
+        )
+        target_include_directories(eud_compat_memory_test PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+        target_compile_options(eud_compat_memory_test PRIVATE -ffunction-sections)
+        target_link_options(eud_compat_memory_test PRIVATE -Wl,--gc-sections)
+        target_link_libraries(eud_compat_memory_test PRIVATE nox_test_runtime)
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(eud_compat_memory_test PRIVATE -m32)
+            target_link_options(eud_compat_memory_test PRIVATE -m32)
+        endif()
+        add_test(NAME eud_compat_memory_test COMMAND eud_compat_memory_test)
+    endif()
 endif()
 
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")

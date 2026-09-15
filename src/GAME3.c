@@ -2,6 +2,9 @@
 #include <emscripten/emscripten.h>
 #endif
 
+#ifdef NOX_EUD_COMPAT
+#include "eud_compat.h"
+#endif
 #include "proto.h"
 
 extern int g_fullscreen;
@@ -49467,7 +49470,12 @@ int __cdecl sub_4E38A0(int a1)
   if ( *(_DWORD *)(a1 + 736) )
     free(*(LPVOID *)(a1 + 736));
   if ( *(_DWORD *)(a1 + 748) )
+  {
+#ifdef NOX_EUD_COMPAT
+    nox_eud_object_extension_released(a1, *(_DWORD *)(a1 + 748));
+#endif
     free(*(LPVOID *)(a1 + 748));
+  }
   v6 = *(_DWORD *)(a1 + 36);
   sub_414400(*(unsigned int **)&byte_5D4594[1563344], (_QWORD *)a1);
   *(_DWORD *)(a1 + 36) = v6;
