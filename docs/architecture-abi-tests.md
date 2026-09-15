@@ -96,6 +96,10 @@ algorithm—and checks the observable contract at the raw callee.
    round-tripping representative IEEE-754 bit patterns with `memcpy`, avoiding
    undefined aliasing and proving that ARMHF and i386 preserve the same bits.
 
+8. `x86_64_compat_test` verifies the host-compatibility rule from `3487996`:
+   even when CMake identifies an x86_64 host, the game target remains a
+   32-bit ABI with 4-byte pointers and `uintptr_t`.
+
 Both checks also validate the expected sentinel `self` value and return status,
 so a test cannot pass merely because the wrapper returns without invoking the
 raw function.

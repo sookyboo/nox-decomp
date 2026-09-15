@@ -18,7 +18,7 @@ registered with CTest and runs on i386; its ARMHF build is also validated with
 | `ef42f7a` | Fixes summoning and monster attack-area ABI behavior on ARM and i386. | **Complete:** `abi_cross_test` exercises summon output and the `sub_549860` monster-area callback wrapper, verifying writable output and callback payloads on both targets. |
 | `1301939` | Preserves float bit patterns in the mana-drain ABI path. | **Complete:** `mana_abi_bits_test` round-trips normal values, signed zero, NaN, infinity, and subnormal IEEE-754 patterns on i386 and ARMHF. |
 | `0d451ef` | Fixes the rare summon segfault by passing a real output pointer on i386 while retaining ARM slot conversion. | **Existing `abi_cross_test`:** raw stub writes through `out_xy`; test verifies the marker on i386 and ARMHF (`qemu-arm`). |
-| `3487996` | Adds Linux x86_64 compile guards/compatibility adjustments around the 32-bit code. | Configure/build an x86_64 Linux target and run a startup smoke test; separately ensure ARMHF remains a 32-bit target and still passes the ABI suite. |
+| `3487996` | Adds Linux x86_64 compile guards/compatibility adjustments around the 32-bit code. | **Complete:** `x86_64_compat_test` configures on an x86_64 host with the project’s `-m32` flags and asserts 32-bit pointer/`uintptr_t` sizes. |
 | `39e7c16` | Adjusts CMake/toolchain logic to restore ARM builds. | Configure with the ARMHF toolchain file, build the executable, and run `ctest -R abi_cross_test` under ARM emulation. |
 | `f7c9535` | Explicitly rejects unsupported 64-bit ARM builds. | Configure with an aarch64 compiler and assert CMake fails with the documented 32-bit-ARM error; configure ARMHF and assert success. |
 
