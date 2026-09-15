@@ -156,11 +156,11 @@ endif()
 
 add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
 
-# Standalone regression tests compile a focused translation unit directly so
-# they can replace selected collaborators with test doubles. MinGW's PE
-# linker does not discard all unrelated sections from those units, so provide
-# the rest of the runtime as an archive for their unresolved dependencies.
-if (WIN32 AND BUILD_TESTING)
+# Standalone regression tests compile focused translation units directly so
+# they can replace selected collaborators with test doubles. The EUD memory
+# test also needs the real runtime collaborators, so provide the runtime as
+# an archive when that optional feature is enabled.
+if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
     add_library(nox_test_runtime STATIC ${NOX_RUNTIME_SOURCES})
     target_link_libraries(nox_test_runtime PUBLIC
         ${SDL2_LIBRARIES}
@@ -176,6 +176,9 @@ if (WIN32 AND BUILD_TESTING)
         ${FFMPEG_LIBRARY_DIRS}
     )
     target_link_options(nox_test_runtime PUBLIC ${SDL2_LDFLAGS} ${FFMPEG_LDFLAGS_OTHER})
+    if (NOT WIN32)
+        target_link_libraries(nox_test_runtime PUBLIC m z dl)
+    endif()
 
     if (USE_EUD_COMPAT)
         add_executable(eud_compat_memory_test
@@ -203,7 +206,7 @@ endif()
 add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)
 set_target_properties(abi_wrappers PROPERTIES C_STANDARD 99)
 
-if (WIN32 AND BUILD_TESTING)
+if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
     target_link_libraries(nox_test_runtime PUBLIC abi_wrappers)
 endif()
 

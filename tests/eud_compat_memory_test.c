@@ -2,6 +2,8 @@
 
 #include "../src/eud_compat.h"
 
+const char *progname = "eud_compat_memory_test";
+
 #define NOX_EUD_DATA_BEGIN 0x00581450u
 #define NOX_EUD_DATA_SPLIT_1 0x00587000u
 #define NOX_EUD_DATA_SPLIT_2 0x005D4594u

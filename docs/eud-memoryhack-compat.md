@@ -16,7 +16,7 @@ Tier 4.5 recognizes the fully patched generated `SetUnitCallbackOnDiscardBypass`
 
 Tier 5 adds a bounded portable EUD heap (`MemAlloc`/`MemFree`), semantic `DwordCopy`, SmartMemory cleanup interception, typed ThingDB/GameData traversal, safe translation of selected pointer-valued database fields, and the specific object-extension/update-function translation required by Panic's `MagicMissile`. EUD-owned heap token slots are quarantined until script reset so stale pointers cannot silently alias a later allocation.
 
-The compatibility layer is opt-in via `USE_EUD_COMPAT`; the default build does not compile or use it. The focused memory test is registered only for the opt-in Windows test-runtime configuration.
+The compatibility layer is opt-in via `USE_EUD_COMPAT`; the default build does not compile or use it. The focused memory test is registered for opt-in Linux and Windows test-runtime configurations.
 
 Repository workflow and review requirements are defined by the root `AGENTS.md` and `CONTRIBUTING.md`; this document records the EUD subsystem-specific contract and limitations.
 
