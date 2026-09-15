@@ -290,6 +290,28 @@ if (BUILD_TESTING)
         target_link_options(save_casepath_test PRIVATE -m32)
     endif()
     add_test(NAME save_casepath_test COMMAND save_casepath_test)
+    add_executable(network_join_test
+        tests/network_join_test.c
+        src/GAME1.c
+    )
+    target_include_directories(network_join_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(network_join_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(network_join_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(network_join_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(network_join_test PRIVATE -m32)
+        target_link_options(network_join_test PRIVATE -m32)
+    endif()
+    add_test(NAME network_join_test COMMAND network_join_test)
     add_executable(gamepad_overlay_release_test
         tests/gamepad_overlay_release_test.c
     )

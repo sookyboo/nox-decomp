@@ -80,7 +80,7 @@ subsystem boundaries.
 | `d825fa9` | Windows movie loading | Open a representative movie fixture and assert successful demux/decode and cleanup. | **Yes:** movie loading API. |
 | `0b399ec` | Movie colors | Decode a known-color frame and compare RGB channel values against the expected conversion. | **Yes:** movie decode/render path. |
 | `1ba01e0` | Windows game colors | Render a palette fixture and assert expected color values on the compatibility path. | **Yes:** compatibility render path. |
-| `6a6f369` | Joining network games | Mock server discovery/join packets and assert the client enters the joined-game state. | **Yes:** network packet path. |
+| `6a6f369` | Joining network games | **Complete (join prerequisite):** `network_join_test` drives production `sub_420120()` with a deterministic registry fixture and verifies the serial lookup required before `sub_438A90()` sends the join handshake. Live discovery, UDP handshake, and joined-game state remain untested. See [`multiplayer.md`](docs/multiplayer.md). | **Yes:** production join prerequisite; live network join remains untested. |
 | `9d08e53` | Public-game listing | Feed public-list responses, including malformed entries, and assert filtering and registration state. | **Yes:** network listing path. |
 | `f08a713` | Gamepad skipping chapter cut scenes | Send the skip action during a cut scene and assert the next scene/state is selected exactly once. | **Yes:** input/cut-scene path. |
 | `0f61a6e` | Font rendering at exact resolutions/integer scaling | Render text at exact-size surfaces with integer scaling enabled/disabled and compare glyph bounds. | **Yes:** rendering entry point. |

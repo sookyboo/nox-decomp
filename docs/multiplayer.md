@@ -1,5 +1,19 @@
 The network flow for nox-decomp is something like this
 
+## Join handshake prerequisite
+
+`sub_438A90()` is the client-side join entry point. Before sending the join
+request through `sub_5550A0()`, it calls `sub_420120()` to retrieve the Nox
+serial from `HKEY_LOCAL_MACHINE\\SOFTWARE\\Westwood\\Nox`, value `Serial`.
+The registry result is the authoritative prerequisite for entering the join
+handshake; failure follows the user-facing error path instead of attempting a
+join with an uninitialized serial.
+
+`tests/network_join_test.c` drives `sub_420120()` with a deterministic registry
+fixture and verifies the production lookup key, value name, type, and serial
+payload. Live server discovery, UDP handshake, and joined-game state remain
+normal-target integration coverage.
+
 When hosting a game start a udp socket on port 18590
 Post a registration on the lobby server (if the NOX_LOBBY_REGISTER_ENABLE=1 env variable is set)
 
