@@ -10,6 +10,42 @@ Decomp in an Ubuntu/Debian sandbox for:
 Windows ARM is not in scope. Use a separate CMake build directory and
 `pkg-config` search path for each target.
 
+## Source and download security
+
+Install build inputs only from the original publisher or the distribution's
+authenticated package repositories. Do not use unverified mirrors, third-party
+package archives, unofficial Docker images, reposted release files, or
+copy-pasted installer scripts. This is a supply-chain boundary for the
+sandbox, not just a convenience rule.
+
+Use HTTPS for every source below, verify the repository tag or release version,
+and verify a publisher-provided signature or checksum before unpacking a
+release archive. Record the URL, version, and SHA-256 in the build log when
+creating a release image. Do not pipe downloaded content directly to a shell.
+For Git sources, clone the upstream repository and check out an exact tag or
+commit; do not build an arbitrary branch head.
+
+The sandbox firewall/proxy should allow only the following origins needed by
+the documented builds:
+
+| Origin | Use |
+| --- | --- |
+| `archive.ubuntu.com` | Ubuntu amd64/i386 package indexes and packages |
+| `security.ubuntu.com` | Ubuntu security package indexes and packages |
+| `ports.ubuntu.com` | Ubuntu ARMHF package indexes and packages |
+| `git.ffmpeg.org` | Official FFmpeg source repository |
+| `github.com/libsdl-org/SDL` | Official SDL2 source repository |
+| `github.com/ptitSeb/gl4es` | Upstream gl4es source repository |
+| `github.com/nigels-com/glew` | Upstream GLEW source repository/release fallback |
+| `sourceforge.net/projects/glew` | Official GLEW project release download |
+| `openal-soft.org/openal-binaries` | Official OpenAL Soft Windows archive |
+
+The Dockerfiles also use the Ubuntu keyring for APT signature verification.
+Keep the normal APT sources restricted to the required architectures and do
+not add an untrusted repository merely to obtain a missing development package.
+If a listed origin is blocked, stop and resolve access to that origin or use a
+distribution package; do not silently substitute a mirror.
+
 ## Setup performed in the development sandbox
 
 The working environment is Ubuntu 26.04 (Resolute) on amd64. The following
@@ -89,7 +125,7 @@ On Ubuntu, `archive.ubuntu.com` carries amd64/i386 while ARMHF is served by
 ```text
 Types: deb
 Architectures: armhf
-URIs: http://ports.ubuntu.com/ubuntu-ports/
+URIs: https://ports.ubuntu.com/ubuntu-ports/
 Suites: resolute resolute-updates resolute-backports resolute-security
 Components: main universe restricted multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
@@ -189,7 +225,7 @@ stanzas limited to `amd64 i386`, then add an ARMHF deb822 source:
 ```text
 Types: deb
 Architectures: armhf
-URIs: http://ports.ubuntu.com/ubuntu-ports/
+URIs: https://ports.ubuntu.com/ubuntu-ports/
 Suites: resolute resolute-updates resolute-backports resolute-security
 Components: main universe restricted multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
@@ -405,8 +441,14 @@ the prefixes used by `Dockerfile.winx86`:
 
 Those versions match the current Dockerfile. Once the prefixes exist:
 
+The OpenAL Soft Windows archive is available from the official project site at
+`https://openal-soft.org/openal-binaries/openal-soft-1.22.2-bin.zip`. Unpack its
+`include`, `libs/Win32`, and `bin` contents into the OpenAL prefix. If the
+SourceForge GLEW endpoint is unavailable in a sandbox, use the upstream GLEW
+release archive instead; the installed layout is the same.
+
 ```sh
-export PKG_CONFIG_LIBDIR=/opt/ffmpeg-win32/lib/pkgconfig:/opt/sdl2-win32/lib/pkgconfig
+export PKG_CONFIG_LIBDIR=/opt/ffmpeg-win32/lib/pkgconfig:/opt/sdl2-win32/lib/pkgconfig:/opt/openal-win32/lib/pkgconfig:/opt/glew-win32/lib/pkgconfig
 unset PKG_CONFIG_PATH
 
 cmake -S . -B build-win32 -G Ninja \
@@ -415,6 +457,7 @@ cmake -S . -B build-win32 -G Ninja \
   -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
   -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
   -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+  -DCMAKE_CROSSCOMPILING_EMULATOR=wine \
   -DCMAKE_PREFIX_PATH="/opt/sdl2-win32;/opt/openal-win32;/opt/glew-win32;/opt/ffmpeg-win32" \
   -DFFMPEG_PREFIX=/opt/ffmpeg-win32 \
   -DCMAKE_C_FLAGS="-I/opt/sdl2-win32/include -I/opt/openal-win32/include -I/opt/glew-win32/include" \
@@ -426,7 +469,8 @@ cmake --build build-win32 -j"$(nproc)"
 ```
 
 Pass Wine as CMake's cross-compiling emulator so CTest invokes each Windows
-test executable correctly:
+test executable correctly. The option is included in the full configure command
+above; add it when reusing an older build directory:
 
 ```sh
 cmake -S . -B build-win32 \
@@ -445,6 +489,23 @@ their `bin` directories through `WINEPATH`; then run:
 WINEPATH='Z:\opt\sdl2-win32\bin;Z:\opt\ffmpeg-win32\bin;Z:\opt\openal-win32\bin;Z:\opt\glew-win32\bin' \
   ctest --test-dir build-win32 --output-on-failure
 ```
+
+The standalone Windows test targets that compile decompiled game translation
+units currently do not link with MinGW's PE linker: unlike the Linux linkers
+used by the i386 and ARMHF builds, it retains unreferenced sections and then
+requires the whole translation unit's unresolved game symbols. This is a
+link-time portability limitation, not a Wine runtime failure. The independent
+Windows targets currently build and pass under Wine as follows:
+
+```text
+render_arch_test       PASS
+mana_abi_bits_test     PASS
+x86_64_compat_test     PASS
+```
+
+The remaining registered Windows tests are still covered by the native Linux
+i386/ARMHF builds; they need a separate MinGW linker/test-harness portability
+change before they can be included in the Windows CTest run.
 
 The first configure/build command above is the full dependency-aware command
 for this repository. The shorter command is useful only after the dependency

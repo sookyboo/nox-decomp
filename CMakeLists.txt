@@ -9,6 +9,15 @@ add_subdirectory (src)
 # wrappers are removed by --gc-sections), so it can run without game assets.
 include(CTest)
 if (BUILD_TESTING)
+    if (WIN32)
+        # Standalone tests provide their own main(); SDL2 otherwise remaps it
+        # to SDL_main when its Windows headers are included.
+        add_compile_definitions(SDL_MAIN_HANDLED)
+    endif()
+    # MinGW's PE linker does not garbage-collect the unused raw-wrapper
+    # references in this standalone ABI harness. The ABI harness remains
+    # covered on Linux i386 and ARMHF; Windows uses the native calling ABI.
+    if (NOT WIN32)
     add_executable(abi_cross_test tests/abi_cross_test.c abi_wrappers.c)
     target_compile_options(abi_cross_test PRIVATE -ffunction-sections)
     target_link_options(abi_cross_test PRIVATE -Wl,--gc-sections)
@@ -17,7 +26,9 @@ if (BUILD_TESTING)
         target_link_options(abi_cross_test PRIVATE -m32)
     endif()
     add_test(NAME abi_cross_test COMMAND abi_cross_test)
+    endif()
     add_executable(render_arch_test tests/render_arch_test.c)
+    target_compile_definitions(render_arch_test PRIVATE SDL_MAIN_HANDLED)
     target_link_libraries(render_arch_test PRIVATE SDL2)
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
         target_compile_options(render_arch_test PRIVATE -m32)
@@ -225,6 +236,9 @@ if (BUILD_TESTING)
         target_link_options(gamepad_mouse_scaling_test PRIVATE -m32)
     endif()
     add_test(NAME gamepad_mouse_scaling_test COMMAND gamepad_mouse_scaling_test)
+    # These tests cover the POSIX case-sensitive path compatibility layer.
+    # Windows uses compat_mss.c instead and does not expose this test seam.
+    if (NOT WIN32)
     add_executable(compat_path_test
         tests/compat_path_test.c
         src/compat.c
@@ -290,6 +304,7 @@ if (BUILD_TESTING)
         target_link_options(save_casepath_test PRIVATE -m32)
     endif()
     add_test(NAME save_casepath_test COMMAND save_casepath_test)
+    endif()
     add_executable(network_join_test
         tests/network_join_test.c
         src/GAME1.c
@@ -312,6 +327,7 @@ if (BUILD_TESTING)
         target_link_options(network_join_test PRIVATE -m32)
     endif()
     add_test(NAME network_join_test COMMAND network_join_test)
+    if (NOT WIN32)
     add_executable(public_games_test
         tests/public_games_test.c
         src/lobby.c
@@ -337,6 +353,7 @@ if (BUILD_TESTING)
         target_link_options(public_games_test PRIVATE -m32)
     endif()
     add_test(NAME public_games_test COMMAND public_games_test)
+    endif()
     add_executable(network_connect_test
         tests/network_connect_test.c
         src/GAME5.c
@@ -579,6 +596,7 @@ if (BUILD_TESTING)
         target_link_options(cutscene_chunk_test PRIVATE -m32)
     endif()
     add_test(NAME cutscene_chunk_test COMMAND cutscene_chunk_test)
+    if (NOT WIN32)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c
@@ -643,6 +661,7 @@ if (BUILD_TESTING)
         target_link_options(map_download_dispatch_test PRIVATE -m32)
     endif()
     add_test(NAME map_download_dispatch_test COMMAND map_download_dispatch_test)
+    endif()
 
     add_executable(audio_compat_test
         tests/audio_compat_test.c

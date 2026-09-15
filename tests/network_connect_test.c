@@ -3,12 +3,18 @@
  * Server-side acceptance and the transition into a joined game require the
  * broader normal-target integration fixture and are intentionally outside
  * this focused client-send test. */
-#include <arpa/inet.h>
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#define close closesocket
+#else
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#endif
 
 unsigned char byte_5D4594[3844309];
 unsigned char byte_587000[400000];

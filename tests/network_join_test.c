@@ -3,7 +3,17 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include "../src/windows.h"
+#endif
+
+#ifdef _WIN32
+#define TEST_WINAPI WINAPI
+#else
+#define TEST_WINAPI
+#endif
 
 unsigned char byte_5D4594[3844309];
 unsigned char byte_587000[400000];
@@ -11,7 +21,7 @@ unsigned char byte_587000[400000];
 static int queried;
 static char serial[32];
 
-LONG RegOpenKeyExA(HKEY root, LPCSTR subkey, DWORD options, REGSAM access, PHKEY result)
+LONG TEST_WINAPI RegOpenKeyExA(HKEY root, LPCSTR subkey, DWORD options, REGSAM access, PHKEY result)
 {
     (void)root; (void)options; (void)access;
     if (!subkey || strcmp(subkey, "SOFTWARE\\Westwood\\Nox") != 0)
@@ -20,8 +30,8 @@ LONG RegOpenKeyExA(HKEY root, LPCSTR subkey, DWORD options, REGSAM access, PHKEY
     return 0;
 }
 
-LONG RegQueryValueExA(HKEY key, LPCSTR value, LPDWORD reserved, LPDWORD type,
-                      LPBYTE data, LPDWORD size)
+LONG TEST_WINAPI RegQueryValueExA(HKEY key, LPCSTR value, LPDWORD reserved, LPDWORD type,
+                                  LPBYTE data, LPDWORD size)
 {
     const char expected[] = "1234567890123456789012";
     (void)reserved;
@@ -36,7 +46,7 @@ LONG RegQueryValueExA(HKEY key, LPCSTR value, LPDWORD reserved, LPDWORD type,
     return 0;
 }
 
-LONG RegCloseKey(HKEY key)
+LONG TEST_WINAPI RegCloseKey(HKEY key)
 {
     return key == (HKEY)(uintptr_t)0x1234 ? 0 : 2;
 }
