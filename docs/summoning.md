@@ -19,3 +19,19 @@ deterministic pending-count fixtures. It verifies the inclusive limit and the
 rejection of a fifth pending creature; the production count helper still owns
 the active-creature contribution. Full spawn placement, messaging, and
 creature creation remain game integration coverage.
+
+## Summon start and completion
+
+`sub_500DA0()` (`nox_xxx_summonStart_500DA0`) owns the pending summon action.
+It validates the source/owner state, obtains a spawn position through
+`sub_500F40()`, stores the summon type, position, owner byte, sequence ID, and
+completion tick in the action record, and emits the start effect. The caller
+then invokes `sub_5010D0()` on later simulation updates. At the recorded tick,
+that function creates the summoned object through `sub_5016C0()`, places it at
+the stored coordinates, marks it as summoned, and links it to the owner.
+
+The `a1b2f49` fix corrected the ABI boundary for the output position passed to
+`sub_500F40()`. The regression in `tests/summon_behavior_test.c` drives both
+production entry points with a self-contained fixture and checks the stored
+coordinates, object creation, and summoned flag. Collision rejection,
+interruption, and the full world/object database remain untested.

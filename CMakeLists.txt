@@ -348,6 +348,37 @@ if (BUILD_TESTING)
         target_link_options(summon_limit_test PRIVATE -m32)
     endif()
     add_test(NAME summon_limit_test COMMAND summon_limit_test)
+    add_executable(summon_behavior_test
+        tests/summon_behavior_test.c
+        src/GAME4.c
+        src/GAME_ABI.c
+        abi_wrappers.c
+    )
+    target_include_directories(summon_behavior_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(summon_behavior_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(summon_behavior_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(summon_behavior_test PRIVATE
+        -Wl,--gc-sections
+        -Wl,--wrap=sub_535250 -Wl,--wrap=sub_5236F0
+        -Wl,--wrap=sub_533900 -Wl,--wrap=sub_501960
+    )
+    if (NOT MSVC)
+        target_link_libraries(summon_behavior_test PRIVATE m)
+    endif()
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(summon_behavior_test PRIVATE -m32)
+        target_link_options(summon_behavior_test PRIVATE -m32)
+    endif()
+    add_test(NAME summon_behavior_test COMMAND summon_behavior_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c
