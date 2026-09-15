@@ -253,6 +253,18 @@ ctest --test-dir build-i386 -R '^eud_ggraves_map_test$' --output-on-failure
 As with `G_Quest`, this confirms package inputs only; it does not execute the
 map script or validate gameplay behavior.
 
+The following smoke test covers the heavier `!test.map` target:
+
+```sh
+cmake --build build-i386 --target eud_bangtest_map_test
+ctest --test-dir build-i386 -R '^eud_bangtest_map_test$' --output-on-failure
+```
+
+It checks the map, `!test.c`, and the Nox gamefiles. The map has no separate
+custom resource manifest in the cloned project. Its compiled `.nxz` and actual
+runtime behavior remain unverified, especially for native handler values that
+are intentionally outside the current compatibility boundary.
+
 ## Linux headless OpenGL
 
 The server container runs the 32-bit game through an X11 display provided by
