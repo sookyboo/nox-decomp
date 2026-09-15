@@ -8,3 +8,8 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 releases
+build/
+.idea/
+build-i386/
+dist-scripts/flathub/.flatpak-builder/
+dist-scripts/flathub/repo
