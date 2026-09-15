@@ -16048,6 +16048,25 @@ int sub_462740()
   return 1;
 }
 
+static void inventory_format_durability(wchar_t *out, const wchar_t *format,
+                                        float current_bits, float maximum_bits)
+{
+  union { float f; int i; } current = { current_bits };
+  union { float f; int i; } maximum = { maximum_bits };
+  nox_swprintf(out, format, current.i, maximum.i);
+}
+
+#ifdef NOX_INVENTORY_DURABILITY_TEST
+void nox_test_format_durability(wchar_t *out, int current_value, int maximum_value)
+{
+  union { float f; int i; } current = {0};
+  union { float f; int i; } maximum = {0};
+  current.i = current_value;
+  maximum.i = maximum_value;
+  inventory_format_durability(out, L"Durability: %d / %d", current.f, maximum.f);
+}
+#endif
+
 //----- (004627F0) --------------------------------------------------------
 int __cdecl sub_4627F0(_DWORD *a1)
 {
@@ -16206,7 +16225,7 @@ LABEL_14:
        * correct integer (e.g. 100). For the "Durability: %d / %d" format
        * we must pass them as ints, not as floats.
        */
-      nox_swprintf(v75, v11, *(int *)&v56, *(int *)&v63);
+      inventory_format_durability(v75, v11, v56, v63);
     }
     else
     {

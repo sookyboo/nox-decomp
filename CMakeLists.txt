@@ -71,6 +71,34 @@ if (BUILD_TESTING)
         target_link_options(inventory_hit_chain_test PRIVATE -m32)
     endif()
     add_test(NAME inventory_hit_chain_test COMMAND inventory_hit_chain_test)
+    add_executable(inventory_durability_test
+        tests/inventory_durability_test.c
+        src/string.c
+    )
+    target_include_directories(inventory_durability_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(inventory_durability_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(inventory_durability_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(inventory_durability_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(inventory_durability_test PRIVATE -m32)
+        target_link_options(inventory_durability_test PRIVATE -m32)
+    endif()
+    add_test(NAME inventory_durability_test COMMAND inventory_durability_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c
