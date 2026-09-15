@@ -134,3 +134,12 @@ pixel conversion used by the architecture fix, but it does not create an
 OpenGL context or execute the complete `draw.c` presentation pipeline. GPU,
 window-system, and final on-screen rendering behavior still require separate
 platform integration testing.
+
+## String-format regression
+
+`string_format_test` covers the production `nox_snprintf` entry point used by
+inventory and other UI code to turn gameplay values into text. The regression
+for commit `2cc50d3` checks the `%f` path with fixed precision, including the
+returned character count and resulting bounded string (`Mana 12.50`). The test
+supplies only the compatibility-layer stubs needed to link `src/string.c` in
+isolation; inventory layout and rendering remain integration coverage.
