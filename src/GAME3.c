@@ -59564,20 +59564,41 @@ void __cdecl sub_4EF410(int a1, unsigned __int8 a2)
 //  return result;
 //}
 
-char *__cdecl sub_4EF500(int a1)
+static int nox_set_god_cheat_flag(int enable)
 {
     // same gate
+#ifdef NOX_CHEAT_REGRESSION_TEST
+    extern int nox_test_cheats_allowed;
+    if (!nox_test_cheats_allowed)
+        return 0;
+#else
     if (!sub_40A5C0(2048))
         return 0;
+#endif
 
-    if (a1 == 1)
+    if (enable == 1)
         byte_5D4594[2650636] |= NOX_CHEAT_GOD;         // ONLY god
     else
         byte_5D4594[2650636] &= (unsigned char)~NOX_CHEAT_GOD;
 
+    return 1;
+}
+
+char *__cdecl sub_4EF500(int a1)
+{
+    nox_set_god_cheat_flag(a1);
+
     // IMPORTANT: no player iteration here, no spell-table writes.
     return (char *)1;
 }
+
+#ifdef NOX_CHEAT_REGRESSION_TEST
+unsigned int nox_test_apply_god_cheat(int enable)
+{
+    nox_set_god_cheat_flag(enable);
+    return byte_5D4594[2650636];
+}
+#endif
 
 
 //----- (004EF560) --------------------------------------------------------

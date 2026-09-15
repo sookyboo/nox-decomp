@@ -99,6 +99,38 @@ if (BUILD_TESTING)
         target_link_options(inventory_durability_test PRIVATE -m32)
     endif()
     add_test(NAME inventory_durability_test COMMAND inventory_durability_test)
+    add_executable(cheat_spell_test
+        tests/cheat_spell_test.c
+        src/GAME1.c
+        src/GAME3.c
+    )
+    target_include_directories(cheat_spell_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(cheat_spell_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(cheat_spell_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_compile_definitions(cheat_spell_test PRIVATE
+        NOX_CHEAT_REGRESSION_TEST
+    )
+    target_link_options(cheat_spell_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(cheat_spell_test PRIVATE -m32)
+        target_link_options(cheat_spell_test PRIVATE -m32)
+    endif()
+    add_test(NAME cheat_spell_test COMMAND cheat_spell_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c

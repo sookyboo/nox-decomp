@@ -55485,16 +55485,30 @@ int sub_442450()
   return 1;
 }
 
-static void nox_apply_spells_cheat_to_all(int enable)
+static int nox_set_spells_cheat_flag(int enable)
 {
     // keep the same "cheats allowed" gate used by god/spells
+#ifdef NOX_CHEAT_REGRESSION_TEST
+    extern int nox_test_cheats_allowed;
+    if (!nox_test_cheats_allowed)
+        return 0;
+#else
     if (!sub_40A5C0(2048))
-        return;
+        return 0;
+#endif
 
     if (enable)
         byte_5D4594[2650636] |= NOX_CHEAT_SPELLS;
     else
         byte_5D4594[2650636] &= (unsigned char)~NOX_CHEAT_SPELLS;
+
+    return 1;
+}
+
+static void nox_apply_spells_cheat_to_all(int enable)
+{
+    if (!nox_set_spells_cheat_flag(enable))
+        return;
 
     // Re-apply tables to all active players.
     // When enable=0, your existing functions will clear tables,
@@ -55505,6 +55519,14 @@ static void nox_apply_spells_cheat_to_all(int enable)
         sub_4EFE10((int)p);
     }
 }
+
+#ifdef NOX_CHEAT_REGRESSION_TEST
+unsigned int nox_test_apply_spells_cheat(int enable)
+{
+    nox_set_spells_cheat_flag(enable);
+    return byte_5D4594[2650636];
+}
+#endif
 
 // set sage
 //----- (00442480) --------------------------------------------------------
