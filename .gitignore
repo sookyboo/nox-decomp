@@ -14,3 +14,4 @@ build-i386/
 dist-scripts/flathub/.flatpak-builder/
 dist-scripts/flathub/repo
 dist-scripts/flathub/io.github.sookyboo.nox-decomp.flatpak
+build.log
