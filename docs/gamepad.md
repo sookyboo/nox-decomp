@@ -84,9 +84,11 @@ removing stale state or releasing the same overlay twice. The relevant state
 flow is physical button down → `stack_push_with_parent()` → physical button up
 → `stack_remove_layer()`.
 
-`tests/gamepad_overlay_release_test.c` drives these production stack functions
-through parent/child creation, parent release, repeated release, and reuse.
-SDL controller polling and the complete event loop remain integration coverage.
+`tests/gamepad_overlay_release_test.c` drives `nox_gamepad_update()` with
+deterministic controller snapshots. It verifies that a held clear overlay
+blocks a base key action, that releasing it removes the overlay, and that the
+base action becomes available again. SDL device polling and rendered overlay
+controls remain integration coverage.
 
 * * *
 
