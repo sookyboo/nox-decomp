@@ -36,9 +36,9 @@ sudo apt-get install -y --no-install-recommends \
   qemu-user
 ```
 
-Ubuntu 26.04 did not provide `libsdl2-dev:armhf` in this sandbox. SDL2 2.26.2
-was therefore built from source using the same cross-build shape as
-`Dockerfile.x86libs`:
+If the Ports archive does not provide `libsdl2-dev:armhf` for the sandbox's
+codename, SDL2 2.26.2 can be built from source using the same cross-build shape
+as `Dockerfile.x86libs`:
 
 ```sh
 CFLAGS='-std=gnu17' ./configure \
@@ -209,6 +209,7 @@ installs OpenAL, GL/Mesa/GLVND, FFmpeg, and zlib into the ARMHF sysroot under
 
 ```sh
 sudo apt-get install -y --no-install-recommends \
+  libsdl2-dev:armhf \
   libopenal-dev:armhf \
   libgl1-mesa-dev:armhf \
   libavformat-dev:armhf \
@@ -235,6 +236,29 @@ file \
 PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig \
   pkg-config --modversion openal gl libavformat libavcodec libavutil libswscale libswresample zlib
 ```
+
+The current Resolute Ports archive provides `libsdl2-dev:armhf` 2.32.10, so
+the source build above is not needed in this sandbox. A package-only local
+ARMHF build can use the system target metadata directly:
+
+```sh
+export PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig
+unset PKG_CONFIG_PATH
+
+cmake -S . -B build-armhf -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_SYSTEM_NAME=Linux \
+  -DCMAKE_SYSTEM_PROCESSOR=arm \
+  -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+  -DCMAKE_CROSSCOMPILING_EMULATOR='qemu-arm;-L;/usr/arm-linux-gnueabihf'
+cmake --build build-armhf -j"$(nproc)"
+ctest --test-dir build-armhf --output-on-failure
+```
+
+`CMAKE_CROSSCOMPILING_EMULATOR` lets CTest run the ARMHF executables through
+QEMU. If it is omitted, invoke each test with
+`qemu-arm -L /usr/arm-linux-gnueabihf` instead of running `ctest` directly.
 
 The root `Dockerfile` also contains an optional gl4es build for packaging a
 software-compatible `libGL.so.1`. That is a runtime/package choice; the
