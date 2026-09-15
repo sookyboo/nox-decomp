@@ -266,6 +266,41 @@ unsigned int nox_test_decode_adpcm(int16_t *out, const BYTE *data,
         return decode_adpcm_stereo(out, data, size);
     return decode_adpcm(out, data, size);
 }
+
+int nox_test_decode_pcm_stream(const char *filename, int16_t *out,
+                               unsigned int max_samples)
+{
+    struct _DIG_DRIVER dig = {0};
+    HSTREAM stream;
+    unsigned int samples;
+
+    /* The stream decoder only needs the mutex while opening the stream. */
+    dig.mutex = (SDL_mutex *)1;
+    stream = AIL_open_stream(&dig, filename, 0);
+    if (!stream)
+        return -1;
+
+    samples = stream->decode(stream, out, max_samples);
+    fclose(stream->file);
+    free(stream);
+    return (int)samples;
+}
+
+int nox_test_pcm_stream_file_size(const char *filename)
+{
+    struct _DIG_DRIVER dig = {0};
+    HSTREAM stream;
+    unsigned int file_size;
+
+    dig.mutex = (SDL_mutex *)1;
+    stream = AIL_open_stream(&dig, filename, 0);
+    if (!stream)
+        return -1;
+    file_size = stream->file_size;
+    fclose(stream->file);
+    free(stream);
+    return (int)file_size;
+}
 #endif
 
 static void checkError()

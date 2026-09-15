@@ -22,3 +22,10 @@ sample count and signed-16-bit output range. The sample path additionally
 limits ADPCM blocks to 2048 bytes and caps queued decoded samples to the
 destination buffer; the stream path tracks padded RIFF chunk positions so
 successive chunks are decoded from the correct offset.
+
+The `e68bba7` coverage in the same test opens a synthetic PCM WAV through
+`AIL_open_stream`. Its `data` chunk begins exactly where the pre-fix RIFF
+file-size calculation stopped searching, so the test verifies the `size + 8`
+RIFF bound and processes the final zero-length chunk through the PCM decoder.
+MP3 channel-count reporting and OpenAL queue/lifecycle behavior still require
+an integration fixture with a real decoder/device path.
