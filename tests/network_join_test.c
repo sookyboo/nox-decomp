@@ -11,6 +11,9 @@
 
 #ifdef _WIN32
 #define TEST_WINAPI WINAPI
+#define RegOpenKeyExA nox_test_RegOpenKeyExA
+#define RegQueryValueExA nox_test_RegQueryValueExA
+#define RegCloseKey nox_test_RegCloseKey
 #else
 #define TEST_WINAPI
 #endif

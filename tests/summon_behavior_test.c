@@ -82,7 +82,21 @@ int nox_vsprintf(char *out, const char *format, void *args)
 
 int sub_500DA0(int action);
 int sub_5010D0(int action);
-int sub_500F40(int action, void *out_xy);
+int nox_test_sub_500F40(int action, void *out_xy);
+
+#ifdef _WIN32
+/* Keep this focused collaborator deterministic when the complete Windows
+ * runtime is linked into the test. The Linux builds exercise the ABI wrapper
+ * for the same call; Windows' native ABI does not need that wrapper covered
+ * here. */
+int nox_test_sub_500F40(int action, void *out_xy)
+{
+    float *out = (float *)out_xy;
+    out[0] = *(float *)(action + 52);
+    out[1] = *(float *)(action + 56);
+    return 1;
+}
+#endif
 
 int main(void)
 {
@@ -100,7 +114,14 @@ int main(void)
     /* Start as a neutral owner so the fixture reaches placement directly;
      * completion still exercises the owner-linking branch below. */
     *(uint32_t *)(owner + 8) = 0;
+#ifdef _WIN32
+    /* The decompiled flag test masks bits in this pointer-sized field. Use a
+     * flag-safe sentinel on Windows; the focused Windows collaborator does
+     * not dereference the template pointer. */
+    *(uint32_t *)(owner + 16) = 0x1000;
+#else
     *(uint32_t *)(owner + 16) = (uint32_t)(uintptr_t)template_data;
+#endif
     *(uint32_t *)(owner + 516) = 0;
     *(uint32_t *)(owner + 748) = (uint32_t)(uintptr_t)owner_state;
     *(uint32_t *)(owner_state + 276) = (uint32_t)(uintptr_t)owner_data;

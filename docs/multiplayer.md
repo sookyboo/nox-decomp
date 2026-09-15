@@ -11,8 +11,10 @@ join with an uninitialized serial.
 
 `tests/network_join_test.c` drives `sub_420120()` with a deterministic registry
 fixture and verifies the production lookup key, value name, type, and serial
-payload. Live server discovery, UDP handshake, and joined-game state remain
-normal-target integration coverage.
+payload. The Windows test build selects an explicit test registry seam because
+the normal Windows path uses the compatibility registry implementation. Live
+server discovery, UDP handshake, and joined-game state remain normal-target
+integration coverage.
 
 The public-game listing path uses `nox_parse_games_list_json()` to turn the
 lobby `data` array into bounded `nox_server_row` records. Missing port/player

@@ -6,6 +6,18 @@ static int captured_dx;
 static int captured_dy;
 static int captured_count;
 
+#ifdef _WIN32
+static void set_mouse_base_env(void)
+{
+    _putenv_s("NOX_GAMEPAD_MOUSE_BASE", "100");
+}
+#else
+static void set_mouse_base_env(void)
+{
+    setenv("NOX_GAMEPAD_MOUSE_BASE", "100", 1);
+}
+#endif
+
 void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
 {
     (void)wheel;
@@ -42,7 +54,7 @@ static void reset_fixture(void)
 
 static int expect_scale(int scale, int expected_dx, int expected_dy)
 {
-    setenv("NOX_GAMEPAD_MOUSE_BASE", "100", 1);
+    set_mouse_base_env();
     g_cfg.mouse_slow_scale = scale;
     captured_count = 0;
 

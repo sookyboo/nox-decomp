@@ -35,5 +35,7 @@ The `a1b2f49` fix corrected the ABI boundary for the output position passed to
 production entry points with a self-contained fixture and checks the stored
 coordinates, object creation, and summoned flag. The action stores the two
 position floats beginning at offset 74, so the test reads them with `memcpy`
-to remain alignment-safe on ARMHF. Collision rejection, interruption, and the
-full world/object database remain untested.
+to remain alignment-safe on ARMHF. The Windows build supplies a deterministic
+position collaborator and a flag-safe fixture because the native PE runtime
+uses the same pointer field for a bitmask check. Collision rejection,
+interruption, and the full world/object database remain untested.

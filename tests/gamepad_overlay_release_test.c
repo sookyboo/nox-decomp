@@ -6,6 +6,18 @@ static int pad_buttons[SDL_CONTROLLER_BUTTON_MAX];
 static int pad_axes[SDL_CONTROLLER_AXIS_MAX];
 static int captured_scancode_count;
 
+#ifdef _WIN32
+static void set_gamepad_env(void)
+{
+    _putenv_s("NOX_GAMEPAD", "1");
+}
+#else
+static void set_gamepad_env(void)
+{
+    setenv("NOX_GAMEPAD", "1", 1);
+}
+#endif
+
 volatile int g_movie_skip_requested;
 
 FILE *compat_fopen(const char *path, const char *mode)
@@ -85,7 +97,7 @@ static void reset_fixture(void)
     g_cfg.deadzone_y = 2000;
     g_cfg.deadzone_triggers = 3000;
     captured_scancode_count = 0;
-    setenv("NOX_GAMEPAD", "1", 1);
+    set_gamepad_env();
 
     /* L1 holds a clear overlay; A is only bound in the base layer. */
     g_layers[0].binds[IN_L1] = (struct action){ ACT_HOLD_STATE, 1 };

@@ -1,5 +1,9 @@
 #include "proto.h"
 
+#ifdef NOX_SUMMON_BEHAVIOR_TEST
+int nox_test_sub_500F40(int action, void *out_xy);
+#define sub_500F40 nox_test_sub_500F40
+#endif
 
 //----- (004F5F30) --------------------------------------------------------
 int __cdecl sub_4F5F30(int *a1)

@@ -28786,6 +28786,13 @@ static void compatMsRegCloseKey(HKEY hKey)
 
 
 //----- (00420120) --------------------------------------------------------
+#ifdef NOX_NETWORK_JOIN_REGISTRY_TEST
+LONG nox_test_RegOpenKeyExA(HKEY root, LPCSTR subkey, DWORD options,
+                            REGSAM access, PHKEY result);
+LONG nox_test_RegQueryValueExA(HKEY key, LPCSTR value, LPDWORD reserved,
+                                LPDWORD type, LPBYTE data, LPDWORD size);
+LONG nox_test_RegCloseKey(HKEY key);
+#endif
 int __cdecl sub_420120(LPBYTE lpData)
 {
   int v1; // ebx
@@ -28798,24 +28805,30 @@ int __cdecl sub_420120(LPBYTE lpData)
   v1 = 0;
   cbData = 23;
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(NOX_NETWORK_JOIN_REGISTRY_TEST)
   LONG ro = compatMsRegOpenKeyExA(HKEY_LOCAL_MACHINE, SubKey, 0, 0xF003Fu, &phkResult);
+#elif defined(NOX_NETWORK_JOIN_REGISTRY_TEST)
+  LONG ro = nox_test_RegOpenKeyExA(HKEY_LOCAL_MACHINE, SubKey, 0, 0xF003Fu, &phkResult);
 #else
   LONG ro = RegOpenKeyExA(HKEY_LOCAL_MACHINE, SubKey, 0, 0xF003Fu, &phkResult);
 #endif
 
   if ( !ro )
   {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(NOX_NETWORK_JOIN_REGISTRY_TEST)
     LONG rq = compatMsRegQueryValueExA(phkResult, "Serial", 0, &Type, lpData, &cbData);
+#elif defined(NOX_NETWORK_JOIN_REGISTRY_TEST)
+    LONG rq = nox_test_RegQueryValueExA(phkResult, "Serial", 0, &Type, lpData, &cbData);
 #else
     LONG rq = RegQueryValueExA(phkResult, (LPCSTR)&byte_587000[60144], 0, &Type, lpData, &cbData);
 #endif
     if ( !rq && Type == 1 )
       v1 = 1;
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(NOX_NETWORK_JOIN_REGISTRY_TEST)
     compatMsRegCloseKey(phkResult);
+#elif defined(NOX_NETWORK_JOIN_REGISTRY_TEST)
+    nox_test_RegCloseKey(phkResult);
 #else
     RegCloseKey(phkResult);
 #endif

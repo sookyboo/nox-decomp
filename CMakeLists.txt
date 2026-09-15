@@ -312,6 +312,11 @@ if (BUILD_TESTING)
     target_include_directories(network_join_test PRIVATE
         src/external/include
     )
+    if (WIN32)
+        target_compile_definitions(network_join_test PRIVATE
+            NOX_NETWORK_JOIN_REGISTRY_TEST
+        )
+    endif()
     if (MSVC)
         target_compile_options(network_join_test PRIVATE -ffunction-sections)
     else()
@@ -552,6 +557,11 @@ if (BUILD_TESTING)
     target_include_directories(summon_behavior_test PRIVATE
         src/external/include
     )
+    if (WIN32)
+        target_compile_definitions(summon_behavior_test PRIVATE
+            NOX_SUMMON_BEHAVIOR_TEST
+        )
+    endif()
     if (MSVC)
         target_compile_options(summon_behavior_test PRIVATE -ffunction-sections)
     else()
@@ -686,6 +696,39 @@ if (BUILD_TESTING)
         target_link_options(audio_compat_test PRIVATE -m32)
     endif()
     add_test(NAME audio_compat_test COMMAND audio_compat_test)
+
+    if (WIN32)
+        foreach (NOX_WINDOWS_TEST IN ITEMS
+            render_arch_test
+            mana_abi_bits_test
+            x86_64_compat_test
+            string_format_test
+            inventory_hit_chain_test
+            inventory_durability_test
+            cheat_spell_test
+            gamepad_radial_test
+            gamepad_wordset_test
+            gamepad_mouse_scaling_test
+            network_join_test
+            network_connect_test
+            force_nature_render_test
+            obliterate_render_test
+            laser_direction_assembly_test
+            gamepad_overlay_release_test
+            summon_update_test
+            summon_limit_test
+            summon_behavior_test
+            cutscene_chunk_test
+            audio_compat_test
+        )
+            if (TARGET ${NOX_WINDOWS_TEST})
+                target_link_libraries(${NOX_WINDOWS_TEST} PRIVATE nox_test_runtime)
+                target_link_options(${NOX_WINDOWS_TEST} PRIVATE
+                    -Wl,--allow-multiple-definition
+                )
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # Hide warnings in build output (Ninja / Makefiles)

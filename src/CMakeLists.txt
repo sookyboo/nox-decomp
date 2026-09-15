@@ -125,8 +125,7 @@ else ()
     set (COMPAT_SOURCES compat.c compat_mss.c)
 endif ()
 
-add_executable (
-    out
+set(NOX_RUNTIME_SOURCES
     GAME1.c
     GAME2.c
     GAME3.c
@@ -141,7 +140,6 @@ add_executable (
     control_server.c
     gamepad.c
     input.c
-    main.cpp
     movie.c
     sm.c
     string.c
@@ -151,6 +149,30 @@ add_executable (
     "${COMPAT_SOURCES}"
 )
 
+add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
+
+# Standalone regression tests compile a focused translation unit directly so
+# they can replace selected collaborators with test doubles. MinGW's PE
+# linker does not discard all unrelated sections from those units, so provide
+# the rest of the runtime as an archive for their unresolved dependencies.
+if (WIN32 AND BUILD_TESTING)
+    add_library(nox_test_runtime STATIC ${NOX_RUNTIME_SOURCES})
+    target_link_libraries(nox_test_runtime PUBLIC
+        ${SDL2_LIBRARIES}
+        ${OPENAL_LIBRARIES}
+        ${OPENGL_LIBRARIES}
+        ${PTHREAD_LIBRARIES}
+        ${WIN32_LIBRARIES}
+        ${FFMPEG_LIBRARIES}
+    )
+    target_include_directories(nox_test_runtime PUBLIC ${FFMPEG_INCLUDE_DIRS})
+    target_link_directories(nox_test_runtime PUBLIC
+        ${SDL2_LIBRARY_DIRS}
+        ${FFMPEG_LIBRARY_DIRS}
+    )
+    target_link_options(nox_test_runtime PUBLIC ${SDL2_LDFLAGS} ${FFMPEG_LDFLAGS_OTHER})
+endif()
+
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
     target_link_options(out PRIVATE -m32)
 endif()
@@ -158,6 +180,10 @@ endif()
 # ---- ABI wrapper integration ----
 add_library(abi_wrappers STATIC ${PROJECT_SOURCE_DIR}/abi_wrappers.c)
 set_target_properties(abi_wrappers PROPERTIES C_STANDARD 99)
+
+if (WIN32 AND BUILD_TESTING)
+    target_link_libraries(nox_test_runtime PUBLIC abi_wrappers)
+endif()
 
 # SDL2 include/link dirs (from pkg-config when available)
 if (SDL2_INCLUDE_DIRS)

@@ -490,22 +490,20 @@ WINEPATH='Z:\opt\sdl2-win32\bin;Z:\opt\ffmpeg-win32\bin;Z:\opt\openal-win32\bin;
   ctest --test-dir build-win32 --output-on-failure
 ```
 
-The standalone Windows test targets that compile decompiled game translation
-units currently do not link with MinGW's PE linker: unlike the Linux linkers
-used by the i386 and ARMHF builds, it retains unreferenced sections and then
-requires the whole translation unit's unresolved game symbols. This is a
-link-time portability limitation, not a Wine runtime failure. The independent
-Windows targets currently build and pass under Wine as follows:
+The Windows test build supplies the complete decompiled runtime as a static
+archive for standalone targets. This is needed because MinGW's PE linker may
+retain unrelated sections from a focused translation unit; the archive
+resolves those symbols while the test's local doubles remain authoritative.
+The full Windows CTest set currently builds and passes under Wine:
 
 ```text
-render_arch_test       PASS
-mana_abi_bits_test     PASS
-x86_64_compat_test     PASS
+21 tests                 PASS
 ```
 
-The remaining registered Windows tests are still covered by the native Linux
-i386/ARMHF builds; they need a separate MinGW linker/test-harness portability
-change before they can be included in the Windows CTest run.
+The Windows build intentionally omits the POSIX-only case-sensitive path,
+public-lobby, map-download, and raw ABI harness targets. Those remain covered
+by the native Linux i386/ARMHF builds. The Windows CTest count is therefore
+lower than the Linux count.
 
 The first configure/build command above is the full dependency-aware command
 for this repository. The shorter command is useful only after the dependency
