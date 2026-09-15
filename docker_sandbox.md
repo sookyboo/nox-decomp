@@ -375,7 +375,8 @@ sudo apt-get install -y --no-install-recommends \
   binutils-mingw-w64-i686 \
   mingw-w64-tools \
   wine \
-  wine32:i386
+  wine32:i386 \
+  gdb-multiarch
 ```
 
 Initialize an isolated 32-bit Wine prefix before the first test run:
@@ -450,6 +451,35 @@ for this repository. The shorter command is useful only after the dependency
 prefixes and cache already exist; it must retain the same `FFMPEG_PREFIX`,
 `CMAKE_PREFIX_PATH`, include paths, and linker paths when starting from a new
 build directory.
+
+### Debug cross-built tests
+
+The regular `gdb` is sufficient for the i386 Linux tests:
+
+```sh
+gdb --args ./build-i386/summon_behavior_test
+```
+
+Use `gdb-multiarch` with QEMU's user-mode GDB server for ARMHF. Start the test
+in one terminal:
+
+```sh
+qemu-arm -g 1234 -L /usr/arm-linux-gnueabihf ./build-armhf/summon_behavior_test
+```
+
+Then connect from another terminal:
+
+```sh
+gdb-multiarch ./build-armhf/summon_behavior_test
+(gdb) set sysroot /usr/arm-linux-gnueabihf
+(gdb) set architecture arm
+(gdb) target remote :1234
+(gdb) continue
+```
+
+Windows i386 PE binaries run under Wine and require Wine-aware debugging
+(`winedbg` or a debugger attached to the Wine process); the Linux `gdb` and
+`gdb-multiarch` workflows above target Linux ELF test binaries.
 
 To assemble the runnable i386 bundle used by the Windows launcher, copy the
 built executable under the expected name and include the runtime DLLs and
