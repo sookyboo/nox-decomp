@@ -19,7 +19,7 @@ Use this sequence when taking the next incomplete row:
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, this inventory, the nearest subsystem
    documentation, and the existing tests for that subsystem.
 2. Select the first row that is not marked **Complete**. The current first
-   incomplete row is `a1b2f49` (summoning behavior).
+   incomplete row is `6f96bcc` (game-start crash).
 3. Inspect the historical fix before editing:
 
    ```sh
@@ -85,7 +85,7 @@ subsystem boundaries.
 | `f08a713` | Gamepad skipping chapter cut scenes | Send the skip action during a cut scene and assert the next scene/state is selected exactly once. | **Yes:** input/cut-scene path. |
 | `0f61a6e` | Font rendering at exact resolutions/integer scaling | Render text at exact-size surfaces with integer scaling enabled/disabled and compare glyph bounds. | **Yes:** rendering entry point. |
 | `236b253` | Viewport math and oversized rendering | Exercise aspect ratios smaller/larger than the display and assert viewport remains inside bounds. | **Yes:** rendering entry point. |
-| `5e69080` | Force-of-nature and mana-drain rendering distance order | Run deterministic spell render inputs and compare computed distances/visibility decisions. | **Yes:** spell-render path. |
+| `5e69080` | Force-of-nature and mana-drain rendering distance order | **Complete:** `force_nature_render_test` drives production `sub_48C6B0()` and `sub_4CA650()` with deterministic effect fixtures, verifying corrected distance lookup indexing, movement, and short-distance cleanup. Full spell dispatch, animation, mana-drain rendering, and GPU presentation remain integration coverage. See [`rendering.md`](docs/rendering.md). | **Yes:** production effect-update path; complete spell and GPU rendering remain untested. |
 | `8653a5f` | Obliterate spell rendering | Render the spell fixture through its lifecycle and assert expected light/effect geometry. | **Yes:** spell-render lifecycle. |
 | `1cc83e6` | Laser direction/assembly matching | Compare laser endpoint and direction results for cardinal and diagonal inputs. | **Yes:** laser-render path. |
 | `41e87fd` | Crash when joining Korean servers | Feed Korean-server metadata to PC filtering and assert the entry is rejected without connecting. | **Yes:** network metadata path. |

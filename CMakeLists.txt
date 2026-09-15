@@ -362,6 +362,33 @@ if (BUILD_TESTING)
         target_link_options(network_connect_test PRIVATE -m32)
     endif()
     add_test(NAME network_connect_test COMMAND network_connect_test)
+    add_executable(force_nature_render_test
+        tests/force_nature_render_test.c
+        src/GAME2.c
+        src/GAME3.c
+    )
+    target_include_directories(force_nature_render_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(force_nature_render_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(force_nature_render_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(force_nature_render_test PRIVATE
+        -Wl,--gc-sections
+        -Wl,--wrap=sub_45A4E0
+        -Wl,--wrap=sub_49AA90
+    )
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(force_nature_render_test PRIVATE -m32)
+        target_link_options(force_nature_render_test PRIVATE -m32)
+    endif()
+    add_test(NAME force_nature_render_test COMMAND force_nature_render_test)
     add_executable(gamepad_overlay_release_test
         tests/gamepad_overlay_release_test.c
     )
