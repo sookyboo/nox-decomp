@@ -19,7 +19,7 @@ Use this sequence when taking the next incomplete row:
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, this inventory, the nearest subsystem
    documentation, and the existing tests for that subsystem.
 2. Select the first row that is not marked **Complete**. The current first
-   incomplete row is `7ff93d5` (gamepad overlay release).
+   incomplete row is `64e57c7` (gamepad overlay clear).
 3. Inspect the historical fix before editing:
 
    ```sh
@@ -69,7 +69,7 @@ subsystem boundaries.
 | `d900cd7` | Gamepad radial-limit behavior | **Complete:** `gamepad_radial_test` drives the production radial limiter with inside, exact-boundary, outside, and outside-to-inside latch fixtures. SDL device polling and cursor rendering remain integration coverage. See [`gamepad-input.md`](docs/gamepad-input.md). | **Yes:** production input transformation path; device/rendering integration remains untested. |
 | `8218c87` | Gamepad wordset input | **Complete:** `gamepad_wordset_test` drives production `wordset_cycle` and verifies shifted letters, digits, punctuation, repeat throttling, preview backspaces, and wrapped replacement. SDL controller polling and OS keyboard-layout integration remain untested. See [`gamepad.md`](docs/gamepad.md). | **Yes:** production wordset input path; controller/device integration remains untested. |
 | `43df06e` | Mouse scaling/sensitivity | **Complete:** `gamepad_mouse_scaling_test` drives production `do_mouse_movement()` with a held slow-mouse binding and verifies deterministic deltas at several percentages on both axes. SDL polling and actual cursor movement remain integration coverage. See [`gamepad-input.md`](docs/gamepad-input.md). | **Yes:** input transformation path. |
-| `7ff93d5` | Gamepad overlay release | Press/release overlay controls repeatedly and assert resources/state are released exactly once. | **Yes:** overlay event path. |
+| `7ff93d5` | Gamepad overlay release | **Complete:** `gamepad_overlay_release_test` drives production overlay stack removal through parent/child creation, parent release, repeated release, and reuse, verifying held-input records are cleared and state is removed once. SDL controller polling and the complete event loop remain integration coverage. See [`gamepad.md`](docs/gamepad.md). | **Yes:** overlay lifecycle path; controller polling remains untested. |
 | `64e57c7` | Gamepad overlay clear | Populate an overlay, clear it, and assert no stale controls remain visible or actionable. | **Yes:** overlay lifecycle path. |
 | `adfe080` | Summon crash | Use a minimal summon fixture with valid and invalid targets; assert failure returns safely without memory access errors. | **Yes:** summon production entry point. |
 | `736e9f2` | Unlimited summon | Advance summon counts through the configured limit and assert creation is rejected after the limit. | **Yes:** summon action/tick path. |

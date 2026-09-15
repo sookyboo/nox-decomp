@@ -73,6 +73,21 @@ Spells start clockwise. Right thumb stick also starts clockwise.
 
 This layer is intended to let you manage and cast spells quickly without reaching for the keyboard.
 
+### Overlay release lifecycle
+
+Held modifier buttons record the overlay layer they activated in
+`g_hold_layer_for_in[]`. `nox_gamepad_update()` uses that recorded layer on the
+button-up edge, rather than resolving the current binding again. Removing a
+parent overlay also removes its child overlays and clears any held-input
+records that point to those removed layers; this prevents a later release from
+removing stale state or releasing the same overlay twice. The relevant state
+flow is physical button down → `stack_push_with_parent()` → physical button up
+→ `stack_remove_layer()`.
+
+`tests/gamepad_overlay_release_test.c` drives these production stack functions
+through parent/child creation, parent release, repeated release, and reuse.
+SDL controller polling and the complete event loop remain integration coverage.
+
 * * *
 
 ### Utility Layer (Hold **Start**)
