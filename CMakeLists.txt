@@ -71,6 +71,70 @@ if (BUILD_TESTING)
         target_link_options(inventory_hit_chain_test PRIVATE -m32)
     endif()
     add_test(NAME inventory_hit_chain_test COMMAND inventory_hit_chain_test)
+    add_executable(map_download_dispatch_test
+        tests/map_download_dispatch_test.c
+        src/GAME1.c
+        src/GAME2.c
+        src/GAME3.c
+        src/GAME4.c
+        src/netextras.c
+        src/GAME5.c
+        src/GAME_ABI.c
+        src/GAME_data.c
+        src/cdrom.c
+        src/draw.c
+        src/imm.c
+        src/control_server.c
+        src/gamepad.c
+        src/input.c
+        src/movie.c
+        src/sm.c
+        src/string.c
+        src/win.c
+        src/lobby.c
+        src/upnp.c
+        src/compat.c
+        src/compat_mss.c
+        abi_wrappers.c
+    )
+    target_include_directories(map_download_dispatch_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(map_download_dispatch_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(map_download_dispatch_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(map_download_dispatch_test PRIVATE -Wl,--gc-sections)
+    target_link_libraries(map_download_dispatch_test PRIVATE
+        SDL2
+        openal
+        GL
+        pthread
+        avformat
+        avcodec
+        swscale
+        swresample
+        avutil
+        m
+        z
+        dl
+    )
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(map_download_dispatch_test PRIVATE -m32)
+        target_link_options(map_download_dispatch_test PRIVATE -m32)
+    endif()
+    add_test(NAME map_download_dispatch_test COMMAND map_download_dispatch_test)
 endif()
 
 # Hide warnings in build output (Ninja / Makefiles)
