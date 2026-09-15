@@ -472,6 +472,7 @@ if (BUILD_TESTING)
     add_executable(summon_update_test
         tests/summon_update_test.c
         src/GAME_ABI.c
+        abi_wrappers.c
     )
     target_include_directories(summon_update_test PRIVATE
         src/external/include

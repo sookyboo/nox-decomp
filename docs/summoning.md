@@ -33,5 +33,7 @@ the stored coordinates, marks it as summoned, and links it to the owner.
 The `a1b2f49` fix corrected the ABI boundary for the output position passed to
 `sub_500F40()`. The regression in `tests/summon_behavior_test.c` drives both
 production entry points with a self-contained fixture and checks the stored
-coordinates, object creation, and summoned flag. Collision rejection,
-interruption, and the full world/object database remain untested.
+coordinates, object creation, and summoned flag. The action stores the two
+position floats beginning at offset 74, so the test reads them with `memcpy`
+to remain alignment-safe on ARMHF. Collision rejection, interruption, and the
+full world/object database remain untested.

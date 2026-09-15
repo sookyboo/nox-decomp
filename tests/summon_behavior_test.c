@@ -113,7 +113,11 @@ int main(void)
         return 1;
     if (*(uint16_t *)(action + 72) != 0x1234u)
         return 2;
-    if (*(float *)(action + 74) != expected_x || *(float *)(action + 78) != expected_y)
+    float stored_x;
+    float stored_y;
+    memcpy(&stored_x, action + 74, sizeof(stored_x));
+    memcpy(&stored_y, action + 78, sizeof(stored_y));
+    if (stored_x != expected_x || stored_y != expected_y)
         return 3;
 
     *(uint32_t *)(owner + 8) = 4;

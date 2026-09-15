@@ -144,10 +144,13 @@ function returns before dereferencing the optional unit state at `+748` or
 iterating summon targets. This early return is the minimal safe boundary
 covered by `tests/summon_update_test.c` for `adfe080`.
 
-The test uses the production decompiled function and stubs only the guard
-decision. It verifies that a minimal guarded summoned-unit fixture reaches the
-guard and returns safely. Target-list filtering, sight refresh callbacks, and
-full summon lifecycle behavior remain game integration coverage.
+The test uses the public `sub_5281F0()` ABI wrapper around the production
+decompiled function and stubs only the guard decision. Calling the raw body
+directly would bypass the ARMHF VFP pointer transport and is not a valid test
+of the production entry point. The test verifies that a minimal guarded
+summoned-unit fixture reaches the guard and returns safely. Target-list
+filtering, sight refresh callbacks, and full summon lifecycle behavior remain
+game integration coverage.
 
 ## String-format regression
 

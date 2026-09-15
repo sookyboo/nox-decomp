@@ -36,7 +36,7 @@ int sub_534A40(int self)
     return 0;
 }
 
-void sub_5281F0__abi_raw(void *self);
+void sub_5281F0(void *self);
 
 int main(void)
 {
@@ -45,7 +45,7 @@ int main(void)
     memset(unit, 0, sizeof(unit));
     *(uint32_t *)(unit + 16) = 0x8000; /* guarded/summoned unit flag */
 
-    sub_5281F0__abi_raw(unit);
+    sub_5281F0(unit);
 
     /* The guard is the observable contract for this minimal fixture: the
      * optional state at +748 must not be dereferenced after it rejects the
