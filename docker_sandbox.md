@@ -204,13 +204,18 @@ sudo apt-get update
 ```
 
 Install the ARMHF development packages used by the normal CMake link. This
-installs OpenAL, GL/Mesa/GLVND, and zlib into the ARMHF sysroot under
+installs OpenAL, GL/Mesa/GLVND, FFmpeg, and zlib into the ARMHF sysroot under
 `/usr/lib/arm-linux-gnueabihf`:
 
 ```sh
 sudo apt-get install -y --no-install-recommends \
   libopenal-dev:armhf \
   libgl1-mesa-dev:armhf \
+  libavformat-dev:armhf \
+  libavcodec-dev:armhf \
+  libavutil-dev:armhf \
+  libswscale-dev:armhf \
+  libswresample-dev:armhf \
   zlib1g-dev:armhf
 ```
 
@@ -220,10 +225,15 @@ Verify that the linker names resolve to ARM ELF libraries:
 file \
   /usr/lib/arm-linux-gnueabihf/libopenal.so* \
   /usr/lib/arm-linux-gnueabihf/libGL.so* \
+  /usr/lib/arm-linux-gnueabihf/libavformat.so* \
+  /usr/lib/arm-linux-gnueabihf/libavcodec.so* \
+  /usr/lib/arm-linux-gnueabihf/libavutil.so* \
+  /usr/lib/arm-linux-gnueabihf/libswscale.so* \
+  /usr/lib/arm-linux-gnueabihf/libswresample.so* \
   /usr/lib/arm-linux-gnueabihf/libz.so*
 
 PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig \
-  pkg-config --modversion openal gl zlib
+  pkg-config --modversion openal gl libavformat libavcodec libavutil libswscale libswresample zlib
 ```
 
 The root `Dockerfile` also contains an optional gl4es build for packaging a
