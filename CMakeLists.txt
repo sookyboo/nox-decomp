@@ -379,6 +379,28 @@ if (BUILD_TESTING)
         target_link_options(summon_behavior_test PRIVATE -m32)
     endif()
     add_test(NAME summon_behavior_test COMMAND summon_behavior_test)
+    add_executable(cutscene_chunk_test
+        tests/cutscene_chunk_test.c
+        src/GAME_ABI.c
+    )
+    target_include_directories(cutscene_chunk_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(cutscene_chunk_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(cutscene_chunk_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(cutscene_chunk_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(cutscene_chunk_test PRIVATE -m32)
+        target_link_options(cutscene_chunk_test PRIVATE -m32)
+    endif()
+    add_test(NAME cutscene_chunk_test COMMAND cutscene_chunk_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c
