@@ -10,6 +10,23 @@
 
 * * *
 
+### Wordset Preview Input
+
+`wordset_cycle` resolves the active wordset from held overlays, the persistent
+set layer, and finally the base layer. It throttles cycles to the configured
+`NOX_GAMEPAD_WORDSET_CYCLE_MS` delay (120 ms by default), erases the previous
+ASCII preview with one Backspace tap per byte, then injects the selected phrase
+as key down/up events. Uppercase letters and shifted punctuation use LShift;
+the mapping assumes a US keyboard layout. `preview_len` records the byte count
+of the injected phrase so the next cycle or cancellation can erase it.
+
+The `gamepad_wordset_test` regression test exercises this production path with
+uppercase, numeric, and shifted punctuation input, then checks the throttle and
+the backspace-before-replacement lifecycle. SDL controller polling and the
+platform keyboard layout remain integration coverage.
+
+* * *
+
 ### Base Layer (Default Controls)
 
 | Button             | Keyboard / Mouse | Action in Nox                                                                 |
