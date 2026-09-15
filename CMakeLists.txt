@@ -312,6 +312,31 @@ if (BUILD_TESTING)
         target_link_options(network_join_test PRIVATE -m32)
     endif()
     add_test(NAME network_join_test COMMAND network_join_test)
+    add_executable(public_games_test
+        tests/public_games_test.c
+        src/lobby.c
+    )
+    target_include_directories(public_games_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(public_games_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(public_games_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(public_games_test PRIVATE -Wl,--gc-sections)
+    if (NOT MSVC)
+        target_link_libraries(public_games_test PRIVATE pthread m)
+    endif()
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(public_games_test PRIVATE -m32)
+        target_link_options(public_games_test PRIVATE -m32)
+    endif()
+    add_test(NAME public_games_test COMMAND public_games_test)
     add_executable(gamepad_overlay_release_test
         tests/gamepad_overlay_release_test.c
     )

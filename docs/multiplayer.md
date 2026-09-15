@@ -14,6 +14,15 @@ fixture and verifies the production lookup key, value name, type, and serial
 payload. Live server discovery, UDP handshake, and joined-game state remain
 normal-target integration coverage.
 
+The public-game listing path uses `nox_parse_games_list_json()` to turn the
+lobby `data` array into bounded `nox_server_row` records. Missing port/player
+fields receive the game's defaults, while `nox_is_bad_server_ip()` and
+`nox_is_bad_server_name()` apply the configured deny lists before fake server
+information is queued for the normal discovery path. The regression in
+`tests/public_games_test.c` covers valid and incomplete rows, defaults, and
+case-insensitive name filtering; live HTTP retrieval and UDP presentation
+remain integration coverage.
+
 When hosting a game start a udp socket on port 18590
 Post a registration on the lobby server (if the NOX_LOBBY_REGISTER_ENABLE=1 env variable is set)
 
