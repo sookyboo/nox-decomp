@@ -1,5 +1,8 @@
 /* Loopback integration test: the production client join request must reach a
- * local UDP server with the expected protocol type and fixed packet size. */
+ * local UDP server with the expected protocol type and fixed packet size.
+ * Server-side acceptance and the transition into a joined game require the
+ * broader normal-target integration fixture and are intentionally outside
+ * this focused client-send test. */
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdint.h>

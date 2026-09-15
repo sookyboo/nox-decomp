@@ -28,8 +28,9 @@ request. It constructs the fixed 100-byte packet with protocol type `14` and
 sends it through the active UDP socket to the selected server address and
 port. `tests/network_connect_test.c` binds a real loopback UDP server, drives
 that entry point, and verifies the request arrives with the expected size and
-type. Server-side handshake acceptance and subsequent game-state entry remain
-normal-target integration coverage.
+type. It intentionally stops at the client-send boundary: server-side
+handshake acceptance and the subsequent joined-game state transition remain
+broader normal-target integration coverage.
 
 When hosting a game start a udp socket on port 18590
 Post a registration on the lobby server (if the NOX_LOBBY_REGISTER_ENABLE=1 env variable is set)
