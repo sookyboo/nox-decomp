@@ -24,7 +24,7 @@ subsystem boundaries.
 |---|---|---|---|
 | `1247869` | Solo startup, case-sensitive asset lookup, and LAN setup | Build a synthetic mixed-case installation fixture; verify solo startup and LAN initialization resolve files consistently. | **Yes:** normal-target integration fixture; extraction is optional. |
 | `2cc50d3` | Missing string functions affecting inventory-screen floats | **Complete (formatting):** `string_format_test` calls the production `nox_snprintf` entry point and verifies deterministic float formatting. Full inventory rendering remains integration coverage. | **Yes:** already uses the production entry point. |
-| `ac301fb` | Inventory interception while hidden | Toggle inventory visibility and dispatch inventory input; assert hidden inventories do not consume the event. | **Yes:** UI event-dispatch integration test. |
+| `ac301fb` | Inventory interception while hidden | **Complete (chain filtering):** `inventory_hit_chain_test` compiles the existing `GAME2.c` UI code and verifies hidden-inventory descendants resolve through the production widget chain. Full event dispatch remains integration coverage. | **Yes:** existing `GAME2.c` path; no extraction. |
 | `ba20703` | Missing-map download from server to client | Mock the map transfer protocol, complete a download, and verify the map is stored and then loadable. | **Yes:** fake protocol and map-download path. |
 | `2755c9b` | Audio artifacts and integer overflow | Feed boundary-sized audio buffers and assert sample counts, clipping, and no overflow. | **Yes:** audio processing entry point. |
 | `e68bba7` | Audio correctness issues | Decode representative tracks and compare deterministic sample format/length results. | **Yes:** production decoder path. |
