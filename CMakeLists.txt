@@ -389,6 +389,33 @@ if (BUILD_TESTING)
         target_link_options(force_nature_render_test PRIVATE -m32)
     endif()
     add_test(NAME force_nature_render_test COMMAND force_nature_render_test)
+    add_executable(obliterate_render_test
+        tests/obliterate_render_test.c
+        src/GAME2.c
+        src/GAME3.c
+    )
+    target_include_directories(obliterate_render_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(obliterate_render_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(obliterate_render_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(obliterate_render_test PRIVATE
+        -Wl,--gc-sections
+        -Wl,--wrap=sub_45A4E0
+        -Wl,--wrap=sub_49AA90
+    )
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(obliterate_render_test PRIVATE -m32)
+        target_link_options(obliterate_render_test PRIVATE -m32)
+    endif()
+    add_test(NAME obliterate_render_test COMMAND obliterate_render_test)
     add_executable(gamepad_overlay_release_test
         tests/gamepad_overlay_release_test.c
     )
