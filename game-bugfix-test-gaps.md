@@ -48,3 +48,19 @@ Network join/registration, startup/save loading, summoning, and rendering
 regressions should be prioritized because they previously caused crashes or
 prevented gameplay. Audio, gamepad, and presentation tests can follow using
 small synthetic fixtures and deterministic event progression.
+
+## Testing constraints discovered
+
+`1247869` is not currently suitable for an isolated `compat.c` unit-test
+target. The compatibility source is compiled as part of the full game target
+and assumes the project's custom headers and compile context (including
+`src/string.h`, Windows compatibility types, and existing pthread wrappers).
+Compiling it directly for a small test exposes incompatible pthread callback
+types and header collisions before the case-insensitive path helper can be
+exercised.
+
+The eventual regression should therefore be an integration fixture built with
+the normal `src` target, or the path resolver should first be extracted behind
+a small production API with its own testable implementation. Do not duplicate
+the resolver algorithm in a test: that would only prove the test copy works,
+not that the game startup/file-loading path is fixed.
