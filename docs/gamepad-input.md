@@ -18,3 +18,16 @@ This lifecycle is inferred from `nox_apply_radial_limit` and its callers. The
 boundary, outside, and latch transitions with deterministic game-space
 fixtures. SDL device polling and rendered cursor behavior remain integration
 coverage.
+
+## Mouse scaling
+
+`do_mouse_movement()` in `src/gamepad.c` is the gamepad-to-mouse production
+path. It combines D-pad and left-stick input, applies the configured base
+percentage, checks whether the configured slow-mouse binding is held, and
+injects the resulting relative delta through `nox_ctrl_inject_mouse_move()`.
+The slow-mouse setting is a percentage: a value of `40` retains 40% of each
+axis delta. The `43df06e` fix corrected this from dividing by the percentage to
+multiplying by it. `tests/gamepad_mouse_scaling_test.c` drives the production
+function with deterministic stick input and verifies several configured
+percentages on both axes. SDL polling and actual cursor movement remain
+integration coverage.

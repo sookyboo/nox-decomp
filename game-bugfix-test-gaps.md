@@ -18,8 +18,8 @@ Use this sequence when taking the next incomplete row:
 
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, this inventory, the nearest subsystem
    documentation, and the existing tests for that subsystem.
-2. Select the first row that is not marked **Complete**. At the time of this
-   writing, that is `2755c9b` (audio artifacts and integer overflow).
+2. Select the first row that is not marked **Complete**. The current first
+   incomplete row is `43df06e` (mouse scaling/sensitivity).
 3. Inspect the historical fix before editing:
 
    ```sh
@@ -68,7 +68,7 @@ subsystem boundaries.
 | `e5859eb` | God-mode spell changes and sage cheat | **Complete (cheat ownership):** `cheat_spell_test` drives the production flag helpers used by the god and sage commands and verifies isolated flag changes plus the cheats-allowed gate. Full player spell-table contents and console/UI dispatch remain integration coverage. See [`cheats.md`](docs/cheats.md). | **Yes:** production cheat flag path; spellbook/UI integration remains untested. |
 | `d900cd7` | Gamepad radial-limit behavior | **Complete:** `gamepad_radial_test` drives the production radial limiter with inside, exact-boundary, outside, and outside-to-inside latch fixtures. SDL device polling and cursor rendering remain integration coverage. See [`gamepad-input.md`](docs/gamepad-input.md). | **Yes:** production input transformation path; device/rendering integration remains untested. |
 | `8218c87` | Gamepad wordset input | **Complete:** `gamepad_wordset_test` drives production `wordset_cycle` and verifies shifted letters, digits, punctuation, repeat throttling, preview backspaces, and wrapped replacement. SDL controller polling and OS keyboard-layout integration remain untested. See [`gamepad.md`](docs/gamepad.md). | **Yes:** production wordset input path; controller/device integration remains untested. |
-| `43df06e` | Mouse scaling/sensitivity | Apply known logical-to-screen coordinates at several scales and assert deterministic transformed positions. | **Yes:** input transformation path. |
+| `43df06e` | Mouse scaling/sensitivity | **Complete:** `gamepad_mouse_scaling_test` drives production `do_mouse_movement()` with a held slow-mouse binding and verifies deterministic deltas at several percentages on both axes. SDL polling and actual cursor movement remain integration coverage. See [`gamepad-input.md`](docs/gamepad-input.md). | **Yes:** input transformation path. |
 | `7ff93d5` | Gamepad overlay release | Press/release overlay controls repeatedly and assert resources/state are released exactly once. | **Yes:** overlay event path. |
 | `64e57c7` | Gamepad overlay clear | Populate an overlay, clear it, and assert no stale controls remain visible or actionable. | **Yes:** overlay lifecycle path. |
 | `adfe080` | Summon crash | Use a minimal summon fixture with valid and invalid targets; assert failure returns safely without memory access errors. | **Yes:** summon production entry point. |

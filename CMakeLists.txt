@@ -195,6 +195,36 @@ if (BUILD_TESTING)
         target_link_options(gamepad_wordset_test PRIVATE -m32)
     endif()
     add_test(NAME gamepad_wordset_test COMMAND gamepad_wordset_test)
+    add_executable(gamepad_mouse_scaling_test
+        tests/gamepad_mouse_scaling_test.c
+    )
+    target_include_directories(gamepad_mouse_scaling_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(gamepad_mouse_scaling_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(gamepad_mouse_scaling_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(gamepad_mouse_scaling_test PRIVATE -Wl,--gc-sections)
+    if (NOT MSVC)
+        target_link_libraries(gamepad_mouse_scaling_test PRIVATE m)
+    endif()
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(gamepad_mouse_scaling_test PRIVATE -m32)
+        target_link_options(gamepad_mouse_scaling_test PRIVATE -m32)
+    endif()
+    add_test(NAME gamepad_mouse_scaling_test COMMAND gamepad_mouse_scaling_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c
