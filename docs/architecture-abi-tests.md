@@ -135,6 +135,20 @@ OpenGL context or execute the complete `draw.c` presentation pipeline. GPU,
 window-system, and final on-screen rendering behavior still require separate
 platform integration testing.
 
+## Summoned-unit update guard
+
+`sub_5281F0__abi_raw()` is the decompiled summoned-unit sight/update routine
+called from monster updates. It reads the unit flags at offset `+16`; when the
+`0x8000` guarded state is present and `sub_534A40()` rejects the update, the
+function returns before dereferencing the optional unit state at `+748` or
+iterating summon targets. This early return is the minimal safe boundary
+covered by `tests/summon_update_test.c` for `adfe080`.
+
+The test uses the production decompiled function and stubs only the guard
+decision. It verifies that a minimal guarded summoned-unit fixture reaches the
+guard and returns safely. Target-list filtering, sight refresh callbacks, and
+full summon lifecycle behavior remain game integration coverage.
+
 ## String-format regression
 
 `string_format_test` covers the production `nox_snprintf` entry point used by
