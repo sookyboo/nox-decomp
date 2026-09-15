@@ -131,6 +131,40 @@ if (BUILD_TESTING)
         target_link_options(cheat_spell_test PRIVATE -m32)
     endif()
     add_test(NAME cheat_spell_test COMMAND cheat_spell_test)
+    add_executable(gamepad_radial_test
+        tests/gamepad_radial_test.c
+        src/input.c
+    )
+    target_include_directories(gamepad_radial_test PRIVATE
+        src/external/include
+    )
+    target_compile_definitions(gamepad_radial_test PRIVATE
+        NOX_GAMEPAD_RADIAL_TEST
+    )
+    if (MSVC)
+        target_compile_options(gamepad_radial_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(gamepad_radial_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(gamepad_radial_test PRIVATE -Wl,--gc-sections)
+    if (NOT MSVC)
+        target_link_libraries(gamepad_radial_test PRIVATE m)
+    endif()
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(gamepad_radial_test PRIVATE -m32)
+        target_link_options(gamepad_radial_test PRIVATE -m32)
+    endif()
+    add_test(NAME gamepad_radial_test COMMAND gamepad_radial_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c

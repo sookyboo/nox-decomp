@@ -157,6 +157,11 @@ static int g_rmb_down_sdl;
 static int g_limit_latched;
 static unsigned g_limit_clamp_count;
 
+#ifdef NOX_GAMEPAD_RADIAL_TEST
+static int nox_test_limit_viewport[4];
+static int2 nox_test_limit_mouse;
+#endif
+
 static int seqnum;
 static int orientation;
 static int move_speed;
@@ -289,14 +294,24 @@ static void nox_apply_radial_limit(double *pdx, double *pdy, int source)
     if (!g_rmb_down_sdl) { g_limit_latched = 0; return; }
     if (!nox_limit_range_enabled_for(source)) return;
 
-    int *vp = (int *)sub_437250();
+    int *vp;
+#ifdef NOX_GAMEPAD_RADIAL_TEST
+    vp = nox_test_limit_viewport;
+#else
+    vp = (int *)sub_437250();
+#endif
     if (!vp) return;
 
     int vw = vp[2] - vp[0];
     int vh = vp[3] - vp[1];
     if (vw <= 0 || vh <= 0) return; /* menus / invalid */
 
-    int2 *gm = sub_4309F0();
+    int2 *gm;
+#ifdef NOX_GAMEPAD_RADIAL_TEST
+    gm = &nox_test_limit_mouse;
+#else
+    gm = sub_4309F0();
+#endif
     if (!gm) return;
 
     const double R = (double)nox_limit_range_radius();
@@ -355,6 +370,41 @@ static void nox_apply_radial_limit(double *pdx, double *pdy, int source)
     *pdx = dx;
     *pdy = dy;
 }
+
+#ifdef NOX_GAMEPAD_RADIAL_TEST
+void nox_test_apply_radial_limit(double *dx, double *dy,
+                                 int mouse_x, int mouse_y,
+                                 int rmb_down, int enabled, int radius)
+{
+    nox_test_limit_viewport[0] = 0;
+    nox_test_limit_viewport[1] = 0;
+    nox_test_limit_viewport[2] = 199;
+    nox_test_limit_viewport[3] = 199;
+    nox_test_limit_mouse.field_0 = mouse_x;
+    nox_test_limit_mouse.field_4 = mouse_y;
+    g_rmb_down_sdl = rmb_down;
+    g_limit_latched = 0;
+    g_limit_range_enabled_gamepad = enabled;
+    g_limit_range_radius = radius;
+    nox_apply_radial_limit(dx, dy, NOX_LIMIT_SRC_GAMEPAD);
+}
+
+void nox_test_apply_radial_limit_latched(double *dx, double *dy,
+                                         int mouse_x, int mouse_y, int radius)
+{
+    nox_test_limit_viewport[0] = 0;
+    nox_test_limit_viewport[1] = 0;
+    nox_test_limit_viewport[2] = 199;
+    nox_test_limit_viewport[3] = 199;
+    nox_test_limit_mouse.field_0 = mouse_x;
+    nox_test_limit_mouse.field_4 = mouse_y;
+    g_rmb_down_sdl = 1;
+    g_limit_latched = 1;
+    g_limit_range_enabled_gamepad = 1;
+    g_limit_range_radius = radius;
+    nox_apply_radial_limit(dx, dy, NOX_LIMIT_SRC_GAMEPAD);
+}
+#endif
 
 // Inject relative mouse move / wheel directly into the existing mouse_event_queue.
 void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
