@@ -320,6 +320,34 @@ if (BUILD_TESTING)
         target_link_options(summon_update_test PRIVATE -m32)
     endif()
     add_test(NAME summon_update_test COMMAND summon_update_test)
+    add_executable(summon_limit_test
+        tests/summon_limit_test.c
+        src/GAME4.c
+    )
+    target_include_directories(summon_limit_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(summon_limit_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(summon_limit_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(summon_limit_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(summon_limit_test PRIVATE -m32)
+        target_link_options(summon_limit_test PRIVATE -m32)
+    endif()
+    add_test(NAME summon_limit_test COMMAND summon_limit_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c

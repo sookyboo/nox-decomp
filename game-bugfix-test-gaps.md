@@ -19,7 +19,7 @@ Use this sequence when taking the next incomplete row:
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, this inventory, the nearest subsystem
    documentation, and the existing tests for that subsystem.
 2. Select the first row that is not marked **Complete**. The current first
-   incomplete row is `64e57c7` (gamepad overlay clear).
+   incomplete row is `a1b2f49` (summoning behavior).
 3. Inspect the historical fix before editing:
 
    ```sh
@@ -72,7 +72,7 @@ subsystem boundaries.
 | `7ff93d5` | Gamepad overlay release | **Complete:** `gamepad_overlay_release_test` drives production overlay stack removal through parent/child creation, parent release, repeated release, and reuse, verifying held-input records are cleared and state is removed once. SDL controller polling and the complete event loop remain integration coverage. See [`gamepad.md`](docs/gamepad.md). | **Yes:** overlay lifecycle path; controller polling remains untested. |
 | `64e57c7` | Gamepad overlay clear | **Complete:** `gamepad_overlay_release_test` drives `nox_gamepad_update()` with deterministic controller snapshots, verifies a held clear overlay blocks a base action, then verifies release restores that action. SDL device polling and rendered overlay controls remain integration coverage. See [`gamepad.md`](docs/gamepad.md). | **Yes:** overlay event path; device/rendering integration remains untested. |
 | `adfe080` | Summon crash | **Complete (guarded update):** `summon_update_test` drives production `sub_5281F0__abi_raw()` with a minimal guarded summoned-unit fixture and verifies the rejected update returns before dereferencing optional summon state. Target-list filtering and full summon lifecycle behavior remain integration coverage. See [`architecture-abi-tests.md`](docs/architecture-abi-tests.md). | **Yes:** production decompiled update entry point; full summon integration remains untested. |
-| `736e9f2` | Unlimited summon | Advance summon counts through the configured limit and assert creation is rejected after the limit. | **Yes:** summon action/tick path. |
+| `736e9f2` | Unlimited summon | **Complete (limit check):** `summon_limit_test` links production `sub_500D70()` and `sub_500D10()` with deterministic pending-count fixtures, verifying the inclusive four-creature boundary and rejection of a fifth pending creature. Full summon-start placement and creation remain integration coverage. See [`summoning.md`](docs/summoning.md). | **Yes:** production summon-limit entry point; full action/creation integration remains untested. |
 | `a1b2f49` | Summoning behavior | Execute a summon start/complete sequence and assert owner, position, and summoned-object state. | **Yes:** summon action/tick path. |
 | `ac10013` | Wizard chapter 3 archer/barrel cut scene | Replay the cut-scene trigger fixture and assert the archer/barrel event sequence completes once. | **Yes:** cut-scene trigger path. |
 | `850ade5` | Save/load with case-variant map names | Round-trip a save referring to differently cased map names and assert the same map is restored. | **Yes:** save/load entry points. |
