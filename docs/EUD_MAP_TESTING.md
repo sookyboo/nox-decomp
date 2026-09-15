@@ -241,6 +241,18 @@ with the Nox gamefiles. It does not claim gameplay compatibility: the current
 checkout lacks the complete compiled `G_Quest.nxz` package, and automated
 launch is also display/OpenGL dependent.
 
+The next-map package smoke test checks `G_Graves.map`, `g_graves.c`, the Nox
+gamefiles, and the three custom GRP resources listed by the map's resource
+manifest:
+
+```sh
+cmake --build build-i386 --target eud_ggraves_map_test
+ctest --test-dir build-i386 -R '^eud_ggraves_map_test$' --output-on-failure
+```
+
+As with `G_Quest`, this confirms package inputs only; it does not execute the
+map script or validate gameplay behavior.
+
 ## Linux headless OpenGL
 
 The server container runs the 32-bit game through an X11 display provided by
