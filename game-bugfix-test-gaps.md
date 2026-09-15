@@ -12,6 +12,41 @@ production entry point or the normal game target; it does not imply that an
 isolated unit test would be small or dependency-free. Extraction remains an
 optional way to simplify some of those tests.
 
+## Workflow for the next bug-fix test
+
+Use this sequence when taking the next incomplete row:
+
+1. Read `AGENTS.md`, `CONTRIBUTING.md`, this inventory, the nearest subsystem
+   documentation, and the existing tests for that subsystem.
+2. Select the first row that is not marked **Complete**. At the time of this
+   writing, that is `2755c9b` (audio artifacts and integer overflow).
+3. Inspect the historical fix before editing:
+
+   ```sh
+   git show --stat <commit>
+   git show <commit> -- src
+   ```
+
+4. Reproduce the behavior through the owning production entry point using a
+   deterministic, self-contained fixture. Do not extract code solely to make
+   the test easier to write.
+5. Add the regression test, then document the exercised decompiled function's
+   observed inputs, state changes, callers/data flow, and externally visible
+   result in the nearest subsystem document.
+6. Update this table with the test name, its coverage limits, and a link to the
+   documentation. Run the relevant tests, inspect the final diff, and check
+   whitespace before committing the focused change.
+
+Useful starting commands are:
+
+```sh
+cd /home/carolosf/dev/nox-decomp-main
+sed -n '1,220p' AGENTS.md
+sed -n '1,220p' CONTRIBUTING.md
+sed -n '1,120p' game-bugfix-test-gaps.md
+git status --short
+```
+
 ## First-pass testing rule
 
 For the first pass, write the regressions against the existing production
