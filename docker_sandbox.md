@@ -260,6 +260,13 @@ ctest --test-dir build-armhf --output-on-failure
 QEMU. If it is omitted, invoke each test with
 `qemu-arm -L /usr/arm-linux-gnueabihf` instead of running `ctest` directly.
 
+The complete CTest suite currently contains 26 tests. In the development
+sandbox, the i386 build passes all 26 tests. The ARMHF build also compiles and
+executes all 26 tests under QEMU; 24 pass, while `summon_update_test` exits
+with a segmentation fault and `summon_behavior_test` exits with a bus error.
+These failures are ARMHF runtime issues, not build or test-discovery failures,
+and should be investigated before treating the ARMHF suite as passing.
+
 The root `Dockerfile` also contains an optional gl4es build for packaging a
 software-compatible `libGL.so.1`. That is a runtime/package choice; the
 system Mesa/GLVND development package above is sufficient to link the ARMHF
