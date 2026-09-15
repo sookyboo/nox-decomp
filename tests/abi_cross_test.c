@@ -14,6 +14,8 @@ int sub_500F40(int self, void *out_xy);
 int sub_4F4E50(void *self);
 int sub_50A5C0(void *self);
 int sub_531E20(void *self);
+void sub_5281F0(void *self);
+static int saw_5281f0;
 
 #if defined(__arm__) && defined(__ARM_PCS_VFP)
 typedef float nox_abi_ptrslot_t;
@@ -99,6 +101,19 @@ int sub_531E20__abi_raw(void *self)
 #endif
 }
 
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+void sub_5281F0__abi_raw(nox_abi_ptrslot_t self)
+#else
+void sub_5281F0__abi_raw(void *self)
+#endif
+{
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+    saw_5281f0 = from_slot(self) == (void *)(uintptr_t)0x56789ABCu;
+#else
+    saw_5281f0 = self == (void *)(uintptr_t)0x56789ABCu;
+#endif
+}
+
 int main(void)
 {
     uint32_t out[2] = {0, 0};
@@ -109,6 +124,9 @@ int main(void)
     if (!sub_50A5C0((void *)(uintptr_t)0x456789ABu) ||
         !sub_531E20((void *)(uintptr_t)0x456789ABu))
         return 6;
+    sub_5281F0((void *)(uintptr_t)0x56789ABCu);
+    if (!saw_5281f0)
+        return 7;
     if (!sub_4F4E50((void *)(uintptr_t)0x3456789Au))
         return 2;
     if (sub_500F40((int)(uintptr_t)0x12345678u, out) != 42)

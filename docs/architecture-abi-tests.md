@@ -82,6 +82,10 @@ algorithm—and checks the observable contract at the raw callee.
    the architecture-specific raw signature and return success only when the
    original sentinel pointer arrives intact.
 
+5. The ARMHF call-site correction from `e19d204` is covered by invoking
+   `sub_50A5C0` and `sub_5281F0` with sentinels. The raw stubs record whether
+   those pointers arrived intact, catching the old float-typed call boundary.
+
 Both checks also validate the expected sentinel `self` value and return status,
 so a test cannot pass merely because the wrapper returns without invoking the
 raw function.
