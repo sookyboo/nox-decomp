@@ -227,6 +227,15 @@ if (BUILD_TESTING AND USE_EUD_MAP_TESTS)
             "${EUD_MAP_PROJECT_DIR}/eud_project/!test.c"
             "${EUD_GAMEFILES_DIR}"
     )
+    add_executable(eud_monster_map_test
+        ${PROJECT_SOURCE_DIR}/tests/eud_monster_map_test.c
+    )
+    add_test(NAME eud_monster_map_test
+        COMMAND eud_monster_map_test
+            "${EUD_MAP_PROJECT_DIR}/eud_project/backupMaps/Monster.map"
+            "${EUD_MAP_PROJECT_DIR}/eud_project/monster.c"
+            "${EUD_GAMEFILES_DIR}"
+    )
 endif()
 
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")

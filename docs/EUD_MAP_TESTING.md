@@ -265,6 +265,19 @@ custom resource manifest in the cloned project. Its compiled `.nxz` and actual
 runtime behavior remain unverified, especially for native handler values that
 are intentionally outside the current compatibility boundary.
 
+The next callback-focused smoke test covers `Monster.map`:
+
+```sh
+cmake --build build-i386 --target eud_monster_map_test
+ctest --test-dir build-i386 -R '^eud_monster_map_test$' --output-on-failure
+```
+
+It checks the map, `monster.c`, and the Nox gamefiles. The source includes
+callback installation, object creation, memory access, effects, and
+`MagicMissile`; this test only verifies that those inputs are present. Runtime
+callback behavior and unsupported native update handlers still require a
+complete `.nxz` package and gameplay test.
+
 ## Linux headless OpenGL
 
 The server container runs the 32-bit game through an X11 display provided by
