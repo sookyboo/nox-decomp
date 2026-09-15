@@ -71,6 +71,12 @@ algorithm—and checks the observable contract at the raw callee.
    pointer-as-float/signature mismatch that could cause the rare summon
    segfault.
 
+3. The i386-safety checks pass null pointers and a deliberately unaligned
+   output address through both wrappers. Null inputs must return safely, while
+   the unaligned output must still receive the marker through byte-wise access.
+   This covers the crash class addressed by `e65aec8` without relying on
+   architecture-specific unaligned-load behavior.
+
 Both checks also validate the expected sentinel `self` value and return status,
 so a test cannot pass merely because the wrapper returns without invoking the
 raw function.

@@ -36,11 +36,16 @@ int sub_500F40__abi_raw(int self, void *out)
     void *expected_out = from_slot(out);
 
     /* The ARM wrapper must bit-cast, never numerically convert, the slots. */
+    if (!expected_self || !expected_out)
+        return 0;
     if (expected_self != (void *)(uintptr_t)0x12345678u)
         return 10;
     if (expected_out == NULL)
         return 11;
-    ((uint32_t *)expected_out)[0] = 0xC0DEC0DEu;
+    {
+        const uint32_t marker = 0xC0DEC0DEu;
+        memcpy(expected_out, &marker, sizeof(marker));
+    }
     return 42;
 }
 
@@ -50,7 +55,18 @@ int sub_4F4E50__abi_raw(nox_abi_ptrslot_t self)
 int sub_4F4E50__abi_raw(void *self)
 #endif
 {
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+    if (!from_slot(self))
+        return 0;
+#else
+    if (!self)
+        return 0;
+#endif
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
     if (from_slot(self) != (void *)(uintptr_t)0x3456789Au)
+#else
+    if (self != (int)(uintptr_t)0x3456789Au)
+#endif
         return 0;
     return 1;
 }
@@ -58,9 +74,18 @@ int sub_4F4E50__abi_raw(void *self)
 int main(void)
 {
     uint32_t out[2] = {0, 0};
+    uint8_t unaligned_storage[12] = {0};
+    uint32_t marker = 0;
+    if (sub_4F4E50(NULL) != 0 || sub_500F40(0, NULL) != 0)
+        return 3;
     if (!sub_4F4E50((void *)(uintptr_t)0x3456789Au))
         return 2;
     if (sub_500F40((int)(uintptr_t)0x12345678u, out) != 42)
         return 1;
-    return out[0] == 0xC0DEC0DEu ? 0 : 1;
+    if (out[0] != 0xC0DEC0DEu)
+        return 1;
+    if (sub_500F40((int)(uintptr_t)0x12345678u, unaligned_storage + 1) != 42)
+        return 4;
+    memcpy(&marker, unaligned_storage + 1, sizeof(marker));
+    return marker == 0xC0DEC0DEu ? 0 : 5;
 }
