@@ -91,6 +91,11 @@ algorithm—and checks the observable contract at the raw callee.
    raw callee, ensuring the callback payload is not misread as a float or
    widened pointer on either 32-bit target.
 
+7. The mana-drain path `sub_52E210` uses integer reads whose bits are then
+   interpreted as a float. `mana_abi_bits_test` locks down that contract by
+   round-tripping representative IEEE-754 bit patterns with `memcpy`, avoiding
+   undefined aliasing and proving that ARMHF and i386 preserve the same bits.
+
 Both checks also validate the expected sentinel `self` value and return status,
 so a test cannot pass merely because the wrapper returns without invoking the
 raw function.
