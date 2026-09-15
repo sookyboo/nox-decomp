@@ -16,6 +16,8 @@ int sub_50A5C0(void *self);
 int sub_531E20(void *self);
 void sub_5281F0(void *self);
 static int saw_5281f0;
+void sub_549860(int owner, void *callback_arg);
+static int saw_549860;
 
 #if defined(__arm__) && defined(__ARM_PCS_VFP)
 typedef float nox_abi_ptrslot_t;
@@ -114,6 +116,11 @@ void sub_5281F0__abi_raw(void *self)
 #endif
 }
 
+void sub_549860__abi_raw(int owner, int callback_arg)
+{
+    saw_549860 = owner == 7 && callback_arg == (int)(uintptr_t)0x6789ABCDu;
+}
+
 int main(void)
 {
     uint32_t out[2] = {0, 0};
@@ -127,6 +134,9 @@ int main(void)
     sub_5281F0((void *)(uintptr_t)0x56789ABCu);
     if (!saw_5281f0)
         return 7;
+    sub_549860(7, (void *)(uintptr_t)0x6789ABCDu);
+    if (!saw_549860)
+        return 8;
     if (!sub_4F4E50((void *)(uintptr_t)0x3456789Au))
         return 2;
     if (sub_500F40((int)(uintptr_t)0x12345678u, out) != 42)

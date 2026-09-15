@@ -86,6 +86,11 @@ algorithm—and checks the observable contract at the raw callee.
    `sub_50A5C0` and `sub_5281F0` with sentinels. The raw stubs record whether
    those pointers arrived intact, catching the old float-typed call boundary.
 
+6. The monster-area callback bridge from `ef42f7a` is exercised through
+   `sub_549860`. Its owner ID and callback-context pointer are checked at the
+   raw callee, ensuring the callback payload is not misread as a float or
+   widened pointer on either 32-bit target.
+
 Both checks also validate the expected sentinel `self` value and return status,
 so a test cannot pass merely because the wrapper returns without invoking the
 raw function.

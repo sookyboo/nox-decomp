@@ -268,7 +268,7 @@ int sub_5497E0(void *p)
  * GAME5: sub_549860 (callback arg is the pointer-slot)
  * ============================================================ */
 // nox_xxx_monsterAttackAreaDamage_549860
-static void sub_549860__abi_raw(int a1, int a2);
+void sub_549860__abi_raw(int a1, int a2);
 
 void sub_549860(int a1, void *p2)
 {
