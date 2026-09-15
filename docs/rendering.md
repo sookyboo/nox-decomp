@@ -31,3 +31,17 @@ decompiled function and its callback fields.
 deterministic direction-table fixture, checks the signed movement and mirrored
 state, and covers target-neighborhood cleanup. Complete spell dispatch,
 animation sequencing, and final GPU presentation remain integration coverage.
+
+## Laser direction and assembly
+
+The laser geometry helpers use direction vectors stored in the shared table.
+`sub_499290()` resolves a zero-based caller slot through the assembly's
+1-based table layout, while `sub_4992B0()` applies the polygon edge ordering
+used to determine whether a candidate point is inside the target geometry.
+These roles are inferred from the decompiled helpers and their laser callers.
+
+`tests/laser_direction_assembly_test.c` drives both production helpers with
+two vector slots and a square geometry fixture. It checks signed vector
+components and inside/outside ray crossings, including the wrapped polygon
+edge. Full laser effect creation, animation, and GPU presentation remain
+integration coverage.

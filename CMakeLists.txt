@@ -416,6 +416,28 @@ if (BUILD_TESTING)
         target_link_options(obliterate_render_test PRIVATE -m32)
     endif()
     add_test(NAME obliterate_render_test COMMAND obliterate_render_test)
+    add_executable(laser_direction_assembly_test
+        tests/laser_direction_assembly_test.c
+        src/GAME2.c
+    )
+    target_include_directories(laser_direction_assembly_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(laser_direction_assembly_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(laser_direction_assembly_test PRIVATE
+            -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+            -fcommon -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types -ffunction-sections
+        )
+    endif()
+    target_link_options(laser_direction_assembly_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(laser_direction_assembly_test PRIVATE -m32)
+        target_link_options(laser_direction_assembly_test PRIVATE -m32)
+    endif()
+    add_test(NAME laser_direction_assembly_test COMMAND laser_direction_assembly_test)
     add_executable(gamepad_overlay_release_test
         tests/gamepad_overlay_release_test.c
     )
