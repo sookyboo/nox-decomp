@@ -242,6 +242,15 @@ Do not document:
 - temporary implementation plans that no longer match the code;
 - information already obvious from a single local line of code.
 
+### Decompiled Functions
+
+Whenever a decompiled function is modified or covered by a new test, include
+documentation describing what the function does in the game. Record its
+inputs, key state transitions, callers/data flow, and observable result using
+the surrounding implementation as evidence. Clearly qualify behavior that is
+still uncertain from reverse engineering, and place the explanation in the
+nearest subsystem document.
+
 ### Where Documentation Goes
 
 Prefer this order:

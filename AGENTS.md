@@ -90,6 +90,15 @@ Document durable facts such as:
 
 Do not turn temporary debugging notes, hypotheses, or raw logs into permanent documentation.
 
+### Decompiled Function Documentation
+
+When changing a decompiled function, or adding a test that exercises one,
+document the function's observed role in the game: its inputs, important state
+changes, callers/data flow, and externally visible result. Base the description
+on surrounding code and call sites, and label uncertain reverse-engineered
+behavior as such. Keep this explanation in the nearest subsystem document (or
+add a focused document when none exists).
+
 Prefer updating an existing subsystem document. If none exists, add a focused document in the appropriate `docs/` area and link it from the nearest index.
 
 Code comments should explain local implementation constraints. Broader architecture and workflow knowledge belongs in documentation.
