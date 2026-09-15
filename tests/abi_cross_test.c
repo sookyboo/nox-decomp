@@ -12,6 +12,8 @@ _Static_assert(sizeof(void *) == 4, "Nox ABI test requires a 32-bit target");
 
 int sub_500F40(int self, void *out_xy);
 int sub_4F4E50(void *self);
+int sub_50A5C0(void *self);
+int sub_531E20(void *self);
 
 #if defined(__arm__) && defined(__ARM_PCS_VFP)
 typedef float nox_abi_ptrslot_t;
@@ -71,6 +73,32 @@ int sub_4F4E50__abi_raw(void *self)
     return 1;
 }
 
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+int sub_50A5C0__abi_raw(nox_abi_ptrslot_t self)
+#else
+int sub_50A5C0__abi_raw(void *self)
+#endif
+{
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+    return from_slot(self) == (void *)(uintptr_t)0x456789ABu ? 1 : 0;
+#else
+    return self == (void *)(uintptr_t)0x456789ABu ? 1 : 0;
+#endif
+}
+
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+int sub_531E20__abi_raw(nox_abi_ptrslot_t self)
+#else
+int sub_531E20__abi_raw(void *self)
+#endif
+{
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+    return from_slot(self) == (void *)(uintptr_t)0x456789ABu ? 1 : 0;
+#else
+    return self == (void *)(uintptr_t)0x456789ABu ? 1 : 0;
+#endif
+}
+
 int main(void)
 {
     uint32_t out[2] = {0, 0};
@@ -78,6 +106,9 @@ int main(void)
     uint32_t marker = 0;
     if (sub_4F4E50(NULL) != 0 || sub_500F40(0, NULL) != 0)
         return 3;
+    if (!sub_50A5C0((void *)(uintptr_t)0x456789ABu) ||
+        !sub_531E20((void *)(uintptr_t)0x456789ABu))
+        return 6;
     if (!sub_4F4E50((void *)(uintptr_t)0x3456789Au))
         return 2;
     if (sub_500F40((int)(uintptr_t)0x12345678u, out) != 42)

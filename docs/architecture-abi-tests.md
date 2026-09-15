@@ -77,6 +77,11 @@ algorithm—and checks the observable contract at the raw callee.
    This covers the crash class addressed by `e65aec8` without relying on
    architecture-specific unaligned-load behavior.
 
+4. The wrapper/raw-body split checks call `sub_50A5C0` and `sub_531E20`, two
+   representative one-pointer entry points from `00584b2`. Their stubs accept
+   the architecture-specific raw signature and return success only when the
+   original sentinel pointer arrives intact.
+
 Both checks also validate the expected sentinel `self` value and return status,
 so a test cannot pass merely because the wrapper returns without invoking the
 raw function.
