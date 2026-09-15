@@ -1,0 +1,49 @@
+/* Regression test for the sub_500F40 ABI bridge.
+ *
+ * ARM hard-float passes the two pointer values in VFP float registers;
+ * i386 passes them as the normal integer/pointer arguments.  The wrapper
+ * must preserve the exact 32-bit pointer payload on both targets.
+ */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+_Static_assert(sizeof(void *) == 4, "Nox ABI test requires a 32-bit target");
+
+int sub_500F40(int self, void *out_xy);
+
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+typedef float nox_abi_ptrslot_t;
+static void *from_slot(nox_abi_ptrslot_t slot)
+{
+    uint32_t bits;
+    memcpy(&bits, &slot, sizeof(bits));
+    return (void *)(uintptr_t)bits;
+}
+int sub_500F40__abi_raw(nox_abi_ptrslot_t self, nox_abi_ptrslot_t out)
+#else
+typedef void *nox_abi_ptrslot_t;
+static void *from_slot(nox_abi_ptrslot_t slot) { return slot; }
+int sub_500F40__abi_raw(int self, void *out)
+#endif
+{
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+    void *expected_self = from_slot(self);
+#else
+    void *expected_self = (void *)(uintptr_t)(uint32_t)self;
+#endif
+    void *expected_out = from_slot(out);
+
+    /* The ARM wrapper must bit-cast, never numerically convert, the slots. */
+    if (expected_self != (void *)(uintptr_t)0x12345678u)
+        return 10;
+    if (expected_out != (void *)(uintptr_t)0x23456789u)
+        return 11;
+    return 42;
+}
+
+int main(void)
+{
+    void *out = (void *)(uintptr_t)0x23456789u;
+    return sub_500F40((int)(uintptr_t)0x12345678u, out) == 42 ? 0 : 1;
+}
