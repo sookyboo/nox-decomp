@@ -135,6 +135,27 @@ if (BUILD_TESTING)
         target_link_options(map_download_dispatch_test PRIVATE -m32)
     endif()
     add_test(NAME map_download_dispatch_test COMMAND map_download_dispatch_test)
+
+    add_executable(audio_compat_test
+        tests/audio_compat_test.c
+        src/compat_mss.c
+    )
+    target_compile_definitions(audio_compat_test PRIVATE
+        NOX_AUDIO_REGRESSION_TEST
+    )
+    target_include_directories(audio_compat_test PRIVATE
+        src/external/include
+    )
+    target_compile_options(audio_compat_test PRIVATE
+        -ffunction-sections
+        -fdata-sections
+    )
+    target_link_options(audio_compat_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(audio_compat_test PRIVATE -m32)
+        target_link_options(audio_compat_test PRIVATE -m32)
+    endif()
+    add_test(NAME audio_compat_test COMMAND audio_compat_test)
 endif()
 
 # Hide warnings in build output (Ninja / Makefiles)

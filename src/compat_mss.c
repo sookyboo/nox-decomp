@@ -257,6 +257,17 @@ static unsigned int decode_adpcm_stereo(int16_t *out, const BYTE *data, unsigned
     return samples;
 }
 
+#ifdef NOX_AUDIO_REGRESSION_TEST
+/* Test-only access to the production ADPCM decoder. */
+unsigned int nox_test_decode_adpcm(int16_t *out, const BYTE *data,
+                                   unsigned int size, int stereo)
+{
+    if (stereo)
+        return decode_adpcm_stereo(out, data, size);
+    return decode_adpcm(out, data, size);
+}
+#endif
+
 static void checkError()
 {
     ALenum error = alGetError();
