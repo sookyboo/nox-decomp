@@ -1,4 +1,4 @@
-/* Regression test for the sub_500F40 ABI bridge.
+/* Regression test for the sub_500F40 ABI bridge (0d451ef).
  *
  * ARM hard-float passes the two pointer values in VFP float registers;
  * i386 passes them as the normal integer/pointer arguments.  The wrapper
@@ -37,13 +37,16 @@ int sub_500F40__abi_raw(int self, void *out)
     /* The ARM wrapper must bit-cast, never numerically convert, the slots. */
     if (expected_self != (void *)(uintptr_t)0x12345678u)
         return 10;
-    if (expected_out != (void *)(uintptr_t)0x23456789u)
+    if (expected_out == NULL)
         return 11;
+    ((uint32_t *)expected_out)[0] = 0xC0DEC0DEu;
     return 42;
 }
 
 int main(void)
 {
-    void *out = (void *)(uintptr_t)0x23456789u;
-    return sub_500F40((int)(uintptr_t)0x12345678u, out) == 42 ? 0 : 1;
+    uint32_t out[2] = {0, 0};
+    if (sub_500F40((int)(uintptr_t)0x12345678u, out) != 42)
+        return 1;
+    return out[0] == 0xC0DEC0DEu ? 0 : 1;
 }
