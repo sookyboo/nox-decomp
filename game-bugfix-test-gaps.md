@@ -19,7 +19,7 @@ Use this sequence when taking the next incomplete row:
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, this inventory, the nearest subsystem
    documentation, and the existing tests for that subsystem.
 2. Select the first row that is not marked **Complete**. The current first
-   incomplete row is `43df06e` (mouse scaling/sensitivity).
+   incomplete row is `7ff93d5` (gamepad overlay release).
 3. Inspect the historical fix before editing:
 
    ```sh
@@ -57,7 +57,7 @@ subsystem boundaries.
 
 | Commit | Fix area | Regression test to add | Test without extraction (integration) |
 |---|---|---|---|
-| `1247869` | Solo startup, case-sensitive asset lookup, and LAN setup | Build a synthetic mixed-case installation fixture; verify solo startup and LAN initialization resolve files consistently. | **Yes:** normal-target integration fixture; extraction is optional. |
+| `1247869` | Solo startup, case-sensitive asset lookup, and LAN setup | **Complete (path resolution):** `compat_path_test` creates a synthetic mixed-case installation fixture and drives `external_compat_casepath()`, `compat_fopen()`, and `compat_open()` with mismatched casing and Windows separators. Solo startup state selection and LAN socket registration remain normal-target integration coverage. See [`compatibility-paths.md`](docs/compatibility-paths.md). | **Yes:** compatibility path entry points; full startup/LAN integration remains untested. |
 | `2cc50d3` | Missing string functions affecting inventory-screen floats | **Complete (formatting):** `string_format_test` calls the production `nox_snprintf` entry point and verifies deterministic float formatting. Full inventory rendering remains integration coverage. | **Yes:** already uses the production entry point. |
 | `ac301fb` | Inventory interception while hidden | **Complete (chain filtering):** `inventory_hit_chain_test` compiles the existing `GAME2.c` UI code and verifies hidden-inventory descendants resolve through the production widget chain. Full event dispatch remains integration coverage. | **Yes:** existing `GAME2.c` path; no extraction. |
 | `ba20703` | Missing-map download from server to client | **Complete:** `map_download_dispatch_test` sends a high-bit-sequence map chunk through the production UDP receive dispatcher and verifies callback delivery plus sequence advancement; full map storage/load remains integration coverage. See [`map-download.md`](docs/map-download.md). | **Yes:** normal game network objects and loopback UDP fixture; no extraction. |

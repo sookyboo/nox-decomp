@@ -225,6 +225,42 @@ if (BUILD_TESTING)
         target_link_options(gamepad_mouse_scaling_test PRIVATE -m32)
     endif()
     add_test(NAME gamepad_mouse_scaling_test COMMAND gamepad_mouse_scaling_test)
+    add_executable(compat_path_test
+        tests/compat_path_test.c
+        src/compat.c
+    )
+    target_include_directories(compat_path_test PRIVATE
+        src/external/include
+    )
+    target_compile_definitions(compat_path_test PRIVATE
+        _FILE_OFFSET_BITS=64
+    )
+    if (MSVC)
+        target_compile_options(compat_path_test PRIVATE -ffunction-sections -fdata-sections)
+    else()
+        target_compile_options(compat_path_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+            -fdata-sections
+        )
+    endif()
+    target_link_options(compat_path_test PRIVATE -Wl,--gc-sections)
+    target_link_libraries(compat_path_test PRIVATE SDL2)
+    if (NOT MSVC)
+        target_link_libraries(compat_path_test PRIVATE pthread m)
+    endif()
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(compat_path_test PRIVATE -m32)
+        target_link_options(compat_path_test PRIVATE -m32)
+    endif()
+    add_test(NAME compat_path_test COMMAND compat_path_test)
     add_executable(map_download_dispatch_test
         tests/map_download_dispatch_test.c
         src/GAME1.c
