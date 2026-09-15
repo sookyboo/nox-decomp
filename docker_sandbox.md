@@ -364,13 +364,32 @@ operations.
 
 ## Windows i386 packages
 
+The MinGW toolchain is sufficient for cross-compilation, but Linux cannot
+execute the resulting PE32 test binaries directly. Install Wine's 32-bit
+runtime to run them through CTest:
+
 ```sh
 sudo apt-get install -y --no-install-recommends \
   gcc-mingw-w64-i686 \
   g++-mingw-w64-i686 \
   binutils-mingw-w64-i686 \
-  mingw-w64-tools
+  mingw-w64-tools \
+  wine \
+  wine32:i386
 ```
+
+Initialize an isolated 32-bit Wine prefix before the first test run:
+
+```sh
+export WINEPREFIX="$(mktemp -d /tmp/nox-decomp-wine32.XXXXXX)"
+export WINEARCH=win32
+wineboot -u
+```
+
+In a headless sandbox, `wineboot` may print `nodrv_CreateWindow` diagnostics
+while creating the prefix. They do not prevent console test executables from
+running; use a virtual display or the SDL dummy video driver if a test needs a
+windowing backend.
 
 Ubuntu supplies the compiler and Windows import libraries, but not every
 third-party Windows library needed by this project. Build or unpack these into
@@ -404,6 +423,33 @@ cmake -S . -B build-win32 -G Ninja \
   -DUSE_DIRECTX=OFF
 cmake --build build-win32 -j"$(nproc)"
 ```
+
+Pass Wine as CMake's cross-compiling emulator so CTest invokes each Windows
+test executable correctly:
+
+```sh
+cmake -S . -B build-win32 \
+  -DCMAKE_SYSTEM_NAME=Windows \
+  -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc \
+  -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++ \
+  -DCMAKE_CROSSCOMPILING_EMULATOR=wine
+cmake --build build-win32 -j"$(nproc)"
+```
+
+The Windows DLLs must be visible to Wine at runtime. Put SDL2, FFmpeg,
+OpenAL, GLEW, and MinGW runtime DLLs beside the test executables or expose
+their `bin` directories through `WINEPATH`; then run:
+
+```sh
+WINEPATH='Z:\opt\sdl2-win32\bin;Z:\opt\ffmpeg-win32\bin;Z:\opt\openal-win32\bin;Z:\opt\glew-win32\bin' \
+  ctest --test-dir build-win32 --output-on-failure
+```
+
+The first configure/build command above is the full dependency-aware command
+for this repository. The shorter command is useful only after the dependency
+prefixes and cache already exist; it must retain the same `FFMPEG_PREFIX`,
+`CMAKE_PREFIX_PATH`, include paths, and linker paths when starting from a new
+build directory.
 
 To assemble the runnable i386 bundle used by the Windows launcher, copy the
 built executable under the expected name and include the runtime DLLs and
