@@ -180,6 +180,62 @@ sudo apt-get install -y --no-install-recommends \
 The Mesa and X11 packages mirror the root Dockerfile's gl4es build. They may
 be omitted when gl4es will not be built or packaged.
 
+### Build FFmpeg for ARMHF
+
+For release parity, build FFmpeg 7.1.1 from source instead of using the
+distribution ARM packages. The container recipe uses the same configuration:
+shared libraries only, no command-line programs or documentation, and no
+OpenSSL, GnuTLS, BZip2, or zlib dependencies.
+
+```sh
+export FFMPEG_PREFIX=/opt/ffmpeg-armhf
+export FFMPEG_SRC=/tmp/ffmpeg-armhf
+
+git clone --branch n7.1.1 https://git.ffmpeg.org/ffmpeg.git "$FFMPEG_SRC"
+cd "$FFMPEG_SRC"
+
+PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig \
+CC="ccache arm-linux-gnueabihf-gcc" \
+CXX="ccache arm-linux-gnueabihf-g++" \
+AR=arm-linux-gnueabihf-ar \
+RANLIB=arm-linux-gnueabihf-ranlib \
+STRIP=arm-linux-gnueabihf-strip \
+./configure \
+  --prefix="$FFMPEG_PREFIX" \
+  --arch=arm \
+  --target-os=linux \
+  --cross-prefix=arm-linux-gnueabihf- \
+  --enable-cross-compile \
+  --pkg-config=pkg-config \
+  --enable-shared \
+  --disable-static \
+  --disable-programs \
+  --disable-doc \
+  --disable-debug \
+  --enable-pic \
+  --disable-openssl \
+  --disable-gnutls \
+  --disable-bzlib \
+  --disable-zlib \
+  --extra-cflags="-I/usr/arm-linux-gnueabihf/include" \
+  --extra-ldflags="-L/usr/lib/arm-linux-gnueabihf"
+
+make -j"$(nproc)"
+sudo make install
+```
+
+On this Debian/Ubuntu cross-toolchain layout, do not pass
+`--sysroot=/usr/arm-linux-gnueabihf`: headers are under
+`/usr/arm-linux-gnueabihf`, while target libraries are under
+`/usr/lib/arm-linux-gnueabihf`. Verify the installation before configuring the
+project:
+
+```sh
+PKG_CONFIG_LIBDIR="$FFMPEG_PREFIX/lib/pkgconfig" \
+  pkg-config --modversion libavformat libavcodec libavutil libswscale libswresample
+file "$FFMPEG_PREFIX/lib/libavformat.so"
+```
+
 Create `build-toolchains/armhf.cmake`:
 
 ```cmake
@@ -198,12 +254,13 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 Then configure the target:
 
 ```sh
-export PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig
-unset PKG_CONFIG_PATH
+export PKG_CONFIG_LIBDIR=/opt/ffmpeg-armhf/lib/pkgconfig:/opt/sdl2-armhf/lib/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig
+export PKG_CONFIG_PATH=/opt/ffmpeg-armhf/lib/pkgconfig:/opt/sdl2-armhf/lib/pkgconfig
 
 cmake -S . -B build-armhf -G Ninja \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_TOOLCHAIN_FILE="$PWD/build-toolchains/armhf.cmake"
+  -DCMAKE_TOOLCHAIN_FILE="$PWD/build-toolchains/armhf.cmake" \
+  -DFFMPEG_PREFIX=/opt/ffmpeg-armhf
 cmake --build build-armhf -j"$(nproc)"
 ```
 
