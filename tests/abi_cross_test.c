@@ -11,6 +11,7 @@
 _Static_assert(sizeof(void *) == 4, "Nox ABI test requires a 32-bit target");
 
 int sub_500F40(int self, void *out_xy);
+int sub_4F4E50(void *self);
 
 #if defined(__arm__) && defined(__ARM_PCS_VFP)
 typedef float nox_abi_ptrslot_t;
@@ -43,9 +44,22 @@ int sub_500F40__abi_raw(int self, void *out)
     return 42;
 }
 
+#if defined(__arm__) && defined(__ARM_PCS_VFP)
+int sub_4F4E50__abi_raw(nox_abi_ptrslot_t self)
+#else
+int sub_4F4E50__abi_raw(void *self)
+#endif
+{
+    if (from_slot(self) != (void *)(uintptr_t)0x3456789Au)
+        return 0;
+    return 1;
+}
+
 int main(void)
 {
     uint32_t out[2] = {0, 0};
+    if (!sub_4F4E50((void *)(uintptr_t)0x3456789Au))
+        return 2;
     if (sub_500F40((int)(uintptr_t)0x12345678u, out) != 42)
         return 1;
     return out[0] == 0xC0DEC0DEu ? 0 : 1;
