@@ -19,5 +19,13 @@ using mismatched casing and Windows separators. This covers the file-resolution
 portion of `1247869`; solo startup state selection and LAN socket registration
 remain normal-target integration coverage.
 
+`compat_open()` is also the owning compatibility boundary for save writes. It
+must case-fold existing parent directories while preserving the requested new
+leaf filename, so a save can be created when the map/save directory spelling
+differs from the spelling stored in the save state. `tests/save_casepath_test.c`
+creates this situation and verifies a write/read round trip through
+`compat_open()`; full save serialization and map restoration remain game
+integration coverage.
+
 The 32-bit test target uses `_FILE_OFFSET_BITS=64` so its directory-stream ABI
 matches the large-file Linux toolchain used to enumerate the fixture.
