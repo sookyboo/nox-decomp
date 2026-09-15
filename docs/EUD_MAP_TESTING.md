@@ -278,6 +278,19 @@ callback installation, object creation, memory access, effects, and
 callback behavior and unsupported native update handlers still require a
 complete `.nxz` package and gameplay test.
 
+The advanced gap-discovery smoke test covers `Dim.map`:
+
+```sh
+cmake --build build-i386 --target eud_dim_map_test
+ctest --test-dir build-i386 -R '^eud_dim_map_test$' --output-on-failure
+```
+
+It checks `Dim.map`, `dim.c`, all custom resources declared by
+`resource_dim.txt`, and the Nox gamefiles. Passing this test only confirms the
+inputs are available; `Bind`, copied melee/potion/pickup implementations, and
+other advanced native patches remain intentionally unsupported until separately
+ported.
+
 ## Linux headless OpenGL
 
 The server container runs the 32-bit game through an X11 display provided by
