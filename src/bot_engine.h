@@ -57,8 +57,13 @@ int nox_bot_engine_mana(int object);
 int nox_bot_engine_max_mana(int object);
 int nox_bot_engine_can_interact(int self, int other);
 void nox_bot_engine_position(int object, float *x, float *y);
+int nox_bot_engine_set_aggression(int object, float aggression);
+int nox_bot_engine_is_ctf(void);
+int nox_bot_engine_carrying_ctf_flag(int object);
 int nox_bot_engine_use_inventory_potion(int object, const char *type_name);
 int nox_bot_engine_inventory_item(int object, const char *type_name);
+int nox_bot_engine_find_nearest_type(
+    int object, const char *type_name, float max_distance);
 int nox_bot_engine_find_nearest_visible_type(
     int object, const char *type_name, float max_distance);
 int nox_bot_engine_pickup_item(int object, int item);

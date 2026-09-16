@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "netextras_types.h"
 #include <string.h>
 
 #define NOX_OBJECT_CATEGORY_OFFSET 8
@@ -31,6 +32,7 @@
 #define NOX_OBJECT_INVENTORY_HEAD_OFFSET 504
 #define NOX_OBJECT_STATE_FLAGS_OFFSET 16
 #define NOX_OBJECT_STATE_REMOVED 0x20u
+#define NOX_OBJECT_CLASS_CTF_FLAG 0x10000000u
 
 #define NOX_GAME_FRAME_OFFSET 2598000
 #define NOX_GAME_FPS_OFFSET 2649704
@@ -393,6 +395,38 @@ void nox_bot_engine_position(int object, float *x, float *y)
         *y = object ? *(float *)(object + NOX_OBJECT_Y_OFFSET) : 0.0f;
 }
 
+int nox_bot_engine_set_aggression(int object, float aggression)
+{
+    int morphed;
+    int bits;
+
+    if (!nox_bot_engine_begin_monster_view(object, &morphed))
+        return 0;
+    memcpy(&bits, &aggression, sizeof(bits));
+    sub_515980(object, (_DWORD *)&bits);
+    nox_bot_engine_end_monster_view(object, morphed);
+    return 1;
+}
+
+int nox_bot_engine_is_ctf(void)
+{
+    return sub_40A5C0(NOX_GF_MODE_CTF) != 0;
+}
+
+int nox_bot_engine_carrying_ctf_flag(int object)
+{
+    int item;
+
+    if (!object || !(*(unsigned char *)(object + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_PLAYER_CATEGORY))
+        return 0;
+    for (item = *(int *)(object + NOX_OBJECT_INVENTORY_HEAD_OFFSET); item;
+         item = *(int *)(item + NOX_OBJECT_INVENTORY_NEXT_OFFSET)) {
+        if (*(uint32_t *)(item + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_CLASS_CTF_FLAG)
+            return 1;
+    }
+    return 0;
+}
+
 int nox_bot_engine_inventory_item(int object, const char *type_name)
 {
     int item;
@@ -423,8 +457,8 @@ int nox_bot_engine_use_inventory_potion(int object, const char *type_name)
     return sub_53EF70(object, item) != 0;
 }
 
-int nox_bot_engine_find_nearest_visible_type(
-    int object, const char *type_name, float max_distance)
+static int nox_bot_engine_find_nearest_type_impl(
+    int object, const char *type_name, float max_distance, int require_visible)
 {
     float dx;
     float dy;
@@ -449,12 +483,24 @@ int nox_bot_engine_find_nearest_visible_type(
         dx = *(float *)(item + NOX_OBJECT_X_OFFSET) - *(float *)(object + NOX_OBJECT_X_OFFSET);
         dy = *(float *)(item + NOX_OBJECT_Y_OFFSET) - *(float *)(object + NOX_OBJECT_Y_OFFSET);
         distance = dx * dx + dy * dy;
-        if (distance > best_distance || !sub_5370E0(object, item, 0))
+        if (distance > best_distance || (require_visible && !sub_5370E0(object, item, 0)))
             continue;
         best = item;
         best_distance = distance;
     }
     return best;
+}
+
+int nox_bot_engine_find_nearest_type(
+    int object, const char *type_name, float max_distance)
+{
+    return nox_bot_engine_find_nearest_type_impl(object, type_name, max_distance, 0);
+}
+
+int nox_bot_engine_find_nearest_visible_type(
+    int object, const char *type_name, float max_distance)
+{
+    return nox_bot_engine_find_nearest_type_impl(object, type_name, max_distance, 1);
 }
 
 int nox_bot_engine_pickup_item(int object, int item)
