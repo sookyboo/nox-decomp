@@ -5,6 +5,7 @@
 #endif
 #ifdef NOX_BOT_SUPPORT
 #include "bot_runtime.h"
+#include "bot_trace.h"
 #endif
 
 #ifdef NOX_SUMMON_BEHAVIOR_TEST
@@ -9056,6 +9057,18 @@ int __cdecl sub_500DA0(int a1)
   v6 = sub_427230(v2);
   *(_WORD *)v17 = sub_4E3AA0(v6);
   *(_WORD *)&v17[11] = (*(_WORD *)&byte_5D4594[1570276])++;
+#ifdef NOX_BOT_SUPPORT
+  {
+    float summon_x;
+    float summon_y;
+    memcpy(&summon_x, &v17[2], sizeof(summon_x));
+    memcpy(&summon_y, &v17[6], sizeof(summon_y));
+    nox_bot_tracef("summon", "start",
+      "owner=0x%08x summon_type=%d object_type=%u sequence=%u x=%.3f y=%.3f",
+      *(_DWORD *)(a1 + 16), v2, (unsigned)*(_WORD *)v17,
+      (unsigned)*(_WORD *)&v17[11], summon_x, summon_y);
+  }
+#endif
   if ( *(_WORD *)&byte_5D4594[1570276] >= 0xFDE8u )
     *(_WORD *)&byte_5D4594[1570276] = 0;
   v7 = *(_DWORD *)&v17[4];
@@ -9218,6 +9231,11 @@ int __cdecl sub_5010D0(int a1)
   {
 LABEL_17:
     v6 = sub_5016C0(*(unsigned __int16 *)(a1 + 72), (int *)(a1 + 74), *(_DWORD *)(a1 + 16), *(_BYTE *)(a1 + 82));
+#ifdef NOX_BOT_SUPPORT
+    nox_bot_tracef("summon", v6 ? "complete" : "complete-failed",
+      "owner=0x%08x object_type=%u object=0x%08x",
+      *(_DWORD *)(a1 + 16), (unsigned)*(unsigned __int16 *)(a1 + 72), (int)v6);
+#endif
     if ( v6 )
       sub_501960(899, (int)v6, 0, 0);
     *(_BYTE *)(a1 + 85) = 1;
@@ -9488,6 +9506,11 @@ _DWORD *__cdecl sub_5016C0(int a1, int *a2, int a3, unsigned __int8 a4)
     return result;
 //  sub_4DAA50((int)result, a3, *(float *)a2, *((float *)a2 + 1));
   float f0, f1; memcpy(&f0, (const void *)a2, 4); memcpy(&f1, (const void *)((const char *)a2 + 4), 4); sub_4DAA50((int)result, a3, f0, f1);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_tracef("summon", "object-created",
+    "object_type=%d object=0x%08x owner=0x%08x owner_is_player=%d x=%.3f y=%.3f",
+    a1, (int)result, a3, a3 && ((*(_BYTE *)(a3 + 8) & 4) != 0), f0, f1);
+#endif
   v6 = v5[187];
   *((_WORD *)v5 + 63) = a4;
   *((_WORD *)v5 + 62) = a4;
@@ -9509,6 +9532,11 @@ _DWORD *__cdecl sub_5016C0(int a1, int *a2, int a3, unsigned __int8 a4)
   sub_4D91A0(*(unsigned __int8 *)(*(_DWORD *)(v8 + 276) + 2064), (int)v5);
   sub_417190(*(unsigned __int8 *)(*(_DWORD *)(v8 + 276) + 2064), (int)v5, 1);
   sub_4DF360(*(unsigned __int8 *)(*(_DWORD *)(v8 + 276) + 2064), (int)v5);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_tracef("summon", "player-owner-linked",
+    "owner_slot=%u owner=0x%08x object=0x%08x summoned_flag=1",
+    (unsigned)*(unsigned __int8 *)(*(_DWORD *)(v8 + 276) + 2064), a3, (int)v5);
+#endif
   if ( sub_419130(a3 + 48) )
     sub_4191D0(*(_BYTE *)(a3 + 52), a3 + 48, 1, v5[9], 0);
   v9 = v5[3];
@@ -32475,11 +32503,37 @@ int __cdecl sub_51BAD0(int a1, unsigned __int8 *a2, signed int a3)
   switch ( *a2 )
   {
     case 0x20u:
-      if ( !sub_4DD320(a1, (int)(a2 + 1)) )
+#ifdef NOX_BOT_SUPPORT
+      nox_bot_tracef("network", "join-packet", "slot=%d packet_len=%d", a1, a3);
+#endif
+      v7 = (int)sub_4DD320(a1, (int)(a2 + 1));
+#ifdef NOX_BOT_SUPPORT
+      v5 = sub_417090(a1);
+      v8 = v5 ? *((_DWORD *)v5 + 514) : 0;
+      nox_bot_tracef("network", "join-result",
+        "slot=%d accepted=%d player_info=0x%08x object=0x%08x runtime=0x%08x class=%d x=%.3f y=%.3f update=0x%08x",
+        a1, v7 != 0, (int)v5, v8, v8 ? *(_DWORD *)(v8 + 748) : 0,
+        v5 ? (unsigned char)v5[2251] : -1,
+        v8 ? *(float *)(v8 + 56) : 0.0f, v8 ? *(float *)(v8 + 60) : 0.0f,
+        v8 ? *(_DWORD *)(v8 + 744) : 0);
+#endif
+      if ( !v7 )
         sub_5545B0(a1 + 1);
       return 1;
     case 0x22u:
+#ifdef NOX_BOT_SUPPORT
+      v5 = sub_417090(a1);
+      v8 = v5 ? *((_DWORD *)v5 + 514) : 0;
+      nox_bot_tracef("network", "leave-packet",
+        "slot=%d packet_len=%d player_info=0x%08x object=0x%08x",
+        a1, a3, (int)v5, v8);
+#endif
       sub_4DE7C0(a1);
+#ifdef NOX_BOT_SUPPORT
+      v5 = sub_417090(a1);
+      nox_bot_tracef("network", "leave-result", "slot=%d object=0x%08x",
+        a1, v5 ? *((_DWORD *)v5 + 514) : 0);
+#endif
       return 1;
     case 0x25u:
       *((_DWORD *)sub_417090(a1) + 899) = *(_DWORD *)&byte_5D4594[2598000];

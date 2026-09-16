@@ -321,3 +321,40 @@ Here are docker versions of nox-decomp to help
 [docker-compose.yml](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/docker-compose.yml)
 
 [kubernetes](https://github.com/sookyboo/nox-decomp/blob/main/dist-scripts/nox-decomp-kube.yml)
+
+## Native bot lifecycle diagnostic and experimental spawn
+
+With `USE_BOT_SUPPORT=ON`, the server can compare normal network player joins
+with the experimental socketless bot lifecycle. Diagnostics are disabled by
+default. Enable them with `NOX_BOT_LIFECYCLE_TRACE=1` before launch or with
+`bot trace on` from the authoritative server console. Every line is written to
+`stderr` with the `[bot-lifecycle]` prefix and `path=` / `phase=` fields.
+
+The normal network path traces the incoming join/leave boundary plus checkpoints
+inside `sub_4DD320`: object creation, player-info activation, runtime linkage,
+spawn placement, and final join result. The leave trace surrounds the normal
+`sub_4DE7C0(slot)` owner.
+
+The bot build also exposes a full experimental server-created lifecycle:
+
+```text
+bot spawn auto warrior hardcore
+bot spawn red wizard normal
+bot spawn blue conjurer hard
+bot spawn 3v3 normal
+bot clear <slot>
+bot clear all
+```
+
+`bot spawn` selects an inactive player-info slot in `0..30`, constructs the
+recovered 153-byte `PlayerOpts` shape, calls the normal native player constructor,
+optionally assigns a native team, then activates the original player-monster bot
+update path. `bot clear` only removes slots created by that command and reuses the
+normal leave owner.
+
+This is intentionally a runtime-verification attempt. It has not yet established
+that every network send made by `sub_4DD320` is harmless for a slot with no real
+peer, that every configured admission/capacity rule should apply to bots, or that
+`sub_4DE7C0` leaves no socketless slot state behind. Capture the trace from one
+real join plus one bot spawn/clear and compare phases before adding lifecycle
+writes outside those native owners.

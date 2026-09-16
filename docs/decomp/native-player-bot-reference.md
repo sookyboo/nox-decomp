@@ -52,10 +52,12 @@ high-confidence Conjurer spell-priority slice. `src/bot_team.c` owns only the
 shared high-level CTF destination decision used by all three classes; native
 flag state, teams, pathfinding, pickup/drop/capture, scoring, and guard/fight
 actions remain engine-owned.
-`src/bot_runtime.c` synchronizes
-that state with existing native player bots and can attach/detach an
-**already-created** normal player from the recovered player-monster update path.
-It deliberately does not create or free player slots.
+`src/bot_runtime.c` synchronizes that state with existing native player bots,
+can attach/detach an **already-created** normal player from the recovered
+player-monster update path, and now owns server-local lifecycle identity for the
+experimental socketless `bot spawn`/`bot clear` attempt. Native construction and
+removal still flow through `sub_4DD320` / `sub_4DE7C0`; the runtime does not
+reimplement their player/object bookkeeping.
 
 All ten monster event concepts used by the Go reference now have confirmed
 native dispatch sites and are captured without changing their original callback
@@ -74,20 +76,20 @@ End Of Waypoint
 Lost Sight
 ```
 
-The remaining lifecycle prerequisite is still allocation/claiming of a normal
-player slot and object without a human network client. The normal network join
-path is now better understood (see sections 35 and 42), but it performs much
-more client/profile initialization than a bot should blindly reuse. Until a
-server-controlled creation path is recovered, the feature must not invent a
-parallel fake-player lifecycle or expose a spawn command.
+The lifecycle work has advanced to a complete **experimental** non-client attempt
+(see sections 35 and 42). Free-slot ownership is recovered, a synthetic but
+structurally correct `PlayerOpts` is fed into the full native player constructor,
+and `bot clear` uses the normal leave owner. The remaining lifecycle work is
+runtime verification/hardening from hosted traces, not a second fake-player
+implementation.
 
 ## Remaining implementation gaps
 
 The unresolved work after the current Warrior/native-runtime foundation is:
 
-- **non-client player lifecycle:** authoritative free-slot selection, complete
-  player object/runtime creation without `sub_4DD320`'s client join packet, and
-  authoritative bot-player removal/freeing;
+- **non-client player lifecycle:** the complete `sub_4DD320`/`sub_4DE7C0`
+  socketless attempt is implemented, but hosted logs still need to verify peerless
+  network sends, capacity/mode policy, visibility, removal, and same-slot reuse;
 - **CTF objectives:** ordinary CTF flag mechanics remain native. The basic
   attack/defend/escort/return destination choice is now shared by Warrior,
   Wizard, and Conjurer; the active enemy-flag carrier is now recognized as the
@@ -114,8 +116,9 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   summon/Glyph path with native `BomberSummon` audio, mana-source routing, the
   literal reference 10-second weapon preference, and shared CTF steering. Exact
   Bomber alert/event choreography, team roles, commands, and phonemes remain;
-- **orders/commands:** the policy enum exists but teammate order execution and
-  user-facing spawn/difficulty/team commands remain pending;
+- **orders/commands:** spawn/clear, attach/detach, difficulty, trace control, and
+  3v3 setup are implemented; teammate order execution and broader coordinated
+  team commands remain pending and are intentionally last;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
   behavior are intentionally deferred;
 - **production lifecycle integration tests:** current deterministic tests cover
@@ -3105,109 +3108,232 @@ Bot policy can cache a pointer/reference for short-lived decision purposes, but 
 # 35. Player creation/activation trace
 
 `nox_xxx_playerBotCreate_4FA700` initializes bot AI for an **existing player
-object**. It does not allocate the player object or player-info slot itself.
+object**. It does not allocate the player object or player-info slot itself. The
+normal player constructor has now been recovered far enough to support a traced
+experimental socketless spawn attempt without duplicating its object/runtime
+initialization.
 
-The normal network player-join path has now been traced far enough to establish
-several ownership facts:
+Confirmed lifecycle facts:
 
-- `sub_417000(slot)` clears/initializes the fixed 4,828-byte player-info block
-  for a slot and stores the slot number at player-info offset `+2064`;
-- `sub_4DD320(slot, packet)` is a normal client/player join path;
-- that join path creates one of the normal player object templates named
-  `Player`, `NewPlayer`, or `PlayerFemale` through
-  `nox_xxx_newObjectByTypeID_4E3810`;
-- it calls `sub_417000(slot)` and connects the created object's player runtime
-  to that player-info block;
-- it then performs substantial packet/profile/network initialization,
-  appearance/color setup, notifications, spawn handling, and other
-  client-oriented state.
+- `sub_417090(slot)` checks the fixed player-info record's active field at
+  `+2092`; it returns `NULL` for an inactive/free slot and returns the 4,828-byte
+  player-info record for an occupied slot;
+- `sub_417000(slot)` resets/activates that fixed player-info record and stores
+  the slot at `+2064`;
+- slots `0..30` are the remote-player range used by the join path and slot 31 is
+  the native host/local-player slot;
+- `sub_4DD320(slot, PlayerOpts)` creates `Player`, `NewPlayer`, or
+  `PlayerFemale`, links player runtime ↔ player-info, copies profile data,
+  initializes protected gameplay fields, broadcasts player state, chooses a
+  native player start, and moves the player there;
+- `sub_4DE7C0(slot)` is the core removal owner called by the normal network
+  `0x22` leave packet. It tears down runtime/player resources, deletes the player
+  object, clears player-info `+2056`, and updates multiplayer state.
 
-This confirms that player slot allocation and player object creation are
-separate from `nox_xxx_playerBotCreate_4FA700`, but `sub_4DD320` is **not** a
-safe bot constructor: it assumes a real join packet/client lifecycle.
+## 35.1 Recovered `PlayerOpts` shape
 
-Additional native call sites reinforce that player-monster bots are a deliberate
-special player state rather than ordinary NPCs:
-
-- `sub_4E6860(playerInfo, ..., ...)` returns early when the player's object
-  update function is `nox_xxx_updatePlayerMonsterBot_4FAB20`, excluding native
-  player bots from that normal player handling path;
-- `sub_4E6AA0(playerInfo)` likewise skips the normal player reactivation/reset
-  sequence when the player object uses `4FAB20`;
-- a broader reset path explicitly detects `4FAB20` and calls
-  `nox_xxx_playerBotCreate_4FA700` to rebuild/reset the existing bot AI state.
-
-These call sites further support reusing the original player-bot lifecycle, but
-they still do not reveal the authoritative non-client player-slot constructor or
-removal owner.
-
-The optional bot runtime therefore implements only the high-confidence
-conversion of an already-existing normal player:
+The normal connection/host preparation in `sub_435A10` builds 153 bytes:
 
 ```text
-normal player object
-    -> ensure native 0x898 player-bot AI block with sub_4FA700
-    -> set object update function to sub_4FAB20
-    -> associate server-local policy state with player-info slot +2064
+0..96     PlayerInfo/profile template
+97..100   screen X
+101..104  screen Y
+105..127  serial
+128..137  client/account field 2096
+138..141  client/account field 2068
+142..151  client/account field 2072
+152       mode/client flags; bit 7 is consumed by the quest-mode join check
 ```
 
-Detaching restores `nox_xxx_updatePlayer_4F8100` and clears only the
-server-local Bot-Script policy state. It intentionally leaves the native AI
-allocation owned by the player runtime because authoritative freeing/lifetime
-ownership has not yet been recovered.
+The experimental bot constructor mirrors that exact structural layout. It copies
+the native host profile only as a valid appearance/loadout template, replaces the
+name and class, uses current screen dimensions, gives each bot a unique synthetic
+`BOT-xx` serial, and intentionally zeroes fields 2096/2068/2072 rather than
+cloning the host's account/network identity. Byte 152 follows the normal builder:
+the low value is `!sub_40ABD0()` and bit 7 follows local save flag `0x4`.
 
-Still unresolved for actual spawned bots:
+This is a deliberate **working attempt**, not a claim that every pre-join network
+admission step is unnecessary. `sub_4DD320` normally runs after a real client has
+already passed admission and has a network peer. The socketless path reuses it
+because it is the most complete authoritative constructor currently recovered,
+and the lifecycle trace is designed to expose any assumptions that fail.
 
-- selecting/claiming a genuinely free native player slot without a client;
-- creating the complete player runtime/playerInfo/object state without abusing
-  the client join routine;
-- assigning name/class/team in the authoritative server-side creation path;
-- authoritative removal/freeing of that slot and associated player object.
+## 35.2 Experimental spawn/clear lifecycle
 
-Until those are traced, the feature must not expose `bot spawn` by converting
-an arbitrary connected human player or by partially reimplementing
-`sub_4DD320`.
+`nox_bot_runtime_spawn_attempt()` performs:
+
+```text
+find first inactive slot 0..30 via sub_417090
+    ↓
+build synthetic 153-byte PlayerOpts
+    ↓
+sub_4DD320(slot, opts)
+    ↓
+verify constructor return + player-info object pointer
+    ↓
+assign requested red/blue native team, or leave native choice for auto
+    ↓
+nox_bot_runtime_attach_existing_player
+    ↓
+sub_4FA700 + object update = sub_4FAB20
+    ↓
+mark slot BOT_SLOT_SERVER_CREATED in server-local lifecycle state
+```
+
+If constructor result, team assignment, or bot activation fails, the path attempts
+to roll the created player back through `sub_4DE7C0`. `bot spawn 3v3` is six calls
+to the same primitive and clears already-created members if a later member fails.
+
+`bot clear` acts only on slots created by this runtime. It never removes an
+arbitrary connected human or a player temporarily controlled through `bot
+attach`. It detaches native bot control, enters `sub_4DE7C0`, and clears
+server-local lifecycle ownership only when the native player object is gone.
+`sub_4DE7C0` itself notifies the bot runtime immediately after clearing
+player-info `+2056`, so forced/native removals cannot leave stale bot ownership.
+
+## 35.3 Lifecycle comparison tracing
+
+Tracing is disabled by default. Enable it with:
+
+```text
+NOX_BOT_LIFECYCLE_TRACE=1
+```
+
+or at runtime on the authoritative server console:
+
+```text
+bot trace on
+bot trace status
+bot trace off
+```
+
+Each diagnostic goes to `stderr`, is flushed immediately, starts with
+`[bot-lifecycle]`, and contains `path=` and `phase=`. It is lifecycle-only; there
+is no per-frame AI logging.
+
+Normal network join/removal emits:
+
+```text
+path=network phase=join-packet
+path=network phase=join-object-created | join-object-create-failed
+path=network phase=join-slot-initialized
+path=network phase=join-runtime-linked
+path=network phase=join-positioned
+path=network phase=join-result
+path=network phase=leave-packet
+path=network phase=leave-result
+```
+
+Server-created bot attempts use the same internal constructor checkpoints but
+label them `path=spawn`, making direct comparison with `path=network` possible:
+
+```text
+path=spawn phase=begin
+path=spawn phase=synthetic-join-begin
+path=spawn phase=join-object-created | join-object-create-failed
+path=spawn phase=join-slot-initialized
+path=spawn phase=join-runtime-linked
+path=spawn phase=join-positioned
+path=spawn phase=synthetic-join-ready | synthetic-join-failed
+path=spawn phase=team-assigned | team-unavailable
+path=bot   phase=attach-begin / engine-enable-* / attach-*
+path=spawn phase=ready
+path=spawn phase=rollback | rollback-failed
+path=spawn phase=clear-begin / clear-native-begin / clear-native-* / clear-*
+path=spawn phase=ownership-released
+```
+
+Native summon creation is also traced as a comparison example:
+
+```text
+path=summon phase=start
+path=summon phase=object-created
+path=summon phase=player-owner-linked
+path=summon phase=complete | complete-failed
+```
+
+Summons are not player slots; this path exists only to compare another
+server-owned object constructor/owner-link flow.
+
+## 35.4 Runtime assumptions still unverified
+
+The following points are intentionally documented rather than hidden behind a
+"working" label:
+
+1. `sub_4DD320` performs some sends/bookkeeping for its slot. A hosted run must
+   prove those calls safely tolerate a remote slot with no socket/client.
+2. Network admission normally happens before `sub_4DD320`. The experimental
+   path checks free slot and disabled-class state but does not yet reproduce all
+   configured server-capacity/password/ban/ping admission policy; those are
+   client admission rules, not player construction, and may need a bot-specific
+   capacity policy after runtime evidence.
+3. Red/blue team assignment is applied after construction through the recovered
+   native team membership functions. Logs/gameplay must verify this ordering in
+   every team mode; `auto` leaves constructor/native mode behavior untouched.
+4. Synthetic account fields are empty and serial is `BOT-xx`. This deliberately
+   avoids aliasing the host identity, but persistence/ranking/quest modes may
+   expect additional identity state.
+5. `sub_4DE7C0` is confirmed as the core used by a normal explicit leave packet,
+   but a socketless slot never had all peer/network state. A create → clear →
+   reuse-the-same-slot run must confirm complete cleanup.
+6. Cross-client visibility, scoreboards, team presentation, CTF interaction,
+   death/native bot respawn, and late-join visibility require integration
+   observation; standalone adapter tests cannot prove them.
+
+Recommended first capture:
+
+```text
+1. build with USE_BOT_SUPPORT=ON
+2. host a multiplayer game
+3. `bot trace on`
+4. let one real remote client join (network baseline)
+5. `bot spawn auto warrior hardcore`
+6. if visible, observe movement/combat/death/respawn
+7. `bot clear <slot>`
+8. `bot spawn auto wizard normal` and confirm the same freed slot can be reused
+9. let the real remote client leave
+10. capture stderr lines containing `[bot-lifecycle]`
+```
+
+If red/blue teams are active, repeat with `bot spawn red warrior hardcore` and
+`bot spawn blue wizard hardcore`. The first useful failure is the last emitted
+phase before the engine stops progressing or the first phase whose object/slot
+state differs from the real network join.
 
 ---
 
 # 36. Commands and configuration
 
-Bot commands should use the repository's existing console/server command infrastructure.
+The optional bot build hooks the existing console dispatcher after tokenization
+and before the original static command table. Only the literal `bot` top-level
+command is consumed; all other commands fall through unchanged. The hook also
+refuses the recovered player-issued command context (`byte_5D4594[823692]` is
+non-zero), so it does not bypass the original permissions used for commands
+originating from a player. Lifecycle mutation additionally requires host/server
+game flag `1`.
 
-Expected eventual commands:
-
-```text
-bot spawn red warrior
-bot spawn red wizard
-bot spawn red conjurer
-
-bot spawn blue warrior
-bot spawn blue wizard
-bot spawn blue conjurer
-
-bot spawn 3v3
-bot clear
-
-bot difficulty hardcore
-bot difficulty hard
-bot difficulty normal
-bot difficulty easy
-bot difficulty beginner
-```
-
-These commands should ultimately:
+Implemented commands:
 
 ```text
-find/create native player slot
-    ↓
-set native player class/team/name
-    ↓
-activate original player-monster bot update path
-    ↓
-mark server-local bot policy state active
+bot spawn <red|blue|auto> <warrior|wizard|conjurer> [hardcore|hard|normal|easy|beginner]
+bot spawn 3v3 [hardcore|hard|normal|easy|beginner]
+bot clear [all|slot]
+bot attach <slot> [hardcore|hard|normal|easy|beginner]
+bot detach <slot>
+bot difficulty <slot> <hardcore|hard|normal|easy|beginner>
+bot trace <on|off|status>
 ```
 
-No command should manually synthesize CTF/player-network state.
+`attach`, `detach`, and difficulty changes operate on already-created players and
+are the high-confidence lifecycle subset. `spawn`/`clear` are the runtime-
+unverified non-client attempt described above. `clear` is ownership-safe: only
+slots created by `bot spawn` are eligible.
+
+Shared teammate-order commands are intentionally not part of this lifecycle
+patch and remain last in the bot work plan.
+
+No command manually synthesizes CTF scoring, movement, combat, respawn, or spell
+state; those remain native systems once the player object exists.
 
 ---
 
@@ -3309,8 +3435,10 @@ nox_xxx_updatePlayerMonsterBot_4FAB20
 nox_xxx_monsterActionToPlrState_4FABC0
 nox_xxx_respawnPlayerBot_4FAC70
 nox_xxx_updatePlayer_4F8100
+sub_417090                         [active player-info slot lookup/free test]
 sub_417000                         [player-info slot initialization]
-sub_4DD320                         [normal network/client join path; not a bot constructor]
+sub_4DD320                         [full native player constructor normally entered from join]
+sub_4DE7C0                         [core normal leave/removal owner]
 ```
 
 ## Monster actions / update
@@ -3489,45 +3617,36 @@ Everything else should continue to flow through the original Nox player-bot arch
 
 ---
 
-# 42. Remaining prerequisite for bot spawning
+# 42. Experimental spawn status and remaining verification
 
-The recovered player-monster runtime is now sufficiently understood for policy
-and event integration on an **existing player object**. The remaining blocker
-is specifically creation/removal of a server-controlled player slot with no
-human network client.
-
-Known pieces are:
+The lifecycle blocker has moved from "unknown constructor" to "runtime validation
+of the recovered constructor without a peer". The current attempt deliberately
+uses native owners instead of copying their internal writes:
 
 ```text
-sub_417000(slot)
-    initializes the fixed player-info slot
-
-sub_4DD320(slot, packet)
-    normal network join path
-    creates Player/NewPlayer/PlayerFemale
-    connects player runtime and player-info
-    performs extensive client/profile/network initialization
-
-nox_xxx_playerBotCreate_4FA700(object)
-    creates/resets the native 0x898 monster-AI backing state
-
-object +744 = nox_xxx_updatePlayerMonsterBot_4FAB20
-    activates original player-monster update semantics
+sub_417090(slot)                    inactive/free test via player-info +2092
+sub_4DD320(slot, synthetic opts)    full native player constructor
+sub_4FA700(object)                  native player-bot AI creation/reset
+object +744 = sub_4FAB20             native bot update activation
+sub_4DE7C0(slot)                    normal leave-packet core removal owner
 ```
 
-What must still be recovered before implementing `bot spawn` is the narrow,
-authoritative server-side equivalent of the first two steps:
+The synthetic `PlayerOpts` builder and server-local ownership/rollback layer are
+implemented behind `USE_BOT_SUPPORT`. What remains is evidence from hosted logs,
+not another speculative constructor rewrite. In particular, verify socketless
+network sends, team-mode ordering, capacity policy, cross-client visibility,
+clear/reuse, and native bot death/respawn.
 
-- claim/free-slot rules;
-- player object/runtime creation without a join packet;
-- name/class/team initialization;
-- any required server bookkeeping/network announcements for a non-client
-  player;
-- authoritative player-bot removal and slot cleanup.
+If logs show that `sub_4DD320` requires a peer-only prerequisite, recover only
+that prerequisite or extract the narrow native constructor boundary demonstrated
+by the trace. Do **not** respond by manually cloning more `sub_4DD320` offsets
+into bot code. Likewise, if `sub_4DE7C0` leaves socketless state behind, identify
+the missing native leave/slot reset owner from the normal-versus-bot comparison
+before adding ad-hoc clears.
 
-Do not call `sub_4DD320` with fabricated packet state and do not copy only a
-subset of its writes. Either recover an original non-client creation path or
-extract a well-understood shared native player-construction routine first.
+The current implementation is therefore intentionally suitable for the next
+iteration: it is a complete attempt that may already produce visible bots, while
+its remaining assumptions are bounded and observable in one run.
 
 ---
 
