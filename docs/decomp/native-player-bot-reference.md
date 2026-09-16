@@ -42,9 +42,9 @@ same recovered morph view when called while the bot is in normal player form.
 
 `src/bot_policy.c` owns only Bot-Script-specific server-local state, reaction
 deadlines, orders, and pending event records. `src/bot_warrior.c` currently
-implements the high-confidence native Harpoon, Berserker Charge, health-potion,
-non-CTF potion-recovery movement, loot/equipment, RoundChakram, Eye of the Wolf,
-and War Cry policy subset.
+implements the high-confidence native Harpoon, Berserker Charge, health-potion
+and recovery movement, loot/equipment, RoundChakram, Eye of the Wolf, War Cry,
+TeleportWake pursuit, and native-backed CTF objective-steering subset.
 `src/bot_runtime.c` synchronizes
 that state with existing native player bots and can attach/detach an
 **already-created** normal player from the recovered player-monster update path.
@@ -86,9 +86,12 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   crash stun and Bomber stun. `sub_4FDD20`/`sub_4FF5B0` are known, but the
   protected-hold source must be retained reliably across native collision
   processing before enabling the escape;
-- **CTF objectives:** ordinary CTF flag mechanics and carrier-aware potion recovery are now native-backed. What remains is attack/defend, escort, return, and post-waypoint objective selection;
+- **CTF objectives:** ordinary CTF flag mechanics and the Warrior's basic
+  attack/defend/escort/return steering are now native-backed. Shared multi-class
+  coordination and teammate-directed orders remain pending;
 - **Warrior lost-target behavior:** the Bot-Script `TeleportWake` pursuit/check
-  loop remains unported;
+  loop is implemented; additional lost-target behavior is only pending where it
+  depends on future shared team/order policy;
 - **Wizard/Conjurer policy:** native casting and class validation exist, but the
   reference tactical decision trees are not implemented;
 - **orders/commands:** the policy enum exists but teammate order execution and
@@ -793,6 +796,67 @@ Primary default combat/search behavior when a bot does not have a higher-priorit
 
 ---
 
+## 8.3 `nox_xxx_mobSetFightTarg_515D30`
+
+Recovered declaration:
+
+```c
+void nox_xxx_mobSetFightTarg_515D30(
+    nox_object_t* unit,
+    nox_object_t* target);
+```
+
+### Confirmed role
+
+Sets a monster's explicit fight target through the native action system. For a
+valid monster-view unit and non-self target, the function clears the existing
+action stack, stores the target at AI `+1216`, refreshes native AI target state,
+and schedules the normal fight/action records using the target's current
+position and simulation frame.
+
+### Callers/data flow
+
+The original Nox script `Attack` entry point resolves its two object arguments
+and calls this function. The optional bot adapter enters the recovered temporary
+monster view before invoking it for a native player bot, then restores player
+form immediately afterwards.
+
+### Bot-port use
+
+Used by the Warrior Lost Sight `TeleportWake` behavior. Policy retains the lost
+enemy while native `WalkTo` approaches the wake; after the wake transition is
+detected, this function resumes combat against that target. It remains a target
+choice only; native fight actions own movement and combat execution.
+
+---
+
+## 8.4 `nox_xxx_monsterGoPatrol_515680`
+
+Recovered declaration in the decompiled C ABI:
+
+```c
+void nox_xxx_monsterGoPatrol_515680(
+    nox_object_t* unit,
+    void* patrol_args);
+```
+
+### Confirmed role
+
+Schedules the native Guard/Patrol action used by NoxScript. The five input
+values are two world positions followed by the patrol/guard distance. The
+function clears the monster action stack, pushes action `4` with the first
+position and direction toward the second, and stores the distance at AI
+`+1312`.
+
+### Bot-port use
+
+The CTF carrier branch uses the same native action with identical start/end
+positions and radius `20`, matching Bot-Script's `Guard(base, base, 20)` choice.
+The adapter constructs the recovered five-value argument block and does not add
+a second guard state machine.
+
+---
+
 # 9. Enemy perception and hostility
 
 ## 9.1 `nox_xxx_monsterUpdateSeenEnemies_5286D0`
@@ -945,7 +1009,7 @@ optional adapter enters the normal player-bot monster view, calls that existing
 setter, and restores player form instead of writing those offsets from Warrior
 policy.
 
-The current non-CTF Warrior recovery path uses the Go reference values directly:
+The Warrior recovery path uses the Go reference values directly:
 
 ```text
 Is Hit + health < 100 + current target health > 10
@@ -953,9 +1017,10 @@ Is Hit + health < 100 + current target health > 10
     -> aggression 0.16
     -> native WalkTo(potion position)
 
-End Of Waypoint for that recovery walk
+End Of Waypoint
     -> aggression 0.83
-    -> native Hunt
+    -> non-CTF: native Hunt
+    -> CTF: native-backed attack/defend objective choice
 ```
 
 Nearest-item discovery uses the same authoritative world-object list already
@@ -972,7 +1037,7 @@ authoritative inventory state to reproduce the reference carrier guard. A
 non-carrier may route to the nearest potion, while a carrier only diverts when
 the potion passes the normal interaction/visibility test. After the recovery
 waypoint, aggression is restored to `0.83`; non-CTF bots return to Hunt, while
-CTF attack/defend selection remains pending shared team policy.
+CTF bots re-enter the flag strategy documented in section 16.2.
 
 ---
 
@@ -1812,7 +1877,70 @@ move to capture point
 
 ---
 
-## 16.2 `sub_4EA7A0`
+## 16.2 Native flag state used by tactical policy
+
+The high-level CTF policy can derive the Bot-Script decisions directly from
+ordinary native objects; it does not need a duplicate bot-owned flag model.
+
+Confirmed representation:
+
+```text
+flag object +8, bit 0x10000000
+    native Flag class bit
+
+flag object +48 team chain
+    compared through nox_xxx_unitsHaveSameTeam_4EC520
+
+flag object +748
+    flag update data; first two floats are the native home X/Y used by
+    nox_xxx_pickupFlagCtf_4EA490 when deciding whether an own flag needs return
+
+player object +504
+    inventory head; a carried flag is linked into normal player inventory
+```
+
+When a flag is available in the world it appears in the normal server object
+list. On enemy pickup, `nox_xxx_pickupFlagCtf_4EA490` removes it from the world
+and inserts that same flag object into the player's normal inventory. Therefore:
+
+- `nox_bot_engine_ctf_flag_world()` finds an own/enemy world flag by class bit
+  and native team relation;
+- `nox_bot_engine_ctf_flag_carrier()` scans ordinary player inventories and
+  returns the player carrying the matching team flag;
+- `nox_bot_engine_ctf_flag_at_home()` compares current flag position with those
+  home coordinates using the same native tolerance value
+  (`byte_581450[10160]`) used by `4EA490`.
+
+Warrior policy then reproduces only Bot-Script's strategy layer:
+
+```text
+self carries enemy flag
+    -> native Guard at the current own-flag/base target
+
+own flag is in world
+    -> WalkTo enemy flag, or the native player carrying it
+
+both flags are carried
+    -> WalkTo the native player carrying own flag
+
+Lost Sight + own flag dropped away from home
+    -> WalkTo own flag first
+```
+
+The Bot-Script `TeamBase` object is not a fixed spawn marker after startup. Its
+`PreUpdate` path moves it to the team's current flag position every update; when
+the flag is carried, the script first moves that disabled flag to its carrier.
+The native port therefore resolves a world own flag or, when carried, the native
+player carrying it and uses that current position for the carrier's Guard
+destination. This preserves the reference behavior without creating the
+script-only `ExtentBoxSmall` base proxy.
+
+Native collision remains responsible for actual return, pickup, capture,
+scoring, inventory transfer, effects, sounds, and network notifications.
+
+---
+
+## 16.3 `sub_4EA7A0`
 
 Current recovered declaration:
 
@@ -2323,6 +2451,8 @@ nox_xxx_updatePlayerMonsterBot_4FAB20    [assigned as update function]
 nox_xxx_updatePlayer_4F8100              [restored on detach/failure]
 nox_xxx_monsterWalkTo_514110
 nox_xxx_unitHunt_5157A0
+nox_xxx_mobSetFightTarg_515D30            [native NoxScript Attack/Fight target]
+nox_xxx_monsterGoPatrol_515680            [native NoxScript Guard/Patrol]
 nox_xxx_monsterCast_540A30
 nox_xxx_monsterClearActionStack_50A3A0  [only when interruption required]
 nox_xxx_monsterIsActionScheduled_50A090
@@ -2847,6 +2977,8 @@ nox_xxx_monsterClearActionStack_50A3A0
 nox_xxx_unitUpdateMonster_50A5C0
 nox_xxx_monsterWalkTo_514110
 nox_xxx_unitHunt_5157A0
+nox_xxx_mobSetFightTarg_515D30
+nox_xxx_monsterGoPatrol_515680
 ```
 
 ## Perception/events

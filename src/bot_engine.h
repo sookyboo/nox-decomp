@@ -60,6 +60,9 @@ void nox_bot_engine_position(int object, float *x, float *y);
 int nox_bot_engine_set_aggression(int object, float aggression);
 int nox_bot_engine_is_ctf(void);
 int nox_bot_engine_carrying_ctf_flag(int object);
+int nox_bot_engine_ctf_flag_world(int object, int own_team);
+int nox_bot_engine_ctf_flag_carrier(int object, int own_team);
+int nox_bot_engine_ctf_flag_at_home(int flag);
 int nox_bot_engine_use_inventory_potion(int object, const char *type_name);
 int nox_bot_engine_inventory_item(int object, const char *type_name);
 int nox_bot_engine_find_nearest_type(
@@ -75,6 +78,8 @@ int nox_bot_engine_player_attack_step(int object);
 
 void nox_bot_engine_hunt(int object);
 void nox_bot_engine_walk_to(int object, float x, float y);
+void nox_bot_engine_attack_target(int object, int target);
+void nox_bot_engine_guard_position(int object, float x, float y, float radius);
 void nox_bot_engine_interrupt(int object);
 int nox_bot_engine_action_scheduled(int object, int action);
 void nox_bot_engine_cast(int object, int spell, int target);

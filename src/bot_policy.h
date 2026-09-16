@@ -51,6 +51,13 @@ typedef struct nox_bot_warrior_policy_state {
     int last_harpoon_target;
     unsigned char harpoon_charge_pending;
     unsigned char seeking_potion;
+    unsigned char teleport_wake_tracking;
+    unsigned char teleport_wake_event_seen;
+    unsigned char lost_sight_ctf_handled;
+    uint32_t teleport_wake_event_frame;
+    int teleport_wake_target;
+    float teleport_wake_x;
+    float teleport_wake_y;
 } nox_bot_warrior_policy_state;
 
 typedef struct nox_bot_policy_state {
