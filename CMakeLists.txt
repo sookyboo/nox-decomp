@@ -105,6 +105,18 @@ if (BUILD_TESTING)
             target_link_options(bot_wizard_test PRIVATE -m32)
         endif()
         add_test(NAME bot_wizard_test COMMAND bot_wizard_test)
+
+        add_executable(bot_conjurer_test
+            tests/bot_conjurer_test.c
+            src/bot_conjurer.c
+            src/bot_policy.c
+        )
+        target_include_directories(bot_conjurer_test PRIVATE src)
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_conjurer_test PRIVATE -m32)
+            target_link_options(bot_conjurer_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_conjurer_test COMMAND bot_conjurer_test)
     endif()
 
     add_executable(render_arch_test tests/render_arch_test.c)
