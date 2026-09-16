@@ -40,6 +40,7 @@ typedef struct nox_bot_conjurer_policy_state {
     uint32_t global_ready_frame;
     uint32_t next_mana_regen_frame;
     uint32_t next_loot_scan_frame;
+    uint32_t next_weapon_preference_frame;
     uint32_t force_of_nature_ready_frame;
     uint32_t meteor_ready_frame;
     uint32_t toxic_cloud_ready_frame;
