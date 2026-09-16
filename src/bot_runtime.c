@@ -1,6 +1,7 @@
 #include "bot_runtime.h"
 
 #include "bot_engine.h"
+#include "bot_conjurer.h"
 #include "bot_warrior.h"
 #include "bot_wizard.h"
 
@@ -124,6 +125,9 @@ void nox_bot_runtime_update(int object)
         break;
     case 1:
         nox_bot_wizard_update(object, state, nox_bot_engine_frame());
+        break;
+    case 2:
+        nox_bot_conjurer_update(object, state, nox_bot_engine_frame());
         break;
     default:
         break;
