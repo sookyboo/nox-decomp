@@ -52,14 +52,16 @@ Implemented so far:
 - `[x]` Bot-Script reaction delays (`0/15/30/45/60` simulation frames), including wrap-safe deadline comparison;
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
 - `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
-- `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, and partial Warrior decisions.
+- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Slow/Magic Missile/Counterspell priority, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, reference reaction delays, per-spell cooldowns, and native player mana accounting;
+- `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard spell-priority subset.
 
 Still intentionally not implemented where native ownership is not completely recovered:
 
 - `[ ]` claiming/creating a free player slot and player object without a human network client;
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
-- `[ ]` Wizard and Conjurer Bot-Script tactical policy;
+- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority is implemented; Blink, traps, Drain Mana/obelisk routing, projectile reactions, equipment/loot, team roles, and phonemes remain);
+- `[ ]` Conjurer Bot-Script tactical policy;
 - `[~]` native-backed Warrior CTF strategy is implemented; shared multi-class team/objective coordination and bot commands remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
@@ -103,9 +105,18 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
 
 ### Wizard and Conjurer
 
-- the native spell execution substrate is available, but the Bot-Script tactical
-  priorities, defensive/offensive spell selection, mana/healing decisions,
-  summoning, traps, and class-specific teammate commands are not yet ported.
+- Wizard now has a first native tactical slice: Enemy Sighted Slow, the reference
+  visible-target priority through Death Ray/Fireball/Burn/Slow/Magic Missile/
+  Counterspell, basic self buffs/protections, native potion use, reaction delays,
+  per-spell cooldowns, native player mana spending, and the reference default
+  one-point-per-two-seconds passive mana regeneration. Direct spell effects
+  remain owned by Nox;
+- Wizard gaps remain Blink/retreat escape, Trap, Energy Bolt/Ring of Fire and
+  other omitted offensive branches, Drain Mana and mana-obelisk routing,
+  projectile Inversion/Counterspell reactions, loot/wand preference, CTF TeamTank
+  role-aware invisibility, teammate commands, and phoneme sequencing;
+- Conjurer tactical priorities, summoning, healing/mana decisions, and
+  class-specific teammate commands remain unported.
 
 ### Team and game-mode strategy
 
@@ -934,6 +945,40 @@ no immediate visible target
 ```
 
 Again, preserve behaviour first and refactor later.
+
+### Current native Wizard subset
+
+The optional native runtime now dispatches class `1` players to `bot_wizard.c`.
+This first slice deliberately uses the NoxScript-style direct spell dispatcher
+rather than player keyboard spell entry. The adapter enters the native player-bot
+monster view so spell power comes from the AI configuration created by `4FA700`,
+then supplies the engine's ordinary `{target object, target position}` spell
+argument. Nox remains authoritative for the spell effect itself.
+
+The current policy ports these high-confidence reference decisions:
+
+- Enemy Sighted attempts Slow after the configured difficulty reaction delay;
+- visible targets preserve the reference priority among Death Ray (held/slowed or
+  while the Wizard is invisible), Fireball, Burn against Reflective Shield, Slow,
+  Magic Missile, and Counterspell against Shock;
+- when no higher-priority attack is selected, Shield is preferred, followed at
+  high mana by Lesser Heal, Haste, and Shock;
+- when the target is not visible, Protection From Electricity and Protection From
+  Fire are considered before Invisibility;
+- RedPotion at `<= 25` health and BluePotion at `<= 100` mana use the native
+  player inventory/potion path;
+- the Go bot's spell costs are charged against authoritative native player mana;
+  with the reference default `BotMana=true`, one native mana point is restored
+  every two simulation seconds up to the reference 150-mana ceiling;
+- the Bot-Script global three-frame gate and individual cooldown deadlines
+  remain server-local policy state.
+
+Spell phoneme sequences are intentionally not part of this first slice. Blink,
+Trap, Drain Mana/obelisk routing, missile Inversion logic, wand/loot preference,
+and several secondary offensive spells remain explicit gaps. The Go reference
+only suppresses Invisibility for its CTF `TeamTank`; native team-role assignment
+is not yet ported, so the current subset conservatively suppresses Wizard
+Invisibility for all CTF bots rather than guessing that role.
 
 ---
 

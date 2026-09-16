@@ -67,10 +67,16 @@ static int script_cast_calls;
 static int script_cast_spell;
 static int script_cast_object;
 static int script_cast_target;
+static float script_cast_x;
+static float script_cast_y;
 static int script_cast_category;
 static int script_cast_runtime;
 static int buff_remove_calls;
 static int last_removed_buff;
+static int mana_add_calls;
+static int mana_sub_calls;
+static int last_mana_sub_object;
+static int last_mana_sub_amount;
 
 static unsigned char created_bot_ai[0x898];
 
@@ -144,7 +150,9 @@ int __cdecl sub_4FDD20(int spell, _DWORD *object, int *arg)
     ++script_cast_calls;
     script_cast_spell = spell;
     script_cast_object = (int)(uintptr_t)object;
-    script_cast_target = arg ? *arg : 0;
+    script_cast_target = arg ? arg[0] : 0;
+    script_cast_x = arg ? ((float *)arg)[1] : 0.0f;
+    script_cast_y = arg ? ((float *)arg)[2] : 0.0f;
     script_cast_category = object ? object[2] : 0;
     script_cast_runtime = object ? object[187] : 0;
     return 1;
@@ -310,6 +318,28 @@ __int16 __cdecl sub_4EEC80(int object)
 __int16 __cdecl sub_4EECB0(int object)
 {
     return object ? 888 : 0;
+}
+
+unsigned __int16 __cdecl sub_4EEB80(int object, __int16 amount)
+{
+    int runtime = object ? *(int *)(object + 748) : 0;
+
+    ++mana_add_calls;
+    if (runtime)
+        *(unsigned short *)(runtime + 4) += (unsigned short)amount;
+    return runtime ? *(unsigned short *)(runtime + 4) : 0;
+}
+
+_DWORD *__cdecl sub_4EEBF0(int object, int amount)
+{
+    int runtime = object ? *(int *)(object + 748) : 0;
+
+    ++mana_sub_calls;
+    last_mana_sub_object = object;
+    last_mana_sub_amount = amount;
+    if (runtime && *(unsigned short *)(runtime + 4) >= amount)
+        *(unsigned short *)(runtime + 4) -= (unsigned short)amount;
+    return (_DWORD *)(uintptr_t)runtime;
 }
 
 int __cdecl sub_5370E0(int self, int other, char flags)
@@ -632,7 +662,8 @@ static int test_script_cast_buff_and_type_wrappers(void)
     if (!nox_bot_engine_cast_script_self(object_ptr, "SLOW"))
         return 62;
     if (script_cast_calls != 1 || script_cast_spell != 55 ||
-        script_cast_object != object_ptr || script_cast_target != object_ptr)
+        script_cast_object != object_ptr || script_cast_target != object_ptr ||
+        script_cast_x != 3.0f || script_cast_y != 4.0f)
         return 63;
     if (!(script_cast_category & 2) || script_cast_runtime != (int)(uintptr_t)ai ||
         morph_from_calls != 1 || morph_to_calls != 1)
@@ -640,6 +671,23 @@ static int test_script_cast_buff_and_type_wrappers(void)
     if (*(uint32_t *)(object + 8) != 4 ||
         *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime)
         return 65;
+    {
+        unsigned char target[800];
+        int target_ptr;
+
+        memset(target, 0, sizeof(target));
+        target_ptr = (int)(uintptr_t)target;
+        *(float *)(target + 56) = 8.0f;
+        *(float *)(target + 60) = 10.0f;
+        if (!nox_bot_engine_cast_script_object(object_ptr, "SLOW", target_ptr) ||
+            script_cast_target != target_ptr || script_cast_x != 8.0f || script_cast_y != 10.0f)
+            return 68;
+        if (!nox_bot_engine_cast_script_position(object_ptr, "SLOW", 12.0f, 14.0f) ||
+            script_cast_target != 0 || script_cast_x != 12.0f || script_cast_y != 14.0f)
+            return 69;
+        if (last_face_x != 9.0f || last_face_y != 10.0f)
+            return 60;
+    }
     if (!nox_bot_engine_remove_buff(object_ptr, 5))
         return 66;
     if (buff_remove_calls != 1 || last_removed_buff != 5)
@@ -673,9 +721,19 @@ static int test_tactical_observation_wrappers(void)
         return 72;
     if (nox_bot_engine_mana(object_ptr) != 42 || nox_bot_engine_max_mana(object_ptr) != 100)
         return 73;
+    mana_add_calls = 0;
+    if (!nox_bot_engine_mana_add(object_ptr, 3) || nox_bot_engine_mana(object_ptr) != 45 ||
+        mana_add_calls != 1)
+        return 80;
+    mana_sub_calls = 0;
+    if (!nox_bot_engine_mana_sub(object_ptr, 15) || nox_bot_engine_mana(object_ptr) != 30 ||
+        mana_sub_calls != 1 || last_mana_sub_object != object_ptr || last_mana_sub_amount != 15)
+        return 78;
+    if (nox_bot_engine_mana_sub(object_ptr, 31) || mana_sub_calls != 1)
+        return 79;
     *(uint32_t *)(object + 8) = 2;
     *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)ai;
-    if (nox_bot_engine_mana(object_ptr) != 42 || nox_bot_engine_max_mana(object_ptr) != 100)
+    if (nox_bot_engine_mana(object_ptr) != 30 || nox_bot_engine_max_mana(object_ptr) != 100)
         return 74;
     *(uint32_t *)(object + 8) = 4;
     *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)runtime;
