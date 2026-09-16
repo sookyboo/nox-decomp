@@ -79,6 +79,23 @@ static int mana_add_calls;
 static int mana_sub_calls;
 static int last_mana_sub_object;
 static int last_mana_sub_amount;
+static int summon_cage_used_value;
+static int summon_limit_object;
+static int summon_limit_index;
+static int summon_limit_result;
+static int random_minimum;
+static int random_maximum;
+static int random_result;
+static int glyph_create_calls;
+static int glyph_place_calls;
+static int glyph_destroy_calls;
+static int glyph_owner_calls;
+static int glyph_owner_object;
+static int glyph_owner_item;
+static float glyph_x;
+static float glyph_y;
+static unsigned char glyph_object[800];
+static unsigned char glyph_init[64];
 
 static unsigned char created_bot_ai[0x898];
 
@@ -137,6 +154,16 @@ int __cdecl sub_51E1D0(const char *name)
         return 44;
     if (strcmp(name, "SLOW") == 0)
         return 55;
+    if (strcmp(name, "SUMMON_WASP") == 0)
+        return 75;
+    if (strcmp(name, "BLINK") == 0)
+        return 66;
+    if (strcmp(name, "CLEANSING_FLAME") == 0)
+        return 67;
+    if (strcmp(name, "MAGIC_MISSILE") == 0)
+        return 68;
+    if (strcmp(name, "SHOCK") == 0)
+        return 69;
     return 0;
 }
 
@@ -287,6 +314,65 @@ int __cdecl sub_509ED0(float2 *delta)
     last_face_x = delta->field_0;
     last_face_y = delta->field_4;
     return 77;
+}
+
+signed int __cdecl sub_53C580(int object)
+{
+    return object != 0;
+}
+
+int __cdecl sub_500D10(int object)
+{
+    return object ? summon_cage_used_value : 0;
+}
+
+bool __cdecl sub_500D70(int object, int summon_index)
+{
+    summon_limit_object = object;
+    summon_limit_index = summon_index;
+    return summon_limit_result != 0;
+}
+
+int __cdecl sub_415FA0(int minimum, int maximum)
+{
+    random_minimum = minimum;
+    random_maximum = maximum;
+    return random_result;
+}
+
+_DWORD *__cdecl sub_4E3810(CHAR *name)
+{
+    if (!name || strcmp(name, "Glyph") != 0)
+        return 0;
+    ++glyph_create_calls;
+    memset(glyph_object, 0, sizeof(glyph_object));
+    memset(glyph_init, 0, sizeof(glyph_init));
+    *(uint32_t *)(glyph_object + 692) = (uint32_t)(uintptr_t)glyph_init;
+    return (_DWORD *)glyph_object;
+}
+
+char __cdecl sub_4DAA50(int object, int owner, float x, float y)
+{
+    if (object == (int)(uintptr_t)glyph_object && owner == 0) {
+        ++glyph_place_calls;
+        glyph_x = x;
+        glyph_y = y;
+    }
+    return 1;
+}
+
+int __cdecl sub_4E38A0(int object)
+{
+    if (object == (int)(uintptr_t)glyph_object)
+        ++glyph_destroy_calls;
+    return 1;
+}
+
+void __cdecl sub_4EC290(int owner, int item)
+{
+    ++glyph_owner_calls;
+    glyph_owner_object = owner;
+    glyph_owner_item = item;
 }
 
 int __cdecl sub_5330C0(int self, int other)
@@ -924,6 +1010,103 @@ static int test_world_loot_and_equipment_wrappers(void)
     return 0;
 }
 
+static int test_mana_source_and_summon_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    unsigned char near_source[800];
+    unsigned char far_source[800];
+    int near_charge = 20;
+    int far_charge = 30;
+    int object_ptr;
+    int near_ptr;
+    int far_ptr;
+
+    make_native_bot(object, runtime, info, ai, 10, 0);
+    memset(near_source, 0, sizeof(near_source));
+    memset(far_source, 0, sizeof(far_source));
+    object_ptr = (int)(uintptr_t)object;
+    near_ptr = (int)(uintptr_t)near_source;
+    far_ptr = (int)(uintptr_t)far_source;
+    *(float *)(object + 56) = 0.0f;
+    *(float *)(object + 60) = 0.0f;
+    *(float *)(near_source + 56) = 10.0f;
+    *(float *)(far_source + 56) = 30.0f;
+    *(uint32_t *)(near_source + 744) = (uint32_t)(uintptr_t)sub_53C580;
+    *(uint32_t *)(far_source + 744) = (uint32_t)(uintptr_t)sub_53C580;
+    *(uint32_t *)(near_source + 748) = (uint32_t)(uintptr_t)&near_charge;
+    *(uint32_t *)(far_source + 748) = (uint32_t)(uintptr_t)&far_charge;
+    *(uint32_t *)(near_source + 444) = (uint32_t)(uintptr_t)far_source;
+    world_head = near_ptr;
+    world_test_player = object_ptr;
+    world_hidden_object = near_ptr;
+
+    if (nox_bot_engine_find_nearest_mana_source(object_ptr, 10, 0) != near_ptr)
+        return 120;
+    if (nox_bot_engine_find_nearest_mana_source(object_ptr, 10, 1) != far_ptr)
+        return 121;
+    near_charge = 5;
+    if (nox_bot_engine_find_nearest_mana_source(object_ptr, 10, 0) != far_ptr)
+        return 122;
+
+    summon_cage_used_value = 3;
+    if (nox_bot_engine_summon_cage_used(object_ptr) != 3)
+        return 124;
+    summon_limit_result = 1;
+    summon_limit_object = 0;
+    summon_limit_index = 0;
+    if (!nox_bot_engine_summon_spell_fits(object_ptr, "SUMMON_WASP") ||
+        summon_limit_object != object_ptr || summon_limit_index != 1)
+        return 125;
+    if (nox_bot_engine_summon_spell_fits(object_ptr, "NOT_A_SUMMON"))
+        return 126;
+
+    random_result = 2;
+    if (nox_bot_engine_random_int(1, 3) != 2 || random_minimum != 1 || random_maximum != 3)
+        return 127;
+
+    glyph_create_calls = 0;
+    glyph_place_calls = 0;
+    glyph_destroy_calls = 0;
+    glyph_owner_calls = 0;
+    glyph_owner_object = 0;
+    glyph_owner_item = 0;
+    if (nox_bot_engine_create_spell_trap(object_ptr, "BLINK") !=
+            (int)(uintptr_t)glyph_object ||
+        glyph_create_calls != 1 || glyph_place_calls != 1 || glyph_destroy_calls ||
+        glyph_x != 0.0f || glyph_y != 0.0f ||
+        *(uint32_t *)(glyph_init + 0) != 66 ||
+        *(uint32_t *)(glyph_init + 20) != 1 ||
+        *(uint32_t *)(glyph_init + 24) != 0 ||
+        *(float *)(glyph_init + 28) != 0.0f ||
+        *(float *)(glyph_init + 32) != 0.0f)
+        return 128;
+
+    if (nox_bot_engine_create_owned_spell_trap3(
+            object_ptr, "CLEANSING_FLAME", "MAGIC_MISSILE", "SHOCK") !=
+            (int)(uintptr_t)glyph_object ||
+        glyph_create_calls != 2 || glyph_place_calls != 2 || glyph_destroy_calls ||
+        glyph_owner_calls != 1 || glyph_owner_object != object_ptr ||
+        glyph_owner_item != (int)(uintptr_t)glyph_object ||
+        *(uint32_t *)(glyph_init + 0) != 67 ||
+        *(uint32_t *)(glyph_init + 4) != 68 ||
+        *(uint32_t *)(glyph_init + 8) != 69 ||
+        *(uint32_t *)(glyph_init + 20) != 3 ||
+        *(uint32_t *)(glyph_init + 24) != 0 ||
+        *(float *)(glyph_init + 28) != 0.0f ||
+        *(float *)(glyph_init + 32) != 0.0f)
+        return 129;
+
+    world_head = 0;
+    world_test_player = 0;
+    world_hidden_object = 0;
+    summon_cage_used_value = 0;
+    summon_limit_result = 0;
+    return 0;
+}
+
 static int test_aggression_and_game_mode_wrappers(void)
 {
     unsigned char object[800];
@@ -1153,6 +1336,9 @@ int main(void)
     if (result)
         return result;
     result = test_world_loot_and_equipment_wrappers();
+    if (result)
+        return result;
+    result = test_mana_source_and_summon_wrappers();
     if (result)
         return result;
     result = test_aggression_and_game_mode_wrappers();

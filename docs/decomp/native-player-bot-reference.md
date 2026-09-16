@@ -102,16 +102,17 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   mana spending; native nearby loot/equip pickup, the reference
   FireStormWand/ForceWand preference, and shared CTF steering are also
   implemented. Hostile DeathBall Counterspell, generic target-owned missile
-  Inversion, and CTF carrier-role-aware Invisibility are also implemented. Blink,
-  traps, Drain Mana/obelisk routing, broader team-role coordination, and phonemes
-  remain;
+  Inversion, Bot-Script Blink-as-Glyph escape, the owned three-spell Glyph Trap,
+  native mana-source routing, and CTF carrier-role-aware Invisibility are also
+  implemented. Drain Mana, broader team-role coordination, and phonemes remain;
 - **Conjurer policy:** the direct-cast priority slice now includes Pixie Swarm
   gated by authoritative owned-Pixie world state, native mana/buff/spell
   ownership, hostile DeathBall Counterspell, generic target-owned missile
-  Inversion, native nearby loot/equip pickup, and shared CTF steering. Blink,
-  random creature summons/creature-cage accounting, mana-obelisk routing, the
-  reference's internally inconsistent 10-second
-  weapon preference, team roles, commands, and phonemes remain;
+  Inversion, Bot-Script Blink-as-Glyph escape, native nearby loot/equip pickup,
+  native random summon spells/cage accounting, mana-source routing, and shared
+  CTF steering. The custom Bomber summon branch, the reference's internally
+  inconsistent 10-second weapon preference, team roles, commands, and phonemes
+  remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1531,8 +1532,18 @@ for the rest of the life because the reference cooldown callback writes
 `ShockReady=true` instead of restoring `RingOfFireReady`. The Enemy Heard
 `castFireballAtHeard()` branch is not reproduced because its caller requires an
 unseen target while the helper itself requires visibility, making that cast
-unreachable as written. Blink, traps, Drain Mana/obelisk routing, and phoneme
-sequencing remain outside this slice. Hostile `DeathBall` reaction is implemented
+unreachable as written. Bot-Script Blink is implemented as the script actually
+uses it: a `Glyph` is created at the bot with `BLINK` as its sole trap spell,
+rather than directly casting Blink on the player. The normal mana-obelisk route
+is also implemented: low-mana hit/waypoint handling and missing core buffs choose
+the nearest native mana source with at least 10 charge, lower aggression, and
+walk there; an active CTF `TeamTank` only chooses a visible source. Native
+`sub_53C580` remains authoritative for the actual 50-unit mana transfer and source
+regeneration. Hidden-target Trap placement now mirrors the reference owned
+three-spell `Glyph`: `CLEANSING_FLAME`, `MAGIC_MISSILE`, and `SHOCK`, with a
+105-mana cost, five-second Trap cooldown, 15-frame global gate, and no more than
+four active Glyphs owned by the Wizard. Drain Mana/its extended source-drain
+behavior and phoneme sequencing remain outside this slice. Hostile `DeathBall` reaction is implemented
 by scanning the native world list within 500 units, following object owner links
 at `+492`, requiring an enemy player/monster in that chain, and scheduling
 Counterspell at the Wizard position. If no `DeathBall` is present, a class-`0x01`
@@ -1571,8 +1582,12 @@ ordinary visible target
     -> Slow in CTF
 
 no visible target
-    -> Vampirism -> Protection From Electricity
-       -> Protection From Fire -> Protection From Poison
+    -> Vampirism -> random native summon
+       -> Protection From Electricity -> Protection From Fire
+       -> Protection From Poison
+
+Retreat, visible Held/Slowed self, or hidden Slowed self
+    -> Blink Glyph escape (except CTF TeamTank)
 ```
 
 Lesser Heal is considered before visible-target offense when health is `<= 60`
@@ -1594,10 +1609,15 @@ than being forced through the weapon-equip function. Lost Sight and End Of
 Waypoint in CTF call the shared `bot_team.c` destination policy; CTF mechanics
 remain native.
 
-The following reference systems are intentionally not folded into this slice:
-Blink's `NewTrap` execution, random creature summoning/creature-cage accounting,
-and mana-obelisk transfer. Hostile `DeathBall` Counterspell is implemented
-through the same native owner-chain
+Blink now follows the reference `NewTrap` semantics by creating a native `Glyph`
+at the Conjurer and storing `BLINK` in its glyph init data. Random creature policy
+uses the reference small/medium/large selection and cooldown families, but checks
+capacity through native `sub_500D10`/`sub_500D70` rather than maintaining a second
+`CreatureCage` counter. The ordinary mana-source route uses the same native
+`sub_53C580` source state and transfer path as Wizard. The custom Bot-Script
+Bomber creation branch is intentionally still omitted because it creates and
+configures a Bomber/Glyph object rather than invoking an ordinary summon spell.
+Hostile `DeathBall` Counterspell is implemented through the same native owner-chain
 search as Wizard policy; the Conjurer keeps the reference 20-second cooldown for
 that reaction while its ordinary Counterspell remains 5 seconds. If no nearby
 `DeathBall` exists, a class-`0x01` missile whose owner chain reaches the current
@@ -1895,6 +1915,38 @@ that `object +8 & 0x01` is the missile-class test. It separately requires
 `object +12 & 0x02` before transferring a missile's ownership/direction, so bot
 policy intentionally filters only `ClassMissile` as the Go reference does and
 leaves the actual invertibility/magic-missile decision to native Inversion.
+
+The same adapter now exposes native mana-source and summon ownership without
+creating parallel bot state:
+
+- `nox_bot_engine_find_nearest_mana_source()` scans world objects whose update
+  callback is `sub_53C580`, reads their native runtime charge at `+748`, requires
+  at least the requested charge, and optionally applies the normal visibility
+  trace for the CTF `TeamTank` rule. `sub_53C580(source)` takes the mana-source
+  object, scans nearby eligible players within 50 world units, consumes source
+  charge while increasing player mana, and regenerates an idle source toward 50;
+  policy only chooses/walks to a source and never reproduces that transfer.
+- `nox_bot_engine_summon_cage_used()` delegates to `sub_500D10(player)`, which
+  walks the player's native controlled/summoned-object chain and sums each
+  creature's cage weight. `nox_bot_engine_summon_spell_fits()` resolves the
+  summon spell, converts the spell ID to the native summon index (`spell - 74`),
+  and delegates to `sub_500D70(player, index)`, whose observable contract is
+  `current cage weight + requested summon weight <= 4`. This keeps the engine's
+  summon list and metadata authoritative.
+- `nox_bot_engine_random_int()` delegates Conjurer summon selection to native
+  `sub_415FA0(min, max)`. The decompiled helper advances the engine RNG table and
+  returns an inclusive value in `[min, max]`, preserving the Bot-Script's
+  `Random(1, N)` category/creature weighting without adding a second bot RNG.
+- `nox_bot_engine_create_spell_trap()` mirrors NoxScript `NewTrap` for the bot
+  escape case: create a native `Glyph`, place it at the bot, and populate the
+  recovered glyph init layout (`Spells[5]`, count at `+20`, spell argument object
+  at `+24`, position at `+28/+32`). Blink policy therefore creates a Blink glyph;
+  it does not reinterpret `NewTrap(..., BLINK)` as a direct Blink cast.
+- `nox_bot_engine_create_owned_spell_trap3()` uses that same recovered Glyph
+  layout for Wizard Trap and then calls native `sub_4EC290(owner, glyph)`, the
+  engine ownership path behind NoxScript `SetOwner`. The policy counts `Glyph`
+  objects through the existing owner-chain world query instead of maintaining a
+  second TrapCount, so native object ownership remains authoritative.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.
@@ -3292,6 +3344,12 @@ nox_xxx_buffApplyTo_4FF380
 nox_xxx_spellBuffOff_4FF5B0
 sub_52BEB0                         [native Inversion area scan]
 sub_52BE40                         [native missile inversion/ownership transfer]
+sub_53C580                         [native mana-source transfer/regeneration update]
+sub_500D10                         [native controlled-summon cage weight]
+sub_500D70                         [native requested-summon capacity check]
+sub_415FA0                         [native inclusive RNG used by random summon policy]
+sub_4E3810 / sub_4DAA50            [native object creation/placement used by NewTrap parity]
+sub_4EC290                          [native SetOwner path used by Wizard Trap Glyph]
 ```
 
 ## Spawn/respawn

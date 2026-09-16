@@ -45,6 +45,17 @@ static int firestorm_item;
 static int force_wand_item;
 static int ctf_walk_own_flag_calls;
 static int ctf_attack_or_defend_calls;
+static int mana_source;
+static int mana_source_require_visible;
+static int aggression_calls;
+static float aggression_value;
+static int walk_calls;
+static float walk_x;
+static float walk_y;
+static int trap_calls;
+static char trap_name[64];
+static int owned_glyphs;
+static int owned_trap_calls;
 
 static uint32_t buff_mask(int buff)
 {
@@ -105,9 +116,9 @@ int nox_bot_engine_can_interact(int self, int other)
 void nox_bot_engine_position(int object, float *x, float *y)
 {
     if (x)
-        *x = object == TARGET ? 30.0f : 10.0f;
+        *x = object == TARGET ? 30.0f : (object == mana_source ? 50.0f : 10.0f);
     if (y)
-        *y = object == TARGET ? 40.0f : 20.0f;
+        *y = object == TARGET ? 40.0f : (object == mana_source ? 60.0f : 20.0f);
 }
 
 static void record_cast(const char *name, int kind, int target, float x, float y)
@@ -220,6 +231,62 @@ int nox_bot_engine_find_nearest_missile_owned_by(
         max_distance >= 500.0f ? 901 : 0;
 }
 
+int nox_bot_engine_find_nearest_mana_source(
+    int object, int minimum_mana, int require_visible)
+{
+    if (object != SELF || minimum_mana != 10)
+        return 0;
+    mana_source_require_visible = require_visible;
+    return mana_source;
+}
+
+int nox_bot_engine_set_aggression(int object, float aggression)
+{
+    if (object != SELF)
+        return 0;
+    ++aggression_calls;
+    aggression_value = aggression;
+    return 1;
+}
+
+void nox_bot_engine_walk_to(int object, float x, float y)
+{
+    if (object != SELF)
+        return;
+    ++walk_calls;
+    walk_x = x;
+    walk_y = y;
+}
+
+int nox_bot_engine_create_spell_trap(int object, const char *spell_name)
+{
+    if (object != SELF || !spell_name)
+        return 0;
+    ++trap_calls;
+    strncpy(trap_name, spell_name, sizeof(trap_name) - 1);
+    trap_name[sizeof(trap_name) - 1] = '\0';
+    return 700;
+}
+
+int nox_bot_engine_create_owned_spell_trap3(
+    int object, const char *spell1, const char *spell2, const char *spell3)
+{
+    if (object != SELF || !spell1 || !spell2 || !spell3 ||
+        strcmp(spell1, "CLEANSING_FLAME") != 0 ||
+        strcmp(spell2, "MAGIC_MISSILE") != 0 ||
+        strcmp(spell3, "SHOCK") != 0)
+        return 0;
+    ++owned_trap_calls;
+    ++owned_glyphs;
+    return 701;
+}
+
+int nox_bot_engine_owned_type_count(int object, const char *type_name)
+{
+    return object == SELF && type_name && strcmp(type_name, "Glyph") == 0 ?
+        owned_glyphs : 0;
+}
+
 int nox_bot_engine_find_nearest_visible_type(
     int object, const char *type_name, float max_distance)
 {
@@ -309,6 +376,17 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     force_wand_item = 0;
     ctf_walk_own_flag_calls = 0;
     ctf_attack_or_defend_calls = 0;
+    mana_source = 0;
+    mana_source_require_visible = 0;
+    aggression_calls = 0;
+    aggression_value = 0.0f;
+    walk_calls = 0;
+    walk_x = 0.0f;
+    walk_y = 0.0f;
+    trap_calls = 0;
+    trap_name[0] = '\0';
+    owned_glyphs = 0;
+    owned_trap_calls = 0;
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -643,6 +721,102 @@ static int test_ctf_objective_events(void)
     return 0;
 }
 
+static int test_retreat_blinks_with_reaction_and_cooldown(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 590);
+
+    if (!state)
+        return 150;
+    self_buffs = buff_mask(ENCHANT_SHIELD) | buff_mask(ENCHANT_HASTED) |
+        buff_mask(ENCHANT_SHOCK) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_RETREAT, 0, 590);
+    nox_bot_wizard_update(SELF, state, 590);
+    if (!state->wizard.pending_spell || cast_calls ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_RETREAT))
+        return 151;
+    nox_bot_wizard_update(SELF, state, 604);
+    if (cast_calls)
+        return 152;
+    nox_bot_wizard_update(SELF, state, 605);
+    if (cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0 ||
+        self_mana != 140 || state->wizard.blink_ready_frame != 635)
+        return 153;
+    return 0;
+}
+
+static int test_low_mana_hit_routes_to_native_obelisk(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 595);
+
+    if (!state)
+        return 154;
+    self_mana = 20;
+    mana_source = 600;
+    self_buffs = buff_mask(ENCHANT_SHIELD) | buff_mask(ENCHANT_HASTED) |
+        buff_mask(ENCHANT_SHOCK) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_IS_HIT, TARGET, 595);
+    nox_bot_wizard_update(SELF, state, 595);
+    if (!state->wizard.mana_route_active || state->wizard.mana_source != 600 ||
+        mana_source_require_visible || aggression_calls != 1 || aggression_value != 0.16f ||
+        walk_calls != 1 || walk_x != 50.0f || walk_y != 60.0f ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_IS_HIT))
+        return 155;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 596);
+    if (!state)
+        return 156;
+    self_mana = 20;
+    mana_source = 600;
+    ctf_mode = 1;
+    ctf_tank = 1;
+    self_buffs = buff_mask(ENCHANT_SHIELD) | buff_mask(ENCHANT_HASTED) |
+        buff_mask(ENCHANT_SHOCK) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_IS_HIT, TARGET, 596);
+    nox_bot_wizard_update(SELF, state, 596);
+    if (!mana_source_require_visible || walk_calls != 1)
+        return 157;
+    return 0;
+}
+
+static int test_hidden_target_creates_owned_spell_trap(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 598);
+
+    if (!state)
+        return 158;
+    state->wizard.target = TARGET;
+    target_visible = 0;
+    owned_glyphs = 3;
+    self_buffs = buff_mask(ENCHANT_INVISIBLE) | buff_mask(ENCHANT_SHIELD) |
+        buff_mask(ENCHANT_HASTED) | buff_mask(ENCHANT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_SHOCK) | buff_mask(ENCHANT_PROTECT_FIRE);
+    nox_bot_wizard_update(SELF, state, 598);
+    if (!state->wizard.pending_spell || owned_trap_calls || self_mana != 150)
+        return 159;
+    nox_bot_wizard_update(SELF, state, 598);
+    if (owned_trap_calls != 1 || owned_glyphs != 4 || self_mana != 45 ||
+        state->wizard.trap_ready_frame != 748 ||
+        state->wizard.global_ready_frame != 613)
+        return 160;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 599);
+    if (!state)
+        return 161;
+    state->wizard.target = TARGET;
+    target_visible = 0;
+    owned_glyphs = 4;
+    self_buffs = buff_mask(ENCHANT_INVISIBLE) | buff_mask(ENCHANT_SHIELD) |
+        buff_mask(ENCHANT_HASTED) | buff_mask(ENCHANT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_SHOCK) | buff_mask(ENCHANT_PROTECT_FIRE);
+    nox_bot_wizard_update(SELF, state, 599);
+    if (state->wizard.pending_spell || owned_trap_calls)
+        return 162;
+    return 0;
+}
+
 static int test_death_clears_wizard_life_state(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_NORMAL, 600);
@@ -704,6 +878,15 @@ int main(void)
     if (result)
         return result;
     result = test_ctf_objective_events();
+    if (result)
+        return result;
+    result = test_retreat_blinks_with_reaction_and_cooldown();
+    if (result)
+        return result;
+    result = test_low_mana_hit_routes_to_native_obelisk();
+    if (result)
+        return result;
+    result = test_hidden_target_creates_owned_spell_trap();
     if (result)
         return result;
     return test_death_clears_wizard_life_state();
