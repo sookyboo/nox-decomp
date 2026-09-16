@@ -49,6 +49,9 @@ static int last_equip_armor_item;
 static int player_attack_start_calls;
 static int player_attack_step_calls;
 static int player_attack_step_result = 1;
+static int aggression_set_calls;
+static float last_aggression;
+static int game_flags;
 
 static unsigned char created_bot_ai[0x898];
 
@@ -269,6 +272,25 @@ int __cdecl sub_5370E0(int self, int other, char flags)
     if (world_test_player && self == world_test_player)
         return flags == 0 && other != world_hidden_object;
     return self == 60 && other == 70 && flags == 0;
+}
+
+int __cdecl sub_515980(int object, _DWORD *value)
+{
+    int runtime = object ? *(int *)(object + 748) : 0;
+
+    ++aggression_set_calls;
+    if (value)
+        memcpy(&last_aggression, value, sizeof(last_aggression));
+    if (runtime && value) {
+        *(_DWORD *)(runtime + 1304) = *value;
+        *(_DWORD *)(runtime + 1308) = *value;
+    }
+    return runtime;
+}
+
+BOOL __cdecl sub_40A5C0(int flag)
+{
+    return (game_flags & flag) != 0;
 }
 
 _DWORD *__cdecl sub_537520(_DWORD *object)
@@ -630,39 +652,85 @@ static int test_world_loot_and_equipment_wrappers(void)
     *(uint16_t *)(near_item + 4) = 78;
     *(float *)(near_item + 56) = 25.0f;
 
-    if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 75.0f) != near_ptr)
+    if (nox_bot_engine_find_nearest_type(object_ptr, "GreatSword", 75.0f) !=
+        (int)(uintptr_t)hidden_item)
         return 85;
-    if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 20.0f))
+    if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 75.0f) != near_ptr)
         return 86;
+    if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 20.0f))
+        return 87;
 
     pickup_calls = 0;
     if (!nox_bot_engine_pickup_item(object_ptr, near_ptr))
-        return 87;
-    if (pickup_calls != 1 || last_pickup_player != object_ptr || last_pickup_item != near_ptr)
         return 88;
+    if (pickup_calls != 1 || last_pickup_player != object_ptr || last_pickup_item != near_ptr)
+        return 89;
 
     *(uint32_t *)(object + 504) = (uint32_t)(uintptr_t)near_item;
     *(uint32_t *)(near_item + 496) = 0;
     if (nox_bot_engine_inventory_item(object_ptr, "GreatSword") != near_ptr)
-        return 89;
+        return 90;
     equip_weapon_calls = 0;
     if (!nox_bot_engine_equip_weapon(object_ptr, near_ptr))
-        return 90;
+        return 91;
     if (equip_weapon_calls != 1 || last_equip_weapon_player != object_ptr ||
         last_equip_weapon_item != near_ptr)
-        return 91;
+        return 92;
 
     *(uint16_t *)(armor_item + 4) = 99;
     equip_armor_calls = 0;
     if (!nox_bot_engine_equip_armor(object_ptr, armor_ptr))
-        return 92;
+        return 93;
     if (equip_armor_calls != 1 || last_equip_armor_player != object_ptr ||
         last_equip_armor_item != armor_ptr)
-        return 93;
+        return 94;
 
     world_head = 0;
     world_test_player = 0;
     world_hidden_object = 0;
+    return 0;
+}
+
+static int test_aggression_and_game_mode_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    unsigned char flag_item[600];
+    int object_ptr;
+
+    make_native_bot(object, runtime, info, ai, 11, 0);
+    memset(flag_item, 0, sizeof(flag_item));
+    object_ptr = (int)(uintptr_t)object;
+    aggression_set_calls = 0;
+    last_aggression = 0.0f;
+    morph_from_calls = 0;
+    morph_to_calls = 0;
+    if (!nox_bot_engine_set_aggression(object_ptr, 0.16f))
+        return 100;
+    if (aggression_set_calls != 1 || last_aggression != 0.16f ||
+        *(float *)(ai + 1304) != 0.16f || *(float *)(ai + 1308) != 0.16f)
+        return 101;
+    if (morph_from_calls != 1 || morph_to_calls != 1)
+        return 102;
+
+    game_flags = 0;
+    if (nox_bot_engine_is_ctf())
+        return 103;
+    game_flags = 0x20;
+    if (!nox_bot_engine_is_ctf())
+        return 104;
+    if (nox_bot_engine_carrying_ctf_flag(object_ptr))
+        return 105;
+    *(uint32_t *)(flag_item + 8) = 0x10000000u;
+    *(uint32_t *)(object + 504) = (uint32_t)(uintptr_t)flag_item;
+    if (!nox_bot_engine_carrying_ctf_flag(object_ptr))
+        return 106;
+    *(uint32_t *)(object + 8) = 2;
+    if (nox_bot_engine_carrying_ctf_flag(object_ptr))
+        return 107;
+    game_flags = 0;
     return 0;
 }
 
@@ -781,6 +849,9 @@ int main(void)
     if (result)
         return result;
     result = test_world_loot_and_equipment_wrappers();
+    if (result)
+        return result;
+    result = test_aggression_and_game_mode_wrappers();
     if (result)
         return result;
     result = test_player_weapon_attack_wrappers();
