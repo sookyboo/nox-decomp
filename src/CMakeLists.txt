@@ -160,6 +160,7 @@ if (USE_BOT_SUPPORT)
         bot_policy.c
         bot_runtime.c
         bot_warrior.c
+        bot_wizard.c
     )
     add_compile_definitions(NOX_BOT_SUPPORT)
 endif()

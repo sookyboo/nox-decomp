@@ -2,6 +2,7 @@
 
 #include "bot_engine.h"
 #include "bot_warrior.h"
+#include "bot_wizard.h"
 
 int nox_bot_runtime_attach_existing_player(int object, nox_bot_difficulty difficulty)
 {
@@ -120,6 +121,9 @@ void nox_bot_runtime_update(int object)
     switch (nox_bot_engine_player_class(object)) {
     case 0:
         nox_bot_warrior_update(object, state, nox_bot_engine_frame());
+        break;
+    case 1:
+        nox_bot_wizard_update(object, state, nox_bot_engine_frame());
         break;
     default:
         break;

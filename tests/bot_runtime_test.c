@@ -13,6 +13,9 @@ static int player_class;
 static int warrior_update_calls;
 static int warrior_update_object;
 static uint32_t warrior_update_frame;
+static int wizard_update_calls;
+static int wizard_update_object;
+static uint32_t wizard_update_frame;
 static int warrior_collision_observe_calls;
 static int warrior_collision_object;
 static int warrior_collision_other;
@@ -77,6 +80,14 @@ void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t fr
     warrior_update_frame = frame;
 }
 
+void nox_bot_wizard_update(int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    (void)state;
+    ++wizard_update_calls;
+    wizard_update_object = object;
+    wizard_update_frame = frame;
+}
+
 static void reset_stubs(void)
 {
     native_bot = 0;
@@ -90,6 +101,9 @@ static void reset_stubs(void)
     warrior_update_calls = 0;
     warrior_update_object = 0;
     warrior_update_frame = 0;
+    wizard_update_calls = 0;
+    wizard_update_object = 0;
+    wizard_update_frame = 0;
     warrior_collision_observe_calls = 0;
     warrior_collision_object = 0;
     warrior_collision_other = 0;
@@ -256,9 +270,15 @@ static int test_runtime_update_dispatch(void)
     if (warrior_update_calls != 1 || warrior_update_object != 123 || warrior_update_frame != 900)
         return 70;
     player_class = 1;
+    current_frame = 901;
     nox_bot_runtime_update(123);
-    if (warrior_update_calls != 1)
+    if (warrior_update_calls != 1 || wizard_update_calls != 1 ||
+        wizard_update_object != 123 || wizard_update_frame != 901)
         return 71;
+    player_class = 2;
+    nox_bot_runtime_update(123);
+    if (warrior_update_calls != 1 || wizard_update_calls != 1)
+        return 72;
     return 0;
 }
 
