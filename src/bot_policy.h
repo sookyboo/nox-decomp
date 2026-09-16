@@ -36,6 +36,30 @@ typedef enum nox_bot_event {
     NOX_BOT_EVENT_COUNT,
 } nox_bot_event;
 
+typedef struct nox_bot_wizard_policy_state {
+    uint32_t global_ready_frame;
+    uint32_t next_mana_regen_frame;
+    uint32_t slow_ready_frame;
+    uint32_t death_ray_ready_frame;
+    uint32_t fireball_ready_frame;
+    uint32_t burn_ready_frame;
+    uint32_t magic_missile_ready_frame;
+    uint32_t counterspell_ready_frame;
+    uint32_t shield_ready_frame;
+    uint32_t lesser_heal_ready_frame;
+    uint32_t haste_ready_frame;
+    uint32_t shock_ready_frame;
+    uint32_t protect_shock_ready_frame;
+    uint32_t protect_fire_ready_frame;
+    uint32_t invisibility_ready_frame;
+    uint32_t pending_cast_frame;
+    int target;
+    int pending_target;
+    float pending_x;
+    float pending_y;
+    unsigned char pending_spell;
+} nox_bot_wizard_policy_state;
+
 typedef struct nox_bot_warrior_policy_state {
     uint32_t next_ability_scan_frame;
     uint32_t next_loot_scan_frame;
@@ -76,6 +100,7 @@ typedef struct nox_bot_policy_state {
     uint32_t event_frame[NOX_BOT_EVENT_COUNT];
     int event_object[NOX_BOT_EVENT_COUNT];
     nox_bot_warrior_policy_state warrior;
+    nox_bot_wizard_policy_state wizard;
 } nox_bot_policy_state;
 
 uint32_t nox_bot_reaction_frames(nox_bot_difficulty difficulty);
