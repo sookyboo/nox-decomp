@@ -50,6 +50,7 @@ typedef struct nox_bot_warrior_policy_state {
     int harpoon_charge_target;
     int last_harpoon_target;
     unsigned char harpoon_charge_pending;
+    unsigned char seeking_potion;
 } nox_bot_warrior_policy_state;
 
 typedef struct nox_bot_policy_state {

@@ -58,7 +58,7 @@ Still intentionally not implemented where native ownership is not completely rec
 
 - `[ ]` claiming/creating a free player slot and player object without a human network client;
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
-- `[~]` remaining Warrior policy (held-state escape, potion-seeking movement, and additional team/objective reactions);
+- `[~]` remaining Warrior policy (held-state escape, TeleportWake/lost-target pursuit, and CTF/team objective reactions);
 - `[ ]` Wizard and Conjurer Bot-Script tactical policy;
 - `[ ]` team/objective strategy and bot commands;
 - `[ ]` cosmetic spell-phoneme parity.
@@ -69,6 +69,65 @@ that is only lifecycle substrate; it is not a substitute for correctly creating
 a server-controlled player slot. See
 [`decomp/native-player-bot-reference.md`](decomp/native-player-bot-reference.md)
 for the recovered native lifecycle contract.
+
+## Remaining implementation gaps
+
+The remaining work is intentionally separated by ownership so later patches do
+not blur native engine mechanics with Bot-Script policy:
+
+### Lifecycle and availability
+
+- recover the authoritative server-side path that claims a free player slot,
+  creates the complete player object/runtime without a human join packet, and
+  assigns `nox_xxx_updatePlayerMonsterBot_4FAB20`;
+- recover the matching authoritative removal/free path;
+- only after those two paths are known, add user-facing `bot spawn`, `bot clear`,
+  and multi-bot setup commands.
+
+### Warrior parity
+
+- held-state escape remains pending. The Go reference directly casts Slow on
+  itself and removes `HELD`, but deliberately suppresses that escape for the
+  Warrior's own Berserker crash stun and Bomber stun. Native spell/buff entry
+  points are known; source attribution for those protected holds must be carried
+  across the native collision path before the escape can be enabled safely;
+- low-health potion-seeking movement now includes the reference CTF carrier
+  guard. What remains is the shared CTF post-waypoint objective choice after the
+  recovery walk completes;
+- the Lost Sight `TeleportWake` pursuit/check loop is still absent;
+- CTF attack/defend/escort/return decisions and teammate chat orders remain
+  outside the Warrior class until shared team policy exists;
+- exact cosmetic/chat parity and any starting-loadout differences not already
+  supplied by native player defaults remain lower-priority fidelity work.
+
+### Wizard and Conjurer
+
+- the native spell execution substrate is available, but the Bot-Script tactical
+  priorities, defensive/offensive spell selection, mana/healing decisions,
+  summoning, traps, and class-specific teammate commands are not yet ported.
+
+### Team and game-mode strategy
+
+- native CTF pickup/drop/capture/scoring remains authoritative, but the bot still
+  lacks Bot-Script's high-level attack/defend/escort/return choice;
+- Team Arena can fall back to native Hunt, but coordinated team behavior is not
+  yet ported;
+- additional reference/planned modes such as King of the Realm remain future
+  work.
+
+### Commands and fidelity
+
+- difficulty/spawn/team setup commands require the non-client lifecycle above;
+- human teammate orders (`follow`, `attack`, `guard`, `stay`, `escort`) need an
+  order executor on top of the existing policy enum;
+- spell phoneme sequencing, chat responses, and other presentation details remain
+  fidelity work after gameplay parity.
+
+### Integration coverage
+
+- deterministic adapter/policy tests exist, but true create → fight → die →
+  respawn → remove integration coverage cannot be added through the production
+  spawn path until non-client player creation/removal is recovered.
 
 ---
 
@@ -655,6 +714,15 @@ The opt-in implementation now ports these high-confidence Warrior decisions:
 - **health potion use** checks the reference `<= 100` health threshold and then
   delegates `RedPotion` lookup/use to Nox's native player inventory and potion
   code, rather than duplicating healing or item-consumption rules;
+- **potion recovery movement** follows the reference `onHit()` path when health
+  remains below 100 after inventory-potion use and the current target has more
+  than 10 health. The bot finds the nearest world `RedPotion` through the native
+  object list, lowers native monster aggression to `0.16`, and schedules native
+  `WalkTo`. In CTF, native inventory state identifies whether the bot is carrying
+  a flag; a carrier only diverts when the potion is visible/interactable, while a
+  non-carrier may route normally. When the recovery waypoint ends aggression is
+  restored to `0.83`; non-CTF bots resume native Hunt, while CTF post-waypoint
+  attack/defend selection remains part of the pending shared objective policy;
 - **nearby loot acquisition** runs every 15 simulation frames, matching the Go
   `findLoot()` timer. It scans the native world-object list inside 75 units,
   applies the normal Nox visibility test, and delegates pickup to the existing
@@ -1302,6 +1370,7 @@ Warrior
 [~] equipment parity (native nearby loot pickup and melee preference are implemented; exact starting-loadout parity remains native)
 [x] native Hunt adapter
 [x] health potion policy
+[~] potion-seeking movement (native WalkTo/aggression and CTF carrier-aware diversion implemented; CTF post-waypoint objective selection pending)
 [x] Harpoon (event triggers + native mechanics + periodic scan + break-on-hit)
 [~] Berserker Charge (event/collision triggers + native movement/impact + periodic scan + Harpoon-hit follow-up)
 [~] War Cry (event triggers + periodic close-range scan)
