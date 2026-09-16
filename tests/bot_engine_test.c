@@ -1,0 +1,790 @@
+#include "../src/bot_engine.h"
+#include "../src/defs.h"
+
+#include <stdint.h>
+#include <string.h>
+
+unsigned __int8 byte_5D4594[3844309];
+
+static int last_hunt_object;
+static int last_walk_object;
+static int last_walk_x_bits;
+static int last_walk_y_bits;
+static int last_interrupt_object;
+static int last_action_object;
+static int last_action;
+static int last_cast_object;
+static int last_cast_spell;
+static int last_cast_target;
+static int morph_from_calls;
+static int morph_to_calls;
+static int player_bot_create_calls;
+static int spell_lookup_calls;
+static const char *spell_lookup_name;
+static int ability_lookup_calls;
+static const char *ability_lookup_name;
+static int ability_execute_calls;
+static int last_ability_object;
+static int last_ability;
+static int ability_active[6];
+static float last_face_x;
+static float last_face_y;
+static int potion_type_id = 77;
+static int potion_use_calls;
+static int harpoon_stop_calls;
+static int last_potion_player;
+static int last_potion_item;
+static int world_head;
+static int world_test_player;
+static int world_hidden_object;
+static int pickup_calls;
+static int last_pickup_player;
+static int last_pickup_item;
+static int equip_weapon_calls;
+static int last_equip_weapon_player;
+static int last_equip_weapon_item;
+static int equip_armor_calls;
+static int last_equip_armor_player;
+static int last_equip_armor_item;
+static int player_attack_start_calls;
+static int player_attack_step_calls;
+static int player_attack_step_result = 1;
+
+static unsigned char created_bot_ai[0x898];
+
+char __cdecl sub_4F8100(_DWORD *object)
+{
+    (void)object;
+    return 0;
+}
+
+int __cdecl sub_4FAB20(_DWORD *object)
+{
+    (void)object;
+    return 0;
+}
+
+int __cdecl sub_4FA700(int object)
+{
+    int runtime = *(int *)(object + 748);
+
+    ++player_bot_create_calls;
+    memset(created_bot_ai, 0, sizeof(created_bot_ai));
+    *(uint32_t *)(created_bot_ai + 2180) = (uint32_t)runtime;
+    *(uint32_t *)(runtime + 292) = (uint32_t)(uintptr_t)created_bot_ai;
+    return 0;
+}
+
+char __cdecl sub_4FAAC0(_DWORD *object)
+{
+    int runtime;
+
+    ++morph_from_calls;
+    runtime = object[187];
+    object[2] = (object[2] & ~4u) | 2u;
+    object[187] = *(_DWORD *)(runtime + 292);
+    object[3] = 16;
+    return (char)object[2];
+}
+
+char __cdecl sub_4FAAF0(_DWORD *object)
+{
+    int ai;
+
+    ++morph_to_calls;
+    ai = object[187];
+    object[2] = (object[2] & ~2u) | 4u;
+    object[187] = *(_DWORD *)(ai + 2180);
+    object[3] = 0;
+    return (char)object[2];
+}
+
+int __cdecl sub_51E1D0(const char *name)
+{
+    ++spell_lookup_calls;
+    spell_lookup_name = name;
+    return strcmp(name, "Fireball") == 0 ? 44 : 0;
+}
+
+int __cdecl sub_424D80(const char *name)
+{
+    ++ability_lookup_calls;
+    ability_lookup_name = name;
+    return strcmp(name, "ABILITY_HARPOON") == 0 ? 3 : 0;
+}
+
+int __cdecl sub_4E3AA0(char *name)
+{
+    if (!name)
+        return 0;
+    if (strcmp(name, "RedPotion") == 0)
+        return potion_type_id;
+    if (strcmp(name, "GreatSword") == 0)
+        return 78;
+    if (strcmp(name, "WarHammer") == 0)
+        return 79;
+    if (strcmp(name, "Longsword") == 0)
+        return 80;
+    return 0;
+}
+
+int sub_4DA790(void)
+{
+    return world_head;
+}
+
+int __cdecl sub_4DA7A0(int object)
+{
+    return object ? *(int *)(object + 444) : 0;
+}
+
+int __cdecl sub_4F36F0(int player, int item, int a3, int a4)
+{
+    (void)a3;
+    (void)a4;
+    ++pickup_calls;
+    last_pickup_player = player;
+    last_pickup_item = item;
+    *(int *)(item + 492) = player;
+    return 1;
+}
+
+int __cdecl sub_53A420(_DWORD *player, int item, int a3, int a4)
+{
+    (void)a3;
+    (void)a4;
+    ++equip_weapon_calls;
+    last_equip_weapon_player = (int)(uintptr_t)player;
+    last_equip_weapon_item = item;
+    return 1;
+}
+
+int __cdecl sub_53E650(_DWORD *player, int item, int a3, int a4)
+{
+    (void)a3;
+    (void)a4;
+    ++equip_armor_calls;
+    last_equip_armor_player = (int)(uintptr_t)player;
+    last_equip_armor_item = item;
+    return 1;
+}
+
+void __cdecl sub_4F9C70(_DWORD *object)
+{
+    int runtime = object ? object[187] : 0;
+
+    ++player_attack_start_calls;
+    if (runtime)
+        *(unsigned char *)(runtime + 88) = 1;
+}
+
+BOOL __cdecl sub_538960(int object)
+{
+    (void)object;
+    ++player_attack_step_calls;
+    return player_attack_step_result;
+}
+
+int __cdecl sub_53EF70(int player, int potion)
+{
+    ++potion_use_calls;
+    last_potion_player = player;
+    last_potion_item = potion;
+    return 1;
+}
+
+int __cdecl sub_57AEA0(int player_class, int spell)
+{
+    return player_class == 1 && spell == 44 ? 0 : 9;
+}
+
+int __cdecl sub_4252D0(int ability)
+{
+    return ability * 90;
+}
+
+int __cdecl sub_4FC250(int object, int ability)
+{
+    (void)object;
+    return ability >= 0 && ability < 6 ? ability_active[ability] : 0;
+}
+
+void __cdecl sub_4FBB70(int object, int ability)
+{
+    int runtime = *(int *)(object + 748);
+    int info = *(int *)(runtime + 276);
+    int slot = *(unsigned char *)(info + 2064);
+
+    ++ability_execute_calls;
+    last_ability_object = object;
+    last_ability = ability;
+    *(int *)&byte_5D4594[1568876 + 4 * (ability + 6 * slot)] = sub_4252D0(ability);
+    ability_active[ability] = 1;
+}
+
+int __cdecl sub_509ED0(float2 *delta)
+{
+    last_face_x = delta->field_0;
+    last_face_y = delta->field_4;
+    return 77;
+}
+
+int __cdecl sub_5330C0(int self, int other)
+{
+    return self == 10 && other == 20;
+}
+
+int __cdecl sub_4EC520(int self, int other)
+{
+    return self == 30 && other == 40;
+}
+
+int __cdecl sub_4FF350(int object, char buff)
+{
+    return object == 50 && buff == 7;
+}
+
+__int16 __cdecl sub_4EE780(int object)
+{
+    return object ? 75 : 0;
+}
+
+__int16 __cdecl sub_4EE7A0(int object)
+{
+    return object ? 150 : 0;
+}
+
+__int16 __cdecl sub_4EEC80(int object)
+{
+    return object ? 777 : 0;
+}
+
+__int16 __cdecl sub_4EECB0(int object)
+{
+    return object ? 888 : 0;
+}
+
+int __cdecl sub_5370E0(int self, int other, char flags)
+{
+    if (world_test_player && self == world_test_player)
+        return flags == 0 && other != world_hidden_object;
+    return self == 60 && other == 70 && flags == 0;
+}
+
+_DWORD *__cdecl sub_537520(_DWORD *object)
+{
+    int runtime = object ? object[187] : 0;
+
+    ++harpoon_stop_calls;
+    if (runtime)
+        *(_DWORD *)(runtime + 132) = 0;
+    return object;
+}
+
+void __cdecl sub_5157A0(int object)
+{
+    last_hunt_object = object;
+}
+
+int *__cdecl sub_514110(int object, int x_bits, int y_bits)
+{
+    last_walk_object = object;
+    last_walk_x_bits = x_bits;
+    last_walk_y_bits = y_bits;
+    return 0;
+}
+
+void __cdecl sub_50A3A0(int object)
+{
+    last_interrupt_object = object;
+}
+
+int __cdecl sub_50A090(int object, int action)
+{
+    last_action_object = object;
+    last_action = action;
+    return action == 8;
+}
+
+int *__cdecl sub_540A30(int object, int spell, int target)
+{
+    last_cast_object = object;
+    last_cast_spell = spell;
+    last_cast_target = target;
+    return 0;
+}
+
+static void make_native_bot(
+    unsigned char *object,
+    unsigned char *runtime,
+    unsigned char *info,
+    unsigned char *ai,
+    int slot,
+    int player_class)
+{
+    memset(object, 0, 800);
+    memset(runtime, 0, 400);
+    memset(info, 0, 2300);
+    memset(ai, 0, 0x898);
+
+    *(uint32_t *)(object + 8) = 4;
+    *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)runtime;
+    *(uint16_t *)(runtime + 4) = 42;
+    *(uint16_t *)(runtime + 8) = 100;
+    *(uint32_t *)(runtime + 276) = (uint32_t)(uintptr_t)info;
+    *(uint32_t *)(runtime + 292) = (uint32_t)(uintptr_t)ai;
+    *(uint32_t *)(ai + 2180) = (uint32_t)(uintptr_t)runtime;
+    info[2064] = (unsigned char)slot;
+    info[2251] = (unsigned char)player_class;
+    *(int (__cdecl **)(_DWORD *))(object + 744) = sub_4FAB20;
+}
+
+static int test_timing(void)
+{
+    *(uint32_t *)&byte_5D4594[2598000] = 1234;
+    *(uint32_t *)&byte_5D4594[2649704] = 30;
+    if (nox_bot_engine_frame() != 1234)
+        return 1;
+    if (nox_bot_engine_fps() != 30)
+        return 2;
+    return 0;
+}
+
+static int test_player_metadata_in_both_views(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+
+    make_native_bot(object, runtime, info, ai, 7, 2);
+
+    if (nox_bot_engine_player_slot((int)(uintptr_t)object) != 7)
+        return 10;
+    if (nox_bot_engine_player_class((int)(uintptr_t)object) != 2)
+        return 11;
+    if (!nox_bot_engine_is_native_player_bot((int)(uintptr_t)object))
+        return 12;
+    *(uint32_t *)(runtime + 132) = 0x12345678u;
+    if (nox_bot_engine_harpoon_attached_target((int)(uintptr_t)object) != (int)0x12345678u)
+        return 16;
+    harpoon_stop_calls = 0;
+    if (!nox_bot_engine_stop_harpoon((int)(uintptr_t)object))
+        return 18;
+    if (harpoon_stop_calls != 1 || nox_bot_engine_harpoon_attached_target((int)(uintptr_t)object) != 0)
+        return 19;
+    *(uint32_t *)(runtime + 132) = 0x12345678u;
+
+    *(uint32_t *)(object + 8) = 2;
+    *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)ai;
+    if (nox_bot_engine_player_slot((int)(uintptr_t)object) != 7)
+        return 13;
+    if (nox_bot_engine_player_class((int)(uintptr_t)object) != 2)
+        return 14;
+    if (!nox_bot_engine_is_native_player_bot((int)(uintptr_t)object))
+        return 15;
+    if (nox_bot_engine_harpoon_attached_target((int)(uintptr_t)object) != (int)0x12345678u)
+        return 17;
+    return 0;
+}
+
+static int test_native_player_bot_actions_morph_safely(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    float x = 12.5f;
+    float y = -4.25f;
+    int x_bits;
+    int y_bits;
+    int object_ptr;
+
+    make_native_bot(object, runtime, info, ai, 3, 0);
+    object_ptr = (int)(uintptr_t)object;
+    memcpy(&x_bits, &x, sizeof(x_bits));
+    memcpy(&y_bits, &y, sizeof(y_bits));
+    morph_from_calls = 0;
+    morph_to_calls = 0;
+
+    nox_bot_engine_hunt(object_ptr);
+    if (last_hunt_object != object_ptr || morph_from_calls != 1 || morph_to_calls != 1)
+        return 20;
+    nox_bot_engine_walk_to(object_ptr, x, y);
+    if (last_walk_object != object_ptr || last_walk_x_bits != x_bits || last_walk_y_bits != y_bits)
+        return 21;
+    nox_bot_engine_interrupt(object_ptr);
+    if (last_interrupt_object != object_ptr)
+        return 22;
+    if (!nox_bot_engine_action_scheduled(object_ptr, 8))
+        return 23;
+    nox_bot_engine_cast(object_ptr, 9, 74);
+    if (last_cast_object != object_ptr || last_cast_spell != 9 || last_cast_target != 74)
+        return 24;
+    if (morph_from_calls != 5 || morph_to_calls != 5)
+        return 25;
+    if (*(uint32_t *)(object + 8) != 4 || *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime)
+        return 26;
+    return 0;
+}
+
+static int test_native_monster_actions_do_not_morph(void)
+{
+    unsigned char object[800];
+    int object_ptr;
+
+    memset(object, 0, sizeof(object));
+    *(uint32_t *)(object + 8) = 2;
+    object_ptr = (int)(uintptr_t)object;
+    morph_from_calls = 0;
+    morph_to_calls = 0;
+
+    nox_bot_engine_hunt(object_ptr);
+    if (last_hunt_object != object_ptr)
+        return 30;
+    if (morph_from_calls || morph_to_calls)
+        return 31;
+    return 0;
+}
+
+static int test_existing_player_activation(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    int object_ptr;
+
+    memset(object, 0, sizeof(object));
+    memset(runtime, 0, sizeof(runtime));
+    memset(info, 0, sizeof(info));
+    *(uint32_t *)(object + 8) = 4;
+    *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)runtime;
+    *(uint32_t *)(runtime + 276) = (uint32_t)(uintptr_t)info;
+    info[2064] = 5;
+    *(char (__cdecl **)(_DWORD *))(object + 744) = sub_4F8100;
+    object_ptr = (int)(uintptr_t)object;
+    player_bot_create_calls = 0;
+
+    if (!nox_bot_engine_enable_existing_player_bot(object_ptr))
+        return 40;
+    if (player_bot_create_calls != 1 || !nox_bot_engine_is_native_player_bot(object_ptr))
+        return 41;
+    if (!*(uint32_t *)(runtime + 292))
+        return 42;
+    if (!nox_bot_engine_disable_existing_player_bot(object_ptr))
+        return 43;
+    if (*(char (__cdecl **)(_DWORD *))(object + 744) != sub_4F8100)
+        return 44;
+    if (!*(uint32_t *)(runtime + 292))
+        return 45;
+    if (!nox_bot_engine_enable_existing_player_bot(object_ptr))
+        return 46;
+    if (player_bot_create_calls != 2)
+        return 47;
+    return 0;
+}
+
+static int test_spell_and_relationship_wrappers(void)
+{
+    spell_lookup_calls = 0;
+    spell_lookup_name = 0;
+    if (nox_bot_engine_spell_id("Fireball") != 44)
+        return 50;
+    if (spell_lookup_calls != 1 || strcmp(spell_lookup_name, "Fireball") != 0)
+        return 51;
+    if (nox_bot_engine_spell_id(0) != 0 || nox_bot_engine_spell_id("") != 0)
+        return 52;
+    ability_lookup_calls = 0;
+    ability_lookup_name = 0;
+    if (nox_bot_engine_ability_id("ABILITY_HARPOON") != 3)
+        return 53;
+    if (ability_lookup_calls != 1 || strcmp(ability_lookup_name, "ABILITY_HARPOON") != 0)
+        return 54;
+    if (nox_bot_engine_ability_id(0) != 0 || nox_bot_engine_ability_id("") != 0)
+        return 55;
+    if (!nox_bot_engine_spell_allowed_for_class(1, 44))
+        return 56;
+    if (nox_bot_engine_spell_allowed_for_class(2, 44) || nox_bot_engine_spell_allowed_for_class(1, 0))
+        return 57;
+    if (!nox_bot_engine_is_enemy(10, 20) || nox_bot_engine_is_enemy(10, 30))
+        return 58;
+    if (!nox_bot_engine_same_team(30, 40) || nox_bot_engine_same_team(30, 50))
+        return 59;
+    if (!nox_bot_engine_has_buff(50, 7) || nox_bot_engine_has_buff(50, 8))
+        return 60;
+    return 0;
+}
+
+static int test_tactical_observation_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    float x = 0.0f;
+    float y = 0.0f;
+    int object_ptr;
+
+    make_native_bot(object, runtime, info, ai, 8, 1);
+    object_ptr = (int)(uintptr_t)object;
+    *(uint32_t *)(ai + 1196) = 2468;
+    *(float *)(object + 56) = 10.25f;
+    *(float *)(object + 60) = -20.5f;
+    morph_from_calls = 0;
+    morph_to_calls = 0;
+
+    if (nox_bot_engine_current_target(object_ptr) != 2468)
+        return 70;
+    if (morph_from_calls != 1 || morph_to_calls != 1)
+        return 71;
+    if (nox_bot_engine_health(object_ptr) != 75 || nox_bot_engine_max_health(object_ptr) != 150)
+        return 72;
+    if (nox_bot_engine_mana(object_ptr) != 42 || nox_bot_engine_max_mana(object_ptr) != 100)
+        return 73;
+    *(uint32_t *)(object + 8) = 2;
+    *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)ai;
+    if (nox_bot_engine_mana(object_ptr) != 42 || nox_bot_engine_max_mana(object_ptr) != 100)
+        return 74;
+    *(uint32_t *)(object + 8) = 4;
+    *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)runtime;
+    if (!nox_bot_engine_can_interact(60, 70) || nox_bot_engine_can_interact(60, 71))
+        return 75;
+    nox_bot_engine_position(object_ptr, &x, &y);
+    if (x != 10.25f || y != -20.5f)
+        return 76;
+    nox_bot_engine_position(0, &x, &y);
+    if (x != 0.0f || y != 0.0f)
+        return 77;
+    return 0;
+}
+
+
+static int test_inventory_potion_wrapper(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    unsigned char wrong_item[600];
+    unsigned char potion[600];
+    int object_ptr;
+    int potion_ptr;
+
+    make_native_bot(object, runtime, info, ai, 9, 0);
+    memset(wrong_item, 0, sizeof(wrong_item));
+    memset(potion, 0, sizeof(potion));
+    object_ptr = (int)(uintptr_t)object;
+    potion_ptr = (int)(uintptr_t)potion;
+    *(uint16_t *)(wrong_item + 4) = 12;
+    *(uint16_t *)(potion + 4) = (uint16_t)potion_type_id;
+    *(uint32_t *)(wrong_item + 496) = (uint32_t)(uintptr_t)potion;
+    *(uint32_t *)(object + 504) = (uint32_t)(uintptr_t)wrong_item;
+    potion_use_calls = 0;
+
+    if (!nox_bot_engine_use_inventory_potion(object_ptr, "RedPotion"))
+        return 80;
+    if (potion_use_calls != 1 || last_potion_player != object_ptr || last_potion_item != potion_ptr)
+        return 81;
+    if (nox_bot_engine_use_inventory_potion(object_ptr, "BluePotion"))
+        return 82;
+    if (potion_use_calls != 1)
+        return 83;
+    *(uint32_t *)(object + 8) = 2;
+    if (nox_bot_engine_use_inventory_potion(object_ptr, "RedPotion"))
+        return 84;
+    return 0;
+}
+
+static int test_world_loot_and_equipment_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    unsigned char far_item[600];
+    unsigned char hidden_item[600];
+    unsigned char near_item[600];
+    unsigned char armor_item[600];
+    int object_ptr;
+    int near_ptr;
+    int armor_ptr;
+
+    make_native_bot(object, runtime, info, ai, 10, 0);
+    memset(far_item, 0, sizeof(far_item));
+    memset(hidden_item, 0, sizeof(hidden_item));
+    memset(near_item, 0, sizeof(near_item));
+    memset(armor_item, 0, sizeof(armor_item));
+    object_ptr = (int)(uintptr_t)object;
+    near_ptr = (int)(uintptr_t)near_item;
+    armor_ptr = (int)(uintptr_t)armor_item;
+    world_test_player = object_ptr;
+    world_hidden_object = (int)(uintptr_t)hidden_item;
+    world_head = (int)(uintptr_t)far_item;
+
+    *(uint16_t *)(far_item + 4) = 78;
+    *(float *)(far_item + 56) = 70.0f;
+    *(uint32_t *)(far_item + 444) = (uint32_t)(uintptr_t)hidden_item;
+    *(uint16_t *)(hidden_item + 4) = 78;
+    *(float *)(hidden_item + 56) = 10.0f;
+    *(uint32_t *)(hidden_item + 444) = (uint32_t)(uintptr_t)near_item;
+    *(uint16_t *)(near_item + 4) = 78;
+    *(float *)(near_item + 56) = 25.0f;
+
+    if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 75.0f) != near_ptr)
+        return 85;
+    if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 20.0f))
+        return 86;
+
+    pickup_calls = 0;
+    if (!nox_bot_engine_pickup_item(object_ptr, near_ptr))
+        return 87;
+    if (pickup_calls != 1 || last_pickup_player != object_ptr || last_pickup_item != near_ptr)
+        return 88;
+
+    *(uint32_t *)(object + 504) = (uint32_t)(uintptr_t)near_item;
+    *(uint32_t *)(near_item + 496) = 0;
+    if (nox_bot_engine_inventory_item(object_ptr, "GreatSword") != near_ptr)
+        return 89;
+    equip_weapon_calls = 0;
+    if (!nox_bot_engine_equip_weapon(object_ptr, near_ptr))
+        return 90;
+    if (equip_weapon_calls != 1 || last_equip_weapon_player != object_ptr ||
+        last_equip_weapon_item != near_ptr)
+        return 91;
+
+    *(uint16_t *)(armor_item + 4) = 99;
+    equip_armor_calls = 0;
+    if (!nox_bot_engine_equip_armor(object_ptr, armor_ptr))
+        return 92;
+    if (equip_armor_calls != 1 || last_equip_armor_player != object_ptr ||
+        last_equip_armor_item != armor_ptr)
+        return 93;
+
+    world_head = 0;
+    world_test_player = 0;
+    world_hidden_object = 0;
+    return 0;
+}
+
+static int test_player_weapon_attack_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    int object_ptr;
+
+    make_native_bot(object, runtime, info, ai, 6, 0);
+    object_ptr = (int)(uintptr_t)object;
+    *(uint32_t *)(runtime + 104) = 12345;
+    player_attack_start_calls = 0;
+    player_attack_step_calls = 0;
+    player_attack_step_result = 1;
+
+    if (nox_bot_engine_equipped_weapon(object_ptr) != 12345)
+        return 94;
+    if (!nox_bot_engine_start_player_attack(object_ptr))
+        return 95;
+    if (player_attack_start_calls != 1 || *(unsigned char *)(runtime + 88) != 1)
+        return 96;
+    if (!nox_bot_engine_player_attack_step(object_ptr) || player_attack_step_calls != 1)
+        return 97;
+
+    player_attack_step_result = 0;
+    if (nox_bot_engine_player_attack_step(object_ptr) || player_attack_step_calls != 2)
+        return 98;
+
+    *(uint32_t *)(object + 8) = 2;
+    if (nox_bot_engine_start_player_attack(object_ptr) ||
+        nox_bot_engine_player_attack_step(object_ptr))
+        return 99;
+    return 0;
+}
+
+static int test_native_ability_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char target[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    int object_ptr;
+    int target_ptr;
+    int *cooldown;
+
+    make_native_bot(object, runtime, info, ai, 6, 0);
+    memset(target, 0, sizeof(target));
+    object_ptr = (int)(uintptr_t)object;
+    target_ptr = (int)(uintptr_t)target;
+    cooldown = (int *)&byte_5D4594[1568876 +
+        4 * (NOX_BOT_ABILITY_WARCRY + 6 * 6)];
+    *cooldown = 0;
+    memset(ability_active, 0, sizeof(ability_active));
+    ability_execute_calls = 0;
+
+    if (nox_bot_engine_ability_cooldown_duration(NOX_BOT_ABILITY_WARCRY) != 180)
+        return 90;
+    if (!nox_bot_engine_ability_ready(object_ptr, NOX_BOT_ABILITY_WARCRY))
+        return 91;
+    if (!nox_bot_engine_execute_ability(object_ptr, NOX_BOT_ABILITY_WARCRY))
+        return 92;
+    if (ability_execute_calls != 1 || last_ability_object != object_ptr ||
+        last_ability != NOX_BOT_ABILITY_WARCRY)
+        return 93;
+    if (nox_bot_engine_ability_cooldown_remaining(object_ptr, NOX_BOT_ABILITY_WARCRY) != 180)
+        return 94;
+    if (!nox_bot_engine_ability_active(object_ptr, NOX_BOT_ABILITY_WARCRY))
+        return 95;
+    if (nox_bot_engine_ability_ready(object_ptr, NOX_BOT_ABILITY_WARCRY))
+        return 96;
+
+    *(float *)(object + 56) = 10.0f;
+    *(float *)(object + 60) = 20.0f;
+    *(float *)(target + 56) = 13.0f;
+    *(float *)(target + 60) = 26.0f;
+    nox_bot_engine_face_target(object_ptr, target_ptr);
+    if (last_face_x != 3.0f || last_face_y != 6.0f || *(short *)(object + 124) != 77)
+        return 97;
+
+    *(uint32_t *)(object + 8) = 2;
+    if (nox_bot_engine_execute_ability(object_ptr, NOX_BOT_ABILITY_EYE_OF_THE_WOLF))
+        return 98;
+    return 0;
+}
+
+int main(void)
+{
+    int result;
+
+    result = test_timing();
+    if (result)
+        return result;
+    result = test_player_metadata_in_both_views();
+    if (result)
+        return result;
+    result = test_native_player_bot_actions_morph_safely();
+    if (result)
+        return result;
+    result = test_native_monster_actions_do_not_morph();
+    if (result)
+        return result;
+    result = test_existing_player_activation();
+    if (result)
+        return result;
+    result = test_spell_and_relationship_wrappers();
+    if (result)
+        return result;
+    result = test_tactical_observation_wrappers();
+    if (result)
+        return result;
+    result = test_inventory_potion_wrapper();
+    if (result)
+        return result;
+    result = test_world_loot_and_equipment_wrappers();
+    if (result)
+        return result;
+    result = test_player_weapon_attack_wrappers();
+    if (result)
+        return result;
+    return test_native_ability_wrappers();
+}
