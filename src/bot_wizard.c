@@ -449,14 +449,26 @@ static int nox_bot_wizard_try_hidden_target_buffs(
         nox_bot_wizard_schedule(
             object, state, frame, NOX_BOT_WIZARD_SPELL_PROTECT_FIRE, object, 0.0f, 0.0f))
         return 1;
-    /* TeamTank ownership is not yet represented natively in policy; avoid the
-     * reference's CTF-only invisibility exception until team roles are ported. */
-    if (!nox_bot_engine_is_ctf() &&
+    if (!nox_bot_team_is_ctf_tank(object) &&
         !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_INVISIBLE) &&
         nox_bot_wizard_schedule(
             object, state, frame, NOX_BOT_WIZARD_SPELL_INVISIBILITY, object, 0.0f, 0.0f))
         return 1;
     return 0;
+}
+
+static int nox_bot_wizard_try_deathball_counterspell(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    float x;
+    float y;
+
+    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+        !nox_bot_engine_find_nearest_enemy_owned_type(object, "DeathBall", 500.0f))
+        return 0;
+    nox_bot_engine_position(object, &x, &y);
+    return nox_bot_wizard_schedule(
+        object, state, frame, NOX_BOT_WIZARD_SPELL_COUNTERSPELL, 0, x, y);
 }
 
 static int nox_bot_wizard_pickup_type(int object, const char *type_name, int equip_kind)
@@ -531,11 +543,11 @@ static void nox_bot_wizard_process_events(
         /* onEnemyHeard only enters when the current target cannot be seen. Its
          * FireballAtHeard helper then requires CanSee(target), so that branch
          * cannot fire as written; the subsequent Invisibility attempt is the
-         * observable high-confidence response. TeamTank is not ported yet, so
-         * keep the existing conservative CTF suppression. */
+         * observable high-confidence response. CTF only suppresses this for
+         * TeamTank, which is the native enemy-flag carrier. */
         if (state->wizard.target &&
             !nox_bot_engine_can_interact(object, state->wizard.target) &&
-            !nox_bot_engine_is_ctf() &&
+            !nox_bot_team_is_ctf_tank(object) &&
             !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_INVISIBLE) &&
             !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC))
             nox_bot_wizard_schedule(
@@ -619,6 +631,9 @@ void nox_bot_wizard_update(int object, nox_bot_policy_state *state, uint32_t fra
             return;
     }
     if (!nox_bot_wizard_global_ready(wizard, frame))
+        return;
+
+    if (nox_bot_wizard_try_deathball_counterspell(object, state, frame))
         return;
 
     target = wizard->target;
