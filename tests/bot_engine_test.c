@@ -110,6 +110,13 @@ static int bomber_inventory_flag;
 static int bomber_follow_calls;
 static int bomber_follow_object;
 static int bomber_follow_target;
+static int bomber_sound_lookup_calls;
+static const char *bomber_sound_lookup_name;
+static int bomber_sound_calls;
+static int bomber_sound_id;
+static int bomber_sound_object;
+static int bomber_sound_arg3;
+static int bomber_sound_arg4;
 
 static unsigned char created_bot_ai[0x898];
 
@@ -405,6 +412,23 @@ _DWORD *__cdecl sub_5016C0(int type_id, int *pos, int owner, unsigned __int8 dir
     bomber_summon_y = pos ? ((float *)pos)[1] : 0.0f;
     memset(bomber_object, 0, sizeof(bomber_object));
     return (_DWORD *)bomber_object;
+}
+
+int __cdecl sub_40AF50(void *name)
+{
+    ++bomber_sound_lookup_calls;
+    bomber_sound_lookup_name = (const char *)name;
+    return name && strcmp((const char *)name, "BomberSummon") == 0 ? 73 : 0;
+}
+
+_DWORD *__cdecl sub_501960(int sound, int object, int arg3, int arg4)
+{
+    ++bomber_sound_calls;
+    bomber_sound_id = sound;
+    bomber_sound_object = object;
+    bomber_sound_arg3 = arg3;
+    bomber_sound_arg4 = arg4;
+    return 0;
 }
 
 void __cdecl sub_4F3070(int object, int item, int flag)
@@ -1165,10 +1189,22 @@ static int test_mana_source_and_summon_wrappers(void)
     bomber_follow_calls = 0;
     bomber_follow_object = 0;
     bomber_follow_target = 0;
+    bomber_sound_lookup_calls = 0;
+    bomber_sound_lookup_name = 0;
+    bomber_sound_calls = 0;
+    bomber_sound_id = 0;
+    bomber_sound_object = 0;
+    bomber_sound_arg3 = 0;
+    bomber_sound_arg4 = 0;
     if (nox_bot_engine_create_bomber(object_ptr) != (int)(uintptr_t)bomber_object ||
         bomber_summon_calls != 1 || bomber_summon_type != 81 ||
         bomber_summon_owner != object_ptr || bomber_summon_direction != 33 ||
         bomber_summon_x != 0.0f || bomber_summon_y != 0.0f ||
+        bomber_sound_lookup_calls != 1 || !bomber_sound_lookup_name ||
+        strcmp(bomber_sound_lookup_name, "BomberSummon") != 0 ||
+        bomber_sound_calls != 1 || bomber_sound_id != 73 ||
+        bomber_sound_object != (int)(uintptr_t)bomber_object ||
+        bomber_sound_arg3 || bomber_sound_arg4 ||
         bomber_inventory_calls != 1 ||
         bomber_inventory_object != (int)(uintptr_t)bomber_object ||
         bomber_inventory_item != (int)(uintptr_t)glyph_object ||

@@ -37,7 +37,13 @@ static int blue_potion_calls;
 static const char *available_loot_type;
 static int pickup_calls;
 static int equip_weapon_calls;
+static int last_equipped_weapon;
 static int equip_armor_calls;
+static int crossbow_item;
+static int infinite_pain_wand_item;
+static int firestorm_wand_item;
+static int force_wand_item;
+static int equipped_weapon;
 static int ctf_walk_own_flag_calls;
 static int ctf_attack_or_defend_calls;
 static int owned_pixies;
@@ -331,6 +337,8 @@ int nox_bot_engine_equip_weapon(int object, int item)
     if (object != SELF || !item)
         return 0;
     ++equip_weapon_calls;
+    last_equipped_weapon = item;
+    equipped_weapon = item;
     return 1;
 }
 
@@ -340,6 +348,26 @@ int nox_bot_engine_equip_armor(int object, int item)
         return 0;
     ++equip_armor_calls;
     return 1;
+}
+
+int nox_bot_engine_inventory_item(int object, const char *type_name)
+{
+    if (object != SELF || !type_name)
+        return 0;
+    if (strcmp(type_name, "CrossBow") == 0)
+        return crossbow_item;
+    if (strcmp(type_name, "InfinitePainWand") == 0)
+        return infinite_pain_wand_item;
+    if (strcmp(type_name, "FireStormWand") == 0)
+        return firestorm_wand_item;
+    if (strcmp(type_name, "ForceWand") == 0)
+        return force_wand_item;
+    return 0;
+}
+
+int nox_bot_engine_equipped_weapon(int object)
+{
+    return object == SELF ? equipped_weapon : 0;
 }
 
 int nox_bot_engine_owned_type_count(int object, const char *type_name)
@@ -391,7 +419,13 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     available_loot_type = 0;
     pickup_calls = 0;
     equip_weapon_calls = 0;
+    last_equipped_weapon = 0;
     equip_armor_calls = 0;
+    crossbow_item = 0;
+    infinite_pain_wand_item = 0;
+    firestorm_wand_item = 0;
+    force_wand_item = 0;
+    equipped_weapon = 0;
     ctf_walk_own_flag_calls = 0;
     ctf_attack_or_defend_calls = 0;
     owned_pixies = 1;
@@ -832,6 +866,49 @@ static int test_loot_scan(void)
     return 0;
 }
 
+static int test_literal_weapon_preference(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 880);
+
+    if (!state)
+        return 170;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    crossbow_item = 701;
+    firestorm_wand_item = 702;
+    infinite_pain_wand_item = 703;
+    force_wand_item = 704;
+    nox_bot_conjurer_update(SELF, state, 880);
+    if (equip_weapon_calls != 1 || last_equipped_weapon != firestorm_wand_item ||
+        state->conjurer.next_weapon_preference_frame != 1180)
+        return 171;
+
+    nox_bot_conjurer_update(SELF, state, 1179);
+    if (equip_weapon_calls != 1)
+        return 172;
+
+    /* Once CrossBow itself is equipped, the literal else-if branch may test
+     * InfinitePainWand and equip ForceWand instead. */
+    equipped_weapon = crossbow_item;
+    nox_bot_conjurer_update(SELF, state, 1180);
+    if (equip_weapon_calls != 2 || last_equipped_weapon != force_wand_item ||
+        state->conjurer.next_weapon_preference_frame != 1480)
+        return 173;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 1190);
+    if (!state)
+        return 174;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    crossbow_item = 701;
+    infinite_pain_wand_item = 703;
+    force_wand_item = 704;
+    /* The first guard wins even when FireStormWand is absent; the reference's
+     * else-if therefore does not fall through to ForceWand in this case. */
+    nox_bot_conjurer_update(SELF, state, 1190);
+    if (equip_weapon_calls || state->conjurer.next_weapon_preference_frame != 1490)
+        return 175;
+    return 0;
+}
+
 static int test_ctf_objective_events(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 875);
@@ -921,6 +998,9 @@ int main(void)
     if (result)
         return result;
     result = test_loot_scan();
+    if (result)
+        return result;
+    result = test_literal_weapon_preference();
     if (result)
         return result;
     result = test_ctf_objective_events();
