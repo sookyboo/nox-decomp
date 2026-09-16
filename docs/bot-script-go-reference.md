@@ -51,16 +51,16 @@ Implemented so far:
 - `[x]` 32-slot server-local policy storage without duplicating authoritative Nox gameplay state;
 - `[x]` Bot-Script reaction delays (`0/15/30/45/60` simulation frames), including wrap-safe deadline comparison;
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
-- `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use at the reference health threshold, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, and Harpoon break-on-hit behavior;
+- `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, and partial Warrior decisions.
 
 Still intentionally not implemented where native ownership is not completely recovered:
 
 - `[ ]` claiming/creating a free player slot and player object without a human network client;
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
-- `[~]` remaining Warrior policy (held-state escape, TeleportWake/lost-target pursuit, and CTF/team objective reactions);
+- `[~]` remaining Warrior policy (held-state escape and additional teammate/team coordination beyond the current native-backed CTF objective steering);
 - `[ ]` Wizard and Conjurer Bot-Script tactical policy;
-- `[ ]` team/objective strategy and bot commands;
+- `[~]` native-backed Warrior CTF strategy is implemented; shared multi-class team/objective coordination and bot commands remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
 The implementation deliberately exposes no spawn command yet. An existing
@@ -91,12 +91,13 @@ not blur native engine mechanics with Bot-Script policy:
   Warrior's own Berserker crash stun and Bomber stun. Native spell/buff entry
   points are known; source attribution for those protected holds must be carried
   across the native collision path before the escape can be enabled safely;
-- low-health potion-seeking movement now includes the reference CTF carrier
-  guard. What remains is the shared CTF post-waypoint objective choice after the
-  recovery walk completes;
-- the Lost Sight `TeleportWake` pursuit/check loop is still absent;
-- CTF attack/defend/escort/return decisions and teammate chat orders remain
-  outside the Warrior class until shared team policy exists;
+- low-health potion-seeking movement now feeds into the reference
+  post-waypoint CTF objective choice instead of stopping after recovery;
+- the Lost Sight `TeleportWake` pursuit/check loop is now implemented with the
+  reference 100-unit wake check, native WalkTo, and native Fight-target action;
+- basic CTF attack/defend/escort/return steering is now implemented directly
+  from native flag world/inventory/carrier state. More coordinated team policy
+  and teammate chat orders remain outside the Warrior class;
 - exact cosmetic/chat parity and any starting-loadout differences not already
   supplied by native player defaults remain lower-priority fidelity work.
 
@@ -108,8 +109,9 @@ not blur native engine mechanics with Bot-Script policy:
 
 ### Team and game-mode strategy
 
-- native CTF pickup/drop/capture/scoring remains authoritative, but the bot still
-  lacks Bot-Script's high-level attack/defend/escort/return choice;
+- native CTF pickup/drop/capture/scoring remains authoritative, while the
+  Warrior now has the Bot-Script's basic high-level attack/defend/escort/return
+  choice. Shared multi-class coordination and teammate orders remain pending;
 - Team Arena can fall back to native Hunt, but coordinated team behavior is not
   yet ported;
 - additional reference/planned modes such as King of the Realm remain future
@@ -721,8 +723,23 @@ The opt-in implementation now ports these high-confidence Warrior decisions:
   `WalkTo`. In CTF, native inventory state identifies whether the bot is carrying
   a flag; a carrier only diverts when the potion is visible/interactable, while a
   non-carrier may route normally. When the recovery waypoint ends aggression is
-  restored to `0.83`; non-CTF bots resume native Hunt, while CTF post-waypoint
-  attack/defend selection remains part of the pending shared objective policy;
+  restored to `0.83`; non-CTF bots resume native Hunt, while CTF bots re-enter
+  the native-backed attack/defend objective choice;
+- **Lost Sight TeleportWake pursuit** resolves the nearest `TeleportWake`, uses
+  native `WalkTo`, and retains the lost target until the bot has moved more than
+  100 units from the wake position. At that transition it uses Nox's native
+  monster Fight-target action, matching the reference's one-frame polling loop
+  without adding a second pathfinder or general callback scheduler;
+- **CTF objective steering** reads ordinary native Flag objects. A world flag
+  is discovered from the server object list; a carried flag is discovered in a
+  normal player inventory and the player becomes the tactical destination.
+  This preserves the reference decisions: a carrier guards the current own-flag
+  position used by the reference's moving `TeamBase`, a bot with its own flag
+  present attacks or escorts toward the enemy
+  flag/carrier, and when both flags are carried a non-carrier pursues the own
+  flag carrier. Lost Sight first walks to a dropped own flag before falling back
+  to the same attack/defend decision. Native pickup, return, capture, scoring,
+  flag inventory transfer, and network notifications remain untouched;
 - **nearby loot acquisition** runs every 15 simulation frames, matching the Go
   `findLoot()` timer. It scans the native world-object list inside 75 units,
   applies the normal Nox visibility test, and delegates pickup to the existing
@@ -1370,11 +1387,13 @@ Warrior
 [~] equipment parity (native nearby loot pickup and melee preference are implemented; exact starting-loadout parity remains native)
 [x] native Hunt adapter
 [x] health potion policy
-[~] potion-seeking movement (native WalkTo/aggression and CTF carrier-aware diversion implemented; CTF post-waypoint objective selection pending)
+[x] potion-seeking movement (native WalkTo/aggression, CTF carrier-aware diversion, and post-waypoint objective selection)
 [x] Harpoon (event triggers + native mechanics + periodic scan + break-on-hit)
 [~] Berserker Charge (event/collision triggers + native movement/impact + periodic scan + Harpoon-hit follow-up)
 [~] War Cry (event triggers + periodic close-range scan)
 [x] Eye of the Wolf event policy
+[x] TeleportWake lost-target pursuit
+[~] CTF objective policy (native-backed attack/defend/escort/return steering implemented; shared teammate coordination/chat orders pending)
 [ ] held-state escape
 [x] RoundChakram / weapon-preference / loot policy (native throw lifecycle + 10-second cooldown + nearby loot + melee preference)
 ```

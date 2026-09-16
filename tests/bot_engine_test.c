@@ -5,6 +5,7 @@
 #include <string.h>
 
 unsigned __int8 byte_5D4594[3844309];
+unsigned __int8 byte_581450[23472];
 
 static int last_hunt_object;
 static int last_walk_object;
@@ -52,6 +53,16 @@ static int player_attack_step_result = 1;
 static int aggression_set_calls;
 static float last_aggression;
 static int game_flags;
+static int last_attack_object;
+static int last_attack_target;
+static int last_guard_object;
+static float last_guard_x1;
+static float last_guard_y1;
+static float last_guard_x2;
+static float last_guard_y2;
+static float last_guard_radius;
+static int same_team_self;
+static int same_team_other;
 
 static unsigned char created_bot_ai[0x898];
 
@@ -239,6 +250,8 @@ int __cdecl sub_5330C0(int self, int other)
 
 int __cdecl sub_4EC520(int self, int other)
 {
+    if (self == same_team_self && other == same_team_other)
+        return 1;
     return self == 30 && other == 40;
 }
 
@@ -306,6 +319,24 @@ _DWORD *__cdecl sub_537520(_DWORD *object)
 void __cdecl sub_5157A0(int object)
 {
     last_hunt_object = object;
+}
+
+void __cdecl sub_515D30(int object, int target)
+{
+    last_attack_object = object;
+    last_attack_target = target;
+}
+
+void __cdecl sub_515680(int object, int args_ptr)
+{
+    int *args = (int *)args_ptr;
+
+    last_guard_object = object;
+    memcpy(&last_guard_x1, &args[0], sizeof(last_guard_x1));
+    memcpy(&last_guard_y1, &args[1], sizeof(last_guard_y1));
+    memcpy(&last_guard_x2, &args[2], sizeof(last_guard_x2));
+    memcpy(&last_guard_y2, &args[3], sizeof(last_guard_y2));
+    memcpy(&last_guard_radius, &args[4], sizeof(last_guard_radius));
 }
 
 int *__cdecl sub_514110(int object, int x_bits, int y_bits)
@@ -443,10 +474,17 @@ static int test_native_player_bot_actions_morph_safely(void)
     nox_bot_engine_cast(object_ptr, 9, 74);
     if (last_cast_object != object_ptr || last_cast_spell != 9 || last_cast_target != 74)
         return 24;
-    if (morph_from_calls != 5 || morph_to_calls != 5)
+    nox_bot_engine_attack_target(object_ptr, 81);
+    if (last_attack_object != object_ptr || last_attack_target != 81)
         return 25;
-    if (*(uint32_t *)(object + 8) != 4 || *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime)
+    nox_bot_engine_guard_position(object_ptr, 2.0f, 3.0f, 20.0f);
+    if (last_guard_object != object_ptr || last_guard_x1 != 2.0f || last_guard_y1 != 3.0f ||
+        last_guard_x2 != 2.0f || last_guard_y2 != 3.0f || last_guard_radius != 20.0f)
         return 26;
+    if (morph_from_calls != 7 || morph_to_calls != 7)
+        return 27;
+    if (*(uint32_t *)(object + 8) != 4 || *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime)
+        return 28;
     return 0;
 }
 
@@ -734,6 +772,74 @@ static int test_aggression_and_game_mode_wrappers(void)
     return 0;
 }
 
+static int test_ctf_flag_state_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    unsigned char own_flag[800];
+    unsigned char enemy_flag[800];
+    unsigned char carried_flag[800];
+    unsigned char flag_runtime[16];
+    unsigned char carrier[800];
+    int object_ptr;
+    int own_flag_ptr;
+    int enemy_flag_ptr;
+    int carrier_ptr;
+    double tolerance = 0.5;
+
+    make_native_bot(object, runtime, info, ai, 12, 0);
+    memset(own_flag, 0, sizeof(own_flag));
+    memset(enemy_flag, 0, sizeof(enemy_flag));
+    memset(carried_flag, 0, sizeof(carried_flag));
+    memset(flag_runtime, 0, sizeof(flag_runtime));
+    memset(carrier, 0, sizeof(carrier));
+    object_ptr = (int)(uintptr_t)object;
+    own_flag_ptr = (int)(uintptr_t)own_flag;
+    enemy_flag_ptr = (int)(uintptr_t)enemy_flag;
+    carrier_ptr = (int)(uintptr_t)carrier;
+    game_flags = 0x20;
+
+    *(uint32_t *)(own_flag + 8) = 0x10000000u;
+    *(uint32_t *)(enemy_flag + 8) = 0x10000000u;
+    *(uint32_t *)(own_flag + 444) = (uint32_t)(uintptr_t)enemy_flag;
+    world_head = own_flag_ptr;
+    same_team_self = object_ptr;
+    same_team_other = own_flag_ptr;
+    if (nox_bot_engine_ctf_flag_world(object_ptr, 1) != own_flag_ptr)
+        return 108;
+    if (nox_bot_engine_ctf_flag_world(object_ptr, 0) != enemy_flag_ptr)
+        return 109;
+
+    memcpy(&byte_581450[10160], &tolerance, sizeof(tolerance));
+    *(uint32_t *)(own_flag + 748) = (uint32_t)(uintptr_t)flag_runtime;
+    *(float *)(flag_runtime + 0) = 10.0f;
+    *(float *)(flag_runtime + 4) = 20.0f;
+    *(float *)(own_flag + 56) = 10.25f;
+    *(float *)(own_flag + 60) = 19.75f;
+    if (!nox_bot_engine_ctf_flag_at_home(own_flag_ptr))
+        return 110;
+    *(float *)(own_flag + 56) = 11.0f;
+    if (nox_bot_engine_ctf_flag_at_home(own_flag_ptr))
+        return 111;
+    *(uint32_t *)(carrier + 8) = 4;
+    *(uint32_t *)(carried_flag + 8) = 0x10000000u;
+    *(uint32_t *)(carrier + 504) = (uint32_t)(uintptr_t)carried_flag;
+    world_head = carrier_ptr;
+    same_team_other = (int)(uintptr_t)carried_flag;
+    if (nox_bot_engine_ctf_flag_carrier(object_ptr, 1) != carrier_ptr)
+        return 112;
+    if (nox_bot_engine_ctf_flag_carrier(object_ptr, 0))
+        return 113;
+
+    game_flags = 0;
+    world_head = 0;
+    same_team_self = 0;
+    same_team_other = 0;
+    return 0;
+}
+
 static int test_player_weapon_attack_wrappers(void)
 {
     unsigned char object[800];
@@ -852,6 +958,9 @@ int main(void)
     if (result)
         return result;
     result = test_aggression_and_game_mode_wrappers();
+    if (result)
+        return result;
+    result = test_ctf_flag_state_wrappers();
     if (result)
         return result;
     result = test_player_weapon_attack_wrappers();
