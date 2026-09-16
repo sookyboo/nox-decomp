@@ -185,6 +185,54 @@ cmake --build build-i386 -j"$(nproc)"
 The project adds `-m32` for x86 targets. Explicit cross compilers help ensure
 that headers and libraries come from i386 rather than the amd64 host.
 
+## Linux native 64-bit test libraries
+
+Native 64-bit builds are an opt-in experiment. Install the development
+libraries for the architecture on which the container runs; do not point
+`pkg-config` at the i386 or ARMHF directories:
+
+```sh
+sudo apt-get install -y --no-install-recommends \
+  build-essential cmake ninja-build pkg-config \
+  libsdl2-dev libopenal-dev libgl-dev \
+  libavformat-dev libavcodec-dev libavutil-dev \
+  libswscale-dev libswresample-dev zlib1g-dev
+```
+
+For an ARM64 container, use the same package names from the ARM64 image's
+repositories. For an amd64 container, configure and build the native test
+set as follows:
+
+```sh
+unset PKG_CONFIG_PATH PKG_CONFIG_LIBDIR PKG_CONFIG_SYSROOT_DIR
+
+cmake -S . -B build-amd64 -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_TESTING=ON \
+  -DNOX_ALLOW_64BIT=ON
+cmake --build build-amd64 -j"$(nproc)"
+ctest --test-dir build-amd64 --output-on-failure
+```
+
+`NOX_ALLOW_64BIT=ON` disables the automatic x86 `-m32` flags and permits
+aarch64 configuration. The 32-bit-only ABI tests (`abi_cross_test` and
+`x86_64_compat_test`) are intentionally omitted in this mode. Keep a separate
+build directory from `build-i386` and `build-armhf`; reusing a cache can select
+the wrong compiler or libraries.
+
+To run the same workflow in Docker, select a native platform rather than a
+32-bit emulation target, mount the checkout, and run the commands inside the
+container:
+
+```sh
+docker run --rm -it --platform=linux/amd64 \
+  -v "$PWD":/src -w /src ubuntu:26.04 bash
+```
+
+Use `--platform=linux/arm64` for native ARM64 testing. The container must have
+the package repositories and development packages for that selected platform;
+the host's amd64/i386 `PKG_CONFIG_LIBDIR` settings must not be inherited.
+
 ## Linux ARM32 hard-float packages
 
 ```sh
