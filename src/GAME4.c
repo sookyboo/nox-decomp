@@ -8967,7 +8967,7 @@ int __cdecl sub_500CC0(int a1, int a2)
 }
 
 //----- (00500D10) --------------------------------------------------------
-int __cdecl sub_500D10(int a1)
+int __cdecl sub_500D10(intptr_t a1)
 {
   int v1; // esi
   int i; // edi
@@ -8997,7 +8997,7 @@ int __cdecl sub_500D50(int a1)
 
 //----- (00500D70) --------------------------------------------------------
 // nox_xxx_checkSummonedCreaturesLimit_500D70
-bool __cdecl sub_500D70(int a1, int a2)
+bool __cdecl sub_500D70(intptr_t a1, int a2)
 {
   int v2; // ebx
 
