@@ -45,6 +45,7 @@ typedef struct nox_bot_conjurer_policy_state {
     uint32_t toxic_cloud_ready_frame;
     uint32_t burn_ready_frame;
     uint32_t counterspell_ready_frame;
+    uint32_t inversion_ready_frame;
     uint32_t stun_ready_frame;
     uint32_t slow_ready_frame;
     uint32_t pending_cast_frame;
@@ -67,6 +68,7 @@ typedef struct nox_bot_wizard_policy_state {
     uint32_t energy_bolt_ready_frame;
     uint32_t magic_missile_ready_frame;
     uint32_t counterspell_ready_frame;
+    uint32_t inversion_ready_frame;
     uint32_t shield_ready_frame;
     uint32_t lesser_heal_ready_frame;
     uint32_t haste_ready_frame;

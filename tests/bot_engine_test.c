@@ -806,10 +806,13 @@ static int test_world_loot_and_equipment_wrappers(void)
     unsigned char pixie_a[600];
     unsigned char pixie_b[600];
     unsigned char deathball[600];
+    unsigned char missile[600];
+    unsigned char missile_owner_link[600];
     unsigned char enemy_owner[800];
     int object_ptr;
     int near_ptr;
     int armor_ptr;
+    int enemy_owner_ptr;
 
     make_native_bot(object, runtime, info, ai, 10, 0);
     memset(far_item, 0, sizeof(far_item));
@@ -819,10 +822,13 @@ static int test_world_loot_and_equipment_wrappers(void)
     memset(pixie_a, 0, sizeof(pixie_a));
     memset(pixie_b, 0, sizeof(pixie_b));
     memset(deathball, 0, sizeof(deathball));
+    memset(missile, 0, sizeof(missile));
+    memset(missile_owner_link, 0, sizeof(missile_owner_link));
     memset(enemy_owner, 0, sizeof(enemy_owner));
     object_ptr = (int)(uintptr_t)object;
     near_ptr = (int)(uintptr_t)near_item;
     armor_ptr = (int)(uintptr_t)armor_item;
+    enemy_owner_ptr = (int)(uintptr_t)enemy_owner;
     world_test_player = object_ptr;
     world_hidden_object = (int)(uintptr_t)hidden_item;
     world_head = (int)(uintptr_t)far_item;
@@ -861,15 +867,29 @@ static int test_world_loot_and_equipment_wrappers(void)
     *(uint16_t *)(deathball + 4) = 83;
     *(float *)(deathball + 56) = 15.0f;
     *(uint32_t *)(deathball + 492) = (uint32_t)(uintptr_t)enemy_owner;
+    *(uint32_t *)(deathball + 444) = (uint32_t)(uintptr_t)missile;
     *(uint32_t *)(enemy_owner + 8) = 2;
+    *(uint32_t *)(missile + 8) = 1;
+    *(float *)(missile + 56) = 20.0f;
+    *(uint32_t *)(missile + 492) = (uint32_t)(uintptr_t)missile_owner_link;
+    *(uint32_t *)(missile_owner_link + 492) = (uint32_t)enemy_owner_ptr;
     enemy_self = object_ptr;
-    enemy_other = (int)(uintptr_t)enemy_owner;
-    if (nox_bot_engine_find_nearest_enemy_owned_type(
+    enemy_other = enemy_owner_ptr;
+    if (nox_bot_engine_find_nearest_world_type(
             object_ptr, "DeathBall", 75.0f) != (int)(uintptr_t)deathball)
         return 97;
+    if (nox_bot_engine_find_nearest_enemy_owned_type(
+            object_ptr, "DeathBall", 75.0f) != (int)(uintptr_t)deathball)
+        return 98;
+    if (nox_bot_engine_find_nearest_missile_owned_by(
+            object_ptr, enemy_owner_ptr, 75.0f) != (int)(uintptr_t)missile)
+        return 99;
+    if (nox_bot_engine_find_nearest_missile_owned_by(
+            object_ptr, enemy_owner_ptr, 10.0f))
+        return 118;
     *(uint32_t *)(deathball + 492) = (uint32_t)object_ptr;
     if (nox_bot_engine_find_nearest_enemy_owned_type(object_ptr, "DeathBall", 75.0f))
-        return 98;
+        return 119;
     enemy_self = 0;
     enemy_other = 0;
 
