@@ -20013,7 +20013,11 @@ void sub_4093D0(void)
 
 __int64 sub_416BB0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_time_provider ? nox_time_provider() : 0;
+#else
   return ((__int64 (__fastcall *)())*(_DWORD *)&byte_5D4594[371716])();
+#endif
 }
 
 int sub_448640(void)

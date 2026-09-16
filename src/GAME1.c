@@ -20,7 +20,15 @@ void (*mainloop_enter)(void *);
 void *mainloop_enter_args;
 void (*mainloop_exit)();
 int g_v20, g_v21;
-int g_a1, g_a2;
+int g_a1;
+intptr_t g_a2;
+
+/* The recovered timer callback lives in a four-byte game-data slot on 32-bit
+ * Nox. Native 64-bit builds need a separate host-width copy so the callback
+ * address is not truncated before sub_416BB0 invokes it. */
+#if UINTPTR_MAX > UINT32_MAX
+__int64 (*nox_time_provider)(void);
+#endif
 
 void map_download_start();
 int map_download_loop(int);
@@ -168,14 +176,14 @@ int nox_test_manual_spell_timeout_ticks(const char *value, int tick_rate)
 #endif
 
 //----- (00401070) --------------------------------------------------------
-size_t *__cdecl sub_401070(int a1, int a2)
+size_t *__cdecl sub_401070(int a1, intptr_t a2)
 {
   BOOL v2; // eax
   int v3; // esi
   const char **v4; // edi
   size_t *result; // eax
   int v6; // ebx
-  int v7; // esi
+  const char **v7; // esi
   int v8; // eax
   const char *v9; // ecx
   int v10; // eax
@@ -276,10 +284,10 @@ LABEL_5:
   v6 = 1;
   if ( a1 > 1 )
   {
-    v7 = a2 + 4;
+    v7 = (const char **)a2 + 1;
     do
     {
-      const char *arg = *(const char **)v7;
+      const char *arg = *v7;
       NOX_INIT_LOG("arg[%d]='%s'", v6, arg ? arg : "(null)");
 
       if ( _strcmpi((const char *)&byte_587000[200], arg) )
@@ -360,8 +368,8 @@ LABEL_44:
                         }
                         else
                         {
-                          v16 = *(const char **)(v7 + 4);
-                          v7 += 4;
+                          v16 = v7[1];
+                          ++v7;
                           ++v6;
                           v17 = atoi(v16);
                           NOX_INIT_LOG("arg consumes param '%s' -> sub_40A410(%d)", v16 ? v16 : "(null)", v17);
@@ -370,8 +378,8 @@ LABEL_44:
                       }
                       else
                       {
-                        v14 = *(const char **)(v7 + 4);
-                        v7 += 4;
+                        v14 = v7[1];
+                        ++v7;
                         ++v6;
                         v15 = atoi(v14);
                         NOX_INIT_LOG("arg consumes param '%s' -> sub_40A3E0(%d)", v14 ? v14 : "(null)", v15);
@@ -380,8 +388,8 @@ LABEL_44:
                     }
                     else
                     {
-                      v13 = *(const char **)(v7 + 4);
-                      v7 += 4;
+                      v13 = v7[1];
+                      ++v7;
                       ++v6;
                       NOX_INIT_LOG("arg consumes param '%s' -> byte_587000[88]=%d", v13 ? v13 : "(null)", atoi(v13));
                       byte_587000[88] = atoi(v13);
@@ -414,8 +422,8 @@ LABEL_44:
           }
           else
           {
-            v9 = *(const char **)(v7 + 4);
-            v7 += 4;
+            v9 = v7[1];
+            ++v7;
             ++v6;
             v10 = atoi(v9);
             NOX_INIT_LOG("arg consumes param '%s' -> sub_552010(%d)", v9 ? v9 : "(null)", v10);
@@ -438,7 +446,7 @@ LABEL_44:
       }
 LABEL_45:
       ++v6;
-      v7 += 4;
+      ++v7;
     }
     while ( v6 < a1 );
   }
@@ -20677,16 +20685,28 @@ void __cdecl sub_416B20()
   LARGE_INTEGER Frequency; // [esp+0h] [ebp-8h]
 
 #ifdef USE_SDL
+#if UINTPTR_MAX > UINT32_MAX
+  nox_time_provider = sdl_get_ticks;
+#else
   *(_DWORD *)&byte_5D4594[371716] = sdl_get_ticks;
+#endif
 #else
   if ( sub_416B80() && QueryPerformanceFrequency(&Frequency) )
   {
     *(_QWORD *)&byte_5D4594[371724] = Frequency.QuadPart / 1000;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_time_provider = sub_416BC0;
+#else
     *(_DWORD *)&byte_5D4594[371716] = sub_416BC0;
+#endif
   }
   else
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_time_provider = sub_416BF0;
+#else
     *(_DWORD *)&byte_5D4594[371716] = sub_416BF0;
+#endif
   }
 #endif
 }
@@ -45849,7 +45869,7 @@ int sub_4357A0()
 }
 
 //----- (004357D0) --------------------------------------------------------
-BOOL __cdecl sub_4357D0(int a1, int a2)
+BOOL __cdecl sub_4357D0(int a1, intptr_t a2)
 {
   int v2; // edi
   const char **v3; // esi
@@ -45862,7 +45882,7 @@ BOOL __cdecl sub_4357D0(int a1, int a2)
   if ( a1 > 1 )
   {
     v2 = a1 - 1;
-    v3 = (const char **)(a2 + 4);
+    v3 = (const char **)a2 + 1;
     do
     {
       if ( !_strcmpi("-noskip", *v3) )
