@@ -56,6 +56,9 @@ static int trap_calls;
 static char trap_name[64];
 static int summon_cage_used;
 static int summon_spell_fits;
+static int owned_bombers;
+static int bomber_fits;
+static int bomber_create_calls;
 static int random_values[4];
 static int random_value_count;
 static int random_value_index;
@@ -256,6 +259,20 @@ int nox_bot_engine_summon_spell_fits(int object, const char *spell_name)
     return object == SELF && spell_name && *spell_name && summon_spell_fits;
 }
 
+int nox_bot_engine_bomber_fits(int object)
+{
+    return object == SELF && bomber_fits;
+}
+
+int nox_bot_engine_create_bomber(int object)
+{
+    if (object != SELF || !bomber_fits)
+        return 0;
+    ++bomber_create_calls;
+    ++owned_bombers;
+    return 902;
+}
+
 int nox_bot_engine_random_int(int minimum, int maximum)
 {
     int value;
@@ -327,9 +344,13 @@ int nox_bot_engine_equip_armor(int object, int item)
 
 int nox_bot_engine_owned_type_count(int object, const char *type_name)
 {
-    if (object != SELF || strcmp(type_name, "Pixie") != 0)
+    if (object != SELF || !type_name)
         return 0;
-    return owned_pixies;
+    if (strcmp(type_name, "Pixie") == 0)
+        return owned_pixies;
+    if (strcmp(type_name, "Bomber") == 0)
+        return owned_bombers;
+    return 0;
 }
 
 void nox_bot_team_ctf_walk_to_own_flag(int object)
@@ -388,6 +409,9 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     trap_name[0] = '\0';
     summon_cage_used = 4;
     summon_spell_fits = 0;
+    owned_bombers = 0;
+    bomber_fits = 0;
+    bomber_create_calls = 0;
     random_values[0] = 1;
     random_values[1] = 10;
     random_value_count = 2;
@@ -701,6 +725,52 @@ static int test_native_random_summon_and_cage_gate(void)
     return 0;
 }
 
+static int test_custom_bomber_uses_native_summon_path(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 910);
+
+    if (!state)
+        return 145;
+    target_visible = 0;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    summon_cage_used = 3;
+    bomber_fits = 1;
+    random_values[0] = 1;
+    random_value_count = 1;
+    random_value_index = 0;
+    nox_bot_conjurer_update(SELF, state, 910);
+    if (!state->conjurer.pending_spell || !state->conjurer.pending_summon ||
+        bomber_create_calls)
+        return 146;
+    nox_bot_conjurer_update(SELF, state, 924);
+    if (bomber_create_calls)
+        return 147;
+    nox_bot_conjurer_update(SELF, state, 925);
+    if (bomber_create_calls != 1 || owned_bombers != 1 || self_mana != 125 ||
+        state->conjurer.summon_ready_frame != 928 ||
+        state->conjurer.global_ready_frame != 928)
+        return 148;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 930);
+    if (!state)
+        return 149;
+    target_visible = 0;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    summon_cage_used = 3;
+    bomber_fits = 1;
+    owned_bombers = 2;
+    random_values[0] = 1;
+    random_values[1] = 10;
+    random_value_count = 2;
+    random_value_index = 0;
+    nox_bot_conjurer_update(SELF, state, 930);
+    if (state->conjurer.pending_spell || bomber_create_calls)
+        return 150;
+    return 0;
+}
+
 static int test_low_mana_hit_routes_to_native_obelisk(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 851);
@@ -842,6 +912,9 @@ int main(void)
     if (result)
         return result;
     result = test_native_random_summon_and_cage_gate();
+    if (result)
+        return result;
+    result = test_custom_bomber_uses_native_summon_path();
     if (result)
         return result;
     result = test_low_mana_hit_routes_to_native_obelisk();
