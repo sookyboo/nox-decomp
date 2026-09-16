@@ -97,6 +97,7 @@ static float glyph_y;
 static unsigned char glyph_object[800];
 static unsigned char glyph_init[64];
 static unsigned char bomber_object[800];
+static unsigned char bomber_runtime[1600];
 static int bomber_summon_calls;
 static int bomber_summon_type;
 static int bomber_summon_owner;
@@ -117,6 +118,8 @@ static int bomber_sound_id;
 static int bomber_sound_object;
 static int bomber_sound_arg3;
 static int bomber_sound_arg4;
+static int bomber_mark_update_calls;
+static int bomber_mark_update_object;
 static char *player_info_by_slot[32];
 static unsigned char spawn_profile[97];
 static unsigned char spawn_server_options[104];
@@ -516,7 +519,18 @@ _DWORD *__cdecl sub_5016C0(int type_id, int *pos, int owner, unsigned __int8 dir
     bomber_summon_x = pos ? ((float *)pos)[0] : 0.0f;
     bomber_summon_y = pos ? ((float *)pos)[1] : 0.0f;
     memset(bomber_object, 0, sizeof(bomber_object));
+    memset(bomber_runtime, 0, sizeof(bomber_runtime));
+    *(uint32_t *)(bomber_object + 8) = 2;
+    *(uint32_t *)(bomber_object + 492) = (uint32_t)owner;
+    *(uint32_t *)(bomber_object + 748) = (uint32_t)(uintptr_t)bomber_runtime;
     return (_DWORD *)bomber_object;
+}
+
+char *__cdecl sub_4E8020(int object)
+{
+    ++bomber_mark_update_calls;
+    bomber_mark_update_object = object;
+    return 0;
 }
 
 int __cdecl sub_40AF50(void *name)
@@ -1386,6 +1400,8 @@ static int test_mana_source_and_summon_wrappers(void)
     bomber_sound_object = 0;
     bomber_sound_arg3 = 0;
     bomber_sound_arg4 = 0;
+    bomber_mark_update_calls = 0;
+    bomber_mark_update_object = 0;
     if (nox_bot_engine_create_bomber(object_ptr) != (int)(uintptr_t)bomber_object ||
         bomber_summon_calls != 1 || bomber_summon_type != 81 ||
         bomber_summon_owner != object_ptr || bomber_summon_direction != 33 ||
@@ -1400,7 +1416,12 @@ static int test_mana_source_and_summon_wrappers(void)
         bomber_inventory_item != (int)(uintptr_t)glyph_object ||
         bomber_inventory_flag != 1 || bomber_follow_calls != 1 ||
         bomber_follow_object != (int)(uintptr_t)bomber_object ||
-        bomber_follow_target != object_ptr || glyph_create_calls != 3 ||
+        bomber_follow_target != object_ptr ||
+        nox_bot_engine_owner_player((int)(uintptr_t)bomber_object) != object_ptr ||
+        (*(uint32_t *)(bomber_runtime + 1440) & 0x100u) == 0 ||
+        bomber_mark_update_calls != 1 ||
+        bomber_mark_update_object != (int)(uintptr_t)bomber_object ||
+        glyph_create_calls != 3 ||
         glyph_place_calls != 2 || glyph_destroy_calls ||
         *(uint32_t *)(glyph_init + 0) != 70 ||
         *(uint32_t *)(glyph_init + 4) != 71 ||
