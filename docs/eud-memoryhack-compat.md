@@ -675,3 +675,127 @@ The decompiled database accessors corroborate these layouts. `sub_424930` accept
 The focused opt-in `eud_compat_memory_test` now constructs the exact allocation-backed recovery helper/list shape through the production memory API and covers: guarded normal restoration, normal-helper skip when the `0x852980` guard is zero, unconditional map-changed restoration, SmartMemory-style `+8` allocation offsets, SpellDB heap-backed name/description pointer round-trip/reset, and AbilityDB heap-backed name/description pointer round-trip/reset. A narrow test-only allocator entry point is compiled only into the opt-in test runtime so the regression uses the production EUD allocation/token implementation rather than duplicating it.
 
 Per repository workflow, these tests are added but were not compiled or executed while preparing the patch because the maintainer explicitly requested no local compile/test run.
+
+## Map-driven compatibility pass: fixed FX and `Monster` unit customization
+
+The public Panic `fxeffect.h`, `unitstruct.h`, and `monster.c` sources expose a
+set of smaller compatibility gaps which are independent of the deliberately
+unsupported copied-native-code libraries. This pass handles only operations
+whose legacy helper and reconstructed engine target can both be identified
+exactly.
+
+### Remaining fixed `fxeffect.h` helpers
+
+Three fixed helpers are translated semantically instead of being executed:
+
+- `GreenExplosion(x, y)` temporarily installs a 17-DWORD helper in builtin
+  `0x5A`. The helper pops the two float bit patterns, builds a two-float point,
+  calls legacy `0x523200`, then frees its temporary buffer. The compatibility
+  layer verifies the complete helper and calls reconstructed
+  `sub_523200(point, 200)` directly.
+- `LinearOrbMove(unit, x_vect, y_vect, speed, time)` writes object fields
+  `+0x50`, `+0x54`, and `+0x70`, installs a six-DWORD helper in builtin `0xB8`,
+  and calls legacy `0x523530`. Those three scalar fields are now allowed on a
+  validated object token and the exact helper dispatches directly to
+  reconstructed `sub_523530(object)`.
+- `GreenLightningFx(x1, y1, x2, y2, time)` installs a 21-DWORD helper in
+  builtin `0x64`, packs four integer coordinates, and calls legacy `0x523790`
+  with the duration. The compatibility layer verifies that exact helper and
+  calls reconstructed `sub_523790` with a local `int4`, so no EUD code or
+  temporary native pointer is executed/exposed.
+
+The previously supported `PlaySoundAround`, `NetLoadFx`, and
+`PlaySummonEffect` paths remain unchanged. Helpers which copy or rewrite large
+native implementations are still rejected.
+
+### Engine-owned object backing data
+
+Panic's `unitstruct.h` obtains several engine-owned pointer fields through
+`GetMemory`. Returning their host pointers would violate the compatibility
+boundary, while returning the raw value would make the library unusable. This
+pass therefore adds owner-scoped typed tokens for the specific structures used
+by the public library:
+
+| Object field | Observed use | Portable access |
+|---|---|---|
+| `+0x22C` | max/current health backing data | DWORD `+0` and `+4` |
+| `+0x2B4` | pickup/gold backing data | DWORD `+0` |
+| `+0x2E0` | item/wand backing data | DWORD `+0`; wand class also `+108` |
+
+Each token remains valid only while the owning live object's corresponding
+field still contains the same host pointer and the object's script id still
+matches. The reconstructed object finalizer `sub_4E38A0` frees all three
+fields (`+556`, `+692`, and `+736` respectively), corroborating that these are
+engine-owned allocations rather than general-purpose EUD memory. The EUD layer
+never frees them.
+
+This covers `SetUnitMaxHealth`, `UnitStructGetGoldAmount` /
+`UnitStructSetGoldAmount`, potion backing values, and the wand charge field
+used by `Monster` (`amount[27]`).
+
+### Voice records and monster behavior-table pointers
+
+Panic `VoiceList()` starts at legacy `0x663EEC` and follows record `+0x4C`.
+The reconstructed `sub_424170` loads `SoundSet.bin` into `0x54`-byte linked
+records, stores the list head in that same legacy global, and links records at
+`+76` (`0x4C`); `sub_4242C0` later frees the list. Reads from `0x663EEC` are
+therefore translated to a bounded `VOICE_RECORD` token, and only the known
+`+0x4C` next-link traversal is exposed.
+
+For live monster extensions:
+
+- `+0x1E8` accepts only a validated `VOICE_RECORD` token (or zero), translating
+  it to the current host pointer;
+- `+0x1E4` accepts only a validated current-script `SCRIPT_LOCALS` token (or
+  zero), including an interior offset, for Panic's custom bin-script arrays.
+
+Both pointer fields are recorded in the existing restore journal so script
+teardown cannot leave a live engine object pointing into expired EUD/script
+storage. Reads translate the host pointer back to the corresponding token.
+
+The public `Monster` source also writes scalar monster-extension fields
+`+0x178`, `+0x538`, `+0x540`, and the five color DWORDs `+0x81C..+0x82C`.
+Those exact fields are now allowlisted. The monster extension token span is
+raised to `0x888`; reconstructed engine code accesses monster-extension
+`+2180` (`0x884`), so this does not infer storage beyond an observed engine
+boundary.
+
+### `Monster` object fields and exact native handlers
+
+The map changes Maiden object data at `+0x230..+0x2AC` (32 aligned DWORDs) and
+writes the object thing id at `+0x04`; these exact scalar ranges are now
+allowlisted. No callback/function-pointer fields are included in that generic
+range.
+
+Two native handler values used directly by public Panic sources are mapped
+individually:
+
+- object update `+0x2E8 = 0x53AC10` maps only to reconstructed
+  `sub_53AC10`, the projectile-update routine used by `BlueOrbSummon`;
+- pickup handler `+0x2C4 = 0x53A720` maps only to reconstructed
+  `sub_53A720`, while legacy `0x4F3A60` maps only to reconstructed
+  `sub_4F3A60` so `UnitStructGetGoldAmount` can recognize gold objects.
+
+Reads of those known live handlers return their legacy values. Arbitrary
+function-pointer values remain claimed/rejected, and the existing exact
+`0x53BDA0` MagicMissile path remains separate.
+
+### Scope intentionally left for later semantic ports
+
+The public `Monster` map also imports code-copying facilities, notably its
+player-update replacement. The larger Panic `meleeattack.h`, `potionpickup.h`,
+`absolutelypickup.h`, generic `callmethod`, and arbitrary `invokeRawCode`
+features remain unsupported. This pass does not make copied x86 executable;
+it closes only the map-visible gaps which can be represented by existing
+reconstructed C functions and bounded data fields.
+
+### Validation for the maintainer
+
+Per the requested workflow, this patch adds/updates regression coverage but is
+not compiled or executed while being prepared. In addition to the existing EUD
+memory tests, build the opt-in `eud_monster_map_test` and run `Monster.map` with
+particular attention to custom monster health/bin tables/voices, Maiden color
+changes, blue projectile collision/update, Oblivion pickup/use behavior, wand
+charges, and geometry-ring `LinearOrbMove`. A failure in the copied
+player-update/melee/potion replacement paths should still be treated as a
+known later semantic-port gap rather than a reason to enable raw code.

@@ -15,8 +15,10 @@
  * typed database traversal, safe pointer-field translation, selected memory
  * helpers, and the known MagicMissile update path. The next compatibility
  * layer adds semantic Bind dispatch, exact Panic recovery-list replay, and
- * heap-backed SpellDB/AbilityDB wide-string pointer translation. Callers must
- * never cast these representations to host pointers or execute code stored at them.
+ * heap-backed SpellDB/AbilityDB wide-string pointer translation. The map-driven
+ * compatibility pass also covers the fixed fxeffect helpers and the bounded
+ * object/monster fields used by Panic's public Monster map. Callers must never
+ * cast these representations to host pointers or execute code stored at them.
  */
 int nox_eud_read_u8(uint32_t address, uint8_t *value);
 int nox_eud_read_u16(uint32_t address, uint16_t *value);

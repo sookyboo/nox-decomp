@@ -136,20 +136,28 @@ Primary coverage:
 - Tier 4 callback replacement;
 - `SetUnitCallbackOnCollide`;
 - `SetUnitCallbackOnUseItem`;
-- spell helpers;
+- spell helpers and `LinearOrbMove`;
 - memory allocation helpers;
-- custom unit behavior;
+- monster health, voice and custom bin-script pointer replacement;
+- Maiden object/color customization;
+- wand charge backing data;
+- the exact `0x53AC10` projectile update and `0x53A720` general pickup handler;
 - Tier 4.5 / Tier 5 interaction.
 
 Suggested checks:
 
 - callback-installed objects initialize correctly;
+- Hecubah/Lich/custom monsters receive the intended max health and custom behavior tables;
+- Maiden recoloring and voice replacement are visible/audible;
 - collision callbacks fire at the expected time;
-- item-use callbacks receive the expected caller/trigger context;
+- the blue projectile advances, collides and is deleted through the reconstructed projectile update path;
+- Oblivion staff/wands can be picked up and their use callbacks receive the expected caller/trigger context;
+- MissileWand/DemonsBreathWand charge fields survive creation;
+- geometry-ring orbs move through `LinearOrbMove`;
 - callback return values do not break normal handler dispatch;
 - object deletion/reuse does not inherit stale callbacks.
 
-> `Monster.map` also uses some native update-handler values outside the compatibility set implemented so far. It is therefore both a test map and a useful source of future compatibility gaps.
+> `Monster.map` still includes larger copied-code features such as its player-update replacement. Those remain gap-discovery targets rather than generic executable-code support.
 
 ---
 

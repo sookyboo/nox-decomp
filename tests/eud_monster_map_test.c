@@ -16,6 +16,8 @@ static int source_contains_all(const char *path)
         "UnitToPtr(", "GetMemory(", "SetMemory(", "CreateObjectAt(",
         "SetCallback(", "SetUnitCallbackOnCollide(",
         "SetUnitCallbackOnUseItem(", "Effect(", "MagicMissile",
+        "LinearOrbMove(", "SetUnitMaxHealth(", "VoiceList(",
+        "5483536", "0x53a720", "amount[27]",
     };
     char *source;
     long size;
