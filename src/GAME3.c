@@ -5,6 +5,9 @@
 #ifdef NOX_EUD_COMPAT
 #include "eud_compat.h"
 #endif
+#ifdef NOX_BOT_SUPPORT
+#include "bot_runtime.h"
+#endif
 #include "proto.h"
 
 extern int g_fullscreen;
@@ -53643,12 +53646,19 @@ int __cdecl sub_4E8390(int a1)
 //----- (004E83B0) --------------------------------------------------------
 unsigned __int8 *__cdecl sub_4E83B0(int a1, int a2)
 {
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_COLLISION, a2);
+#endif
   return sub_502490((int *)(*(_DWORD *)(a1 + 748) + 1272), a2, a1);
 }
 
 //----- (004E83D0) --------------------------------------------------------
 unsigned __int8 *__cdecl sub_4E83D0(int a1, int a2)
 {
+#ifdef NOX_BOT_SUPPORT
+  /* Native player bots use the player collision path outside the AI morph. */
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_COLLISION, a2);
+#endif
   int v2; // eax
   int *v3; // eax
   int *v4; // eax
@@ -54612,6 +54622,9 @@ void __cdecl sub_4E96F0(int a1, int a2)
   v2 = *(_DWORD *)(a1 + 748);
   if ( !sub_40A5C0(2048) || (*(_BYTE *)(sub_4DA7C0() + 16) & 2) != 2 )
   {
+#ifdef NOX_BOT_SUPPORT
+    nox_bot_runtime_event(a1, NOX_BOT_EVENT_COLLISION, a2);
+#endif
     sub_502490((int *)(v2 + 1272), a2, a1);
     if ( a2 && *(_BYTE *)(a2 + 8) & 6 && !sub_4EC520(a1, a2) )
     {

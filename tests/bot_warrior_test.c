@@ -1,0 +1,788 @@
+#include "../src/bot_warrior.h"
+#include "../src/bot_engine.h"
+
+#include <string.h>
+
+static int ready_ability;
+static int executed_ability;
+static int execute_calls;
+static int enemy_result;
+static int interact_result;
+static int target_max_health;
+static int invisible_target;
+static int invulnerable_target;
+static int current_target;
+static int face_calls;
+static int active_abilities;
+static int harpoon_attached_target;
+static int self_health;
+static int self_max_health;
+static int potion_use_calls;
+static int harpoon_stop_calls;
+static uint32_t engine_fps;
+static float self_x;
+static float self_y;
+static float target_x;
+static float target_y;
+static const char *world_loot_type;
+static int world_loot_item;
+static int pickup_item_calls;
+static int equip_weapon_calls;
+static int equip_armor_calls;
+static int inventory_greatsword;
+static int inventory_warhammer;
+static int inventory_longsword;
+static int inventory_round_chakram;
+static int last_equipped_item;
+static int equipped_weapon;
+static int interrupt_calls;
+static int attack_start_calls;
+static int attack_start_result;
+static int attack_step_calls;
+static int attack_step_result;
+static int attack_step_removes_weapon;
+
+int nox_bot_engine_ability_ready(int object, int ability)
+{
+    (void)object;
+    return ability == ready_ability;
+}
+
+int nox_bot_engine_ability_active(int object, int ability)
+{
+    (void)object;
+    return (active_abilities & (1 << ability)) != 0;
+}
+
+int nox_bot_engine_execute_ability(int object, int ability)
+{
+    (void)object;
+    executed_ability = ability;
+    ++execute_calls;
+    active_abilities |= 1 << ability;
+    return 1;
+}
+
+int nox_bot_engine_is_enemy(int self, int other)
+{
+    (void)self;
+    (void)other;
+    return enemy_result;
+}
+
+int nox_bot_engine_can_interact(int self, int other)
+{
+    (void)self;
+    (void)other;
+    return interact_result;
+}
+
+int nox_bot_engine_has_buff(int object, int buff)
+{
+    if (buff == 0)
+        return object == invisible_target;
+    if (buff == 23)
+        return object == invulnerable_target;
+    return 0;
+}
+
+int nox_bot_engine_health(int object)
+{
+    return object == 1 ? self_health : target_max_health;
+}
+
+int nox_bot_engine_max_health(int object)
+{
+    return object == 1 ? self_max_health : target_max_health;
+}
+
+int nox_bot_engine_use_inventory_potion(int object, const char *type_name)
+{
+    if (object == 1 && strcmp(type_name, "RedPotion") == 0) {
+        ++potion_use_calls;
+        return 1;
+    }
+    return 0;
+}
+
+int nox_bot_engine_inventory_item(int object, const char *type_name)
+{
+    (void)object;
+    if (strcmp(type_name, "GreatSword") == 0)
+        return inventory_greatsword;
+    if (strcmp(type_name, "WarHammer") == 0)
+        return inventory_warhammer;
+    if (strcmp(type_name, "Longsword") == 0)
+        return inventory_longsword;
+    if (strcmp(type_name, "RoundChakram") == 0)
+        return inventory_round_chakram;
+    return 0;
+}
+
+int nox_bot_engine_find_nearest_visible_type(
+    int object, const char *type_name, float max_distance)
+{
+    (void)object;
+    (void)max_distance;
+    if (world_loot_type && strcmp(type_name, world_loot_type) == 0)
+        return world_loot_item;
+    return 0;
+}
+
+int nox_bot_engine_pickup_item(int object, int item)
+{
+    (void)object;
+    (void)item;
+    ++pickup_item_calls;
+    world_loot_type = 0;
+    return 1;
+}
+
+int nox_bot_engine_equip_weapon(int object, int item)
+{
+    (void)object;
+    ++equip_weapon_calls;
+    last_equipped_item = item;
+    equipped_weapon = item;
+    return 1;
+}
+
+int nox_bot_engine_equipped_weapon(int object)
+{
+    (void)object;
+    return equipped_weapon;
+}
+
+void nox_bot_engine_interrupt(int object)
+{
+    (void)object;
+    ++interrupt_calls;
+}
+
+int nox_bot_engine_start_player_attack(int object)
+{
+    (void)object;
+    ++attack_start_calls;
+    return attack_start_result;
+}
+
+int nox_bot_engine_player_attack_step(int object)
+{
+    (void)object;
+    ++attack_step_calls;
+    if (attack_step_removes_weapon)
+        equipped_weapon = 0;
+    return attack_step_result;
+}
+
+int nox_bot_engine_equip_armor(int object, int item)
+{
+    (void)object;
+    ++equip_armor_calls;
+    last_equipped_item = item;
+    return 1;
+}
+
+int nox_bot_engine_current_target(int object)
+{
+    (void)object;
+    return current_target;
+}
+
+int nox_bot_engine_harpoon_attached_target(int object)
+{
+    (void)object;
+    return harpoon_attached_target;
+}
+
+int nox_bot_engine_stop_harpoon(int object)
+{
+    (void)object;
+    ++harpoon_stop_calls;
+    harpoon_attached_target = 0;
+    active_abilities &= ~(1 << NOX_BOT_ABILITY_HARPOON);
+    return 1;
+}
+
+uint32_t nox_bot_engine_fps(void)
+{
+    return engine_fps;
+}
+
+void nox_bot_engine_position(int object, float *x, float *y)
+{
+    float px = object == 1 ? self_x : target_x;
+    float py = object == 1 ? self_y : target_y;
+
+    if (x)
+        *x = px;
+    if (y)
+        *y = py;
+}
+
+void nox_bot_engine_face_target(int object, int target)
+{
+    (void)object;
+    (void)target;
+    ++face_calls;
+}
+
+static void reset_case(nox_bot_policy_state *state)
+{
+    memset(state, 0, sizeof(*state));
+    state->active = 1;
+    state->difficulty = NOX_BOT_DIFFICULTY_NORMAL;
+    ready_ability = 0;
+    executed_ability = 0;
+    execute_calls = 0;
+    enemy_result = 1;
+    interact_result = 1;
+    target_max_health = 100;
+    invisible_target = 0;
+    invulnerable_target = 0;
+    current_target = 0;
+    face_calls = 0;
+    active_abilities = 0;
+    harpoon_attached_target = 0;
+    self_health = 150;
+    self_max_health = 150;
+    potion_use_calls = 0;
+    harpoon_stop_calls = 0;
+    engine_fps = 30;
+    self_x = 0.0f;
+    self_y = 0.0f;
+    target_x = 100.0f;
+    target_y = 0.0f;
+    world_loot_type = 0;
+    world_loot_item = 0;
+    pickup_item_calls = 0;
+    equip_weapon_calls = 0;
+    equip_armor_calls = 0;
+    inventory_greatsword = 0;
+    inventory_warhammer = 0;
+    inventory_longsword = 0;
+    inventory_round_chakram = 0;
+    last_equipped_item = 0;
+    equipped_weapon = 0;
+    interrupt_calls = 0;
+    attack_start_calls = 0;
+    attack_start_result = 1;
+    attack_step_calls = 0;
+    attack_step_result = 1;
+    attack_step_removes_weapon = 0;
+}
+
+static int test_eye_reaction_delay(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_EYE_OF_THE_WOLF;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_LOOKING_FOR_ENEMY, 0, 100);
+    nox_bot_warrior_update(1, &state, 129);
+    if (execute_calls || !nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_LOOKING_FOR_ENEMY))
+        return 1;
+    nox_bot_warrior_update(1, &state, 130);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_EYE_OF_THE_WOLF)
+        return 2;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_LOOKING_FOR_ENEMY))
+        return 3;
+    return 0;
+}
+
+static int test_eye_heard_and_lost_sight(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_EYE_OF_THE_WOLF;
+    invisible_target = 22;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_HEARD, 22, 200);
+    nox_bot_warrior_update(1, &state, 230);
+    if (execute_calls != 1)
+        return 10;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_EYE_OF_THE_WOLF;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_LOST_SIGHT, 22, 300);
+    nox_bot_warrior_update(1, &state, 344);
+    if (execute_calls)
+        return 11;
+    nox_bot_warrior_update(1, &state, 345);
+    if (execute_calls != 1)
+        return 12;
+    return 0;
+}
+
+static int test_health_potion_policy(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    self_health = 100;
+    nox_bot_warrior_update(1, &state, 350);
+    if (potion_use_calls != 1)
+        return 20;
+
+    reset_case(&state);
+    self_health = 101;
+    nox_bot_warrior_update(1, &state, 350);
+    if (potion_use_calls)
+        return 21;
+
+    reset_case(&state);
+    self_health = 100;
+    self_max_health = 100;
+    nox_bot_warrior_update(1, &state, 350);
+    if (potion_use_calls)
+        return 22;
+    return 0;
+}
+
+static int test_harpoon_is_immediate_and_blocks_warcry(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_HARPOON;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 400);
+    nox_bot_warrior_update(1, &state, 400);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_HARPOON || face_calls != 1)
+        return 30;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_ENEMY_SIGHTED))
+        return 31;
+
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    execute_calls = 0;
+    face_calls = 0;
+    nox_bot_warrior_update(1, &state, 430);
+    if (execute_calls || face_calls)
+        return 32;
+    return 0;
+}
+
+static int test_warcry_target_gates(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 400);
+    nox_bot_warrior_update(1, &state, 430);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_WARCRY || face_calls != 1)
+        return 40;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    target_max_health = 150;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_CHANGE_FOCUS, 44, 500);
+    nox_bot_warrior_update(1, &state, 530);
+    if (execute_calls)
+        return 41;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    invulnerable_target = 44;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 600);
+    nox_bot_warrior_update(1, &state, 630);
+    if (execute_calls)
+        return 42;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    active_abilities = 1 << NOX_BOT_ABILITY_HARPOON;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_CHANGE_FOCUS, 44, 700);
+    nox_bot_warrior_update(1, &state, 730);
+    if (execute_calls)
+        return 43;
+    return 0;
+}
+
+static int test_berserker_charge_event_priority(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 800);
+    nox_bot_warrior_update(1, &state, 829);
+    if (execute_calls)
+        return 50;
+    nox_bot_warrior_update(1, &state, 830);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
+        return 51;
+    if (face_calls != 1 || nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_ENEMY_SIGHTED))
+        return 52;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    active_abilities = 1 << NOX_BOT_ABILITY_HARPOON;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_CHANGE_FOCUS, 44, 900);
+    nox_bot_warrior_update(1, &state, 930);
+    if (execute_calls)
+        return 53;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    active_abilities = 1 << NOX_BOT_ABILITY_HARPOON;
+    harpoon_attached_target = 44;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_CHANGE_FOCUS, 44, 1000);
+    nox_bot_warrior_update(1, &state, 1030);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
+        return 54;
+    return 0;
+}
+
+static int test_berserker_charge_collision_delay(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    current_target = 44;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_COLLISION, 44, 1100);
+    nox_bot_warrior_update(1, &state, 1159);
+    if (execute_calls)
+        return 60;
+    nox_bot_warrior_update(1, &state, 1160);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
+        return 61;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_COLLISION))
+        return 62;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    current_target = 45;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_COLLISION, 44, 1200);
+    nox_bot_warrior_update(1, &state, 1260);
+    if (execute_calls || nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_COLLISION))
+        return 63;
+    return 0;
+}
+
+static int test_periodic_close_range_scan(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    current_target = 44;
+    ready_ability = NOX_BOT_ABILITY_HARPOON;
+    nox_bot_warrior_update(1, &state, 1300);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_HARPOON)
+        return 70;
+    if (state.warrior.next_ability_scan_frame != 1330)
+        return 71;
+
+    reset_case(&state);
+    current_target = 44;
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    nox_bot_warrior_update(1, &state, 1400);
+    if (execute_calls || state.warrior.pending_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
+        return 72;
+    nox_bot_warrior_update(1, &state, 1429);
+    if (execute_calls)
+        return 73;
+    nox_bot_warrior_update(1, &state, 1430);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
+        return 74;
+
+    reset_case(&state);
+    current_target = 44;
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    nox_bot_warrior_update(1, &state, 1450);
+    if (execute_calls || state.warrior.pending_ability != NOX_BOT_ABILITY_WARCRY)
+        return 75;
+    nox_bot_warrior_update(1, &state, 1480);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_WARCRY)
+        return 76;
+
+    reset_case(&state);
+    current_target = 44;
+    ready_ability = NOX_BOT_ABILITY_WARCRY;
+    active_abilities = 1 << NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    nox_bot_warrior_update(1, &state, 1490);
+    if (execute_calls || state.warrior.pending_ability)
+        return 77;
+
+    reset_case(&state);
+    current_target = 44;
+    target_x = 151.0f;
+    ready_ability = NOX_BOT_ABILITY_HARPOON;
+    nox_bot_warrior_update(1, &state, 1500);
+    if (execute_calls || state.warrior.pending_ability)
+        return 78;
+    return 0;
+}
+
+static int test_harpoon_attachment_schedules_charge(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    active_abilities = 1 << NOX_BOT_ABILITY_HARPOON;
+    harpoon_attached_target = 44;
+    state.warrior.next_ability_scan_frame = 2000;
+    nox_bot_warrior_update(1, &state, 1600);
+    if (!state.warrior.harpoon_charge_pending || state.warrior.harpoon_charge_target != 44)
+        return 80;
+    nox_bot_warrior_update(1, &state, 1629);
+    if (execute_calls)
+        return 81;
+    nox_bot_warrior_update(1, &state, 1630);
+    if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
+        return 82;
+    if (state.warrior.harpoon_charge_pending)
+        return 83;
+    return 0;
+}
+
+static int test_hit_breaks_attached_harpoon(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    active_abilities = 1 << NOX_BOT_ABILITY_HARPOON;
+    harpoon_attached_target = 44;
+    state.warrior.next_ability_scan_frame = 2000;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_IS_HIT, 55, 1700);
+    nox_bot_warrior_update(1, &state, 1700);
+    if (harpoon_stop_calls != 1 || harpoon_attached_target != 0)
+        return 90;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_IS_HIT))
+        return 91;
+    if (state.warrior.harpoon_charge_pending)
+        return 92;
+    return 0;
+}
+
+static int test_nearby_loot_scan_and_cadence(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    world_loot_type = "GreatSword";
+    world_loot_item = 201;
+    nox_bot_warrior_update(1, &state, 1800);
+    if (pickup_item_calls != 1 || equip_weapon_calls != 1 || last_equipped_item != 201)
+        return 100;
+    if (state.warrior.next_loot_scan_frame != 1815)
+        return 101;
+
+    world_loot_type = "GreatSword";
+    world_loot_item = 202;
+    nox_bot_warrior_update(1, &state, 1814);
+    if (pickup_item_calls != 1)
+        return 102;
+    nox_bot_warrior_update(1, &state, 1815);
+    if (pickup_item_calls != 2 || equip_weapon_calls != 2 || last_equipped_item != 202)
+        return 103;
+
+    world_loot_type = "Breastplate";
+    world_loot_item = 203;
+    nox_bot_warrior_update(1, &state, 1830);
+    if (pickup_item_calls != 3 || equip_armor_calls != 1 || last_equipped_item != 203)
+        return 104;
+    return 0;
+}
+
+static int test_weapon_preference_cadence(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    inventory_greatsword = 301;
+    inventory_warhammer = 302;
+    inventory_longsword = 303;
+    nox_bot_warrior_update(1, &state, 1900);
+    if (equip_weapon_calls != 1 || last_equipped_item != 301)
+        return 110;
+    if (state.warrior.next_weapon_preference_frame != 2200)
+        return 111;
+    nox_bot_warrior_update(1, &state, 2199);
+    if (equip_weapon_calls != 1)
+        return 112;
+    nox_bot_warrior_update(1, &state, 2200);
+    if (equip_weapon_calls != 2 || last_equipped_item != 301)
+        return 113;
+
+    reset_case(&state);
+    inventory_warhammer = 302;
+    inventory_longsword = 303;
+    nox_bot_warrior_update(1, &state, 2300);
+    if (equip_weapon_calls != 1 || last_equipped_item != 302)
+        return 114;
+
+    reset_case(&state);
+    inventory_longsword = 303;
+    nox_bot_warrior_update(1, &state, 2400);
+    if (equip_weapon_calls != 1 || last_equipped_item != 303)
+        return 115;
+    return 0;
+}
+
+static int test_enemy_events_start_native_chakram_attack(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    inventory_round_chakram = 401;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 2500);
+    nox_bot_warrior_update(1, &state, 2500);
+    if (!state.warrior.chakram_attack_active || state.warrior.chakram_item != 401)
+        return 120;
+    if (state.warrior.chakram_ready_frame != 2800 || attack_start_calls != 1 ||
+        interrupt_calls != 1 || equipped_weapon != 401 || face_calls != 1)
+        return 121;
+
+    reset_case(&state);
+    current_target = 45;
+    inventory_round_chakram = 402;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_HEARD, 99, 2600);
+    nox_bot_warrior_update(1, &state, 2600);
+    if (!state.warrior.chakram_attack_active || state.warrior.chakram_item != 402 ||
+        attack_start_calls != 1 || equipped_weapon != 402)
+        return 122;
+    if (!nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_ENEMY_HEARD))
+        return 123;
+    return 0;
+}
+
+static int test_failed_chakram_attack_restores_previous_weapon(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    inventory_round_chakram = 401;
+    equipped_weapon = 777;
+    attack_start_result = 0;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 2700);
+    nox_bot_warrior_update(1, &state, 2700);
+    if (attack_start_calls != 1 || state.warrior.chakram_attack_active ||
+        state.warrior.chakram_ready_frame)
+        return 125;
+    if (equipped_weapon != 777 || last_equipped_item != 777)
+        return 126;
+    return 0;
+}
+
+static int test_chakram_cooldown_and_native_release(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    inventory_round_chakram = 401;
+    state.warrior.chakram_ready_frame = 3000;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 2999);
+    nox_bot_warrior_update(1, &state, 2999);
+    if (attack_start_calls || state.warrior.chakram_attack_active)
+        return 130;
+
+    reset_case(&state);
+    inventory_round_chakram = 401;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 3100);
+    nox_bot_warrior_update(1, &state, 3100);
+    if (!state.warrior.chakram_attack_active)
+        return 131;
+    inventory_greatsword = 301;
+    attack_step_removes_weapon = 1;
+    nox_bot_warrior_update(1, &state, 3101);
+    if (attack_step_calls != 1 || state.warrior.chakram_attack_active ||
+        state.warrior.chakram_item)
+        return 132;
+    if (equipped_weapon != 301 || last_equipped_item != 301)
+        return 133;
+    return 0;
+}
+
+static int test_chakram_attack_blocks_conflicting_abilities(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    state.warrior.chakram_attack_active = 1;
+    state.warrior.chakram_item = 401;
+    equipped_weapon = 401;
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 3200);
+    nox_bot_warrior_update(1, &state, 3230);
+    if (attack_step_calls != 1 || execute_calls)
+        return 140;
+    if (!nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_ENEMY_SIGHTED))
+        return 141;
+    return 0;
+}
+
+static int test_death_clears_warrior_tactical_state(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    self_health = 0;
+    state.warrior.pending_ability = NOX_BOT_ABILITY_WARCRY;
+    state.warrior.harpoon_charge_pending = 1;
+    state.warrior.chakram_attack_active = 1;
+    state.warrior.chakram_item = 401;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 1800);
+    nox_bot_warrior_update(1, &state, 1800);
+    if (state.pending_events || state.warrior.pending_ability ||
+        state.warrior.harpoon_charge_pending || state.warrior.chakram_attack_active ||
+        state.warrior.chakram_item || execute_calls)
+        return 100;
+    return 0;
+}
+
+int main(void)
+{
+    int result;
+
+    result = test_eye_reaction_delay();
+    if (result)
+        return result;
+    result = test_eye_heard_and_lost_sight();
+    if (result)
+        return result;
+    result = test_health_potion_policy();
+    if (result)
+        return result;
+    result = test_harpoon_is_immediate_and_blocks_warcry();
+    if (result)
+        return result;
+    result = test_warcry_target_gates();
+    if (result)
+        return result;
+    result = test_berserker_charge_event_priority();
+    if (result)
+        return result;
+    result = test_berserker_charge_collision_delay();
+    if (result)
+        return result;
+    result = test_periodic_close_range_scan();
+    if (result)
+        return result;
+    result = test_harpoon_attachment_schedules_charge();
+    if (result)
+        return result;
+    result = test_hit_breaks_attached_harpoon();
+    if (result)
+        return result;
+    result = test_nearby_loot_scan_and_cadence();
+    if (result)
+        return result;
+    result = test_weapon_preference_cadence();
+    if (result)
+        return result;
+    result = test_enemy_events_start_native_chakram_attack();
+    if (result)
+        return result;
+    result = test_failed_chakram_attack_restores_previous_weapon();
+    if (result)
+        return result;
+    result = test_chakram_cooldown_and_native_release();
+    if (result)
+        return result;
+    result = test_chakram_attack_blocks_conflicting_abilities();
+    if (result)
+        return result;
+    return test_death_clears_warrior_tactical_state();
+}
