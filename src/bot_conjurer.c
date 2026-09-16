@@ -1,6 +1,7 @@
 #include "bot_conjurer.h"
 
 #include "bot_engine.h"
+#include "bot_team.h"
 
 #include <string.h>
 
@@ -19,6 +20,8 @@
 
 #define NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES 3u
 #define NOX_BOT_CONJURER_MAX_MANA 125
+#define NOX_BOT_CONJURER_LOOT_RADIUS 75.0f
+#define NOX_BOT_CONJURER_LOOT_SCAN_FRAMES 15u
 
 typedef enum nox_bot_conjurer_spell {
     NOX_BOT_CONJURER_SPELL_NONE = 0,
@@ -362,6 +365,52 @@ static int nox_bot_conjurer_try_hidden_buffs(
     return 0;
 }
 
+static int nox_bot_conjurer_pickup_type(int object, const char *type_name, int equip_kind)
+{
+    int item = nox_bot_engine_find_nearest_visible_type(
+        object, type_name, NOX_BOT_CONJURER_LOOT_RADIUS);
+
+    if (!item || !nox_bot_engine_pickup_item(object, item))
+        return 0;
+    if (equip_kind == 1)
+        nox_bot_engine_equip_weapon(object, item);
+    else if (equip_kind == 2)
+        nox_bot_engine_equip_armor(object, item);
+    return 1;
+}
+
+static void nox_bot_conjurer_loot_scan(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    static const char *const weapons[] = {
+        "InfinitePainWand", "LesserFireballWand", "CrossBow", "Bow"
+    };
+    static const char *const armor[] = {
+        "LeatherArmoredBoots", "LeatherArmor", "LeatherLeggings", "LeatherArmbands",
+        "LeatherBoots", "MedievalCloak", "MedievalShirt", "MedievalPants"
+    };
+    static const char *const potions[] = {
+        "RedPotion", "CurePoisonPotion", "BluePotion"
+    };
+    unsigned int i;
+
+    if (state->conjurer.next_loot_scan_frame &&
+        !nox_bot_reaction_ready(frame, state->conjurer.next_loot_scan_frame))
+        return;
+    state->conjurer.next_loot_scan_frame = frame + NOX_BOT_CONJURER_LOOT_SCAN_FRAMES;
+
+    for (i = 0; i < sizeof(weapons) / sizeof(weapons[0]); ++i)
+        nox_bot_conjurer_pickup_type(object, weapons[i], 1);
+    /* The Go reference includes Quiver in its weapon search and then picks it
+     * up again without equipping it. Keep the authoritative Nox quiver item in
+     * inventory rather than forcing it through the player weapon equip path. */
+    nox_bot_conjurer_pickup_type(object, "Quiver", 0);
+    for (i = 0; i < sizeof(armor) / sizeof(armor[0]); ++i)
+        nox_bot_conjurer_pickup_type(object, armor[i], 2);
+    for (i = 0; i < sizeof(potions) / sizeof(potions[0]); ++i)
+        nox_bot_conjurer_pickup_type(object, potions[i], 0);
+}
+
 static void nox_bot_conjurer_regen_mana(
     int object, nox_bot_policy_state *state, uint32_t frame)
 {
@@ -429,7 +478,15 @@ static void nox_bot_conjurer_process_events(
 
     if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT)) {
         nox_bot_conjurer_try_infravision(object, state, frame);
+        if (nox_bot_engine_is_ctf())
+            nox_bot_team_ctf_walk_to_own_flag(object);
         nox_bot_policy_clear_event(state, NOX_BOT_EVENT_LOST_SIGHT);
+    }
+
+    if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT)) {
+        if (nox_bot_engine_is_ctf())
+            nox_bot_team_ctf_attack_or_defend(object);
+        nox_bot_policy_clear_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT);
     }
 }
 
@@ -450,6 +507,7 @@ void nox_bot_conjurer_update(int object, nox_bot_policy_state *state, uint32_t f
     }
 
     nox_bot_conjurer_regen_mana(object, state, frame);
+    nox_bot_conjurer_loot_scan(object, state, frame);
     nox_bot_conjurer_process_events(object, state, frame);
 
     if (conjurer->pending_spell != NOX_BOT_CONJURER_SPELL_NONE) {

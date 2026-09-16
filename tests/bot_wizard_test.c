@@ -33,6 +33,14 @@ static float cast_y;
 static char cast_name[48];
 static int red_potion_calls;
 static int blue_potion_calls;
+static const char *available_loot_type;
+static int pickup_calls;
+static int equip_weapon_calls;
+static int equip_armor_calls;
+static int firestorm_item;
+static int force_wand_item;
+static int ctf_walk_own_flag_calls;
+static int ctf_attack_or_defend_calls;
 
 static uint32_t buff_mask(int buff)
 {
@@ -182,6 +190,64 @@ int nox_bot_engine_is_ctf(void)
     return ctf_mode;
 }
 
+int nox_bot_engine_find_nearest_visible_type(
+    int object, const char *type_name, float max_distance)
+{
+    (void)max_distance;
+    if (object != SELF || !available_loot_type)
+        return 0;
+    return strcmp(type_name, available_loot_type) == 0 ? 700 : 0;
+}
+
+int nox_bot_engine_pickup_item(int object, int item)
+{
+    if (object != SELF || item != 700)
+        return 0;
+    ++pickup_calls;
+    return 1;
+}
+
+int nox_bot_engine_equip_weapon(int object, int item)
+{
+    if (object != SELF || !item)
+        return 0;
+    ++equip_weapon_calls;
+    return 1;
+}
+
+int nox_bot_engine_equip_armor(int object, int item)
+{
+    if (object != SELF || !item)
+        return 0;
+    ++equip_armor_calls;
+    return 1;
+}
+
+int nox_bot_engine_inventory_item(int object, const char *type_name)
+{
+    if (object != SELF)
+        return 0;
+    if (strcmp(type_name, "FireStormWand") == 0)
+        return firestorm_item;
+    if (strcmp(type_name, "ForceWand") == 0)
+        return force_wand_item;
+    return 0;
+}
+
+void nox_bot_team_ctf_walk_to_own_flag(int object)
+{
+    if (object == SELF)
+        ++ctf_walk_own_flag_calls;
+}
+
+int nox_bot_team_ctf_attack_or_defend(int object)
+{
+    if (object != SELF)
+        return 0;
+    ++ctf_attack_or_defend_calls;
+    return 1;
+}
+
 static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t frame)
 {
     nox_bot_policy_state *state;
@@ -201,6 +267,14 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     cast_name[0] = 0;
     red_potion_calls = 0;
     blue_potion_calls = 0;
+    available_loot_type = 0;
+    pickup_calls = 0;
+    equip_weapon_calls = 0;
+    equip_armor_calls = 0;
+    firestorm_item = 0;
+    force_wand_item = 0;
+    ctf_walk_own_flag_calls = 0;
+    ctf_attack_or_defend_calls = 0;
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -354,6 +428,55 @@ static int test_native_potion_thresholds(void)
     return 0;
 }
 
+static int test_loot_scan_and_weapon_preference(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 550);
+
+    if (!state)
+        return 45;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    available_loot_type = "WizardRobe";
+    nox_bot_wizard_update(SELF, state, 550);
+    if (pickup_calls != 1 || equip_armor_calls != 1 ||
+        state->wizard.next_loot_scan_frame != 565)
+        return 46;
+    nox_bot_wizard_update(SELF, state, 564);
+    if (pickup_calls != 1)
+        return 47;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 560);
+    if (!state)
+        return 48;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    firestorm_item = 701;
+    force_wand_item = 702;
+    nox_bot_wizard_update(SELF, state, 560);
+    if (equip_weapon_calls != 1 || state->wizard.next_weapon_preference_frame != 860)
+        return 49;
+    return 0;
+}
+
+static int test_ctf_objective_events(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 575);
+
+    if (!state)
+        return 52;
+    ctf_mode = 1;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_LOST_SIGHT, TARGET, 575);
+    nox_bot_wizard_update(SELF, state, 575);
+    if (ctf_walk_own_flag_calls != 1 ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT))
+        return 53;
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 576);
+    nox_bot_wizard_update(SELF, state, 576);
+    if (ctf_attack_or_defend_calls != 1 ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT))
+        return 54;
+    return 0;
+}
+
 static int test_death_clears_wizard_life_state(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_NORMAL, 600);
@@ -391,6 +514,12 @@ int main(void)
     if (result)
         return result;
     result = test_native_potion_thresholds();
+    if (result)
+        return result;
+    result = test_loot_scan_and_weapon_preference();
+    if (result)
+        return result;
+    result = test_ctf_objective_events();
     if (result)
         return result;
     return test_death_clears_wizard_life_state();

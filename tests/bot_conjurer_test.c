@@ -34,6 +34,12 @@ static float cast_y;
 static char cast_name[64];
 static int red_potion_calls;
 static int blue_potion_calls;
+static const char *available_loot_type;
+static int pickup_calls;
+static int equip_weapon_calls;
+static int equip_armor_calls;
+static int ctf_walk_own_flag_calls;
+static int ctf_attack_or_defend_calls;
 
 static uint32_t buff_mask(int buff)
 {
@@ -177,6 +183,53 @@ int nox_bot_engine_is_ctf(void)
     return ctf_mode;
 }
 
+int nox_bot_engine_find_nearest_visible_type(
+    int object, const char *type_name, float max_distance)
+{
+    (void)max_distance;
+    if (object != SELF || !available_loot_type)
+        return 0;
+    return strcmp(type_name, available_loot_type) == 0 ? 700 : 0;
+}
+
+int nox_bot_engine_pickup_item(int object, int item)
+{
+    if (object != SELF || item != 700)
+        return 0;
+    ++pickup_calls;
+    return 1;
+}
+
+int nox_bot_engine_equip_weapon(int object, int item)
+{
+    if (object != SELF || !item)
+        return 0;
+    ++equip_weapon_calls;
+    return 1;
+}
+
+int nox_bot_engine_equip_armor(int object, int item)
+{
+    if (object != SELF || !item)
+        return 0;
+    ++equip_armor_calls;
+    return 1;
+}
+
+void nox_bot_team_ctf_walk_to_own_flag(int object)
+{
+    if (object == SELF)
+        ++ctf_walk_own_flag_calls;
+}
+
+int nox_bot_team_ctf_attack_or_defend(int object)
+{
+    if (object != SELF)
+        return 0;
+    ++ctf_attack_or_defend_calls;
+    return 1;
+}
+
 static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t frame)
 {
     nox_bot_policy_state *state;
@@ -197,6 +250,12 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     cast_name[0] = 0;
     red_potion_calls = 0;
     blue_potion_calls = 0;
+    available_loot_type = 0;
+    pickup_calls = 0;
+    equip_weapon_calls = 0;
+    equip_armor_calls = 0;
+    ctf_walk_own_flag_calls = 0;
+    ctf_attack_or_defend_calls = 0;
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -365,6 +424,54 @@ static int test_passive_mana_regen(void)
     return 0;
 }
 
+static int test_loot_scan(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
+
+    if (!state)
+        return 75;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    available_loot_type = "CrossBow";
+    nox_bot_conjurer_update(SELF, state, 850);
+    if (pickup_calls != 1 || equip_weapon_calls != 1 ||
+        state->conjurer.next_loot_scan_frame != 865)
+        return 76;
+    nox_bot_conjurer_update(SELF, state, 864);
+    if (pickup_calls != 1)
+        return 77;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 860);
+    if (!state)
+        return 78;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    available_loot_type = "Quiver";
+    nox_bot_conjurer_update(SELF, state, 860);
+    if (pickup_calls != 1 || equip_weapon_calls || equip_armor_calls)
+        return 79;
+    return 0;
+}
+
+static int test_ctf_objective_events(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 875);
+
+    if (!state)
+        return 82;
+    ctf_mode = 1;
+    self_buffs = buff_mask(ENCHANT_ANTI_MAGIC);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_LOST_SIGHT, TARGET, 875);
+    nox_bot_conjurer_update(SELF, state, 875);
+    if (ctf_walk_own_flag_calls != 1 ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT))
+        return 83;
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 876);
+    nox_bot_conjurer_update(SELF, state, 876);
+    if (ctf_attack_or_defend_calls != 1 ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT))
+        return 84;
+    return 0;
+}
+
 static int test_death_clears_conjurer_life_state(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_NORMAL, 900);
@@ -409,6 +516,12 @@ int main(void)
     if (result)
         return result;
     result = test_passive_mana_regen();
+    if (result)
+        return result;
+    result = test_loot_scan();
+    if (result)
+        return result;
+    result = test_ctf_objective_events();
     if (result)
         return result;
     return test_death_clears_conjurer_life_state();

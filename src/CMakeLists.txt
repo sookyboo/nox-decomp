@@ -160,6 +160,7 @@ if (USE_BOT_SUPPORT)
         bot_conjurer.c
         bot_policy.c
         bot_runtime.c
+        bot_team.c
         bot_warrior.c
         bot_wizard.c
     )
