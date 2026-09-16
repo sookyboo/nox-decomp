@@ -798,6 +798,132 @@ int nox_bot_engine_find_nearest_missile_owned_by(
     return best;
 }
 
+int nox_bot_engine_find_nearest_mana_source(
+    int object, int minimum_mana, int require_visible)
+{
+    float dx;
+    float dy;
+    float distance;
+    float best_distance = 3.4e38f;
+    int best = 0;
+    int item;
+
+    if (!object)
+        return 0;
+    if (minimum_mana < 0)
+        minimum_mana = 0;
+    for (item = sub_4DA790(); item; item = sub_4DA7A0(item)) {
+        int runtime;
+
+        if (item == object ||
+            (*(unsigned char *)(item + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED) ||
+            *(signed int (__cdecl **)(int))(item + NOX_OBJECT_UPDATE_OFFSET) != sub_53C580)
+            continue;
+        runtime = *(int *)(item + NOX_OBJECT_RUNTIME_OFFSET);
+        if (!runtime || *(int *)runtime < minimum_mana ||
+            (require_visible && !sub_5370E0(object, item, 0)))
+            continue;
+        dx = *(float *)(item + NOX_OBJECT_X_OFFSET) - *(float *)(object + NOX_OBJECT_X_OFFSET);
+        dy = *(float *)(item + NOX_OBJECT_Y_OFFSET) - *(float *)(object + NOX_OBJECT_Y_OFFSET);
+        distance = dx * dx + dy * dy;
+        if (distance > best_distance)
+            continue;
+        best = item;
+        best_distance = distance;
+    }
+    return best;
+}
+
+int nox_bot_engine_summon_cage_used(int object)
+{
+    return object ? sub_500D10(object) : 0;
+}
+
+int nox_bot_engine_summon_spell_fits(int object, const char *spell_name)
+{
+    int spell;
+    int summon_index;
+
+    if (!object || !spell_name || !*spell_name)
+        return 0;
+    spell = sub_51E1D0(spell_name);
+    summon_index = spell - 74;
+    if (summon_index <= 0 || summon_index >= 41)
+        return 0;
+    return sub_500D70(object, summon_index) != 0;
+}
+
+int nox_bot_engine_random_int(int minimum, int maximum)
+{
+    if (minimum > maximum)
+        return minimum;
+    return sub_415FA0(minimum, maximum);
+}
+
+static int nox_bot_engine_create_spell_trap_impl(
+    int object, const char *const *spell_names, unsigned int spell_count, int set_owner)
+{
+    float x;
+    float y;
+    int trap;
+    int init;
+    uint32_t spells[5];
+    unsigned int i;
+
+    if (!object || !spell_names || !spell_count || spell_count > 5)
+        return 0;
+    memset(spells, 0, sizeof(spells));
+    for (i = 0; i < spell_count; ++i) {
+        int spell;
+
+        if (!spell_names[i] || !*spell_names[i])
+            return 0;
+        spell = sub_51E1D0(spell_names[i]);
+        if (spell <= 0)
+            return 0;
+        spells[i] = (uint32_t)spell;
+    }
+    trap = (int)sub_4E3810("Glyph");
+    if (!trap)
+        return 0;
+    init = *(int *)(trap + 692);
+    if (!init) {
+        sub_4E38A0(trap);
+        return 0;
+    }
+
+    nox_bot_engine_position(object, &x, &y);
+    sub_4DAA50(trap, 0, x, y);
+    memset((void *)init, 0, 36);
+    for (i = 0; i < spell_count; ++i)
+        *(uint32_t *)(init + i * sizeof(uint32_t)) = spells[i];
+    *(uint32_t *)(init + 20) = spell_count;
+    *(float *)(init + 28) = x;
+    *(float *)(init + 32) = y;
+    if (set_owner)
+        sub_4EC290(object, trap);
+    return trap;
+}
+
+int nox_bot_engine_create_spell_trap(int object, const char *spell_name)
+{
+    const char *spells[1];
+
+    spells[0] = spell_name;
+    return nox_bot_engine_create_spell_trap_impl(object, spells, 1, 0);
+}
+
+int nox_bot_engine_create_owned_spell_trap3(
+    int object, const char *spell1, const char *spell2, const char *spell3)
+{
+    const char *spells[3];
+
+    spells[0] = spell1;
+    spells[1] = spell2;
+    spells[2] = spell3;
+    return nox_bot_engine_create_spell_trap_impl(object, spells, 3, 1);
+}
+
 int nox_bot_engine_owned_type_count(int object, const char *type_name)
 {
     int count = 0;
