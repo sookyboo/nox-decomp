@@ -48,6 +48,10 @@ int nox_bot_engine_spell_allowed_for_class(int player_class, int spell);
 int nox_bot_engine_is_enemy(int self, int other);
 int nox_bot_engine_same_team(int self, int other);
 int nox_bot_engine_has_buff(int object, int buff);
+int nox_bot_engine_remove_buff(int object, int buff);
+int nox_bot_engine_is_object_type(int object, const char *type_name);
+/* Reproduces NoxScript CastSpell(source=object, target=object). */
+int nox_bot_engine_cast_script_self(int object, const char *spell_name);
 int nox_bot_engine_current_target(int object);
 int nox_bot_engine_harpoon_attached_target(int object);
 int nox_bot_engine_stop_harpoon(int object);

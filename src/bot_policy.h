@@ -54,6 +54,8 @@ typedef struct nox_bot_warrior_policy_state {
     unsigned char teleport_wake_tracking;
     unsigned char teleport_wake_event_seen;
     unsigned char lost_sight_ctf_handled;
+    unsigned char charge_collision_pending;
+    uint32_t protected_hold_until;
     uint32_t teleport_wake_event_frame;
     int teleport_wake_target;
     float teleport_wake_x;
