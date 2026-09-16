@@ -34,6 +34,7 @@ typedef enum nox_bot_wizard_spell {
     NOX_BOT_WIZARD_SPELL_INVERSION,
     NOX_BOT_WIZARD_SPELL_BLINK,
     NOX_BOT_WIZARD_SPELL_TRAP,
+    NOX_BOT_WIZARD_SPELL_DRAIN_MANA,
     NOX_BOT_WIZARD_SPELL_SHIELD,
     NOX_BOT_WIZARD_SPELL_LESSER_HEAL,
     NOX_BOT_WIZARD_SPELL_HASTE,
@@ -73,6 +74,7 @@ static const nox_bot_wizard_spell_def nox_bot_wizard_spells[] = {
     { "INVERSION", 10, 10, 1, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "BLINK", 10, 10, 1, 0, NOX_BOT_WIZARD_CAST_TRAP },
     { 0, 105, 105, 5, 0, NOX_BOT_WIZARD_CAST_OWNED_TRAP },
+    { "DRAIN_MANA", 0, 0, 3, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "SHIELD", 80, 80, 10, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "LESSER_HEAL", 30, 30, 1, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "HASTE", 10, 10, 20, 0, NOX_BOT_WIZARD_CAST_SELF },
@@ -108,6 +110,8 @@ static uint32_t *nox_bot_wizard_ready_frame(
         return &wizard->blink_ready_frame;
     case NOX_BOT_WIZARD_SPELL_TRAP:
         return &wizard->trap_ready_frame;
+    case NOX_BOT_WIZARD_SPELL_DRAIN_MANA:
+        return &wizard->drain_mana_ready_frame;
     case NOX_BOT_WIZARD_SPELL_SHIELD:
         return &wizard->shield_ready_frame;
     case NOX_BOT_WIZARD_SPELL_LESSER_HEAL:
@@ -166,6 +170,9 @@ static int nox_bot_wizard_spell_ready(
         break;
     case NOX_BOT_WIZARD_SPELL_TRAP:
         ready = &wizard->trap_ready_frame;
+        break;
+    case NOX_BOT_WIZARD_SPELL_DRAIN_MANA:
+        ready = &wizard->drain_mana_ready_frame;
         break;
     case NOX_BOT_WIZARD_SPELL_SHIELD:
         ready = &wizard->shield_ready_frame;
@@ -432,6 +439,17 @@ static int nox_bot_wizard_try_visible_target(
                 object, state, frame, NOX_BOT_WIZARD_SPELL_COUNTERSPELL, target, x, y))
             return 1;
     }
+
+    /* Preserve the Go reference's operator precedence: 75-health targets may
+     * trigger Drain Mana at any visible range, while 100-health targets must
+     * be within 200 units. Native Drain Mana selects the actual drain source. */
+    if (!self_invisible &&
+        (nox_bot_engine_max_health(target) == 75 ||
+         (nox_bot_engine_max_health(target) == 100 &&
+          nox_bot_wizard_within_radius(object, target, 200.0f))) &&
+        nox_bot_wizard_schedule(
+            object, state, frame, NOX_BOT_WIZARD_SPELL_DRAIN_MANA, 0, 0.0f, 0.0f))
+        return 1;
     return 0;
 }
 
@@ -523,6 +541,21 @@ static int nox_bot_wizard_go_to_mana_source(
     nox_bot_engine_position(source, &x, &y);
     nox_bot_engine_walk_to(object, x, y);
     return 1;
+}
+
+static int nox_bot_wizard_try_nearby_mana_drain(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    int source;
+
+    if (nox_bot_engine_mana(object) >= 150 ||
+        nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC))
+        return 0;
+    source = nox_bot_engine_find_nearest_mana_source(object, 1, 1);
+    if (!source || !nox_bot_wizard_within_radius(object, source, 50.0f))
+        return 0;
+    return nox_bot_wizard_schedule(
+        object, state, frame, NOX_BOT_WIZARD_SPELL_DRAIN_MANA, 0, 0.0f, 0.0f);
 }
 
 static void nox_bot_wizard_maybe_seek_mana(
@@ -743,6 +776,8 @@ void nox_bot_wizard_update(int object, nox_bot_policy_state *state, uint32_t fra
         return;
 
     if (nox_bot_wizard_try_missile_reaction(object, state, frame))
+        return;
+    if (nox_bot_wizard_try_nearby_mana_drain(object, state, frame))
         return;
 
     nox_bot_wizard_maybe_seek_mana(object, state);

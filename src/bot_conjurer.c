@@ -84,6 +84,7 @@ static const nox_bot_conjurer_spell_def nox_bot_conjurer_spells[] = {
 
 typedef enum nox_bot_conjurer_summon {
     NOX_BOT_CONJURER_SUMMON_NONE = 0,
+    NOX_BOT_CONJURER_SUMMON_BOMBER,
     NOX_BOT_CONJURER_SUMMON_WASP,
     NOX_BOT_CONJURER_SUMMON_URCHIN,
     NOX_BOT_CONJURER_SUMMON_SMALL_SPIDER,
@@ -129,6 +130,7 @@ typedef struct nox_bot_conjurer_summon_def {
 
 static const nox_bot_conjurer_summon_def nox_bot_conjurer_summons[] = {
     { 0, 0, 0 },
+    { 0, 80, 0 }, /* Bot-Script custom Bomber; it checks mana but does not spend it. */
     { "SUMMON_WASP", 15, 2 },
     { "SUMMON_URCHIN", 30, 2 },
     { "SUMMON_SMALL_SPIDER", 15, 2 },
@@ -176,7 +178,7 @@ static const unsigned char nox_bot_conjurer_small_summons[] = {
     NOX_BOT_CONJURER_SUMMON_GIANT_LEECH,
     NOX_BOT_CONJURER_SUMMON_BAT,
     NOX_BOT_CONJURER_SUMMON_GHOST,
-    NOX_BOT_CONJURER_SUMMON_NONE, /* Bot-Script's custom Bomber branch. */
+    NOX_BOT_CONJURER_SUMMON_BOMBER,
 };
 
 static const unsigned char nox_bot_conjurer_medium_summons[] = {
@@ -344,9 +346,15 @@ static int nox_bot_conjurer_schedule_summon(
     if (!nox_bot_conjurer_global_ready(conjurer, frame) ||
         !nox_bot_conjurer_deadline_ready(frame, conjurer->summon_ready_frame) ||
         nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
-        nox_bot_engine_mana(object) < def->mana ||
-        !nox_bot_engine_summon_spell_fits(object, def->name))
+        nox_bot_engine_mana(object) < def->mana)
         return 0;
+    if (summon == NOX_BOT_CONJURER_SUMMON_BOMBER) {
+        if (nox_bot_engine_owned_type_count(object, "Bomber") > 1 ||
+            !nox_bot_engine_bomber_fits(object))
+            return 0;
+    } else if (!nox_bot_engine_summon_spell_fits(object, def->name)) {
+        return 0;
+    }
 
     conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE;
     conjurer->pending_summon = (unsigned char)summon;
@@ -404,20 +412,36 @@ static void nox_bot_conjurer_finish_cast(
         summon_def = &nox_bot_conjurer_summons[summon];
         if (nox_bot_engine_health(object) <= 0 ||
             nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
-            nox_bot_engine_mana(object) < summon_def->mana ||
-            !nox_bot_engine_summon_spell_fits(object, summon_def->name)) {
+            nox_bot_engine_mana(object) < summon_def->mana) {
             nox_bot_conjurer_cancel_pending(state, frame);
             return;
         }
-        nox_bot_engine_mana_sub(object, summon_def->mana);
-        nox_bot_engine_cast_script_self(object, summon_def->name);
+        if (summon == NOX_BOT_CONJURER_SUMMON_BOMBER) {
+            if (nox_bot_engine_owned_type_count(object, "Bomber") > 1 ||
+                !nox_bot_engine_bomber_fits(object) ||
+                !nox_bot_engine_create_bomber(object)) {
+                nox_bot_conjurer_cancel_pending(state, frame);
+                return;
+            }
+            /* Preserve Bot-Script's observable quirk: castBomber requires 80
+             * mana but never subtracts it. Its summon gate reopens after three
+             * frames rather than using a seconds-based summon cooldown. */
+            cooldown = NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES;
+        } else {
+            if (!nox_bot_engine_summon_spell_fits(object, summon_def->name)) {
+                nox_bot_conjurer_cancel_pending(state, frame);
+                return;
+            }
+            nox_bot_engine_mana_sub(object, summon_def->mana);
+            nox_bot_engine_cast_script_self(object, summon_def->name);
+            cooldown = nox_bot_engine_fps() * summon_def->cooldown_seconds;
+            if (!cooldown)
+                cooldown = 1;
+        }
         conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
         conjurer->pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
         conjurer->pending_target = 0;
         conjurer->global_ready_frame = frame + NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES;
-        cooldown = nox_bot_engine_fps() * summon_def->cooldown_seconds;
-        if (!cooldown)
-            cooldown = 1;
         conjurer->summon_ready_frame = frame + cooldown;
         return;
     }
@@ -627,11 +651,12 @@ static int nox_bot_conjurer_try_random_summon(
     cage = nox_bot_engine_summon_cage_used(object);
     category = nox_bot_engine_random_int(1, 3);
     if (category == 1) {
-        /* At cage weight 3 the reference first creates its custom Bomber,
-         * which consumes the summon gate. Keep that unrecovered object path
-         * explicit instead of incorrectly substituting a native summon. */
-        if (cage == 3)
-            return 0;
+        /* The reference gives Bomber priority when the cage is exactly 3. If
+         * that attempt cannot start, it still falls through to the ordinary
+         * small-creature roll. */
+        if (cage == 3 && nox_bot_conjurer_schedule_summon(
+                object, state, frame, NOX_BOT_CONJURER_SUMMON_BOMBER))
+            return 1;
         choice = nox_bot_engine_random_int(1, 10);
         summon = (nox_bot_conjurer_summon)nox_bot_conjurer_small_summons[choice - 1];
     } else if (category == 2) {

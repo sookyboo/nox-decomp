@@ -96,6 +96,20 @@ static float glyph_x;
 static float glyph_y;
 static unsigned char glyph_object[800];
 static unsigned char glyph_init[64];
+static unsigned char bomber_object[800];
+static int bomber_summon_calls;
+static int bomber_summon_type;
+static int bomber_summon_owner;
+static unsigned char bomber_summon_direction;
+static float bomber_summon_x;
+static float bomber_summon_y;
+static int bomber_inventory_calls;
+static int bomber_inventory_object;
+static int bomber_inventory_item;
+static int bomber_inventory_flag;
+static int bomber_follow_calls;
+static int bomber_follow_object;
+static int bomber_follow_target;
 
 static unsigned char created_bot_ai[0x898];
 
@@ -164,6 +178,12 @@ int __cdecl sub_51E1D0(const char *name)
         return 68;
     if (strcmp(name, "SHOCK") == 0)
         return 69;
+    if (strcmp(name, "BURN") == 0)
+        return 70;
+    if (strcmp(name, "TOXIC_CLOUD") == 0)
+        return 71;
+    if (strcmp(name, "STUN") == 0)
+        return 72;
     return 0;
 }
 
@@ -373,6 +393,33 @@ void __cdecl sub_4EC290(int owner, int item)
     ++glyph_owner_calls;
     glyph_owner_object = owner;
     glyph_owner_item = item;
+}
+
+_DWORD *__cdecl sub_5016C0(int type_id, int *pos, int owner, unsigned __int8 direction)
+{
+    ++bomber_summon_calls;
+    bomber_summon_type = type_id;
+    bomber_summon_owner = owner;
+    bomber_summon_direction = direction;
+    bomber_summon_x = pos ? ((float *)pos)[0] : 0.0f;
+    bomber_summon_y = pos ? ((float *)pos)[1] : 0.0f;
+    memset(bomber_object, 0, sizeof(bomber_object));
+    return (_DWORD *)bomber_object;
+}
+
+void __cdecl sub_4F3070(int object, int item, int flag)
+{
+    ++bomber_inventory_calls;
+    bomber_inventory_object = object;
+    bomber_inventory_item = item;
+    bomber_inventory_flag = flag;
+}
+
+void __cdecl sub_5158C0(int object, int target)
+{
+    ++bomber_follow_calls;
+    bomber_follow_object = object;
+    bomber_follow_target = target;
 }
 
 int __cdecl sub_5330C0(int self, int other)
@@ -1062,6 +1109,11 @@ static int test_mana_source_and_summon_wrappers(void)
         return 125;
     if (nox_bot_engine_summon_spell_fits(object_ptr, "NOT_A_SUMMON"))
         return 126;
+    summon_limit_object = 0;
+    summon_limit_index = 0;
+    if (!nox_bot_engine_bomber_fits(object_ptr) ||
+        summon_limit_object != object_ptr || summon_limit_index != 5)
+        return 130;
 
     random_result = 2;
     if (nox_bot_engine_random_int(1, 3) != 2 || random_minimum != 1 || random_maximum != 3)
@@ -1098,6 +1150,39 @@ static int test_mana_source_and_summon_wrappers(void)
         *(float *)(glyph_init + 28) != 0.0f ||
         *(float *)(glyph_init + 32) != 0.0f)
         return 129;
+
+    *(unsigned char *)(object + 124) = 33;
+    bomber_summon_calls = 0;
+    bomber_summon_type = 0;
+    bomber_summon_owner = 0;
+    bomber_summon_direction = 0;
+    bomber_summon_x = 0.0f;
+    bomber_summon_y = 0.0f;
+    bomber_inventory_calls = 0;
+    bomber_inventory_object = 0;
+    bomber_inventory_item = 0;
+    bomber_inventory_flag = 0;
+    bomber_follow_calls = 0;
+    bomber_follow_object = 0;
+    bomber_follow_target = 0;
+    if (nox_bot_engine_create_bomber(object_ptr) != (int)(uintptr_t)bomber_object ||
+        bomber_summon_calls != 1 || bomber_summon_type != 81 ||
+        bomber_summon_owner != object_ptr || bomber_summon_direction != 33 ||
+        bomber_summon_x != 0.0f || bomber_summon_y != 0.0f ||
+        bomber_inventory_calls != 1 ||
+        bomber_inventory_object != (int)(uintptr_t)bomber_object ||
+        bomber_inventory_item != (int)(uintptr_t)glyph_object ||
+        bomber_inventory_flag != 1 || bomber_follow_calls != 1 ||
+        bomber_follow_object != (int)(uintptr_t)bomber_object ||
+        bomber_follow_target != object_ptr || glyph_create_calls != 3 ||
+        glyph_place_calls != 2 || glyph_destroy_calls ||
+        *(uint32_t *)(glyph_init + 0) != 70 ||
+        *(uint32_t *)(glyph_init + 4) != 71 ||
+        *(uint32_t *)(glyph_init + 8) != 72 ||
+        *(uint32_t *)(glyph_init + 20) != 3 ||
+        *(float *)(glyph_init + 28) != 0.0f ||
+        *(float *)(glyph_init + 32) != 0.0f)
+        return 131;
 
     world_head = 0;
     world_test_player = 0;
