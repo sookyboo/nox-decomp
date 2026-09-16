@@ -395,7 +395,8 @@ static int nox_bot_warrior_valid_charge_target(int object, int target)
 
 static int nox_bot_warrior_try_charge_target(int object, int target)
 {
-    if (!nox_bot_warrior_valid_charge_target(object, target) ||
+    if (nox_bot_team_is_ctf_tank(object) ||
+        !nox_bot_warrior_valid_charge_target(object, target) ||
         !nox_bot_engine_ability_ready(object, NOX_BOT_ABILITY_BERSERKER_CHARGE))
         return 0;
     nox_bot_engine_face_target(object, target);

@@ -36,6 +36,7 @@ typedef enum nox_bot_conjurer_spell {
     NOX_BOT_CONJURER_SPELL_TOXIC_CLOUD,
     NOX_BOT_CONJURER_SPELL_BURN,
     NOX_BOT_CONJURER_SPELL_COUNTERSPELL,
+    NOX_BOT_CONJURER_SPELL_COUNTERSPELL_DEATHBALL,
     NOX_BOT_CONJURER_SPELL_STUN,
     NOX_BOT_CONJURER_SPELL_SLOW,
     NOX_BOT_CONJURER_SPELL_PIXIE_SWARM,
@@ -68,6 +69,7 @@ static const nox_bot_conjurer_spell_def nox_bot_conjurer_spells[] = {
     { "TOXIC_CLOUD", 60, 5, 0, NOX_BOT_CONJURER_CAST_POSITION },
     { "BURN", 10, 0, 1, NOX_BOT_CONJURER_CAST_POSITION },
     { "COUNTERSPELL", 20, 5, 0, NOX_BOT_CONJURER_CAST_POSITION },
+    { "COUNTERSPELL", 20, 20, 0, NOX_BOT_CONJURER_CAST_POSITION },
     { "STUN", 10, 5, 0, NOX_BOT_CONJURER_CAST_OBJECT },
     { "SLOW", 10, 3, 0, NOX_BOT_CONJURER_CAST_OBJECT },
     { "PIXIE_SWARM", 30, 0, 0, NOX_BOT_CONJURER_CAST_SELF },
@@ -86,6 +88,7 @@ static uint32_t *nox_bot_conjurer_ready_frame(
     case NOX_BOT_CONJURER_SPELL_BURN:
         return &conjurer->burn_ready_frame;
     case NOX_BOT_CONJURER_SPELL_COUNTERSPELL:
+    case NOX_BOT_CONJURER_SPELL_COUNTERSPELL_DEATHBALL:
         return &conjurer->counterspell_ready_frame;
     case NOX_BOT_CONJURER_SPELL_STUN:
         return &conjurer->stun_ready_frame;
@@ -122,6 +125,7 @@ static int nox_bot_conjurer_spell_ready(
         ready = &conjurer->burn_ready_frame;
         break;
     case NOX_BOT_CONJURER_SPELL_COUNTERSPELL:
+    case NOX_BOT_CONJURER_SPELL_COUNTERSPELL_DEATHBALL:
         ready = &conjurer->counterspell_ready_frame;
         break;
     case NOX_BOT_CONJURER_SPELL_STUN:
@@ -351,6 +355,21 @@ static int nox_bot_conjurer_try_debuff(
     return 0;
 }
 
+static int nox_bot_conjurer_try_deathball_counterspell(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    float x;
+    float y;
+
+    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+        !nox_bot_engine_find_nearest_enemy_owned_type(object, "DeathBall", 500.0f))
+        return 0;
+    nox_bot_engine_position(object, &x, &y);
+    return nox_bot_conjurer_schedule(
+        object, state, frame, NOX_BOT_CONJURER_SPELL_COUNTERSPELL_DEATHBALL,
+        0, x, y);
+}
+
 static int nox_bot_conjurer_try_hidden_buffs(
     int object, nox_bot_policy_state *state, uint32_t frame)
 {
@@ -532,6 +551,11 @@ void nox_bot_conjurer_update(int object, nox_bot_policy_state *state, uint32_t f
         }
     }
     if (!nox_bot_conjurer_global_ready(conjurer, frame)) {
+        nox_bot_conjurer_cap_mana(object);
+        return;
+    }
+
+    if (nox_bot_conjurer_try_deathball_counterspell(object, state, frame)) {
         nox_bot_conjurer_cap_mana(object);
         return;
     }

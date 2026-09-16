@@ -63,6 +63,8 @@ static float last_guard_y2;
 static float last_guard_radius;
 static int same_team_self;
 static int same_team_other;
+static int enemy_self;
+static int enemy_other;
 static int script_cast_calls;
 static int script_cast_spell;
 static int script_cast_object;
@@ -181,6 +183,8 @@ int __cdecl sub_4E3AA0(char *name)
         return 81;
     if (strcmp(name, "Pixie") == 0)
         return 82;
+    if (strcmp(name, "DeathBall") == 0)
+        return 83;
     return 0;
 }
 
@@ -287,6 +291,8 @@ int __cdecl sub_509ED0(float2 *delta)
 
 int __cdecl sub_5330C0(int self, int other)
 {
+    if (self == enemy_self && other == enemy_other)
+        return 1;
     return self == 10 && other == 20;
 }
 
@@ -799,6 +805,8 @@ static int test_world_loot_and_equipment_wrappers(void)
     unsigned char armor_item[600];
     unsigned char pixie_a[600];
     unsigned char pixie_b[600];
+    unsigned char deathball[600];
+    unsigned char enemy_owner[800];
     int object_ptr;
     int near_ptr;
     int armor_ptr;
@@ -810,6 +818,8 @@ static int test_world_loot_and_equipment_wrappers(void)
     memset(armor_item, 0, sizeof(armor_item));
     memset(pixie_a, 0, sizeof(pixie_a));
     memset(pixie_b, 0, sizeof(pixie_b));
+    memset(deathball, 0, sizeof(deathball));
+    memset(enemy_owner, 0, sizeof(enemy_owner));
     object_ptr = (int)(uintptr_t)object;
     near_ptr = (int)(uintptr_t)near_item;
     armor_ptr = (int)(uintptr_t)armor_item;
@@ -845,6 +855,23 @@ static int test_world_loot_and_equipment_wrappers(void)
     *(unsigned char *)(pixie_b + 16) = 0x20;
     if (nox_bot_engine_owned_type_count(object_ptr, "Pixie") != 1)
         return 96;
+
+    *(unsigned char *)(pixie_b + 16) = 0;
+    *(uint32_t *)(pixie_b + 444) = (uint32_t)(uintptr_t)deathball;
+    *(uint16_t *)(deathball + 4) = 83;
+    *(float *)(deathball + 56) = 15.0f;
+    *(uint32_t *)(deathball + 492) = (uint32_t)(uintptr_t)enemy_owner;
+    *(uint32_t *)(enemy_owner + 8) = 2;
+    enemy_self = object_ptr;
+    enemy_other = (int)(uintptr_t)enemy_owner;
+    if (nox_bot_engine_find_nearest_enemy_owned_type(
+            object_ptr, "DeathBall", 75.0f) != (int)(uintptr_t)deathball)
+        return 97;
+    *(uint32_t *)(deathball + 492) = (uint32_t)object_ptr;
+    if (nox_bot_engine_find_nearest_enemy_owned_type(object_ptr, "DeathBall", 75.0f))
+        return 98;
+    enemy_self = 0;
+    enemy_other = 0;
 
     pickup_calls = 0;
     if (!nox_bot_engine_pickup_item(object_ptr, near_ptr))

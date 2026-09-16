@@ -25,6 +25,8 @@ static uint32_t self_buffs;
 static uint32_t target_buffs;
 static int target_visible;
 static int ctf_mode;
+static int ctf_tank;
+static int enemy_deathball;
 static int cast_calls;
 static int cast_kind;
 static int cast_target;
@@ -190,6 +192,18 @@ int nox_bot_engine_is_ctf(void)
     return ctf_mode;
 }
 
+int nox_bot_team_is_ctf_tank(int object)
+{
+    return object == SELF && ctf_mode && ctf_tank;
+}
+
+int nox_bot_engine_find_nearest_enemy_owned_type(
+    int object, const char *type_name, float max_distance)
+{
+    return object == SELF && enemy_deathball && max_distance >= 500.0f &&
+        strcmp(type_name, "DeathBall") == 0 ? 900 : 0;
+}
+
 int nox_bot_engine_find_nearest_visible_type(
     int object, const char *type_name, float max_distance)
 {
@@ -259,6 +273,8 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     target_buffs = 0;
     target_visible = 1;
     ctf_mode = 0;
+    ctf_tank = 0;
+    enemy_deathball = 0;
     cast_calls = 0;
     cast_kind = 0;
     cast_target = 0;
@@ -395,7 +411,7 @@ static int test_enemy_heard_hidden_target_invisibility(void)
     return 0;
 }
 
-static int test_hidden_defensive_priority_and_ctf_invisibility_gap(void)
+static int test_hidden_defensive_priority_and_ctf_tank_invisibility(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 300);
 
@@ -419,19 +435,45 @@ static int test_hidden_defensive_priority_and_ctf_invisibility_gap(void)
         !(self_buffs & buff_mask(ENCHANT_PROTECT_FIRE)))
         return 22;
 
+    /* Bot-Script only blocks Invisibility for CTF TeamTank, which becomes the
+     * enemy-flag carrier after pickup. */
     state->wizard.global_ready_frame = 0;
     state->wizard.protect_fire_ready_frame = 9999;
     self_mana = 150;
     ctf_mode = 1;
+    ctf_tank = 1;
     nox_bot_wizard_update(SELF, state, 302);
     if (state->wizard.pending_spell || cast_calls != 2)
         return 23;
-    ctf_mode = 0;
+    ctf_tank = 0;
     nox_bot_wizard_update(SELF, state, 303);
     nox_bot_wizard_update(SELF, state, 303);
     if (cast_calls != 3 || strcmp(cast_name, "INVISIBILITY") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_INVISIBLE)))
         return 24;
+    return 0;
+}
+
+static int test_hostile_deathball_counterspell_priority(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 350);
+
+    if (!state)
+        return 28;
+    state->wizard.target = TARGET;
+    enemy_deathball = 1;
+    nox_bot_wizard_update(SELF, state, 350);
+    if (!state->wizard.pending_spell || cast_calls)
+        return 29;
+    nox_bot_wizard_update(SELF, state, 364);
+    if (cast_calls)
+        return 33;
+    nox_bot_wizard_update(SELF, state, 365);
+    if (cast_calls != 1 || strcmp(cast_name, "COUNTERSPELL") != 0 ||
+        cast_kind != 3 || cast_x != 10.0f || cast_y != 20.0f || self_mana != 130)
+        return 34;
+    if (state->wizard.counterspell_ready_frame != 965)
+        return 39;
     return 0;
 }
 
@@ -576,7 +618,10 @@ int main(void)
     result = test_enemy_heard_hidden_target_invisibility();
     if (result)
         return result;
-    result = test_hidden_defensive_priority_and_ctf_invisibility_gap();
+    result = test_hidden_defensive_priority_and_ctf_tank_invisibility();
+    if (result)
+        return result;
+    result = test_hostile_deathball_counterspell_priority();
     if (result)
         return result;
     result = test_antimagic_cancels_pending_without_spending_mana();

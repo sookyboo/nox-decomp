@@ -8,6 +8,7 @@
  * and guard/fight actions remain authoritative in Nox. These helpers only
  * reproduce Bot-Script's attack/defend destination choice.
  */
+int nox_bot_team_is_ctf_tank(int object);
 int nox_bot_team_ctf_attack_or_defend(int object);
 void nox_bot_team_ctf_walk_to_own_flag(int object);
 
