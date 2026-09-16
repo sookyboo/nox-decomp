@@ -66,6 +66,7 @@ void nox_bot_runtime_forget_native_player_bot(int object)
 
 void nox_bot_runtime_event(int object, nox_bot_event event, int event_object)
 {
+    uint32_t frame;
     int slot;
     nox_bot_policy_state *state;
 
@@ -73,7 +74,10 @@ void nox_bot_runtime_event(int object, nox_bot_event event, int event_object)
         return;
     slot = nox_bot_engine_player_slot(object);
     state = nox_bot_policy_get(slot);
-    nox_bot_policy_record_event(state, event, event_object, nox_bot_engine_frame());
+    frame = nox_bot_engine_frame();
+    nox_bot_policy_record_event(state, event, event_object, frame);
+    if (event == NOX_BOT_EVENT_COLLISION && nox_bot_engine_player_class(object) == 0)
+        nox_bot_warrior_observe_collision(object, state, event_object, frame);
 }
 
 void nox_bot_runtime_clear_life_state(int object)
