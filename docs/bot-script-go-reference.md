@@ -51,14 +51,14 @@ Implemented so far:
 - `[x]` 32-slot server-local policy storage without duplicating authoritative Nox gameplay state;
 - `[x]` Bot-Script reaction delays (`0/15/30/45/60` simulation frames), including wrap-safe deadline comparison;
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
-- `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
+- `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, and partial Warrior decisions.
 
 Still intentionally not implemented where native ownership is not completely recovered:
 
 - `[ ]` claiming/creating a free player slot and player object without a human network client;
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
-- `[~]` remaining Warrior policy (held-state escape and additional teammate/team coordination beyond the current native-backed CTF objective steering);
+- `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
 - `[ ]` Wizard and Conjurer Bot-Script tactical policy;
 - `[~]` native-backed Warrior CTF strategy is implemented; shared multi-class team/objective coordination and bot commands remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
@@ -86,11 +86,11 @@ not blur native engine mechanics with Bot-Script policy:
 
 ### Warrior parity
 
-- held-state escape remains pending. The Go reference directly casts Slow on
-  itself and removes `HELD`, but deliberately suppresses that escape for the
-  Warrior's own Berserker crash stun and Bomber stun. Native spell/buff entry
-  points are known; source attribution for those protected holds must be carried
-  across the native collision path before the escape can be enabled safely;
+Implemented Warrior combat/recovery mechanics now include held-state escape:
+ordinary `HELD` is converted to the reference Slow-on-self effect and removed,
+while native Berserker Charge crash stun and enemy `Bomber` stun retain their
+reference two-second protected window. Remaining Warrior-adjacent work is:
+
 - low-health potion-seeking movement now feeds into the reference
   post-waypoint CTF objective choice instead of stopping after recovery;
 - the Lost Sight `TeleportWake` pursuit/check loop is now implemented with the
@@ -725,6 +725,16 @@ The opt-in implementation now ports these high-confidence Warrior decisions:
   non-carrier may route normally. When the recovery waypoint ends aggression is
   restored to `0.83`; non-CTF bots resume native Hunt, while CTF bots re-enter
   the native-backed attack/defend objective choice;
+- **held-state escape** reproduces `Warrior.Update()` without treating every
+  stun alike. Ordinary native enchant `HELD` (`5`) is converted through the
+  direct NoxScript-style `SLOW` self-cast and then removed. The collision hook
+  records whether Berserker Charge owned the collision before native player
+  collision processing; policy only protects that source when native collision
+  actually left `HELD` active. Enemy `Bomber` collisions also start the
+  reference two-second protected window. After that window expires, any
+  remaining `HELD` is escaped normally. The Slow spell effect and enchant
+  removal both use existing native spell/buff paths; policy does not synthesize
+  movement penalties or enchant duration;
 - **Lost Sight TeleportWake pursuit** resolves the nearest `TeleportWake`, uses
   native `WalkTo`, and retains the lost target until the bot has moved more than
   100 units from the wake position. At that transition it uses Nox's native
@@ -1394,7 +1404,7 @@ Warrior
 [x] Eye of the Wolf event policy
 [x] TeleportWake lost-target pursuit
 [~] CTF objective policy (native-backed attack/defend/escort/return steering implemented; shared teammate coordination/chat orders pending)
-[ ] held-state escape
+[x] held-state escape (native direct Slow self-cast + HELD removal, with two-second Charge/Bomber protection)
 [x] RoundChakram / weapon-preference / loot policy (native throw lifecycle + 10-second cooldown + nearby loot + melee preference)
 ```
 

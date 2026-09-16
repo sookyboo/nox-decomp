@@ -13,6 +13,10 @@ static int player_class;
 static int warrior_update_calls;
 static int warrior_update_object;
 static uint32_t warrior_update_frame;
+static int warrior_collision_observe_calls;
+static int warrior_collision_object;
+static int warrior_collision_other;
+static uint32_t warrior_collision_frame;
 
 int nox_bot_engine_enable_existing_player_bot(int object)
 {
@@ -55,6 +59,16 @@ int nox_bot_engine_player_class(int object)
     return player_class;
 }
 
+void nox_bot_warrior_observe_collision(
+    int object, nox_bot_policy_state *state, int other, uint32_t frame)
+{
+    (void)state;
+    ++warrior_collision_observe_calls;
+    warrior_collision_object = object;
+    warrior_collision_other = other;
+    warrior_collision_frame = frame;
+}
+
 void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t frame)
 {
     (void)state;
@@ -76,6 +90,10 @@ static void reset_stubs(void)
     warrior_update_calls = 0;
     warrior_update_object = 0;
     warrior_update_frame = 0;
+    warrior_collision_observe_calls = 0;
+    warrior_collision_object = 0;
+    warrior_collision_other = 0;
+    warrior_collision_frame = 0;
     nox_bot_policy_reset_all();
 }
 
@@ -180,6 +198,10 @@ static int test_event_capture(void)
         if (nox_bot_policy_event_frame(state, (nox_bot_event)event) != 777u + (uint32_t)event)
             return 33 + event * 3;
     }
+    if (warrior_collision_observe_calls != 1 || warrior_collision_object != 123 ||
+        warrior_collision_other != 456 + NOX_BOT_EVENT_COLLISION ||
+        warrior_collision_frame != 777u + NOX_BOT_EVENT_COLLISION)
+        return 59;
     return 0;
 }
 

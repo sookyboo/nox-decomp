@@ -309,6 +309,58 @@ int nox_bot_engine_has_buff(int object, int buff)
     return sub_4FF350(object, (char)buff) != 0;
 }
 
+int nox_bot_engine_remove_buff(int object, int buff)
+{
+    if (!object || buff < 0 || buff > 255)
+        return 0;
+    sub_4FF5B0(object, buff);
+    return !nox_bot_engine_has_buff(object, buff);
+}
+
+int nox_bot_engine_is_object_type(int object, const char *type_name)
+{
+    int type_id;
+
+    if (!object || !type_name || !*type_name)
+        return 0;
+    type_id = sub_4E3AA0((CHAR *)type_name);
+    if (type_id <= 0)
+        return 0;
+    return *(unsigned short *)(object + NOX_OBJECT_TYPE_ID_OFFSET) ==
+        (unsigned short)type_id;
+}
+
+int nox_bot_engine_cast_script_self(int object, const char *spell_name)
+{
+    struct nox_bot_spell_accept_arg {
+        int object;
+        float x;
+        float y;
+    } arg;
+    int morphed;
+    int result;
+    int spell;
+
+    if (!object || !spell_name || !*spell_name)
+        return 0;
+    spell = nox_bot_engine_spell_id(spell_name);
+    if (spell <= 0 || !nox_bot_engine_begin_monster_view(object, &morphed))
+        return 0;
+
+    /*
+     * NoxScript CastSpell uses the direct spell dispatcher rather than a
+     * queued monster-cast action. Entering the native bot monster view makes
+     * sub_4FE7B0 read the bot AI spell power (initialized to 3 by 4FA700),
+     * which matches the NPC/script path instead of player learned-spell data.
+     */
+    arg.object = object;
+    arg.x = *(float *)(object + NOX_OBJECT_X_OFFSET);
+    arg.y = *(float *)(object + NOX_OBJECT_Y_OFFSET);
+    result = sub_4FDD20(spell, (_DWORD *)object, (int *)&arg);
+    nox_bot_engine_end_monster_view(object, morphed);
+    return result != 0;
+}
+
 int nox_bot_engine_current_target(int object)
 {
     int morphed;

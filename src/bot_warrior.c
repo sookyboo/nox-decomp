@@ -6,6 +6,10 @@
 
 #define NOX_BOT_BUFF_INVISIBLE 0
 #define NOX_BOT_BUFF_INVULNERABLE 23
+#define NOX_BOT_BUFF_HELD 5
+#define NOX_BOT_WARRIOR_ESCAPE_SPELL "SLOW"
+#define NOX_BOT_WARRIOR_BOMBER "Bomber"
+#define NOX_BOT_WARRIOR_PROTECTED_HOLD_SECONDS 2u
 #define NOX_BOT_WARRIOR_HEALTH 150
 #define NOX_BOT_WARRIOR_POTION_HEALTH 100
 #define NOX_BOT_WARRIOR_HEALTH_POTION "RedPotion"
@@ -30,6 +34,69 @@ static int nox_bot_warrior_in_range(
     float dy = y2 - y1;
 
     return dx * dx + dy * dy <= radius * radius;
+}
+
+static uint32_t nox_bot_warrior_protected_hold_deadline(uint32_t frame)
+{
+    uint32_t duration = nox_bot_engine_fps() * NOX_BOT_WARRIOR_PROTECTED_HOLD_SECONDS;
+
+    if (!duration)
+        duration = 1;
+    return frame + duration;
+}
+
+void nox_bot_warrior_observe_collision(
+    int object, nox_bot_policy_state *state, int other, uint32_t frame)
+{
+    if (!object || !state || !state->active)
+        return;
+
+    /*
+     * The native player collision hook runs before Charge collision handling.
+     * Remember that ownership for one policy update; once native collision has
+     * applied HELD, update() can distinguish the Warrior's own crash stun.
+     */
+    if (nox_bot_engine_ability_active(object, NOX_BOT_ABILITY_BERSERKER_CHARGE))
+        state->warrior.charge_collision_pending = 1;
+
+    /* Bot-Script deliberately lets enemy Bomber stun survive for two seconds. */
+    if (other && nox_bot_engine_is_enemy(object, other) &&
+        nox_bot_engine_is_object_type(other, NOX_BOT_WARRIOR_BOMBER))
+        state->warrior.protected_hold_until =
+            nox_bot_warrior_protected_hold_deadline(frame);
+}
+
+static void nox_bot_warrior_update_held_escape(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    int held = nox_bot_engine_has_buff(object, NOX_BOT_BUFF_HELD);
+
+    if (state->warrior.charge_collision_pending) {
+        /* Native Charge has completed by the time class policy runs. */
+        state->warrior.charge_collision_pending = 0;
+        if (held)
+            state->warrior.protected_hold_until =
+                nox_bot_warrior_protected_hold_deadline(frame);
+    }
+
+    if (!held) {
+        if (state->warrior.protected_hold_until &&
+            nox_bot_reaction_ready(frame, state->warrior.protected_hold_until))
+            state->warrior.protected_hold_until = 0;
+        return;
+    }
+    if (state->warrior.protected_hold_until &&
+        !nox_bot_reaction_ready(frame, state->warrior.protected_hold_until))
+        return;
+
+    /*
+     * Reproduce Warrior.Update(): direct NoxScript-style Slow on self, then
+     * remove HELD. The Slow remains as the reference's reduced movement
+     * penalty while ordinary non-protected stun is escaped.
+     */
+    nox_bot_engine_cast_script_self(object, NOX_BOT_WARRIOR_ESCAPE_SPELL);
+    nox_bot_engine_remove_buff(object, NOX_BOT_BUFF_HELD);
+    state->warrior.protected_hold_until = 0;
 }
 
 static int nox_bot_warrior_ctf_attack_or_defend(int object)
@@ -685,6 +752,7 @@ void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t fr
     }
 
     nox_bot_warrior_use_potion(object);
+    nox_bot_warrior_update_held_escape(object, state, frame);
     nox_bot_warrior_start_teleport_wake_pursuit(object, state);
     nox_bot_warrior_update_teleport_wake_pursuit(object, state);
     if (!nox_bot_warrior_update_chakram_attack(object, state)) {

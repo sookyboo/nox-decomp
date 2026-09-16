@@ -63,6 +63,14 @@ static float last_guard_y2;
 static float last_guard_radius;
 static int same_team_self;
 static int same_team_other;
+static int script_cast_calls;
+static int script_cast_spell;
+static int script_cast_object;
+static int script_cast_target;
+static int script_cast_category;
+static int script_cast_runtime;
+static int buff_remove_calls;
+static int last_removed_buff;
 
 static unsigned char created_bot_ai[0x898];
 
@@ -117,7 +125,11 @@ int __cdecl sub_51E1D0(const char *name)
 {
     ++spell_lookup_calls;
     spell_lookup_name = name;
-    return strcmp(name, "Fireball") == 0 ? 44 : 0;
+    if (strcmp(name, "Fireball") == 0)
+        return 44;
+    if (strcmp(name, "SLOW") == 0)
+        return 55;
+    return 0;
 }
 
 int __cdecl sub_424D80(const char *name)
@@ -125,6 +137,24 @@ int __cdecl sub_424D80(const char *name)
     ++ability_lookup_calls;
     ability_lookup_name = name;
     return strcmp(name, "ABILITY_HARPOON") == 0 ? 3 : 0;
+}
+
+int __cdecl sub_4FDD20(int spell, _DWORD *object, int *arg)
+{
+    ++script_cast_calls;
+    script_cast_spell = spell;
+    script_cast_object = (int)(uintptr_t)object;
+    script_cast_target = arg ? *arg : 0;
+    script_cast_category = object ? object[2] : 0;
+    script_cast_runtime = object ? object[187] : 0;
+    return 1;
+}
+
+int __cdecl sub_4FF5B0(int object, int buff)
+{
+    ++buff_remove_calls;
+    last_removed_buff = buff;
+    return object;
 }
 
 int __cdecl sub_4E3AA0(char *name)
@@ -139,6 +169,8 @@ int __cdecl sub_4E3AA0(char *name)
         return 79;
     if (strcmp(name, "Longsword") == 0)
         return 80;
+    if (strcmp(name, "Bomber") == 0)
+        return 81;
     return 0;
 }
 
@@ -575,6 +607,46 @@ static int test_spell_and_relationship_wrappers(void)
     return 0;
 }
 
+static int test_script_cast_buff_and_type_wrappers(void)
+{
+    unsigned char object[800];
+    unsigned char runtime[400];
+    unsigned char info[2300];
+    unsigned char ai[0x898];
+    int object_ptr;
+
+    make_native_bot(object, runtime, info, ai, 9, 0);
+    object_ptr = (int)(uintptr_t)object;
+    *(unsigned short *)(object + 4) = 81;
+    *(float *)(object + 56) = 3.0f;
+    *(float *)(object + 60) = 4.0f;
+    *(int *)(ai + 2040) = 3;
+    script_cast_calls = 0;
+    buff_remove_calls = 0;
+    morph_from_calls = 0;
+    morph_to_calls = 0;
+
+    if (!nox_bot_engine_is_object_type(object_ptr, "Bomber") ||
+        nox_bot_engine_is_object_type(object_ptr, "RedPotion"))
+        return 61;
+    if (!nox_bot_engine_cast_script_self(object_ptr, "SLOW"))
+        return 62;
+    if (script_cast_calls != 1 || script_cast_spell != 55 ||
+        script_cast_object != object_ptr || script_cast_target != object_ptr)
+        return 63;
+    if (!(script_cast_category & 2) || script_cast_runtime != (int)(uintptr_t)ai ||
+        morph_from_calls != 1 || morph_to_calls != 1)
+        return 64;
+    if (*(uint32_t *)(object + 8) != 4 ||
+        *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime)
+        return 65;
+    if (!nox_bot_engine_remove_buff(object_ptr, 5))
+        return 66;
+    if (buff_remove_calls != 1 || last_removed_buff != 5)
+        return 67;
+    return 0;
+}
+
 static int test_tactical_observation_wrappers(void)
 {
     unsigned char object[800];
@@ -946,6 +1018,9 @@ int main(void)
     if (result)
         return result;
     result = test_spell_and_relationship_wrappers();
+    if (result)
+        return result;
+    result = test_script_cast_buff_and_type_wrappers();
     if (result)
         return result;
     result = test_tactical_observation_wrappers();
