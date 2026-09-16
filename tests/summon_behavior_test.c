@@ -2,17 +2,17 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "legacy_memory.h"
+
 unsigned char byte_5D4594[3844309];
 unsigned char byte_587000[400000];
 
-static uint8_t summoned[900];
-static uint8_t summoned_state[1500];
-static uint8_t owner_fixture[800] __attribute__((aligned(64)));
-/* The production field carries both a pointer and flag bits. Keep the
- * fixture address clear in those bits so ASLR cannot change the test path. */
-static uint8_t template_fixture[100] __attribute__((aligned(65536)));
-static uint8_t owner_state[1200] __attribute__((aligned(64)));
-static uint8_t owner_data[4200] __attribute__((aligned(64)));
+static uint8_t *summoned;
+static uint8_t *summoned_state;
+static uint8_t *owner_fixture;
+static uint8_t *template_fixture;
+static uint8_t *owner_state;
+static uint8_t *owner_data;
 static uint8_t action_fixture[100] __attribute__((aligned(64)));
 static int created;
 static int created_owner;
@@ -40,8 +40,8 @@ void sub_4DAA50(int object, int owner, float x, float y)
 uint32_t *sub_4E3450(int type)
 {
     (void)type;
-    memset(summoned, 0, sizeof(summoned));
-    memset(summoned_state, 0, sizeof(summoned_state));
+    memset(summoned, 0, 900);
+    memset(summoned_state, 0, 1500);
     *(uint32_t *)(summoned + 748) = (uint32_t)(uintptr_t)summoned_state;
     return (uint32_t *)summoned;
 }
@@ -82,16 +82,16 @@ int sub_424300(int a, int b) { (void)a; (void)b; return 0; }
 int nox_vsprintf(char *out, const char *format, void *args)
 { (void)out; (void)format; (void)args; return 0; }
 
-int sub_500DA0(int action);
-int sub_5010D0(int action);
-int nox_test_sub_500F40(int action, void *out_xy);
+int sub_500DA0(intptr_t action);
+int sub_5010D0(intptr_t action);
+int nox_test_sub_500F40(intptr_t action, void *out_xy);
 
 #ifdef _WIN32
 /* Keep this focused collaborator deterministic when the complete Windows
  * runtime is linked into the test. The Linux builds exercise the ABI wrapper
  * for the same call; Windows' native ABI does not need that wrapper covered
  * here. */
-int nox_test_sub_500F40(int action, void *out_xy)
+int nox_test_sub_500F40(intptr_t action, void *out_xy)
 {
     float *out = (float *)out_xy;
     out[0] = *(float *)(action + 52);
@@ -102,14 +102,27 @@ int nox_test_sub_500F40(int action, void *out_xy)
 
 int main(void)
 {
-    uint8_t *owner = owner_fixture;
-    uint8_t *template_data = template_fixture;
+    uint8_t *owner;
+    uint8_t *template_data;
     uint8_t *action = action_fixture;
+
+    summoned = nox_test_legacy_alloc(900);
+    summoned_state = nox_test_legacy_alloc(1500);
+    owner_fixture = nox_test_legacy_alloc(800);
+    template_fixture = nox_test_legacy_alloc_aligned(100, 65536);
+    owner_state = nox_test_legacy_alloc(1200);
+    owner_data = nox_test_legacy_alloc(4200);
+    if (!summoned || !summoned_state || !owner_fixture || !template_fixture ||
+        !owner_state || !owner_data)
+        return 8;
+
+    owner = owner_fixture;
+    template_data = template_fixture;
     memset(owner, 0, 800);
     memset(template_data, 0, 100);
     memset(action, 0, 100);
-    memset(owner_state, 0, sizeof(owner_state));
-    memset(owner_data, 0, sizeof(owner_data));
+    memset(owner_state, 0, 1200);
+    memset(owner_data, 0, 4200);
     const float expected_x = 120.0f;
     const float expected_y = 240.0f;
 
@@ -132,7 +145,7 @@ int main(void)
     *(uint32_t *)(action + 4) = 74; /* summon type 0 after the action offset */
     *(uint32_t *)(action + 16) = (uint32_t)(uintptr_t)owner;
 
-    if (sub_500DA0((int)(uintptr_t)action) != 0)
+    if (sub_500DA0((intptr_t)action) != 0)
         return 1;
     if (*(uint16_t *)(action + 72) != 0x1234u)
         return 2;
@@ -145,7 +158,7 @@ int main(void)
 
     *(uint32_t *)(owner + 8) = 4;
     *(uint32_t *)(byte_5D4594 + 2598000) = *(uint32_t *)(action + 68) - 1;
-    if (sub_5010D0((int)(uintptr_t)action) != 1)
+    if (sub_5010D0((intptr_t)action) != 1)
         return 4;
     if (!created || created_x != expected_x || created_y != expected_y)
         return 5;

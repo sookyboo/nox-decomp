@@ -317,15 +317,15 @@ int sub_549960(void *p)
 #if defined(__arm__) && defined(__ARM_PCS_VFP)
 int sub_500F40__abi_raw(nox_abi_ptrslot_t a1, nox_abi_ptrslot_t a2);
 
-int  sub_500F40(int a1, void *out_xy)
+int  sub_500F40(intptr_t a1, void *out_xy)
 {
     void *self = (void *)(uintptr_t)(uint32_t)a1;
     return sub_500F40__abi_raw(nox_to_ptrslot(self), nox_to_ptrslot(out_xy));
 }
 #else
-int sub_500F40__abi_raw(int a1, void *out_xy);
+int sub_500F40__abi_raw(intptr_t a1, void *out_xy);
 
-int  sub_500F40(int a1, void *out_xy)
+int  sub_500F40(intptr_t a1, void *out_xy)
 {
     return sub_500F40__abi_raw(a1, out_xy);
 }
