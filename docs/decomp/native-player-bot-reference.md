@@ -43,7 +43,8 @@ same recovered morph view when called while the bot is in normal player form.
 `src/bot_policy.c` owns only Bot-Script-specific server-local state, reaction
 deadlines, orders, and pending event records. `src/bot_warrior.c` currently
 implements the high-confidence native Harpoon, Berserker Charge, health-potion,
-Eye of the Wolf, and War Cry policy subset.
+non-CTF potion-recovery movement, loot/equipment, RoundChakram, Eye of the Wolf,
+and War Cry policy subset.
 `src/bot_runtime.c` synchronizes
 that state with existing native player bots and can attach/detach an
 **already-created** normal player from the recovered player-monster update path.
@@ -72,6 +73,31 @@ path is now better understood (see sections 35 and 42), but it performs much
 more client/profile initialization than a bot should blindly reuse. Until a
 server-controlled creation path is recovered, the feature must not invent a
 parallel fake-player lifecycle or expose a spawn command.
+
+## Remaining implementation gaps
+
+The unresolved work after the current Warrior/native-runtime foundation is:
+
+- **non-client player lifecycle:** authoritative free-slot selection, complete
+  player object/runtime creation without `sub_4DD320`'s client join packet, and
+  authoritative bot-player removal/freeing;
+- **held escape:** NoxScript's reference behavior casts Slow through the direct
+  spell path and removes `HELD`, but it suppresses that behavior for Berserker
+  crash stun and Bomber stun. `sub_4FDD20`/`sub_4FF5B0` are known, but the
+  protected-hold source must be retained reliably across native collision
+  processing before enabling the escape;
+- **CTF objectives:** ordinary CTF flag mechanics and carrier-aware potion recovery are now native-backed. What remains is attack/defend, escort, return, and post-waypoint objective selection;
+- **Warrior lost-target behavior:** the Bot-Script `TeleportWake` pursuit/check
+  loop remains unported;
+- **Wizard/Conjurer policy:** native casting and class validation exist, but the
+  reference tactical decision trees are not implemented;
+- **orders/commands:** the policy enum exists but teammate order execution and
+  user-facing spawn/difficulty/team commands remain pending;
+- **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
+  behavior are intentionally deferred;
+- **production lifecycle integration tests:** current deterministic tests cover
+  adapters and policy, but end-to-end spawn/removal coverage awaits the real
+  non-client lifecycle.
 
 ---
 
@@ -910,6 +936,44 @@ object is temporarily in monster-AI form.
 These helpers are observation only. They do not mutate health, mana, target, or
 position state.
 
+## 9.7 Native aggression and recovery movement
+
+The native script aggression setter is recovered as `sub_515980`. For monster
+objects it writes the same float value to monster-AI offsets `+1304` and `+1308`;
+these correspond to the paired aggression fields used by the monster AI. The
+optional adapter enters the normal player-bot monster view, calls that existing
+setter, and restores player form instead of writing those offsets from Warrior
+policy.
+
+The current non-CTF Warrior recovery path uses the Go reference values directly:
+
+```text
+Is Hit + health < 100 + current target health > 10
+    -> nearest unowned world RedPotion
+    -> aggression 0.16
+    -> native WalkTo(potion position)
+
+End Of Waypoint for that recovery walk
+    -> aggression 0.83
+    -> native Hunt
+```
+
+Nearest-item discovery uses the same authoritative world-object list already
+used for loot. Unlike the 75-unit loot sweep, this recovery lookup intentionally
+does not require visibility and has no distance cap, matching the reference's
+`FindClosestObject` behavior before pathfinding takes ownership. Removed or
+already-owned objects remain excluded.
+
+CTF mode is identified through the existing game-flag query
+`sub_40A5C0(NOX_GF_MODE_CTF)`, where `NOX_GF_MODE_CTF` is the repository's
+`0x0020` mode flag. Native CTF stores a carried flag in the player's ordinary
+inventory and flag objects carry class bit `0x10000000`; the adapter uses that
+authoritative inventory state to reproduce the reference carrier guard. A
+non-carrier may route to the nearest potion, while a carrier only diverts when
+the potion passes the normal interaction/visibility test. After the recovery
+waypoint, aggression is restored to `0.83`; non-CTF bots return to Hunt, while
+CTF attack/defend selection remains pending shared team policy.
+
 ---
 
 # 10. Monster event callback system
@@ -1505,9 +1569,12 @@ sub_53E650                                  player armor equip
 
 World objects expose their native type identifier at object `+4`, world-list
 next pointer at `+444`, owner at `+492`, and position at `+56/+60`. The adapter
-resolves the requested type name with `sub_4E3AA0`, ignores removed/owned
-objects, checks the normal visibility trace, and chooses the nearest candidate
-inside the requested radius. Pickup itself remains owned by `sub_4F36F0`, so
+resolves the requested type name with `sub_4E3AA0` and ignores removed/owned
+objects. `nox_bot_engine_find_nearest_visible_type()` additionally applies the
+normal visibility trace for nearby loot, while `nox_bot_engine_find_nearest_type()`
+uses the same list/distance ownership rules without visibility for reference
+behaviors such as long-range potion recovery. Pickup itself remains owned by
+`sub_4F36F0`, so
 capacity, item-specific pickup handlers, inventory linkage, and network-visible
 state stay in Nox.
 
@@ -2267,6 +2334,9 @@ nox_xxx_unitGetMaxHP_4EE7A0
 nox_xxx_unitGetOldMana_4EEC80
 nox_xxx_playerGetMaxMana_4EECB0
 nox_xxx_unitCanInteractWith_5370E0
+sub_515980                              [native aggression setter]
+sub_40A5C0                             [game-mode flag query]
+player inventory class bit 0x10000000     [native carried CTF flag detection]
 nox_xxx_abilityNameToN_424D80
 nox_xxx_abilityCooldown_4252D0
 nox_xxx_playerExecuteAbil_4FBB70
@@ -2809,6 +2879,9 @@ nox_xxx_unitGetMaxHP_4EE7A0
 nox_xxx_unitGetOldMana_4EEC80
 nox_xxx_playerGetMaxMana_4EECB0
 nox_xxx_unitCanInteractWith_5370E0
+sub_515980                              [native aggression setter]
+sub_40A5C0                             [game-mode flag query]
+player inventory class bit 0x10000000     [native carried CTF flag detection]
 nox_xxx_harpoonBreakForPlr_537520     [native attached-Harpoon cleanup]
 ```
 

@@ -17,7 +17,9 @@ static int active_abilities;
 static int harpoon_attached_target;
 static int self_health;
 static int self_max_health;
+static int target_health;
 static int potion_use_calls;
+static int potion_use_result;
 static int harpoon_stop_calls;
 static uint32_t engine_fps;
 static float self_x;
@@ -41,6 +43,17 @@ static int attack_start_result;
 static int attack_step_calls;
 static int attack_step_result;
 static int attack_step_removes_weapon;
+static int nearest_type_item;
+static float nearest_type_x;
+static float nearest_type_y;
+static int set_aggression_calls;
+static float last_aggression;
+static int walk_calls;
+static float last_walk_x;
+static float last_walk_y;
+static int hunt_calls;
+static int ctf_result;
+static int carrying_flag_result;
 
 int nox_bot_engine_ability_ready(int object, int ability)
 {
@@ -88,7 +101,7 @@ int nox_bot_engine_has_buff(int object, int buff)
 
 int nox_bot_engine_health(int object)
 {
-    return object == 1 ? self_health : target_max_health;
+    return object == 1 ? self_health : target_health;
 }
 
 int nox_bot_engine_max_health(int object)
@@ -100,7 +113,7 @@ int nox_bot_engine_use_inventory_potion(int object, const char *type_name)
 {
     if (object == 1 && strcmp(type_name, "RedPotion") == 0) {
         ++potion_use_calls;
-        return 1;
+        return potion_use_result;
     }
     return 0;
 }
@@ -116,6 +129,16 @@ int nox_bot_engine_inventory_item(int object, const char *type_name)
         return inventory_longsword;
     if (strcmp(type_name, "RoundChakram") == 0)
         return inventory_round_chakram;
+    return 0;
+}
+
+int nox_bot_engine_find_nearest_type(
+    int object, const char *type_name, float max_distance)
+{
+    (void)object;
+    (void)max_distance;
+    if (nearest_type_item && strcmp(type_name, "RedPotion") == 0)
+        return nearest_type_item;
     return 0;
 }
 
@@ -211,13 +234,56 @@ uint32_t nox_bot_engine_fps(void)
 
 void nox_bot_engine_position(int object, float *x, float *y)
 {
-    float px = object == 1 ? self_x : target_x;
-    float py = object == 1 ? self_y : target_y;
+    float px;
+    float py;
 
+    if (object == 1) {
+        px = self_x;
+        py = self_y;
+    } else if (object == nearest_type_item) {
+        px = nearest_type_x;
+        py = nearest_type_y;
+    } else {
+        px = target_x;
+        py = target_y;
+    }
     if (x)
         *x = px;
     if (y)
         *y = py;
+}
+
+int nox_bot_engine_set_aggression(int object, float aggression)
+{
+    (void)object;
+    ++set_aggression_calls;
+    last_aggression = aggression;
+    return 1;
+}
+
+int nox_bot_engine_is_ctf(void)
+{
+    return ctf_result;
+}
+
+int nox_bot_engine_carrying_ctf_flag(int object)
+{
+    (void)object;
+    return carrying_flag_result;
+}
+
+void nox_bot_engine_walk_to(int object, float x, float y)
+{
+    (void)object;
+    ++walk_calls;
+    last_walk_x = x;
+    last_walk_y = y;
+}
+
+void nox_bot_engine_hunt(int object)
+{
+    (void)object;
+    ++hunt_calls;
 }
 
 void nox_bot_engine_face_target(int object, int target)
@@ -246,7 +312,9 @@ static void reset_case(nox_bot_policy_state *state)
     harpoon_attached_target = 0;
     self_health = 150;
     self_max_health = 150;
+    target_health = 100;
     potion_use_calls = 0;
+    potion_use_result = 0;
     harpoon_stop_calls = 0;
     engine_fps = 30;
     self_x = 0.0f;
@@ -270,6 +338,17 @@ static void reset_case(nox_bot_policy_state *state)
     attack_step_calls = 0;
     attack_step_result = 1;
     attack_step_removes_weapon = 0;
+    nearest_type_item = 0;
+    nearest_type_x = 0.0f;
+    nearest_type_y = 0.0f;
+    set_aggression_calls = 0;
+    last_aggression = 0.0f;
+    walk_calls = 0;
+    last_walk_x = 0.0f;
+    last_walk_y = 0.0f;
+    hunt_calls = 0;
+    ctf_result = 0;
+    carrying_flag_result = 0;
 }
 
 static int test_eye_reaction_delay(void)
@@ -320,6 +399,7 @@ static int test_health_potion_policy(void)
 
     reset_case(&state);
     self_health = 100;
+    potion_use_result = 1;
     nox_bot_warrior_update(1, &state, 350);
     if (potion_use_calls != 1)
         return 20;
@@ -713,6 +793,83 @@ static int test_chakram_attack_blocks_conflicting_abilities(void)
     return 0;
 }
 
+static int test_non_ctf_potion_seek_and_waypoint_resume(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    self_health = 90;
+    current_target = 44;
+    target_health = 50;
+    nearest_type_item = 66;
+    nearest_type_x = 25.0f;
+    nearest_type_y = -15.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_IS_HIT, 55, 3300);
+    nox_bot_warrior_update(1, &state, 3300);
+    if (!state.warrior.seeking_potion || set_aggression_calls != 1 ||
+        last_aggression != 0.16f || walk_calls != 1 ||
+        last_walk_x != 25.0f || last_walk_y != -15.0f)
+        return 150;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_IS_HIT))
+        return 151;
+
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 3301);
+    nox_bot_warrior_update(1, &state, 3301);
+    if (state.warrior.seeking_potion || set_aggression_calls != 2 ||
+        last_aggression != 0.83f || hunt_calls != 1)
+        return 152;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_END_OF_WAYPOINT))
+        return 153;
+
+    reset_case(&state);
+    self_health = 90;
+    current_target = 44;
+    target_health = 50;
+    nearest_type_item = 66;
+    ctf_result = 1;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_IS_HIT, 55, 3400);
+    nox_bot_warrior_update(1, &state, 3400);
+    if (!state.warrior.seeking_potion || walk_calls != 1)
+        return 154;
+
+    reset_case(&state);
+    self_health = 90;
+    current_target = 44;
+    target_health = 50;
+    nearest_type_item = 66;
+    ctf_result = 1;
+    carrying_flag_result = 1;
+    interact_result = 0;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_IS_HIT, 55, 3450);
+    nox_bot_warrior_update(1, &state, 3450);
+    if (state.warrior.seeking_potion || walk_calls)
+        return 155;
+
+    reset_case(&state);
+    self_health = 90;
+    current_target = 44;
+    target_health = 50;
+    nearest_type_item = 66;
+    ctf_result = 1;
+    carrying_flag_result = 1;
+    interact_result = 1;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_IS_HIT, 55, 3475);
+    nox_bot_warrior_update(1, &state, 3475);
+    if (!state.warrior.seeking_potion || walk_calls != 1)
+        return 156;
+
+    reset_case(&state);
+    self_health = 90;
+    current_target = 44;
+    target_health = 10;
+    nearest_type_item = 66;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_IS_HIT, 55, 3500);
+    nox_bot_warrior_update(1, &state, 3500);
+    if (state.warrior.seeking_potion || walk_calls)
+        return 157;
+    return 0;
+}
+
 static int test_death_clears_warrior_tactical_state(void)
 {
     nox_bot_policy_state state;
@@ -782,6 +939,9 @@ int main(void)
     if (result)
         return result;
     result = test_chakram_attack_blocks_conflicting_abilities();
+    if (result)
+        return result;
+    result = test_non_ctf_potion_seek_and_waypoint_resume();
     if (result)
         return result;
     return test_death_clears_warrior_tactical_state();

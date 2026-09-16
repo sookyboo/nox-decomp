@@ -16,6 +16,8 @@
 #define NOX_BOT_WARRIOR_WEAPON_PREFERENCE_SECONDS 10u
 #define NOX_BOT_WARRIOR_CHAKRAM "RoundChakram"
 #define NOX_BOT_WARRIOR_CHAKRAM_COOLDOWN_SECONDS 10u
+#define NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION 0.16f
+#define NOX_BOT_WARRIOR_DEFAULT_AGGRESSION 0.83f
 
 
 static int nox_bot_warrior_pickup_type(int object, const char *type_name, int equip_kind)
@@ -345,13 +347,57 @@ static int nox_bot_warrior_target_in_scan_range(int object, int target)
         NOX_BOT_WARRIOR_ABILITY_SCAN_RADIUS * NOX_BOT_WARRIOR_ABILITY_SCAN_RADIUS;
 }
 
+static void nox_bot_warrior_start_potion_seek(
+    int object, nox_bot_policy_state *state)
+{
+    float x;
+    float y;
+    int potion;
+    int target;
+
+    if (state->warrior.seeking_potion ||
+        nox_bot_engine_health(object) >= NOX_BOT_WARRIOR_POTION_HEALTH)
+        return;
+    target = nox_bot_engine_current_target(object);
+    if (!target || nox_bot_engine_health(target) <= 10)
+        return;
+    potion = nox_bot_engine_find_nearest_type(
+        object, NOX_BOT_WARRIOR_HEALTH_POTION, 0.0f);
+    if (!potion)
+        return;
+    if (nox_bot_engine_is_ctf() && nox_bot_engine_carrying_ctf_flag(object) &&
+        !nox_bot_engine_can_interact(object, potion))
+        return;
+    nox_bot_engine_position(potion, &x, &y);
+    if (!nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION))
+        return;
+    state->warrior.seeking_potion = 1;
+    nox_bot_engine_walk_to(object, x, y);
+}
+
 static void nox_bot_warrior_process_hit(int object, nox_bot_policy_state *state)
 {
     if (!nox_bot_policy_event_pending(state, NOX_BOT_EVENT_IS_HIT))
         return;
     if (nox_bot_engine_harpoon_attached_target(object))
         nox_bot_engine_stop_harpoon(object);
+    nox_bot_warrior_start_potion_seek(object, state);
     nox_bot_policy_clear_event(state, NOX_BOT_EVENT_IS_HIT);
+}
+
+static void nox_bot_warrior_process_end_waypoint(
+    int object, nox_bot_policy_state *state)
+{
+    if (!nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT))
+        return;
+    if (state->warrior.seeking_potion) {
+        state->warrior.seeking_potion = 0;
+        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
+        /* CTF objective selection is a separate policy tier and remains pending. */
+        if (!nox_bot_engine_is_ctf())
+            nox_bot_engine_hunt(object);
+    }
+    nox_bot_policy_clear_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT);
 }
 
 static void nox_bot_warrior_track_harpoon_charge(
@@ -465,6 +511,7 @@ void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t fr
         nox_bot_warrior_weapon_preference(object, state, frame);
     }
     nox_bot_warrior_process_hit(object, state);
+    nox_bot_warrior_process_end_waypoint(object, state);
     nox_bot_warrior_track_harpoon_charge(object, state, frame);
     if (!state->warrior.chakram_attack_active)
         nox_bot_warrior_process_harpoon_charge(object, state, frame);
