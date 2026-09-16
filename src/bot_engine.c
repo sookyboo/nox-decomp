@@ -941,6 +941,7 @@ int nox_bot_engine_create_bomber(int object)
     int trap;
     int init;
     int bomber;
+    int sound;
     unsigned int i;
 
     if (!object || !nox_bot_engine_bomber_fits(object))
@@ -981,6 +982,9 @@ int nox_bot_engine_create_bomber(int object)
         sub_4E38A0(trap);
         return 0;
     }
+    sound = sub_40AF50("BomberSummon");
+    if (sound > 0)
+        sub_501960(sound, bomber, 0, 0);
     sub_4F3070(bomber, trap, 1);
     /* Bot-Script explicitly follows the Conjurer after creation. */
     sub_5158C0(bomber, object);
