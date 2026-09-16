@@ -28,7 +28,7 @@ USE_BOT_SUPPORT=OFF (default)
     -> bot sources and integration hooks are excluded
 
 USE_BOT_SUPPORT=ON
-    -> bot_engine.c + bot_policy.c + bot_runtime.c + bot_warrior.c + bot_wizard.c + bot_conjurer.c are compiled
+    -> bot_engine.c + bot_policy.c + bot_runtime.c + bot_team.c + bot_warrior.c + bot_wizard.c + bot_conjurer.c are compiled
     -> NOX_BOT_SUPPORT is defined
     -> confirmed native player-bot event sites record server-local policy events
 ```
@@ -48,7 +48,10 @@ TeleportWake pursuit, and native-backed CTF objective-steering subset.
 `src/bot_wizard.c` implements the first high-confidence Wizard direct-cast
 priority slice while leaving spell effects and player mana authoritative in Nox.
 `src/bot_conjurer.c` now applies the same ownership boundary to the first
-high-confidence Conjurer spell-priority slice.
+high-confidence Conjurer spell-priority slice. `src/bot_team.c` owns only the
+shared high-level CTF destination decision used by all three classes; native
+flag state, teams, pathfinding, pickup/drop/capture, scoring, and guard/fight
+actions remain engine-owned.
 `src/bot_runtime.c` synchronizes
 that state with existing native player bots and can attach/detach an
 **already-created** normal player from the recovered player-monster update path.
@@ -85,19 +88,24 @@ The unresolved work after the current Warrior/native-runtime foundation is:
 - **non-client player lifecycle:** authoritative free-slot selection, complete
   player object/runtime creation without `sub_4DD320`'s client join packet, and
   authoritative bot-player removal/freeing;
-- **CTF objectives:** ordinary CTF flag mechanics and the Warrior's basic
-  attack/defend/escort/return steering are now native-backed. Shared multi-class
-  coordination and teammate-directed orders remain pending;
+- **CTF objectives:** ordinary CTF flag mechanics remain native. The basic
+  attack/defend/escort/return destination choice is now shared by Warrior,
+  Wizard, and Conjurer; role assignment, coordinated multi-bot strategy, and
+  teammate-directed orders remain pending;
 - **Warrior lost-target behavior:** the Bot-Script `TeleportWake` pursuit/check
   loop is implemented; additional lost-target behavior is only pending where it
   depends on future shared team/order policy;
 - **Wizard policy:** the core direct-cast visible-target priority, basic defensive
   buffs/protections, potions, reaction delays, cooldowns, and native mana spending
-  are implemented. Blink, traps, Drain Mana/obelisk routing, projectile reactions,
-  wand/loot policy, CTF team-role distinctions, and phonemes remain;
+  are implemented, along with native nearby loot/equip pickup, the reference
+  FireStormWand/ForceWand preference, and shared CTF steering. Blink, traps,
+  Drain Mana/obelisk routing, projectile reactions, CTF team-role distinctions,
+  and phonemes remain;
 - **Conjurer policy:** the first direct-cast priority slice is implemented with
-  native mana/buff/spell ownership. Blink, projectile reactions, Pixies/summons,
-  mana-obelisk routing, equipment/loot, team roles, commands, and phonemes remain;
+  native mana/buff/spell ownership, native nearby loot/equip pickup, and shared
+  CTF steering. Blink, projectile reactions, Pixies/summons, mana-obelisk
+  routing, the reference's internally inconsistent 10-second weapon preference,
+  team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1504,9 +1512,12 @@ reference target. Runtime class dispatch now calls this policy for player class
 Current spell decisions implemented by this first slice are Slow, Death Ray,
 Fireball, Burn, Magic Missile, Counterspell, Shield, Lesser Heal, Haste, Shock,
 Protection From Electricity, Protection From Fire, and Invisibility. Native
-spell/enchant mechanics remain authoritative. Blink, traps, Drain Mana/obelisk
-routing, projectile-reflection reactions, equipment/loot behavior, and phoneme
-sequencing are intentionally outside this slice.
+spell/enchant mechanics remain authoritative. The policy now also performs the
+reference 15-frame 75-unit nearby-loot scan through native pickup/equip paths,
+uses the unambiguous 10-second `FireStormWand -> ForceWand` preference, and
+reuses shared CTF destination steering on Lost Sight / End Of Waypoint. Blink,
+traps, Drain Mana/obelisk routing, projectile-reflection reactions, role-aware
+CTF invisibility, and phoneme sequencing remain outside this slice.
 
 ---
 
@@ -1548,11 +1559,52 @@ Only reaction/cooldown deadlines and the remembered tactical target are
 server-local; health, mana, enchant state, spell effects, damage, and target
 visibility remain native Nox state.
 
+The Conjurer now also reuses the native world-object iterator, pickup dispatcher,
+and player equip paths for the reference 15-frame 75-unit loot loop: the listed
+wands/bows/crossbow, Quiver, leather/cloth armor, and potions are acquired
+without a bot-owned inventory model. Quiver remains an inventory item rather
+than being forced through the weapon-equip function. Lost Sight and End Of
+Waypoint in CTF call the shared `bot_team.c` destination policy; CTF mechanics
+remain native.
+
 The following reference systems are intentionally not folded into this slice:
 Blink's `NewTrap` execution, projectile/DeathBall Inversion-Counterspell checks,
-Pixie/summon ownership and creature-cage accounting, mana-obelisk transfer, and
-class equipment/loot strategy. Each needs its own native lifecycle/ownership
-trace before implementation.
+Pixie/summon ownership and creature-cage accounting, and mana-obelisk transfer.
+The reference `WeaponPreference()` is also intentionally unresolved because it
+checks `CrossBow`/`InfinitePainWand` availability but attempts to equip
+`FireStormWand`/`ForceWand`; the native port does not silently guess which side
+of that mismatch is intended.
+
+## 11.9 Shared native-backed CTF destination policy
+
+`src/bot_team.c` factors the high-level Bot-Script `CheckAttackOrDefend` /
+`WalkToOwnFlag` destination choice out of Warrior policy so all native player
+bot classes use the same rule. The helper only reads the already-authoritative
+world flag / carried-flag / team relationship state exposed by `bot_engine.c`
+and issues native WalkTo or Guard actions. It never changes flag ownership,
+score, capture state, or team state.
+
+The shared decisions are:
+
+```text
+carrying enemy flag
+    -> guard the current own-flag/TeamBase target
+
+own flag present
+    -> move toward enemy flag, or its native carrier
+
+both flags carried
+    -> pursue the native carrier of the own flag
+
+Lost Sight with own flag dropped
+    -> move to the dropped own flag first
+    -> otherwise fall back to attack/defend
+```
+
+This is now used by Warrior and by Wizard/Conjurer Lost Sight / End Of Waypoint
+CTF handling. Bot-Script role assignment (`TeamTank` and other coordinated team
+choices) is still policy-level work and is not inferred from this destination
+helper.
 
 # 12. Name/type lookup used during native AI initialization
 

@@ -83,9 +83,21 @@ if (BUILD_TESTING)
         endif()
         add_test(NAME bot_runtime_test COMMAND bot_runtime_test)
 
+        add_executable(bot_team_test
+            tests/bot_team_test.c
+            src/bot_team.c
+        )
+        target_include_directories(bot_team_test PRIVATE src)
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_team_test PRIVATE -m32)
+            target_link_options(bot_team_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_team_test COMMAND bot_team_test)
+
         add_executable(bot_warrior_test
             tests/bot_warrior_test.c
             src/bot_warrior.c
+            src/bot_team.c
             src/bot_policy.c
         )
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")

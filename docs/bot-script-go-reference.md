@@ -52,8 +52,8 @@ Implemented so far:
 - `[x]` Bot-Script reaction delays (`0/15/30/45/60` simulation frames), including wrap-safe deadline comparison;
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
 - `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
-- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Slow/Magic Missile/Counterspell priority, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, reference reaction delays, per-spell cooldowns, and native player mana accounting;
-- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, passive mana regeneration, reaction delays, and reference cooldowns;
+- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Slow/Magic Missile/Counterspell priority, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, reference reaction delays, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, and shared native-backed CTF objective steering;
+- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, and shared native-backed CTF objective steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets.
 
 Still intentionally not implemented where native ownership is not completely recovered:
@@ -61,9 +61,9 @@ Still intentionally not implemented where native ownership is not completely rec
 - `[ ]` claiming/creating a free player slot and player object without a human network client;
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
-- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority is implemented; Blink, traps, Drain Mana/obelisk routing, projectile reactions, equipment/loot, team roles, and phonemes remain);
-- `[~]` Conjurer Bot-Script tactical policy (the first direct-cast priority slice is implemented; Blink, missile reactions, Pixies/summons, mana-obelisk routing, equipment/loot, team roles, commands, and phonemes remain);
-- `[~]` native-backed Warrior CTF strategy is implemented; shared multi-class team/objective coordination and bot commands remain pending;
+- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority, nearby loot, wand preference, and shared CTF steering are implemented; Blink, traps, Drain Mana/obelisk routing, projectile reactions, team-role distinctions, and phonemes remain);
+- `[~]` Conjurer Bot-Script tactical policy (the first direct-cast priority slice, nearby loot/equip pickup, and shared CTF steering are implemented; Blink, missile reactions, Pixies/summons, mana-obelisk routing, the ambiguous reference weapon preference, team roles, commands, and phonemes remain);
+- `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer; higher-level role assignment, coordinated multi-bot strategy, teammate orders, and bot commands remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
 The implementation deliberately exposes no spawn command yet. An existing
@@ -112,26 +112,39 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   per-spell cooldowns, native player mana spending, and the reference default
   one-point-per-two-seconds passive mana regeneration. Direct spell effects
   remain owned by Nox;
+- Wizard now also performs the reference 15-frame nearby-loot pickup for wands,
+  armor, and potions, uses the unambiguous `FireStormWand → ForceWand` 10-second
+  preference, and reuses the shared native-backed CTF Lost Sight/End Of Waypoint
+  steering;
 - Wizard gaps remain Blink/retreat escape, Trap, Energy Bolt/Ring of Fire and
   other omitted offensive branches, Drain Mana and mana-obelisk routing,
-  projectile Inversion/Counterspell reactions, loot/wand preference, CTF TeamTank
-  role-aware invisibility, teammate commands, and phoneme sequencing;
+  projectile Inversion/Counterspell reactions, CTF TeamTank role-aware
+  invisibility, teammate commands, and phoneme sequencing;
 - Conjurer now has a first native tactical slice: Enemy Sighted Force of Nature,
   Looking/Lost Sight Infravision, the reference held/slowed-target Meteor →
   Toxic Cloud → Burn → Counterspell priority, non-CTF Stun versus CTF Slow,
   Lesser Heal, Vampirism/protection fallback, native potion use, reference
   reaction/cooldown timing, native mana spending, and one-point-per-two-seconds
   passive mana regeneration capped at the reference 125 mana;
+- Conjurer now also performs the reference 15-frame nearby-loot pickup for
+  weapons, quivers, armor, and potions, equips native weapons/armor on pickup,
+  and reuses the shared native-backed CTF Lost Sight/End Of Waypoint steering;
+- the reference Conjurer `WeaponPreference()` is internally inconsistent: it
+  checks for `CrossBow`/`InfinitePainWand` but attempts to equip
+  `FireStormWand`/`ForceWand`. The native port intentionally does not guess a
+  corrected 10-second preference until that upstream intent is resolved;
 - Conjurer gaps remain Blink/retreat escape, projectile Inversion and DeathBall
   counterspell reactions, Pixie Swarm tracking, random creature summoning and
-  creature-cage accounting, mana-obelisk routing/restoration, weapon/loot
-  preference, CTF/team-role distinctions, teammate commands, and phonemes.
+  creature-cage accounting, mana-obelisk routing/restoration, the ambiguous
+  weapon preference, CTF/team-role distinctions, teammate commands, and
+  phonemes.
 
 ### Team and game-mode strategy
 
-- native CTF pickup/drop/capture/scoring remains authoritative, while the
-  Warrior now has the Bot-Script's basic high-level attack/defend/escort/return
-  choice. Shared multi-class coordination and teammate orders remain pending;
+- native CTF pickup/drop/capture/scoring remains authoritative. The Bot-Script
+  attack/defend/escort/return destination choice is now a shared helper used by
+  Warrior, Wizard, and Conjurer. TeamTank-style role assignment, coordinated
+  multi-bot strategy, and teammate orders remain pending;
 - Team Arena can fall back to native Hunt, but coordinated team behavior is not
   yet ported;
 - additional reference/planned modes such as King of the Realm remain future
@@ -213,6 +226,7 @@ When enabled, the bot runtime currently adds:
 src/bot_engine.c
 src/bot_policy.c
 src/bot_runtime.c
+src/bot_team.c
 src/bot_warrior.c
 src/bot_wizard.c
 src/bot_conjurer.c
@@ -940,12 +954,20 @@ Implemented reference behavior includes:
 - default `BotMana=true` passive regeneration adds one native mana point every
   two simulation seconds and caps Conjurer policy mana at the reference 125;
 - the three-frame global spell gate and reference per-spell cooldowns are
-  represented as deterministic simulation-frame deadlines.
+  represented as deterministic simulation-frame deadlines;
+- every 15 simulation frames, native world lookup/pickup collects the reference
+  nearby weapons, quiver, armor, and potions inside 75 units; native weapon and
+  armor equip functions own the actual equipment transition;
+- Lost Sight and End Of Waypoint in CTF reuse the shared native-backed
+  attack/defend/return destination policy already used by Warrior.
 
 Not included in this slice are Blink (`NewTrap` in the reference), projectile
 Inversion/DeathBall reactions, Pixie ownership/counting, random creature
-summoning and creature-cage limits, mana-obelisk routing/restoration, equipment
-and loot preference, or spell phonemes. Those require separate native ownership
+summoning and creature-cage limits, mana-obelisk routing/restoration, or spell
+phonemes. The reference 10-second Conjurer `WeaponPreference()` remains
+intentionally unported because its conditions and equipped item names contradict
+each other (`CrossBow`/`InfinitePainWand` checks versus
+`FireStormWand`/`ForceWand` equips). Those require separate native ownership
 traces rather than approximating them inside the direct-cast policy.
 
 ---
@@ -1021,11 +1043,18 @@ The current policy ports these high-confidence reference decisions:
   with the reference default `BotMana=true`, one native mana point is restored
   every two simulation seconds up to the reference 150-mana ceiling;
 - the Bot-Script global three-frame gate and individual cooldown deadlines
-  remain server-local policy state.
+  remain server-local policy state;
+- every 15 simulation frames, native world lookup/pickup collects the reference
+  nearby wands, `WizardRobe`/cloth armor, and potions inside 75 units; native
+  weapon/armor equip functions remain authoritative;
+- every 10 seconds, the unambiguous reference preference equips
+  `FireStormWand`, otherwise `ForceWand`;
+- Lost Sight and End Of Waypoint in CTF use the same shared native-backed
+  attack/defend/return destination policy as Warrior.
 
-Spell phoneme sequences are intentionally not part of this first slice. Blink,
-Trap, Drain Mana/obelisk routing, missile Inversion logic, wand/loot preference,
-and several secondary offensive spells remain explicit gaps. The Go reference
+Spell phoneme sequences are intentionally not part of this slice. Blink, Trap,
+Drain Mana/obelisk routing, missile Inversion logic, CTF TeamTank role-aware
+invisibility, and several secondary offensive spells remain explicit gaps. The Go reference
 only suppresses Invisibility for its CTF `TeamTank`; native team-role assignment
 is not yet ported, so the current subset conservatively suppresses Wizard
 Invisibility for all CTF bots rather than guessing that role.
