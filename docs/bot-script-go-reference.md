@@ -63,7 +63,7 @@ Still intentionally not implemented where native ownership is not completely rec
 - `[~]` server-created bot cleanup now uses the normal native leave owner and bot-local ownership tracking; runtime logs still need to verify complete reuse/cleanup of a slot that never had a real peer;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
 - `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt, Ring of Fire, and native Drain Mana, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, the owned three-spell Glyph Trap, native mana-obelisk routing, nearby loot, wand preference, CTF carrier-role-aware Invisibility, and shared CTF steering are implemented; broader coordinated team roles and phonemes remain);
-- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks and `BomberSummon` audio, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, and shared CTF steering; exact Bomber alert/event choreography, broader team roles, commands, and phonemes remain);
+- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks, `BomberSummon` audio, Alert status, and Enemy Sighted/Enemy Heard/Lost Enemy action choreography, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, and shared CTF steering; broader team roles, commands, and phonemes remain);
 - `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; broader coordinated multi-bot strategy and teammate orders remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
@@ -202,9 +202,15 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   its player/team bookkeeping. An inventory `Glyph` carries `BURN`,
   `TOXIC_CLOUD`, and `STUN`, the Bomber is placed on native Follow toward its
   Conjurer, and the reference `BomberSummon` sound is dispatched through the
-  native sound lookup/audio-event path. Normal mana-obelisk routing/restoration
-  is also native-backed. Remaining Conjurer gaps are exact Bomber alert/event
-  choreography, broader team roles, teammate commands, and phonemes;
+  native sound lookup/audio-event path. The Bomber now also enables native
+  `MonStatusAlert` (`monster runtime +1440`, bit `0x100`). Existing recovered
+  Enemy Sighted/Enemy Heard/Lost Sight dispatch hooks recognize only Bombers
+  whose owner chain reaches an active Conjurer bot: sight/hearing reproduces
+  `Attack(con.target)`, while Lost Enemy restores `Follow(con.unit)`. The normal
+  native monster callback dispatch still runs afterward, so this adds no custom
+  script-callback descriptors. Normal mana-obelisk routing/restoration is also
+  native-backed. Remaining Conjurer gaps are broader team roles, teammate
+  commands, and phonemes;
 
 ### Team and game-mode strategy
 
@@ -1043,8 +1049,12 @@ Bomber ownership come from native summon/world state rather than duplicate polic
 counters. Bomber creation uses the native summon constructor and carries the
 reference `BURN`/`TOXIC_CLOUD`/`STUN` Glyph in its inventory; the reference's
 no-mana-subtraction quirk is preserved and `BomberSummon` is emitted through the
-native sound lookup/audio-event path. Exact alert/event choreography and spell
-phonemes remain deferred. Hostile `DeathBall` Counterspell and
+native sound lookup/audio-event path. Creation now also enables the recovered
+native `ALERT` monster-status bit. The already-hooked native Enemy Sighted,
+Enemy Heard, and Lost Sight dispatch sites reproduce the three Bomber closures
+without replacing normal monster callbacks: an owned Bomber attacks its active
+Conjurer owner's current target on sight/hearing and follows that owner again on
+Lost Enemy. Spell phonemes remain deferred. Hostile `DeathBall` Counterspell and
 generic target-owned missile Inversion are implemented separately through native
 world/owner state. Pixie Swarm itself is native-backed; ownership/counting comes
 from the authoritative world object owner field instead of duplicate policy
@@ -1629,7 +1639,7 @@ Current Warrior status:
 
 ```text
 Warrior
-[ ] non-client player creation / spawn command
+[~] non-client player creation / spawn command (experimental native join/leave-owner attempt implemented; hosted verification pending)
 [~] equipment parity (native nearby loot pickup and melee preference are implemented; exact starting-loadout parity remains native)
 [x] native Hunt adapter
 [x] health potion policy
@@ -1648,7 +1658,7 @@ Current Wizard status:
 
 ```text
 Wizard
-[ ] non-client player creation / spawn command
+[~] non-client player creation / spawn command (experimental native join/leave-owner attempt implemented; hosted verification pending)
 [x] native player mana accounting + passive regeneration
 [x] RedPotion / BluePotion threshold policy
 [x] visible-target direct-cast priority (including Energy Bolt and Ring of Fire quirks)
@@ -1674,7 +1684,7 @@ Conjurer
 [~] visible-target spell priority (Meteor/Toxic Cloud/Burn/Counterspell + Stun/Slow implemented)
 [x] Lesser Heal threshold policy
 [x] defensive buffs / escape (Vampirism + three protections + Blink implemented)
-[~] Pixie Swarm / summon creature policy (Pixie Swarm + native random summons + Bomber creation/Glyph + summon audio implemented; exact Bomber alert/event choreography remains)
+[x] Pixie Swarm / summon creature policy (Pixie Swarm + native random summons + Bomber creation/Glyph/audio + Alert + sight/hear/lost-enemy actions implemented)
 [x] generic target-owned missile Inversion
 [x] native mana-obelisk routing / restoration
 [x] equipment / loot preference (loot/equip-on-pickup + literal 10-second reference weapon preference implemented)
