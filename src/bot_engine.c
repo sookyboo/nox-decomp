@@ -693,6 +693,57 @@ int nox_bot_engine_find_nearest_visible_type(
     return nox_bot_engine_find_nearest_type_impl(object, type_name, max_distance, 1);
 }
 
+int nox_bot_engine_find_nearest_enemy_owned_type(
+    int object, const char *type_name, float max_distance)
+{
+    float dx;
+    float dy;
+    float distance;
+    float best_distance;
+    int best = 0;
+    int item;
+    int type_id;
+
+    if (!object || !type_name || !*type_name)
+        return 0;
+    type_id = sub_4E3AA0((CHAR *)type_name);
+    if (type_id <= 0)
+        return 0;
+    best_distance = max_distance > 0.0f ? max_distance * max_distance : 3.4e38f;
+    for (item = sub_4DA790(); item; item = sub_4DA7A0(item)) {
+        int owner;
+        int enemy_owner = 0;
+        int depth;
+
+        if (*(unsigned short *)(item + NOX_OBJECT_TYPE_ID_OFFSET) != (unsigned short)type_id ||
+            (*(unsigned char *)(item + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED))
+            continue;
+        for (owner = *(int *)(item + NOX_OBJECT_OWNER_OFFSET), depth = 0;
+             owner && depth < 32; ++depth) {
+            unsigned int category = *(unsigned char *)(owner + NOX_OBJECT_CATEGORY_OFFSET);
+
+            if (owner == object)
+                break;
+            if ((category & (NOX_OBJECT_PLAYER_CATEGORY | NOX_OBJECT_MONSTER_CATEGORY)) &&
+                sub_5330C0(object, owner)) {
+                enemy_owner = 1;
+                break;
+            }
+            owner = *(int *)(owner + NOX_OBJECT_OWNER_OFFSET);
+        }
+        if (!enemy_owner)
+            continue;
+        dx = *(float *)(item + NOX_OBJECT_X_OFFSET) - *(float *)(object + NOX_OBJECT_X_OFFSET);
+        dy = *(float *)(item + NOX_OBJECT_Y_OFFSET) - *(float *)(object + NOX_OBJECT_Y_OFFSET);
+        distance = dx * dx + dy * dy;
+        if (distance > best_distance)
+            continue;
+        best = item;
+        best_distance = distance;
+    }
+    return best;
+}
+
 int nox_bot_engine_owned_type_count(int object, const char *type_name)
 {
     int count = 0;

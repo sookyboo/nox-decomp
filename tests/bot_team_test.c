@@ -114,6 +114,21 @@ static void reset_state(void)
     last_aggression = 0.0f;
 }
 
+
+static int test_ctf_tank_is_enemy_flag_carrier(void)
+{
+    reset_state();
+    if (nox_bot_team_is_ctf_tank(SELF))
+        return 1;
+    carrying_flag = 1;
+    if (!nox_bot_team_is_ctf_tank(SELF))
+        return 2;
+    ctf_mode = 0;
+    if (nox_bot_team_is_ctf_tank(SELF))
+        return 3;
+    return 0;
+}
+
 static int test_attack_enemy_flag(void)
 {
     reset_state();
@@ -178,6 +193,8 @@ int main(void)
 {
     int rc;
 
+    rc = test_ctf_tank_is_enemy_flag_carrier();
+    if (rc) return rc;
     rc = test_attack_enemy_flag();
     if (rc) return rc;
     rc = test_flag_carrier_guards_own_flag_target();

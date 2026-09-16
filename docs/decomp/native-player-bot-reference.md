@@ -90,8 +90,9 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   authoritative bot-player removal/freeing;
 - **CTF objectives:** ordinary CTF flag mechanics remain native. The basic
   attack/defend/escort/return destination choice is now shared by Warrior,
-  Wizard, and Conjurer; role assignment, coordinated multi-bot strategy, and
-  teammate-directed orders remain pending;
+  Wizard, and Conjurer; the active enemy-flag carrier is now recognized as the
+  Bot-Script `TeamTank` for carrier-specific policy, while broader coordinated
+  multi-bot strategy and teammate-directed orders remain pending;
 - **Warrior lost-target behavior:** the Bot-Script `TeleportWake` pursuit/check
   loop is implemented; additional lost-target behavior is only pending where it
   depends on future shared team/order policy;
@@ -100,12 +101,14 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   defensive buffs/protections, potions, reaction delays, cooldowns, and native
   mana spending; native nearby loot/equip pickup, the reference
   FireStormWand/ForceWand preference, and shared CTF steering are also
-  implemented. Blink, traps, Drain Mana/obelisk routing, projectile reactions,
-  CTF team-role distinctions, and phonemes remain;
+  implemented. Hostile DeathBall Counterspell and CTF carrier-role-aware
+  Invisibility are also implemented. Blink, traps, Drain Mana/obelisk routing,
+  generic missile Inversion, broader team-role coordination, and phonemes remain;
 - **Conjurer policy:** the direct-cast priority slice now includes Pixie Swarm
   gated by authoritative owned-Pixie world state, native mana/buff/spell
-  ownership, native nearby loot/equip pickup, and shared CTF steering. Blink,
-  projectile reactions, random creature summons/creature-cage accounting,
+  ownership, hostile DeathBall Counterspell, native nearby loot/equip pickup,
+  and shared CTF steering. Blink, generic missile Inversion, random creature
+  summons/creature-cage accounting,
   mana-obelisk routing, the reference's internally inconsistent 10-second
   weapon preference, team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
@@ -1515,8 +1518,8 @@ Current spell decisions implemented by this slice are Slow, Death Ray,
 Fireball, Burn, Ring of Fire (`CLEANSING_FLAME`), Energy Bolt (`LIGHTNING`),
 Magic Missile, Counterspell, Shield, Lesser Heal, Haste, Shock, Protection From
 Electricity, Protection From Fire, and Invisibility. Enemy Heard also uses the
-reachable reference Invisibility response when the remembered target is hidden
-(outside CTF until TeamTank role assignment exists). Native
+reachable reference Invisibility response when the remembered target is hidden, except when the Wizard is the active CTF
+enemy-flag carrier (`TeamTank`). Native
 spell/enchant mechanics remain authoritative. The policy now also performs the
 reference 15-frame 75-unit nearby-loot scan through native pickup/equip paths,
 uses the unambiguous 10-second `FireStormWand -> ForceWand` preference, and
@@ -1528,8 +1531,10 @@ for the rest of the life because the reference cooldown callback writes
 `castFireballAtHeard()` branch is not reproduced because its caller requires an
 unseen target while the helper itself requires visibility, making that cast
 unreachable as written. Blink, traps, Drain Mana/obelisk routing,
-projectile-reflection reactions, role-aware CTF invisibility, and phoneme
-sequencing remain outside this slice.
+generic missile Inversion and phoneme sequencing remain outside this slice.
+Hostile `DeathBall` reaction is implemented by scanning the native world list
+within 500 units, following object owner links at `+492`, requiring an enemy
+player/monster in that chain, and scheduling Counterspell at the Wizard position.
 
 ---
 
@@ -1586,8 +1591,11 @@ Waypoint in CTF call the shared `bot_team.c` destination policy; CTF mechanics
 remain native.
 
 The following reference systems are intentionally not folded into this slice:
-Blink's `NewTrap` execution, projectile/DeathBall Inversion-Counterspell checks,
-random creature summoning/creature-cage accounting, and mana-obelisk transfer.
+Blink's `NewTrap` execution, generic missile Inversion, random creature
+summoning/creature-cage accounting, and mana-obelisk transfer. Hostile
+`DeathBall` Counterspell is implemented through the same native owner-chain
+search as Wizard policy; the Conjurer keeps the reference 20-second cooldown for
+that reaction while its ordinary Counterspell remains 5 seconds.
 Pixie Swarm itself is now direct-cast through native spell mechanics and uses
 world ownership to decide whether another swarm should be created.
 The reference `WeaponPreference()` is also intentionally unresolved because it
@@ -1622,9 +1630,13 @@ Lost Sight with own flag dropped
 ```
 
 This is now used by Warrior and by Wizard/Conjurer Lost Sight / End Of Waypoint
-CTF handling. Bot-Script role assignment (`TeamTank` and other coordinated team
-choices) is still policy-level work and is not inferred from this destination
-helper.
+CTF handling. One Bot-Script role is recoverable without adding duplicate team
+state: when `CheckPickUpEnemyFlag` succeeds the script assigns `TeamTank` to that
+carrier, while native CTF stores the enemy flag in the same player's inventory.
+`nox_bot_team_is_ctf_tank()` therefore treats the current enemy-flag carrier as
+the active `TeamTank`. Warrior Charge and Wizard Invisibility now preserve the
+reference carrier-specific exclusions. Other coordinated team-role choices remain
+policy-level work.
 
 # 12. Name/type lookup used during native AI initialization
 
@@ -1850,12 +1862,21 @@ behaviors such as long-range potion recovery. Pickup itself remains owned by
 capacity, item-specific pickup handlers, inventory linkage, and network-visible
 state stay in Nox.
 
-The same authoritative iterator/owner fields now support
-`nox_bot_engine_owned_type_count()`. Conjurer Pixie policy resolves `Pixie` via
-`sub_4E3AA0`, skips removed objects, and follows the native owner chain until it
-finds the Conjurer player. This matches the NoxScript `HasOwner` semantics more
-closely than a direct-owner-only test and replaces the Go script's separately
-polled `PixieCount` with existing engine ownership state.
+The same authoritative iterator/owner fields support two higher-level ownership
+queries without introducing bot-local projectile or summon registries:
+
+- `nox_bot_engine_owned_type_count()` resolves a named type, skips removed
+  objects, and follows owner links until it finds the requested player. Conjurer
+  Pixie policy uses it to replace the Go script's separately polled `PixieCount`
+  with authoritative engine ownership state.
+- `nox_bot_engine_find_nearest_enemy_owned_type()` scans a named world-object
+  type, ignores removed objects, follows owner links up to a defensive depth of
+  32, and accepts only candidates whose chain reaches a native player/monster
+  that `nox_xxx_unitIsEnemyTo_5330C0` reports as hostile. Wizard and Conjurer use
+  this for the reference 500-unit `DeathBall` Counterspell reaction.
+
+Both helpers intentionally follow the recovered owner chain rather than only the
+immediate `+492` owner, matching NoxScript `HasOwner` semantics more closely.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.

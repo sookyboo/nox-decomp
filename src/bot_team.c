@@ -6,6 +6,15 @@
 #define NOX_BOT_TEAM_GUARD_AGGRESSION 0.16f
 #define NOX_BOT_TEAM_CTF_GUARD_RADIUS 20.0f
 
+
+int nox_bot_team_is_ctf_tank(int object)
+{
+    /* Bot-Script assigns TeamTank to the unit that picks up the enemy flag.
+     * Native CTF already stores that flag in the carrier's player inventory. */
+    return object && nox_bot_engine_is_ctf() &&
+        nox_bot_engine_carrying_ctf_flag(object);
+}
+
 int nox_bot_team_ctf_attack_or_defend(int object)
 {
     float x;
@@ -25,7 +34,7 @@ int nox_bot_team_ctf_attack_or_defend(int object)
 
     /* Bot-Script TeamTank: an enemy-flag carrier guards TeamBase, whose
      * position follows the current own-flag object/carrier in team.go. */
-    if (nox_bot_engine_carrying_ctf_flag(object)) {
+    if (nox_bot_team_is_ctf_tank(object)) {
         if (!own_target)
             return 0;
         nox_bot_engine_position(own_target, &x, &y);

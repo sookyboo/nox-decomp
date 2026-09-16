@@ -41,6 +41,7 @@ static int equip_armor_calls;
 static int ctf_walk_own_flag_calls;
 static int ctf_attack_or_defend_calls;
 static int owned_pixies;
+static int enemy_deathball;
 
 static uint32_t buff_mask(int buff)
 {
@@ -186,6 +187,13 @@ int nox_bot_engine_is_ctf(void)
     return ctf_mode;
 }
 
+int nox_bot_engine_find_nearest_enemy_owned_type(
+    int object, const char *type_name, float max_distance)
+{
+    return object == SELF && enemy_deathball && max_distance >= 500.0f &&
+        strcmp(type_name, "DeathBall") == 0 ? 900 : 0;
+}
+
 int nox_bot_engine_find_nearest_visible_type(
     int object, const char *type_name, float max_distance)
 {
@@ -267,6 +275,7 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     ctf_walk_own_flag_calls = 0;
     ctf_attack_or_defend_calls = 0;
     owned_pixies = 1;
+    enemy_deathball = 0;
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -460,6 +469,26 @@ static int test_pixie_swarm_uses_native_owned_pixie_state(void)
     return 0;
 }
 
+static int test_hostile_deathball_uses_long_counterspell_cooldown(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 840);
+
+    if (!state)
+        return 88;
+    state->conjurer.target = TARGET;
+    enemy_deathball = 1;
+    nox_bot_conjurer_update(SELF, state, 840);
+    if (!state->conjurer.pending_spell || cast_calls)
+        return 89;
+    nox_bot_conjurer_update(SELF, state, 840);
+    if (cast_calls != 1 || strcmp(cast_name, "COUNTERSPELL") != 0 ||
+        cast_kind != 3 || cast_x != 10.0f || cast_y != 20.0f || self_mana != 105)
+        return 90;
+    if (state->conjurer.counterspell_ready_frame != 1440)
+        return 91;
+    return 0;
+}
+
 static int test_loot_scan(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
@@ -555,6 +584,9 @@ int main(void)
     if (result)
         return result;
     result = test_pixie_swarm_uses_native_owned_pixie_state();
+    if (result)
+        return result;
+    result = test_hostile_deathball_uses_long_counterspell_cooldown();
     if (result)
         return result;
     result = test_loot_scan();
