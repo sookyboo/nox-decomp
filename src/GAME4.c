@@ -3,6 +3,9 @@
 #ifdef NOX_EUD_COMPAT
 #include "eud_compat.h"
 #endif
+#ifdef NOX_BOT_SUPPORT
+#include "bot_runtime.h"
+#endif
 
 #ifdef NOX_SUMMON_BEHAVIOR_TEST
 int nox_test_sub_500F40(int action, void *out_xy);
@@ -1651,10 +1654,51 @@ BOOL __cdecl sub_4F80C0(int a1, float2 *a3)
   return result;
 }
 
+#ifdef NOX_BOT_SUPPORT
+/*
+ * Berserker Charge is started and stopped by the native Warrior ability
+ * system. While active, nox_xxx_playerAttack_538960 enters its Charge branch
+ * before normal weapon processing and applies the original per-tick forward
+ * velocity/animation progression. Player-monster bots otherwise skip that
+ * normal-player attack step, so share only the already-active Charge branch.
+ */
+static void nox_player_update_berserker_charge(_DWORD *player)
+{
+  if ( player && sub_4FC250((int)player, 1) )
+    sub_538960((int)player);
+}
+#endif
+
+/*
+ * Original player Harpoon owner upkeep from nox_xxx_updatePlayer_4F8100.
+ * Keep this in the player subsystem: the projectile updater owns flight and
+ * attachment lifetime, while the player update applies reel force or breaks
+ * the Harpoon when the attached target becomes invalid.
+ */
+static char nox_player_update_harpoon_pull(_DWORD *player)
+{
+  int runtime;
+  int target;
+  float pull_force;
+
+  if ( !player )
+    return 0;
+  runtime = player[187];
+  if ( !runtime )
+    return 0;
+  target = *(_DWORD *)(runtime + 132);
+  if ( !target )
+    return 0;
+  pull_force = -(float)sub_419D40(&byte_587000[216044]);
+  if ( *(_BYTE *)(target + 16) & 0x20 )
+    return (char)(unsigned int)sub_537520(player);
+  sub_4E7540((int)player, target);
+  return sub_52DF80((int)(player + 14), target, pull_force);
+}
+
 //----- (004F8100) --------------------------------------------------------
 char __cdecl sub_4F8100(_DWORD *a1)
 {
-  _DWORD *v1; // edi
   int v2; // ebx
   int v3; // edx
   int v4; // esi
@@ -1670,12 +1714,7 @@ char __cdecl sub_4F8100(_DWORD *a1)
   int v14; // eax
   unsigned __int8 v15; // cl
   int v16; // eax
-  double v17; // st7
-  int v18; // eax
-  float v20; // [esp+0h] [ebp-14h]
-  float v21; // [esp+18h] [ebp+4h]
 
-  v1 = a1;
   v2 = 0;
   v3 = 4;
   v4 = a1[187];
@@ -1793,23 +1832,7 @@ char __cdecl sub_4F8100(_DWORD *a1)
       if ( sub_4FF350((int)a1, 8) && *(_BYTE *)(v4 + 88) != 1 )
         sub_4FA020(a1, 5);
       sub_421C70((int)a1);
-      v6 = *(_DWORD *)(v4 + 132);
-      if ( v6 )
-      {
-        v17 = sub_419D40(&byte_587000[216044]);
-        v18 = *(_DWORD *)(v4 + 132);
-        if ( *(_BYTE *)(v18 + 16) & 0x20 )
-        {
-          LOBYTE(v6) = (unsigned int)sub_537520(a1);
-        }
-        else
-        {
-          sub_4E7540((int)a1, v18);
-          v21 = v17;
-          v20 = -v21;
-          LOBYTE(v6) = sub_52DF80((int)(v1 + 14), *(_DWORD *)(v4 + 132), v20);
-        }
-      }
+      v6 = nox_player_update_harpoon_pull(a1);
     }
   }
   return v6;
@@ -3516,10 +3539,17 @@ int __cdecl sub_4FAB20(_DWORD *a1)
   char v5; // al
   int v6; // ecx
 
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_sync_native_player_bot((int)a1);
+#endif
   v1 = a1[187];
   if ( *(_DWORD *)(v1 + 292) || (sub_4FA700((int)a1), (result = *(_DWORD *)(v1 + 292)) != 0) )
   {
     result = sub_4FAC70((int)a1);
+#ifdef NOX_BOT_SUPPORT
+    if ( result )
+      nox_bot_runtime_clear_life_state((int)a1);
+#endif
     if ( !result )
     {
       v3 = *(_DWORD *)(v1 + 292);
@@ -3531,16 +3561,44 @@ int __cdecl sub_4FAB20(_DWORD *a1)
       sub_4FAAF0(a1);
       v5 = sub_4FABC0((int)a1);
       v6 = *(_DWORD *)(v1 + 276);
+#ifdef NOX_BOT_SUPPORT
+      /*
+       * Native Charge and bot-owned player weapon attacks use player state 1
+       * plus player attack progress at runtime +236. Do not replace either
+       * value with the current monster action while those native attack paths
+       * own them; resume normal translation as soon as ownership ends.
+       */
+      if ( !sub_4FC250((int)a1, 1) &&
+           !nox_bot_runtime_preserve_player_attack_state((int)a1) )
+      {
+        *(_BYTE *)(v1 + 88) = v5;
+        *(_BYTE *)(v1 + 236) = *(_BYTE *)(v3 + 481);
+      }
+#else
       *(_BYTE *)(v1 + 88) = v5;
       *(_BYTE *)(v1 + 236) = *(_BYTE *)(v3 + 481);
+#endif
       *(_DWORD *)(v6 + 3632) = a1[14];
       result = a1[15];
       *(_DWORD *)(v6 + 3636) = result;
+#ifdef NOX_BOT_SUPPORT
+      /*
+       * 4FAB20 replaces the normal player updater. Preserve the player-side
+       * Warrior ability steps whose native implementations otherwise live in
+       * that updater, without running unrelated player-input/combat logic.
+       */
+      nox_player_update_berserker_charge(a1);
+      nox_player_update_harpoon_pull(a1);
+      nox_bot_runtime_update((int)a1);
+#endif
     }
   }
   else
   {
     a1[186] = sub_4F8100;
+#ifdef NOX_BOT_SUPPORT
+    nox_bot_runtime_forget_native_player_bot((int)a1);
+#endif
   }
   return result;
 }
@@ -18784,6 +18842,9 @@ unsigned __int8 *__cdecl sub_50D110(int a1, _DWORD *a2, int a3)
     v3[98] = 0;
   sub_50D190(a1, a2 + 2, v3 + 99);
   v5 = sub_4EC580(a2[1]);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_ENEMY_HEARD, v5);
+#endif
   return sub_502490(v3 + 320, v5, a1);
 }
 
@@ -43282,6 +43343,9 @@ int __cdecl sub_528560(int a1, int a2)
   v10 = *(_DWORD *)(v3 + 36);
   v5 = sub_4E39D0(v3);
   sub_5341A0((char *)&byte_587000[255232], *(_DWORD *)&byte_5D4594[2598000], v5, v10);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_LOST_SIGHT, *v4);
+#endif
   sub_502490((int *)(v2 + 1296), *v4, a1);
   v6 = *(_DWORD *)(v2 + 1196);
   if ( *v4 == v6 )
@@ -43437,6 +43501,9 @@ LABEL_9:
         }
       }
     }
+#ifdef NOX_BOT_SUPPORT
+    nox_bot_runtime_event(v2, NOX_BOT_EVENT_ENEMY_SIGHTED, v11);
+#endif
     sub_502490((int *)(v4 + 1232), v11, v2);
     return;
   }
@@ -51518,6 +51585,9 @@ unsigned __int8 *__cdecl sub_533030(int a1, int a2)
   v3 = sub_424300(a1);
   if ( v3 )
     sub_501960(*(_DWORD *)(v3 + 68), a1, 0, 0);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_ENEMY_SIGHTED, a2);
+#endif
   return sub_502490((int *)(v2 + 1232), a2, a1);
 }
 
@@ -64849,6 +64919,9 @@ int (__cdecl *__cdecl sub_544C40(int a1))(int)
   v2 = sub_424300(a1);
   if ( v2 )
     sub_501960(*(_DWORD *)(v2 + 60), a1, 0, 0);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_DEATH, 0);
+#endif
   sub_502490((int *)(v1 + 1264), 0, a1);
   result = *(int (__cdecl **)(int))(*(_DWORD *)(v1 + 484) + 228);
   if ( result )
@@ -65060,5 +65133,8 @@ unsigned __int8 *__cdecl sub_544FF0(int a1)
 
   v1 = *(_DWORD *)(a1 + 748);
   sub_50A160(a1);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(a1, NOX_BOT_EVENT_END_OF_WAYPOINT, 0);
+#endif
   return sub_502490((int *)(v1 + 1288), 0, a1);
 }

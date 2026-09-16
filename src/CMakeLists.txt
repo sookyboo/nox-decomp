@@ -154,6 +154,16 @@ if (USE_EUD_COMPAT)
     add_compile_definitions(NOX_EUD_COMPAT)
 endif()
 
+if (USE_BOT_SUPPORT)
+    list(APPEND NOX_RUNTIME_SOURCES
+        bot_engine.c
+        bot_policy.c
+        bot_runtime.c
+        bot_warrior.c
+    )
+    add_compile_definitions(NOX_BOT_SUPPORT)
+endif()
+
 add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
 
 if (NOT WIN32)

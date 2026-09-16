@@ -13,6 +13,9 @@
 //     those, we use dedicated locals (u32/u8) instead of writing into the param.
 //
 #include "proto.h"
+#ifdef NOX_BOT_SUPPORT
+#include "bot_runtime.h"
+#endif
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -601,6 +604,9 @@ int __cdecl sub_50A5C0__abi_raw(nox_abi_ptrslot_t a1)
           v7 = sub_424300(self);
           if ( v7 )
             sub_501960(*(_DWORD *)(v7 + 64), self, 0, 0);
+#ifdef NOX_BOT_SUPPORT
+          nox_bot_runtime_event(self, NOX_BOT_EVENT_IS_HIT, *(_DWORD *)(self + 520));
+#endif
           sub_502490((int *)(v2 + 1248), *(_DWORD *)(self + 520), self);
           sub_5341A0(
             (char *)&byte_587000[234068],
@@ -2650,6 +2656,9 @@ int __cdecl sub_531E20__abi_raw(nox_abi_ptrslot_t a1)
   v2 = sub_424300(self);
   if ( v2 )
     sub_501960(*(_DWORD *)(v2 + 20), self, 0, 0);
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_event(self, NOX_BOT_EVENT_CHANGE_FOCUS, v1[299]);
+#endif
   sub_502490(v1 + 310, v1[299], self);
   v3 = v1[360];
   BYTE1(v3) |= 1u;
