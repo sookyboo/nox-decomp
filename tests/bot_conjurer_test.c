@@ -40,6 +40,7 @@ static int equip_weapon_calls;
 static int equip_armor_calls;
 static int ctf_walk_own_flag_calls;
 static int ctf_attack_or_defend_calls;
+static int owned_pixies;
 
 static uint32_t buff_mask(int buff)
 {
@@ -138,6 +139,8 @@ int nox_bot_engine_cast_script_self(int object, const char *name)
         self_buffs |= buff_mask(ENCHANT_PROTECT_FIRE);
     else if (strcmp(name, "PROTECTION_FROM_POISON") == 0)
         self_buffs |= buff_mask(ENCHANT_PROTECT_POISON);
+    else if (strcmp(name, "PIXIE_SWARM") == 0)
+        owned_pixies = 1;
     return 1;
 }
 
@@ -216,6 +219,13 @@ int nox_bot_engine_equip_armor(int object, int item)
     return 1;
 }
 
+int nox_bot_engine_owned_type_count(int object, const char *type_name)
+{
+    if (object != SELF || strcmp(type_name, "Pixie") != 0)
+        return 0;
+    return owned_pixies;
+}
+
 void nox_bot_team_ctf_walk_to_own_flag(int object)
 {
     if (object == SELF)
@@ -256,6 +266,7 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     equip_armor_calls = 0;
     ctf_walk_own_flag_calls = 0;
     ctf_attack_or_defend_calls = 0;
+    owned_pixies = 1;
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -424,6 +435,31 @@ static int test_passive_mana_regen(void)
     return 0;
 }
 
+static int test_pixie_swarm_uses_native_owned_pixie_state(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 825);
+
+    if (!state)
+        return 74;
+    owned_pixies = 0;
+    target_visible = 0;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    nox_bot_conjurer_update(SELF, state, 825);
+    if (!state->conjurer.pending_spell || cast_calls)
+        return 85;
+    nox_bot_conjurer_update(SELF, state, 825);
+    if (cast_calls != 1 || strcmp(cast_name, "PIXIE_SWARM") != 0 ||
+        cast_kind != 1 || self_mana != 95 || owned_pixies != 1)
+        return 86;
+
+    state->conjurer.global_ready_frame = 0;
+    nox_bot_conjurer_update(SELF, state, 826);
+    if (state->conjurer.pending_spell || cast_calls != 1)
+        return 87;
+    return 0;
+}
+
 static int test_loot_scan(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
@@ -516,6 +552,9 @@ int main(void)
     if (result)
         return result;
     result = test_passive_mana_regen();
+    if (result)
+        return result;
+    result = test_pixie_swarm_uses_native_owned_pixie_state();
     if (result)
         return result;
     result = test_loot_scan();

@@ -179,6 +179,8 @@ int __cdecl sub_4E3AA0(char *name)
         return 80;
     if (strcmp(name, "Bomber") == 0)
         return 81;
+    if (strcmp(name, "Pixie") == 0)
+        return 82;
     return 0;
 }
 
@@ -795,6 +797,8 @@ static int test_world_loot_and_equipment_wrappers(void)
     unsigned char hidden_item[600];
     unsigned char near_item[600];
     unsigned char armor_item[600];
+    unsigned char pixie_a[600];
+    unsigned char pixie_b[600];
     int object_ptr;
     int near_ptr;
     int armor_ptr;
@@ -804,6 +808,8 @@ static int test_world_loot_and_equipment_wrappers(void)
     memset(hidden_item, 0, sizeof(hidden_item));
     memset(near_item, 0, sizeof(near_item));
     memset(armor_item, 0, sizeof(armor_item));
+    memset(pixie_a, 0, sizeof(pixie_a));
+    memset(pixie_b, 0, sizeof(pixie_b));
     object_ptr = (int)(uintptr_t)object;
     near_ptr = (int)(uintptr_t)near_item;
     armor_ptr = (int)(uintptr_t)armor_item;
@@ -827,6 +833,18 @@ static int test_world_loot_and_equipment_wrappers(void)
         return 86;
     if (nox_bot_engine_find_nearest_visible_type(object_ptr, "GreatSword", 20.0f))
         return 87;
+
+    *(uint32_t *)(near_item + 444) = (uint32_t)(uintptr_t)pixie_a;
+    *(uint16_t *)(pixie_a + 4) = 82;
+    *(uint32_t *)(pixie_a + 492) = (uint32_t)object_ptr;
+    *(uint32_t *)(pixie_a + 444) = (uint32_t)(uintptr_t)pixie_b;
+    *(uint16_t *)(pixie_b + 4) = 82;
+    *(uint32_t *)(pixie_b + 492) = (uint32_t)(uintptr_t)pixie_a;
+    if (nox_bot_engine_owned_type_count(object_ptr, "Pixie") != 2)
+        return 95;
+    *(unsigned char *)(pixie_b + 16) = 0x20;
+    if (nox_bot_engine_owned_type_count(object_ptr, "Pixie") != 1)
+        return 96;
 
     pickup_calls = 0;
     if (!nox_bot_engine_pickup_item(object_ptr, near_ptr))
