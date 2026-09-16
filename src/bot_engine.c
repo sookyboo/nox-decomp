@@ -9,6 +9,7 @@
 #define NOX_OBJECT_CATEGORY_OFFSET 8
 #define NOX_OBJECT_UPDATE_OFFSET 744
 #define NOX_OBJECT_RUNTIME_OFFSET 748
+#define NOX_OBJECT_MISSILE_CATEGORY 0x01u
 #define NOX_OBJECT_MONSTER_CATEGORY 0x02u
 #define NOX_OBJECT_PLAYER_CATEGORY 0x04u
 
@@ -693,7 +694,7 @@ int nox_bot_engine_find_nearest_visible_type(
     return nox_bot_engine_find_nearest_type_impl(object, type_name, max_distance, 1);
 }
 
-int nox_bot_engine_find_nearest_enemy_owned_type(
+int nox_bot_engine_find_nearest_world_type(
     int object, const char *type_name, float max_distance)
 {
     float dx;
@@ -711,27 +712,80 @@ int nox_bot_engine_find_nearest_enemy_owned_type(
         return 0;
     best_distance = max_distance > 0.0f ? max_distance * max_distance : 3.4e38f;
     for (item = sub_4DA790(); item; item = sub_4DA7A0(item)) {
-        int owner;
-        int enemy_owner = 0;
-        int depth;
+        if (item == object ||
+            *(unsigned short *)(item + NOX_OBJECT_TYPE_ID_OFFSET) != (unsigned short)type_id ||
+            (*(unsigned char *)(item + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED))
+            continue;
+        dx = *(float *)(item + NOX_OBJECT_X_OFFSET) - *(float *)(object + NOX_OBJECT_X_OFFSET);
+        dy = *(float *)(item + NOX_OBJECT_Y_OFFSET) - *(float *)(object + NOX_OBJECT_Y_OFFSET);
+        distance = dx * dx + dy * dy;
+        if (distance > best_distance)
+            continue;
+        best = item;
+        best_distance = distance;
+    }
+    return best;
+}
 
-        if (*(unsigned short *)(item + NOX_OBJECT_TYPE_ID_OFFSET) != (unsigned short)type_id ||
+static int nox_bot_engine_has_enemy_owner(int object, int item)
+{
+    int owner;
+    int depth;
+
+    if (!object || !item)
+        return 0;
+    for (owner = *(int *)(item + NOX_OBJECT_OWNER_OFFSET), depth = 0;
+         owner && depth < 32; ++depth) {
+        unsigned int category = *(unsigned char *)(owner + NOX_OBJECT_CATEGORY_OFFSET);
+
+        if (owner == object)
+            return 0;
+        if ((category & (NOX_OBJECT_PLAYER_CATEGORY | NOX_OBJECT_MONSTER_CATEGORY)) &&
+            sub_5330C0(object, owner))
+            return 1;
+        owner = *(int *)(owner + NOX_OBJECT_OWNER_OFFSET);
+    }
+    return 0;
+}
+
+int nox_bot_engine_find_nearest_enemy_owned_type(
+    int object, const char *type_name, float max_distance)
+{
+    int item = nox_bot_engine_find_nearest_world_type(object, type_name, max_distance);
+
+    return nox_bot_engine_has_enemy_owner(object, item) ? item : 0;
+}
+
+int nox_bot_engine_find_nearest_missile_owned_by(
+    int object, int owner_target, float max_distance)
+{
+    float dx;
+    float dy;
+    float distance;
+    float best_distance;
+    int best = 0;
+    int item;
+
+    if (!object || !owner_target)
+        return 0;
+    best_distance = max_distance > 0.0f ? max_distance * max_distance : 3.4e38f;
+    for (item = sub_4DA790(); item; item = sub_4DA7A0(item)) {
+        int owner;
+        int depth;
+        int owned = 0;
+
+        if (!(*(unsigned char *)(item + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_MISSILE_CATEGORY) ||
             (*(unsigned char *)(item + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED))
             continue;
         for (owner = *(int *)(item + NOX_OBJECT_OWNER_OFFSET), depth = 0;
              owner && depth < 32; ++depth) {
-            unsigned int category = *(unsigned char *)(owner + NOX_OBJECT_CATEGORY_OFFSET);
-
-            if (owner == object)
-                break;
-            if ((category & (NOX_OBJECT_PLAYER_CATEGORY | NOX_OBJECT_MONSTER_CATEGORY)) &&
-                sub_5330C0(object, owner)) {
-                enemy_owner = 1;
+            if (owner == owner_target) {
+                owned = 1;
                 break;
             }
             owner = *(int *)(owner + NOX_OBJECT_OWNER_OFFSET);
         }
-        if (!enemy_owner)
+        if (!owned)
             continue;
         dx = *(float *)(item + NOX_OBJECT_X_OFFSET) - *(float *)(object + NOX_OBJECT_X_OFFSET);
         dy = *(float *)(item + NOX_OBJECT_Y_OFFSET) - *(float *)(object + NOX_OBJECT_Y_OFFSET);

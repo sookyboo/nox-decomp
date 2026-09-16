@@ -101,15 +101,16 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   defensive buffs/protections, potions, reaction delays, cooldowns, and native
   mana spending; native nearby loot/equip pickup, the reference
   FireStormWand/ForceWand preference, and shared CTF steering are also
-  implemented. Hostile DeathBall Counterspell and CTF carrier-role-aware
-  Invisibility are also implemented. Blink, traps, Drain Mana/obelisk routing,
-  generic missile Inversion, broader team-role coordination, and phonemes remain;
+  implemented. Hostile DeathBall Counterspell, generic target-owned missile
+  Inversion, and CTF carrier-role-aware Invisibility are also implemented. Blink,
+  traps, Drain Mana/obelisk routing, broader team-role coordination, and phonemes
+  remain;
 - **Conjurer policy:** the direct-cast priority slice now includes Pixie Swarm
   gated by authoritative owned-Pixie world state, native mana/buff/spell
-  ownership, hostile DeathBall Counterspell, native nearby loot/equip pickup,
-  and shared CTF steering. Blink, generic missile Inversion, random creature
-  summons/creature-cage accounting,
-  mana-obelisk routing, the reference's internally inconsistent 10-second
+  ownership, hostile DeathBall Counterspell, generic target-owned missile
+  Inversion, native nearby loot/equip pickup, and shared CTF steering. Blink,
+  random creature summons/creature-cage accounting, mana-obelisk routing, the
+  reference's internally inconsistent 10-second
   weapon preference, team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
@@ -1530,11 +1531,14 @@ for the rest of the life because the reference cooldown callback writes
 `ShockReady=true` instead of restoring `RingOfFireReady`. The Enemy Heard
 `castFireballAtHeard()` branch is not reproduced because its caller requires an
 unseen target while the helper itself requires visibility, making that cast
-unreachable as written. Blink, traps, Drain Mana/obelisk routing,
-generic missile Inversion and phoneme sequencing remain outside this slice.
-Hostile `DeathBall` reaction is implemented by scanning the native world list
-within 500 units, following object owner links at `+492`, requiring an enemy
-player/monster in that chain, and scheduling Counterspell at the Wizard position.
+unreachable as written. Blink, traps, Drain Mana/obelisk routing, and phoneme
+sequencing remain outside this slice. Hostile `DeathBall` reaction is implemented
+by scanning the native world list within 500 units, following object owner links
+at `+492`, requiring an enemy player/monster in that chain, and scheduling
+Counterspell at the Wizard position. If no `DeathBall` is present, a class-`0x01`
+missile whose owner chain reaches the current target schedules native Inversion
+after the configured reaction delay; the Bot-Script 10-mana cost, one-second
+cooldown, and three-frame global gate remain policy state.
 
 ---
 
@@ -1591,12 +1595,15 @@ Waypoint in CTF call the shared `bot_team.c` destination policy; CTF mechanics
 remain native.
 
 The following reference systems are intentionally not folded into this slice:
-Blink's `NewTrap` execution, generic missile Inversion, random creature
-summoning/creature-cage accounting, and mana-obelisk transfer. Hostile
-`DeathBall` Counterspell is implemented through the same native owner-chain
+Blink's `NewTrap` execution, random creature summoning/creature-cage accounting,
+and mana-obelisk transfer. Hostile `DeathBall` Counterspell is implemented
+through the same native owner-chain
 search as Wizard policy; the Conjurer keeps the reference 20-second cooldown for
-that reaction while its ordinary Counterspell remains 5 seconds.
-Pixie Swarm itself is now direct-cast through native spell mechanics and uses
+that reaction while its ordinary Counterspell remains 5 seconds. If no nearby
+`DeathBall` exists, a class-`0x01` missile whose owner chain reaches the current
+target schedules native Inversion using the reference 10-mana cost, one-second
+cooldown, reaction delay, and shared three-frame spell gate. Pixie Swarm itself
+is now direct-cast through native spell mechanics and uses
 world ownership to decide whether another swarm should be created.
 The reference `WeaponPreference()` is also intentionally unresolved because it
 checks `CrossBow`/`InfinitePainWand` availability but attempts to equip
@@ -1869,14 +1876,25 @@ queries without introducing bot-local projectile or summon registries:
   objects, and follows owner links until it finds the requested player. Conjurer
   Pixie policy uses it to replace the Go script's separately polled `PixieCount`
   with authoritative engine ownership state.
-- `nox_bot_engine_find_nearest_enemy_owned_type()` scans a named world-object
-  type, ignores removed objects, follows owner links up to a defensive depth of
-  32, and accepts only candidates whose chain reaches a native player/monster
-  that `nox_xxx_unitIsEnemyTo_5330C0` reports as hostile. Wizard and Conjurer use
-  this for the reference 500-unit `DeathBall` Counterspell reaction.
+- `nox_bot_engine_find_nearest_world_type()` returns the nearest non-removed
+  object of a named type without filtering ownership. Wizard/Conjurer use this
+  first for Bot-Script's `DeathBall`-before-generic-missile branch.
+- `nox_bot_engine_find_nearest_enemy_owned_type()` applies the hostile owner-chain
+  test to that nearest named object. This deliberately does not skip past a
+  nearer friendly/unowned `DeathBall`, matching the reference `FindClosestObject`
+  followed by `HasOwner(enemy)` ordering.
+- `nox_bot_engine_find_nearest_missile_owned_by()` scans class bit `0x01`
+  missiles, follows owner links up to 32 levels, and returns the nearest missile
+  whose owner chain reaches the exact current target. Wizard and Conjurer use it
+  for the reference 500-unit generic Inversion reaction.
 
-Both helpers intentionally follow the recovered owner chain rather than only the
+These helpers intentionally follow the recovered owner chain rather than only the
 immediate `+492` owner, matching NoxScript `HasOwner` semantics more closely.
+Native `sub_52BE40`, called by the Inversion area scan in `sub_52BEB0`, confirms
+that `object +8 & 0x01` is the missile-class test. It separately requires
+`object +12 & 0x02` before transferring a missile's ownership/direction, so bot
+policy intentionally filters only `ClassMissile` as the Go reference does and
+leaves the actual invertibility/magic-missile decision to native Inversion.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.
@@ -2327,8 +2345,8 @@ The player-bot functions access the following object offsets.
 
 | Offset | Meaning | Confidence / evidence |
 |---:|---|---|
-| `+8` | object category/type flags; bit `0x04` identifies player objects in CTF and morph logic | Confirmed |
-| `+12` | temporary processing/state field changed by player↔monster morph (`16` during monster view, `0` after) | Confirmed behavior; semantic name not recovered |
+| `+8` | object class/category flags; bit `0x01` identifies missiles in native Inversion, `0x02` monsters, and `0x04` players | Confirmed |
+| `+12` | class-dependent state/subclass flags: player↔monster morph writes `16`/`0`; native Inversion tests missile bit `0x02` as the invertible magic-missile subclass | Confirmed functional use; keep class-specific semantics behind adapters |
 | `+56` | world X position | Confirmed |
 | `+60` | world Y position | Confirmed |
 | `+124` | facing/orientation used during bot-AI initialization and respawn helper calls | Confirmed use; exact semantic type should remain engine-owned |
@@ -3272,6 +3290,8 @@ nox_xxx_playerCheckSpellClass_57AEA0
 nox_xxx_testUnitBuffs_4FF350
 nox_xxx_buffApplyTo_4FF380
 nox_xxx_spellBuffOff_4FF5B0
+sub_52BEB0                         [native Inversion area scan]
+sub_52BE40                         [native missile inversion/ownership transfer]
 ```
 
 ## Spawn/respawn
