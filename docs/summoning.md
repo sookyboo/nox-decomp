@@ -39,3 +39,21 @@ to remain alignment-safe on ARMHF. The Windows build supplies a deterministic
 position collaborator and a flag-safe fixture because the native PE runtime
 uses the same pointer field for a bitmask check. Collision rejection,
 interruption, and the full world/object database remain untested.
+
+## Bot lifecycle comparison diagnostic
+
+When `USE_BOT_SUPPORT=ON`, the opt-in bot lifecycle trace also records native
+summon creation. Enable it with `NOX_BOT_LIFECYCLE_TRACE=1` or `bot trace on`.
+The relevant phases are:
+
+```text
+path=summon phase=start
+path=summon phase=object-created
+path=summon phase=player-owner-linked
+path=summon phase=complete | complete-failed
+```
+
+This trace does not alter summoning. It exists because `sub_5016C0` is a useful
+example of the engine creating a server-owned object and linking it to a player
+without a new remote client. A summon remains an NPC and does not replace the
+player-info/player-runtime lifecycle required by experimental `bot spawn`.
