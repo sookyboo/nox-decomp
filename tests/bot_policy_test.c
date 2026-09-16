@@ -66,6 +66,8 @@ static int test_clear_life_state_preserves_persistent_policy(void)
     state->warrior.pending_ability = 2;
     state->wizard.pending_spell = 3;
     state->wizard.fireball_ready_frame = 900;
+    state->conjurer.pending_spell = 2;
+    state->conjurer.meteor_ready_frame = 901;
     nox_bot_policy_record_event(state, NOX_BOT_EVENT_ENEMY_SIGHTED, 789, 60);
 
     nox_bot_policy_clear_life_state(state);
@@ -75,7 +77,8 @@ static int test_clear_life_state_preserves_persistent_policy(void)
         return 22;
     if (state->pending_events || state->warrior.chakram_attack_active ||
         state->warrior.pending_ability || state->wizard.pending_spell ||
-        state->wizard.fireball_ready_frame)
+        state->wizard.fireball_ready_frame || state->conjurer.pending_spell ||
+        state->conjurer.meteor_ready_frame)
         return 23;
     return 0;
 }
