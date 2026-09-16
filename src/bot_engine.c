@@ -1,5 +1,6 @@
 #include "bot_engine.h"
 #include "proto.h"
+#include "bot_trace.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -22,6 +23,23 @@
 #define NOX_PLAYER_RUNTIME_EQUIPPED_WEAPON_OFFSET 104
 #define NOX_PLAYER_INFO_SLOT_OFFSET 2064
 #define NOX_PLAYER_INFO_CLASS_OFFSET 2251
+
+#define NOX_PLAYER_INFO_OBJECT_OFFSET 2056
+#define NOX_PLAYER_OPTS_INFO_SIZE 97
+#define NOX_PLAYER_OPTS_NAME_BYTES 50
+#define NOX_PLAYER_OPTS_CLASS_OFFSET 66
+#define NOX_PLAYER_OPTS_SCREEN_X_OFFSET 97
+#define NOX_PLAYER_OPTS_SCREEN_Y_OFFSET 101
+#define NOX_PLAYER_OPTS_SERIAL_OFFSET 105
+#define NOX_PLAYER_OPTS_SERIAL_BYTES 23
+#define NOX_PLAYER_OPTS_FIELD2096_OFFSET 128
+#define NOX_PLAYER_OPTS_FIELD2068_OFFSET 138
+#define NOX_PLAYER_OPTS_FIELD2072_OFFSET 142
+#define NOX_PLAYER_OPTS_MODE_OFFSET 152
+#define NOX_PLAYER_OPTS_SIZE 153
+#define NOX_LOCAL_SAVE_FLAGS_OFFSET 2660684
+#define NOX_TEAM_COLOR_RED 1u
+#define NOX_TEAM_COLOR_BLUE 2u
 #define NOX_PLAYER_BOT_AI_CURRENT_TARGET_OFFSET 1196
 #define NOX_PLAYER_BOT_AI_PLAYER_RUNTIME_OFFSET 2180
 
@@ -160,6 +178,226 @@ int nox_bot_engine_player_class(int object)
     return *(unsigned char *)(info + NOX_PLAYER_INFO_CLASS_OFFSET);
 }
 
+int nox_bot_engine_player_object_by_slot(int player_slot)
+{
+    char *info;
+
+    if (player_slot < 0 || player_slot >= 32)
+        return 0;
+    info = sub_417090(player_slot);
+    if (!info)
+        return 0;
+    return *(int *)(info + NOX_PLAYER_INFO_OBJECT_OFFSET);
+}
+
+int nox_bot_engine_find_free_player_slot(void)
+{
+    int slot;
+
+    /* Slot 31 is the native host/local-player slot. Remote/server-controlled
+     * players use 0..30 in the recovered join path. */
+    for (slot = 0; slot < 31; ++slot) {
+        if (!sub_417090(slot))
+            return slot;
+    }
+    return -1;
+}
+
+static char *nox_bot_engine_team_by_color(unsigned char color)
+{
+    char *team;
+
+    for (team = sub_418B10(); team; team = sub_418B60((int)team)) {
+        if ((unsigned char)team[56] == color)
+            return team;
+    }
+    return 0;
+}
+
+static int nox_bot_engine_assign_spawn_team(int object, nox_bot_spawn_team choice)
+{
+    unsigned char color;
+    char *team;
+
+    if (choice == NOX_BOT_SPAWN_TEAM_AUTO)
+        return 1;
+    color = choice == NOX_BOT_SPAWN_TEAM_RED ? NOX_TEAM_COLOR_RED : NOX_TEAM_COLOR_BLUE;
+    team = nox_bot_engine_team_by_color(color);
+    if (!team) {
+        nox_bot_tracef("spawn", "team-unavailable",
+            "object=0x%08x requested_color=%u", object, (unsigned)color);
+        return 0;
+    }
+    if (sub_419130(object + 48)) {
+        if (*(unsigned char *)(object + 52) == (unsigned char)team[57])
+            return 1;
+        sub_4196D0(object + 48, (int)team, *(int *)(object + 36), 0);
+    } else {
+        sub_4191D0((unsigned char)team[57], object + 48, 1, *(int *)(object + 36), 0);
+    }
+    nox_bot_tracef("spawn", "team-assigned",
+        "object=0x%08x requested_color=%u team_id=%u member_team_id=%u",
+        object, (unsigned)color, (unsigned)(unsigned char)team[57],
+        (unsigned)*(unsigned char *)(object + 52));
+    return sub_419130(object + 48) &&
+        *(unsigned char *)(object + 52) == (unsigned char)team[57];
+}
+
+static void nox_bot_engine_copy_spawn_name(unsigned char *packet, const wchar_t *name)
+{
+    int i;
+
+    memset(packet, 0, NOX_PLAYER_OPTS_NAME_BYTES);
+    if (!name)
+        return;
+    for (i = 0; i < 24 && name[i]; ++i) {
+        uint16_t ch = (uint16_t)name[i];
+        memcpy(packet + i * 2, &ch, sizeof(ch));
+    }
+}
+
+static void nox_bot_engine_make_spawn_serial(unsigned char *packet, int player_slot)
+{
+    char *serial = (char *)(packet + NOX_PLAYER_OPTS_SERIAL_OFFSET);
+
+    /* A server-created bot has no hardware/client serial. Give the native
+     * PlayerOpts field a stable, unique synthetic value rather than cloning the
+     * host serial and accidentally sharing account/network identity state. */
+    memset(serial, 0, NOX_PLAYER_OPTS_SERIAL_BYTES);
+    serial[0] = 'B';
+    serial[1] = 'O';
+    serial[2] = 'T';
+    serial[3] = '-';
+    serial[4] = (char)('0' + ((player_slot + 1) / 10) % 10);
+    serial[5] = (char)('0' + (player_slot + 1) % 10);
+}
+
+int nox_bot_engine_spawn_player_attempt(
+    int player_slot, int player_class, nox_bot_spawn_team team, const wchar_t *name)
+{
+    unsigned char packet[NOX_PLAYER_OPTS_SIZE];
+    char *profile;
+    char *server_options;
+    char *info;
+    int screen_x = 0;
+    int screen_y = 0;
+    int screen_unused = 0;
+    int join_result;
+    int object;
+
+    if (player_slot < 0 || player_slot >= 31 || player_class < 0 || player_class > 2)
+        return 0;
+    if (team < NOX_BOT_SPAWN_TEAM_AUTO || team > NOX_BOT_SPAWN_TEAM_BLUE)
+        return 0;
+    if (sub_417090(player_slot))
+        return 0;
+    profile = sub_431770();
+    server_options = sub_416640();
+    if (!profile || !server_options)
+        return 0;
+    if (server_options[100] &&
+        ((unsigned char)(1u << player_class) & (unsigned char)server_options[100])) {
+        nox_bot_tracef("spawn", "rejected",
+            "slot=%d class=%d reason=class-disabled class_mask=0x%02x",
+            player_slot, player_class, (unsigned)(unsigned char)server_options[100]);
+        return 0;
+    }
+
+    /* Mirror the 153-byte PlayerOpts layout assembled by sub_435A10, but keep
+     * client/account-only identity fields synthetic/empty. The first 97 bytes
+     * remain the native host profile template so appearance/loadout metadata is
+     * structurally valid; name and class are then overridden for this bot. */
+    memset(packet, 0, sizeof(packet));
+    memcpy(packet, profile, NOX_PLAYER_OPTS_INFO_SIZE);
+    nox_bot_engine_copy_spawn_name(packet, name);
+    packet[NOX_PLAYER_OPTS_CLASS_OFFSET] = (unsigned char)player_class;
+    sub_43BEB0(&screen_x, &screen_y, &screen_unused);
+    memcpy(packet + NOX_PLAYER_OPTS_SCREEN_X_OFFSET, &screen_x, sizeof(screen_x));
+    memcpy(packet + NOX_PLAYER_OPTS_SCREEN_Y_OFFSET, &screen_y, sizeof(screen_y));
+    nox_bot_engine_make_spawn_serial(packet, player_slot);
+    memset(packet + NOX_PLAYER_OPTS_FIELD2096_OFFSET, 0, 10);
+    memset(packet + NOX_PLAYER_OPTS_FIELD2068_OFFSET, 0, 4);
+    memset(packet + NOX_PLAYER_OPTS_FIELD2072_OFFSET, 0, 10);
+    packet[NOX_PLAYER_OPTS_MODE_OFFSET] = sub_40ABD0() ? 0u : 1u;
+    if (byte_5D4594[NOX_LOCAL_SAVE_FLAGS_OFFSET] & 4)
+        packet[NOX_PLAYER_OPTS_MODE_OFFSET] |= 0x80u;
+
+    nox_bot_tracef("spawn", "synthetic-join-begin",
+        "slot=%d class=%d team=%d screen=%dx%d byte152=0x%02x serial=BOT-%02d",
+        player_slot, player_class, (int)team, screen_x, screen_y,
+        (unsigned)packet[NOX_PLAYER_OPTS_MODE_OFFSET], player_slot + 1);
+
+    /*
+     * Unverified lifecycle assumption: sub_4DD320 is the authoritative server
+     * constructor but normally receives PlayerOpts after network admission.
+     * This attempt deliberately reuses the complete constructor without a
+     * remote socket so player-info/object/loadout/spawn bookkeeping remains in
+     * one native owner. The synthetic packet avoids cloning host account IDs;
+     * hosted traces must verify that outbound per-slot network work tolerates an
+     * otherwise unconnected remote slot.
+     */
+    nox_bot_trace_set_spawn_join(1);
+    join_result = (int)sub_4DD320(player_slot, (int)packet);
+    nox_bot_trace_set_spawn_join(0);
+    info = sub_417090(player_slot);
+    object = info ? *(int *)(info + NOX_PLAYER_INFO_OBJECT_OFFSET) : 0;
+    nox_bot_tracef("spawn", join_result && object ? "synthetic-join-ready" : "synthetic-join-failed",
+        "slot=%d accepted=%d player_info=0x%08x active=%d object=0x%08x runtime=0x%08x class=%d update=0x%08x",
+        player_slot, join_result != 0, (int)info, info != 0, object,
+        object ? *(int *)(object + NOX_OBJECT_RUNTIME_OFFSET) : 0,
+        info ? (int)(unsigned char)info[NOX_PLAYER_INFO_CLASS_OFFSET] : -1,
+        object ? *(int *)(object + NOX_OBJECT_UPDATE_OFFSET) : 0);
+    if (!join_result || !object) {
+        if (object) {
+            nox_bot_tracef("spawn", "rollback",
+                "slot=%d object=0x%08x reason=constructor-result", player_slot, object);
+            nox_bot_engine_remove_player_attempt(player_slot, object);
+        }
+        return 0;
+    }
+    if (!nox_bot_engine_assign_spawn_team(object, team)) {
+        nox_bot_tracef("spawn", "rollback",
+            "slot=%d object=0x%08x reason=team-assignment", player_slot, object);
+        if (!nox_bot_engine_remove_player_attempt(player_slot, object))
+            nox_bot_tracef("spawn", "rollback-failed",
+                "slot=%d object=0x%08x reason=team-assignment", player_slot, object);
+        return 0;
+    }
+    return object;
+}
+
+int nox_bot_engine_remove_player_attempt(int player_slot, int expected_object)
+{
+    char *info;
+    int object;
+
+    if (player_slot < 0 || player_slot >= 31 || !expected_object)
+        return 0;
+    info = sub_417090(player_slot);
+    object = info ? *(int *)(info + NOX_PLAYER_INFO_OBJECT_OFFSET) : 0;
+    if (!info || object != expected_object) {
+        nox_bot_tracef("spawn", "clear-rejected",
+            "slot=%d expected=0x%08x actual=0x%08x",
+            player_slot, expected_object, object);
+        return 0;
+    }
+    nox_bot_tracef("spawn", "clear-native-begin",
+        "slot=%d object=0x%08x", player_slot, object);
+
+    /*
+     * Unverified lifecycle assumption: sub_4DE7C0 is the normal authoritative
+     * leave owner and is therefore the best rollback/removal primitive for a
+     * player created through sub_4DD320. It also contains client/network-facing
+     * work whose necessity for a socketless bot still needs runtime validation.
+     */
+    sub_4DE7C0(player_slot);
+    info = sub_417090(player_slot);
+    object = info ? *(int *)(info + NOX_PLAYER_INFO_OBJECT_OFFSET) : 0;
+    nox_bot_tracef("spawn", object ? "clear-native-incomplete" : "clear-native-ready",
+        "slot=%d player_info=0x%08x object=0x%08x", player_slot, (int)info, object);
+    return object == 0;
+}
+
 int nox_bot_engine_enable_existing_player_bot(int object)
 {
     int runtime;
@@ -171,13 +409,28 @@ int nox_bot_engine_enable_existing_player_bot(int object)
     if (!runtime || !nox_bot_engine_player_info(object))
         return 0;
     update = *(int (__cdecl **)(_DWORD *))(object + NOX_OBJECT_UPDATE_OFFSET);
-    if (update != (int (__cdecl *)(_DWORD *))sub_4F8100 && update != sub_4FAB20)
+    nox_bot_tracef("bot", "engine-enable-begin",
+        "object=0x%08x slot=%d class=%d runtime=0x%08x bot_ai=0x%08x update=0x%08x",
+        object, nox_bot_engine_player_slot(object), nox_bot_engine_player_class(object),
+        runtime, *(int *)(runtime + NOX_PLAYER_RUNTIME_BOT_AI_OFFSET), (int)update);
+    if (update != (int (__cdecl *)(_DWORD *))sub_4F8100 && update != sub_4FAB20) {
+        nox_bot_tracef("bot", "engine-enable-failed",
+            "object=0x%08x reason=unexpected-update update=0x%08x", object, (int)update);
         return 0;
+    }
     if (update != sub_4FAB20 || !*(int *)(runtime + NOX_PLAYER_RUNTIME_BOT_AI_OFFSET))
         sub_4FA700(object);
-    if (!*(int *)(runtime + NOX_PLAYER_RUNTIME_BOT_AI_OFFSET))
+    if (!*(int *)(runtime + NOX_PLAYER_RUNTIME_BOT_AI_OFFSET)) {
+        nox_bot_tracef("bot", "engine-enable-failed",
+            "object=0x%08x reason=no-bot-ai", object);
         return 0;
+    }
     *(int (__cdecl **)(_DWORD *))(object + NOX_OBJECT_UPDATE_OFFSET) = sub_4FAB20;
+    nox_bot_tracef("bot", "engine-enable-ready",
+        "object=0x%08x slot=%d runtime=0x%08x bot_ai=0x%08x update=0x%08x",
+        object, nox_bot_engine_player_slot(object), runtime,
+        *(int *)(runtime + NOX_PLAYER_RUNTIME_BOT_AI_OFFSET),
+        *(int *)(object + NOX_OBJECT_UPDATE_OFFSET));
     return 1;
 }
 
@@ -187,7 +440,13 @@ int nox_bot_engine_disable_existing_player_bot(int object)
         return 0;
     if (!nox_bot_engine_update_is_native_bot(object))
         return 0;
+    nox_bot_tracef("bot", "engine-disable-begin",
+        "object=0x%08x slot=%d update=0x%08x", object,
+        nox_bot_engine_player_slot(object), *(int *)(object + NOX_OBJECT_UPDATE_OFFSET));
     *(char (__cdecl **)(_DWORD *))(object + NOX_OBJECT_UPDATE_OFFSET) = sub_4F8100;
+    nox_bot_tracef("bot", "engine-disable-ready",
+        "object=0x%08x slot=%d update=0x%08x", object,
+        nox_bot_engine_player_slot(object), *(int *)(object + NOX_OBJECT_UPDATE_OFFSET));
     return 1;
 }
 

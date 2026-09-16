@@ -54,24 +54,40 @@ Implemented so far:
 - `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
 - `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Ring of Fire/Slow/Energy Bolt/Magic Missile/Counterspell/Drain Mana priority, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, the owned three-spell Glyph Trap, native nearby-source Drain Mana, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, native mana-obelisk routing/restoration, reference reaction delays, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, CTF enemy-flag-carrier (`TeamTank`) awareness, and shared native-backed CTF objective steering;
 - `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state and native `BomberSummon` audio, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, the literal 10-second reference weapon preference, and shared native-backed CTF objective steering;
-- `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets.
+- `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets;
+- `[~]` server-side lifecycle commands and opt-in lifecycle tracing, including a complete experimental `bot spawn`/`bot clear` attempt that reuses the native join/leave owners without a remote client. The code path is structurally covered but still requires hosted-game runtime verification.
 
 Still intentionally not implemented where native ownership is not completely recovered:
 
-- `[ ]` claiming/creating a free player slot and player object without a human network client;
-- `[ ]` authoritative cleanup/freeing of that newly created player slot;
+- `[~]` non-client player creation now has an experimental socketless path using the normal native player constructor; runtime logs still need to verify its network-slot assumptions and mode-specific side effects;
+- `[~]` server-created bot cleanup now uses the normal native leave owner and bot-local ownership tracking; runtime logs still need to verify complete reuse/cleanup of a slot that never had a real peer;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
 - `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt, Ring of Fire, and native Drain Mana, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, the owned three-spell Glyph Trap, native mana-obelisk routing, nearby loot, wand preference, CTF carrier-role-aware Invisibility, and shared CTF steering are implemented; broader coordinated team roles and phonemes remain);
 - `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks and `BomberSummon` audio, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, and shared CTF steering; exact Bomber alert/event choreography, broader team roles, commands, and phonemes remain);
-- `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; broader coordinated multi-bot strategy, teammate orders, and bot commands remain pending;
+- `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; broader coordinated multi-bot strategy and teammate orders remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
-The implementation deliberately exposes no spawn command yet. An existing
-player can be attached to the recovered native bot update path internally, but
-that is only lifecycle substrate; it is not a substitute for correctly creating
-a server-controlled player slot. See
-[`decomp/native-player-bot-reference.md`](decomp/native-player-bot-reference.md)
-for the recovered native lifecycle contract.
+The optional bot build now exposes a traced server-side lifecycle surface:
+
+```text
+bot spawn <red|blue|auto> <warrior|wizard|conjurer> [difficulty]
+bot spawn 3v3 [difficulty]
+bot clear [all|slot]
+bot attach <slot> [difficulty]
+bot detach <slot>
+bot difficulty <slot> <difficulty>
+bot trace <on|off|status>
+```
+
+`bot attach`/`detach` remain the high-confidence existing-player path. The
+console hook ignores recovered player-issued command contexts and lifecycle
+mutation requires the host/server game flag. `bot spawn` and `bot clear` are
+deliberately marked experimental: they make a full
+socketless lifecycle attempt through the recovered normal constructor/removal
+owners and emit bounded lifecycle traces so the remaining assumptions can be
+corrected from a hosted run. They do not create a second player implementation.
+See [`decomp/native-player-bot-reference.md`](decomp/native-player-bot-reference.md)
+for the packet layout, ownership boundaries, trace phases, and unverified points.
 
 ## Remaining implementation gaps
 
@@ -80,12 +96,25 @@ not blur native engine mechanics with Bot-Script policy:
 
 ### Lifecycle and availability
 
-- recover the authoritative server-side path that claims a free player slot,
-  creates the complete player object/runtime without a human join packet, and
-  assigns `nox_xxx_updatePlayerMonsterBot_4FAB20`;
-- recover the matching authoritative removal/free path;
-- only after those two paths are known, add user-facing `bot spawn`, `bot clear`,
-  and multi-bot setup commands.
+- `sub_417090(slot)` is now confirmed as the occupied/free test for the fixed
+  player-info table because it returns `NULL` when the active field at `+2092`
+  is clear; the experimental spawner selects the first inactive remote slot
+  (`0..30`, reserving slot 31 for the host/local player);
+- `bot spawn` builds the recovered 153-byte `PlayerOpts` shape, uses the native
+  host profile only as a structural appearance/loadout template, overrides bot
+  name/class, supplies a unique synthetic `BOT-xx` serial, leaves account-only
+  identity fields empty, and calls `sub_4DD320` for the complete native player
+  object/runtime/player-info/spawn initialization;
+- the created player is then assigned the requested native team when supplied
+  and handed to the existing `nox_xxx_playerBotCreate_4FA700` / `4FAB20` attach
+  path. Any constructor/team/activation failure attempts transactional rollback;
+- `bot clear` is restricted to slots marked server-created by this runtime. It
+  restores normal player update state first and then calls the same core leave
+  owner (`sub_4DE7C0`) used by the normal `0x22` leave packet;
+- hosted-game verification is still required for socketless per-slot network
+  sends, configured-capacity/game-mode admission differences, post-constructor
+  team assignment, and complete cleanup/reuse of a slot that never had a real
+  network peer. Lifecycle tracing exists specifically to resolve those points.
 
 ### Warrior parity
 
@@ -191,7 +220,9 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
 
 ### Commands and fidelity
 
-- difficulty/spawn/team setup commands require the non-client lifecycle above;
+- spawn/clear, existing-player attach/detach, per-bot difficulty, trace control,
+  and a convenience `bot spawn 3v3` command are now wired through the server
+  console; the new non-client spawn/clear subset remains runtime-unverified;
 - human teammate orders (`follow`, `attack`, `guard`, `stay`, `escort`) need an
   order executor on top of the existing policy enum;
 - spell phoneme sequencing, chat responses, and other presentation details remain
@@ -199,9 +230,11 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
 
 ### Integration coverage
 
-- deterministic adapter/policy tests exist, but true create → fight → die →
-  respawn → remove integration coverage cannot be added through the production
-  spawn path until non-client player creation/removal is recovered.
+- deterministic adapter/policy/lifecycle-source tests cover command parsing,
+  synthetic `PlayerOpts`, rollback, ownership, and removal transitions. A true
+  create → fight → die → respawn → clear → reuse integration run is still
+  required because the socketless native constructor/removal attempt cannot be
+  validated by the standalone test harness.
 
 ---
 

@@ -2,6 +2,7 @@
 #define NOX_BOT_ENGINE_H
 
 #include <stdint.h>
+#include <wchar.h>
 
 /*
  * Thin adapter over recovered Nox player/monster AI primitives.
@@ -16,6 +17,24 @@ uint32_t nox_bot_engine_fps(void);
 int nox_bot_engine_is_native_player_bot(int object);
 int nox_bot_engine_player_slot(int object);
 int nox_bot_engine_player_class(int object);
+int nox_bot_engine_player_object_by_slot(int player_slot);
+
+typedef enum nox_bot_spawn_team {
+    NOX_BOT_SPAWN_TEAM_AUTO = 0,
+    NOX_BOT_SPAWN_TEAM_RED = 1,
+    NOX_BOT_SPAWN_TEAM_BLUE = 2,
+} nox_bot_spawn_team;
+
+/*
+ * Experimental non-client player lifecycle. The constructor intentionally
+ * reuses the recovered normal server join owner with a synthetic PlayerOpts
+ * packet so its bookkeeping stays centralized. See the bot lifecycle docs for
+ * the assumptions that still require hosted-game verification.
+ */
+int nox_bot_engine_find_free_player_slot(void);
+int nox_bot_engine_spawn_player_attempt(
+    int player_slot, int player_class, nox_bot_spawn_team team, const wchar_t *name);
+int nox_bot_engine_remove_player_attempt(int player_slot, int expected_object);
 
 /*
  * These helpers only convert an already-created normal player object to/from

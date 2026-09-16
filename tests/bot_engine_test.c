@@ -117,8 +117,113 @@ static int bomber_sound_id;
 static int bomber_sound_object;
 static int bomber_sound_arg3;
 static int bomber_sound_arg4;
+static char *player_info_by_slot[32];
+static unsigned char spawn_profile[97];
+static unsigned char spawn_server_options[104];
+static unsigned char spawn_info[2300];
+static unsigned char spawn_object[800];
+static unsigned char spawn_runtime[400];
+static unsigned char team_red[80];
+static unsigned char team_blue[80];
+static int spawn_join_calls;
+static int spawn_join_result = 1;
+static int spawn_remove_calls;
+static int spawn_last_slot;
+static int has_solo_maps;
+static unsigned char spawn_last_packet[153];
 
 static unsigned char created_bot_ai[0x898];
+
+char *__cdecl sub_417090(int slot)
+{
+    if (slot < 0 || slot >= 32)
+        return 0;
+    return player_info_by_slot[slot];
+}
+
+char *sub_431770(void)
+{
+    return (char *)spawn_profile;
+}
+
+char *sub_416640(void)
+{
+    return (char *)spawn_server_options;
+}
+
+_DWORD *__cdecl sub_43BEB0(_DWORD *x, _DWORD *y, _DWORD *unused)
+{
+    if (x)
+        *x = 1280;
+    if (y)
+        *y = 720;
+    if (unused)
+        *unused = 0;
+    return x;
+}
+
+_DWORD *__cdecl sub_4DD320(int slot, int packet)
+{
+    ++spawn_join_calls;
+    spawn_last_slot = slot;
+    memcpy(spawn_last_packet, (const void *)(uintptr_t)packet, sizeof(spawn_last_packet));
+    memset(spawn_info, 0, sizeof(spawn_info));
+    memset(spawn_object, 0, sizeof(spawn_object));
+    memset(spawn_runtime, 0, sizeof(spawn_runtime));
+    *(uint32_t *)(spawn_info + 2056) = (uint32_t)(uintptr_t)spawn_object;
+    memcpy(spawn_info + 2185, spawn_last_packet, 97);
+    spawn_info[2064] = (unsigned char)slot;
+    *(uint32_t *)(spawn_object + 8) = 4;
+    *(uint32_t *)(spawn_object + 36) = 0x2468;
+    *(uint32_t *)(spawn_object + 748) = (uint32_t)(uintptr_t)spawn_runtime;
+    *(uint32_t *)(spawn_runtime + 276) = (uint32_t)(uintptr_t)spawn_info;
+    player_info_by_slot[slot] = (char *)spawn_info;
+    return spawn_join_result ? (_DWORD *)(uintptr_t)0x2468 : 0;
+}
+
+char *__cdecl sub_4DE7C0(int slot)
+{
+    ++spawn_remove_calls;
+    if (slot >= 0 && slot < 32) {
+        player_info_by_slot[slot] = 0;
+        *(uint32_t *)(spawn_info + 2056) = 0;
+    }
+    return 0;
+}
+
+char *sub_418B10(void)
+{
+    return team_red[64] ? (char *)team_red : 0;
+}
+
+char *__cdecl sub_418B60(int team)
+{
+    if (team == (int)(uintptr_t)team_red && team_blue[64])
+        return (char *)team_blue;
+    return 0;
+}
+
+BOOL __cdecl sub_419130(int member)
+{
+    return member && *(unsigned char *)(member + 4) != 0;
+}
+
+char *__cdecl sub_4191D0(unsigned __int8 team_id, int member, int a3, int a4, int a5)
+{
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    *(unsigned char *)(member + 4) = team_id;
+    return (char *)(uintptr_t)member;
+}
+
+int __cdecl sub_4196D0(int member, int team, int a3, int a4)
+{
+    (void)a3;
+    (void)a4;
+    *(unsigned char *)(member + 4) = *(unsigned char *)(team + 57);
+    return 1;
+}
 
 char __cdecl sub_4F8100(_DWORD *object)
 {
@@ -533,6 +638,11 @@ BOOL __cdecl sub_40A5C0(int flag)
     return (game_flags & flag) != 0;
 }
 
+BOOL sub_40ABD0(void)
+{
+    return has_solo_maps != 0;
+}
+
 _DWORD *__cdecl sub_537520(_DWORD *object)
 {
     int runtime = object ? object[187] : 0;
@@ -627,6 +737,86 @@ static int test_timing(void)
         return 1;
     if (nox_bot_engine_fps() != 30)
         return 2;
+    return 0;
+}
+
+static int test_experimental_player_lifecycle_adapter(void)
+{
+    const wchar_t name[] = L"RedWizard03";
+    int object;
+    int i;
+    int screen_x;
+    int screen_y;
+
+    memset(player_info_by_slot, 0, sizeof(player_info_by_slot));
+    memset(spawn_profile, 0, sizeof(spawn_profile));
+    memset(spawn_server_options, 0, sizeof(spawn_server_options));
+    memset(team_red, 0, sizeof(team_red));
+    memset(team_blue, 0, sizeof(team_blue));
+    spawn_profile[66] = 0;
+    spawn_profile[67] = 1;
+    team_red[56] = 1;
+    team_red[57] = 11;
+    team_red[64] = 1;
+    team_blue[56] = 2;
+    team_blue[57] = 12;
+    team_blue[64] = 1;
+    spawn_join_calls = 0;
+    spawn_join_result = 1;
+    spawn_remove_calls = 0;
+    has_solo_maps = 0;
+    game_flags = 4096;
+    byte_5D4594[2660684] = 4;
+    player_info_by_slot[0] = (char *)1;
+    player_info_by_slot[1] = (char *)1;
+
+    if (nox_bot_engine_find_free_player_slot() != 2)
+        return 5;
+    player_info_by_slot[0] = 0;
+    player_info_by_slot[1] = 0;
+    spawn_server_options[100] = 1u << 1;
+    if (nox_bot_engine_spawn_player_attempt(2, 1, NOX_BOT_SPAWN_TEAM_RED, name) ||
+        spawn_join_calls)
+        return 6;
+    spawn_server_options[100] = 0;
+    object = nox_bot_engine_spawn_player_attempt(2, 1, NOX_BOT_SPAWN_TEAM_RED, name);
+    if (!object || spawn_join_calls != 1 || spawn_last_slot != 2)
+        return 7;
+    if (spawn_last_packet[66] != 1 || spawn_last_packet[67] != 1 ||
+        spawn_last_packet[152] != 0x81)
+        return 8;
+    if (strcmp((const char *)&spawn_last_packet[105], "BOT-03") != 0 ||
+        spawn_last_packet[128] || spawn_last_packet[138] || spawn_last_packet[142])
+        return 14;
+    for (i = 0; name[i]; ++i) {
+        uint16_t ch;
+
+        memcpy(&ch, spawn_last_packet + i * 2, sizeof(ch));
+        if (ch != (uint16_t)name[i])
+            return 9;
+    }
+    memcpy(&screen_x, spawn_last_packet + 97, sizeof(screen_x));
+    memcpy(&screen_y, spawn_last_packet + 101, sizeof(screen_y));
+    if (screen_x != 1280 || screen_y != 720)
+        return 10;
+    if (*(unsigned char *)(object + 52) != 11)
+        return 11;
+    if (nox_bot_engine_player_object_by_slot(2) != object)
+        return 12;
+    if (!nox_bot_engine_remove_player_attempt(2, object) || spawn_remove_calls != 1 ||
+        nox_bot_engine_player_object_by_slot(2))
+        return 13;
+
+    /* If the native constructor reports failure after creating a player object,
+     * the experimental adapter must roll that partial lifecycle back. */
+    spawn_join_result = 0;
+    spawn_remove_calls = 0;
+    if (nox_bot_engine_spawn_player_attempt(2, 1, NOX_BOT_SPAWN_TEAM_AUTO, name) ||
+        spawn_remove_calls != 1 || nox_bot_engine_player_object_by_slot(2))
+        return 15;
+    spawn_join_result = 1;
+    byte_5D4594[2660684] = 0;
+    game_flags = 0;
     return 0;
 }
 
@@ -1430,6 +1620,9 @@ int main(void)
     int result;
 
     result = test_timing();
+    if (result)
+        return result;
+    result = test_experimental_player_lifecycle_adapter();
     if (result)
         return result;
     result = test_player_metadata_in_both_views();

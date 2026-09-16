@@ -7,6 +7,7 @@
 #endif
 #ifdef NOX_BOT_SUPPORT
 #include "bot_runtime.h"
+#include "bot_trace.h"
 #endif
 #include "proto.h"
 
@@ -44518,6 +44519,10 @@ _DWORD *__cdecl sub_4DD320(int a1, int a2)
   }
   result = sub_4E3810((CHAR *)v6);
   v27 = (int)result;
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_tracef(nox_bot_trace_join_path(), result ? "join-object-created" : "join-object-create-failed",
+    "slot=%d object=0x%08x", a1, (int)result);
+#endif
   if ( result )
   {
     if ( a1 != 31 )
@@ -44531,6 +44536,10 @@ _DWORD *__cdecl sub_4DD320(int a1, int a2)
     }
     v8 = sub_417000(a1);
     v8[2064] = a1;
+#ifdef NOX_BOT_SUPPORT
+    nox_bot_tracef(nox_bot_trace_join_path(), "join-slot-initialized",
+      "slot=%d player_info=0x%08x", a1, (int)v8);
+#endif
     if ( (int)v5[102] >= 0 )
     {
       *((_WORD *)v8 + 5) = *(_DWORD *)(a2 + 97) >> 1;
@@ -44573,6 +44582,12 @@ LABEL_23:
         *((_DWORD *)v8 + 539) = sub_4D1600();
         v15 = *(_DWORD *)(v13 + 748);
         *(_DWORD *)(v15 + 276) = v8;
+#ifdef NOX_BOT_SUPPORT
+        nox_bot_tracef(nox_bot_trace_join_path(), "join-runtime-linked",
+          "slot=%d player_info=0x%08x object=0x%08x runtime=0x%08x class=%u update=0x%08x",
+          a1, (int)v8, v13, v15, (unsigned)(unsigned char)v8[2251],
+          *(_DWORD *)(v13 + 744));
+#endif
         *((_DWORD *)v8 + 1146) = sub_56F400(**(unsigned __int16 **)(v13 + 556));
         *((_DWORD *)v8 + 1148) = sub_56F400(*(unsigned __int16 *)(*(_DWORD *)(v13 + 556) + 4));
         *((_DWORD *)v8 + 1149) = sub_56F400(*(unsigned __int16 *)(v15 + 4));
@@ -44652,6 +44667,12 @@ LABEL_23:
           sub_4F7AB0(&v28, v13);
         }
         sub_4E7010(v13, &v28);
+#ifdef NOX_BOT_SUPPORT
+        nox_bot_tracef(nox_bot_trace_join_path(), "join-positioned",
+          "slot=%d object=0x%08x x=%.3f y=%.3f update=0x%08x",
+          a1, v13, *(float *)(v13 + 56), *(float *)(v13 + 60),
+          *(_DWORD *)(v13 + 744));
+#endif
         sub_422140((int)v8);
         if ( a1 != 31 )
         {
@@ -45265,9 +45286,15 @@ char *__cdecl sub_4DE7C0(int a1)
   int v12; // eax
   int v13; // eax
   unsigned __int8 *v14; // eax
+#ifdef NOX_BOT_SUPPORT
+  int bot_removed_object;
+#endif
 
   v1 = a1;
   v2 = sub_417090(a1);
+#ifdef NOX_BOT_SUPPORT
+  bot_removed_object = v2 ? *((_DWORD *)v2 + 514) : 0;
+#endif
   if ( sub_4D12A0(v1) )
     sub_4D1250(v1);
   if ( *((_DWORD *)v2 + 517) )
@@ -45307,6 +45334,9 @@ char *__cdecl sub_4DE7C0(int a1)
   sub_4E5420(v5, &a1, 3, 0, 0);
   sub_4E5CC0(*((_DWORD *)v2 + 514));
   *((_DWORD *)v2 + 514) = 0;
+#ifdef NOX_BOT_SUPPORT
+  nox_bot_runtime_note_player_removed(v1, bot_removed_object);
+#endif
   for ( i = sub_4DA7C0(); i; i = sub_4DA7F0(i) )
   {
     v7 = *(_DWORD *)(i + 748);
