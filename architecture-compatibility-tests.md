@@ -45,6 +45,45 @@ their original records, so native 64-bit tests place those records below 4 GiB
 before storing legacy links. The map-dispatch test uses a non-PIE test binary
 because its callback address is likewise stored in a four-byte legacy slot.
 
+## General approach for 64-bit pointer truncation
+
+When a native 64-bit build exposes a pointer truncation failure in code that
+uses recovered 32-bit Nox records, first separate pointer transport from the
+record layout. A field passed between functions or callbacks is host-pointer
+transport and may need `intptr_t`/`uintptr_t`; a field at a recovered record
+offset is part of the legacy contract and must remain a four-byte slot unless
+there is evidence that the original format differs.
+
+Use this sequence:
+
+1. Reproduce the failure through the production entry point and identify the
+   first boundary where a pointer is converted to `int`, `uint32_t`, or another
+   narrower type. Fix that owning boundary and its declarations together,
+   widening only pointer-bearing parameters. Do not widen unrelated Win32
+   values or change fixed-width gameplay fields.
+2. Decode legacy pointer slots explicitly as `uint32_t`, then convert the
+   value through `uintptr_t` before dereferencing or calling it. Avoid native
+   pointer reads from a recovered offset: on x86_64 they can consume eight
+   bytes and overlap the next record field.
+3. Keep synthetic records self-contained. For native 64-bit tests, allocate
+   records and pointed-to data below 4 GiB when the production path still
+   stores their addresses in unchanged four-byte slots. If a callback address
+   is stored in such a slot, use a non-PIE test executable only for that test;
+   this preserves the legacy slot contract without imposing a process-wide
+   ABI change.
+4. Add a regression test around the original lifecycle, dispatcher, callback,
+   or serialization path. Assert the externally visible result and any
+   relevant state transition, rather than testing only a conversion helper.
+5. Run the affected test and the complete suites in both native 64-bit opt-in
+   mode and the normal 32-bit build. Confirm that record offsets, wire data,
+   and fixed-width compatibility types are unchanged, and document any
+   reverse-engineered assumptions that remain uncertain.
+
+This distinction is the key compatibility rule: widen transient host-pointer
+transport at API and callback boundaries, but preserve the recovered 32-bit
+record and wire layouts at their owning data boundaries. The summon and
+map-dispatch fixes above are examples of this pattern.
+
 | Commit | Compatibility change | Regression test to write |
 |---|---|---|
 | `cde5a30` | Adds FFmpeg video support to the Linux targets. | Build/run a tiny FFmpeg probe for each target that opens a VQA/video stream and verifies the expected decoder libraries are linked for the target architecture. |
