@@ -1228,6 +1228,32 @@ int nox_bot_engine_create_owned_spell_trap3(
     return nox_bot_engine_create_spell_trap_impl(object, spells, 3, 1);
 }
 
+int nox_bot_engine_play_phoneme(int object, nox_bot_phoneme phoneme)
+{
+    static const char *const names[] = {
+        0,
+        "SpellPhonemeUp",
+        "SpellPhonemeDown",
+        "NPCSpellPhonemeLeft",
+        "NPCSpellPhonemeRight",
+        "NPCSpellPhonemeUpLeft",
+        "NPCSpellPhonemeUpRight",
+        "NPCSpellPhonemeDownLeft",
+        "NPCSpellPhonemeDownRight",
+        "FemaleSpellPhonemeUpRight",
+    };
+    int sound;
+
+    if (!object || phoneme <= 0 ||
+        phoneme >= (int)(sizeof(names) / sizeof(names[0])) || !names[phoneme])
+        return 0;
+    sound = sub_40AF50((void *)names[phoneme]);
+    if (sound <= 0)
+        return 0;
+    sub_501960(sound, object, 0, 0);
+    return 1;
+}
+
 int nox_bot_engine_create_bomber(int object)
 {
     static const char *const spell_names[] = { "BURN", "TOXIC_CLOUD", "STUN" };

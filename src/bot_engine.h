@@ -71,6 +71,21 @@ int nox_bot_engine_remove_buff(int object, int buff);
 int nox_bot_engine_is_object_type(int object, const char *type_name);
 int nox_bot_engine_owner_player(int object);
 int nox_bot_engine_enable_monster_alert(int object);
+
+typedef enum nox_bot_phoneme {
+    NOX_BOT_PHONEME_UP = 1,
+    NOX_BOT_PHONEME_DOWN,
+    NOX_BOT_PHONEME_LEFT,
+    NOX_BOT_PHONEME_RIGHT,
+    NOX_BOT_PHONEME_UP_LEFT,
+    NOX_BOT_PHONEME_UP_RIGHT,
+    NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN_RIGHT,
+    NOX_BOT_PHONEME_FEMALE_UP_RIGHT,
+} nox_bot_phoneme;
+
+/* Plays the Bot-Script phoneme AudioEvent at the native bot object. */
+int nox_bot_engine_play_phoneme(int object, nox_bot_phoneme phoneme);
 /* Reproduces NoxScript CastSpell(source=object, target=object). */
 int nox_bot_engine_cast_script_self(int object, const char *spell_name);
 int nox_bot_engine_cast_script_object(int object, const char *spell_name, int target);
