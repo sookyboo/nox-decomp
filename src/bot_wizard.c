@@ -1,6 +1,7 @@
 #include "bot_wizard.h"
 
 #include "bot_engine.h"
+#include "bot_team.h"
 
 #include <string.h>
 
@@ -17,6 +18,9 @@
 #define NOX_BOT_ENCHANT_ANTI_MAGIC 29
 
 #define NOX_BOT_WIZARD_GLOBAL_COOLDOWN_FRAMES 3u
+#define NOX_BOT_WIZARD_LOOT_RADIUS 75.0f
+#define NOX_BOT_WIZARD_LOOT_SCAN_FRAMES 15u
+#define NOX_BOT_WIZARD_WEAPON_PREFERENCE_SECONDS 10u
 
 typedef enum nox_bot_wizard_spell {
     NOX_BOT_WIZARD_SPELL_NONE = 0,
@@ -395,6 +399,86 @@ static int nox_bot_wizard_try_hidden_target_buffs(
     return 0;
 }
 
+static int nox_bot_wizard_pickup_type(int object, const char *type_name, int equip_kind)
+{
+    int item = nox_bot_engine_find_nearest_visible_type(
+        object, type_name, NOX_BOT_WIZARD_LOOT_RADIUS);
+
+    if (!item || !nox_bot_engine_pickup_item(object, item))
+        return 0;
+    if (equip_kind == 1)
+        nox_bot_engine_equip_weapon(object, item);
+    else if (equip_kind == 2)
+        nox_bot_engine_equip_armor(object, item);
+    return 1;
+}
+
+static void nox_bot_wizard_loot_scan(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    static const char *const weapons[] = {
+        "DeathRayWand", "FireStormWand", "LesserFireballWand", "ForceWand"
+    };
+    static const char *const armor[] = {
+        "WizardRobe", "LeatherBoots", "MedievalCloak", "MedievalShirt", "MedievalPants"
+    };
+    static const char *const potions[] = {
+        "RedPotion", "CurePoisonPotion", "BluePotion"
+    };
+    unsigned int i;
+
+    if (state->wizard.next_loot_scan_frame &&
+        !nox_bot_reaction_ready(frame, state->wizard.next_loot_scan_frame))
+        return;
+    state->wizard.next_loot_scan_frame = frame + NOX_BOT_WIZARD_LOOT_SCAN_FRAMES;
+
+    for (i = 0; i < sizeof(weapons) / sizeof(weapons[0]); ++i)
+        nox_bot_wizard_pickup_type(object, weapons[i], 1);
+    for (i = 0; i < sizeof(armor) / sizeof(armor[0]); ++i)
+        nox_bot_wizard_pickup_type(object, armor[i], 2);
+    for (i = 0; i < sizeof(potions) / sizeof(potions[0]); ++i)
+        nox_bot_wizard_pickup_type(object, potions[i], 0);
+}
+
+static int nox_bot_wizard_apply_weapon_preference(int object)
+{
+    int item = nox_bot_engine_inventory_item(object, "FireStormWand");
+
+    if (!item)
+        item = nox_bot_engine_inventory_item(object, "ForceWand");
+    return item && nox_bot_engine_equip_weapon(object, item);
+}
+
+static void nox_bot_wizard_weapon_preference(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    uint32_t interval;
+
+    if (state->wizard.next_weapon_preference_frame &&
+        !nox_bot_reaction_ready(frame, state->wizard.next_weapon_preference_frame))
+        return;
+    interval = nox_bot_engine_fps() * NOX_BOT_WIZARD_WEAPON_PREFERENCE_SECONDS;
+    if (!interval)
+        interval = 1;
+    state->wizard.next_weapon_preference_frame = frame + interval;
+    nox_bot_wizard_apply_weapon_preference(object);
+}
+
+static void nox_bot_wizard_process_objective_events(
+    int object, nox_bot_policy_state *state)
+{
+    if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT)) {
+        if (nox_bot_engine_is_ctf())
+            nox_bot_team_ctf_walk_to_own_flag(object);
+        nox_bot_policy_clear_event(state, NOX_BOT_EVENT_LOST_SIGHT);
+    }
+    if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT)) {
+        if (nox_bot_engine_is_ctf())
+            nox_bot_team_ctf_attack_or_defend(object);
+        nox_bot_policy_clear_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT);
+    }
+}
+
 static void nox_bot_wizard_regen_mana(
     int object, nox_bot_policy_state *state, uint32_t frame)
 {
@@ -440,6 +524,9 @@ void nox_bot_wizard_update(int object, nox_bot_policy_state *state, uint32_t fra
     }
 
     nox_bot_wizard_regen_mana(object, state, frame);
+    nox_bot_wizard_loot_scan(object, state, frame);
+    nox_bot_wizard_weapon_preference(object, state, frame);
+    nox_bot_wizard_process_objective_events(object, state);
 
     if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_ENEMY_SIGHTED)) {
         target = nox_bot_policy_event_object(state, NOX_BOT_EVENT_ENEMY_SIGHTED);

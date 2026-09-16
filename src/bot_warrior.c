@@ -1,6 +1,7 @@
 #include "bot_warrior.h"
 
 #include "bot_engine.h"
+#include "bot_team.h"
 
 #include <string.h>
 
@@ -22,7 +23,6 @@
 #define NOX_BOT_WARRIOR_CHAKRAM_COOLDOWN_SECONDS 10u
 #define NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION 0.16f
 #define NOX_BOT_WARRIOR_DEFAULT_AGGRESSION 0.83f
-#define NOX_BOT_WARRIOR_CTF_GUARD_RADIUS 20.0f
 #define NOX_BOT_WARRIOR_TELEPORT_WAKE "TeleportWake"
 #define NOX_BOT_WARRIOR_TELEPORT_WAKE_RANGE 100.0f
 
@@ -97,70 +97,6 @@ static void nox_bot_warrior_update_held_escape(
     nox_bot_engine_cast_script_self(object, NOX_BOT_WARRIOR_ESCAPE_SPELL);
     nox_bot_engine_remove_buff(object, NOX_BOT_BUFF_HELD);
     state->warrior.protected_hold_until = 0;
-}
-
-static int nox_bot_warrior_ctf_attack_or_defend(int object)
-{
-    float x;
-    float y;
-    int enemy_flag;
-    int enemy_target;
-    int own_flag;
-    int own_target;
-
-    if (!nox_bot_engine_is_ctf())
-        return 0;
-    own_flag = nox_bot_engine_ctf_flag_world(object, 1);
-    enemy_flag = nox_bot_engine_ctf_flag_world(object, 0);
-    own_target = own_flag ? own_flag : nox_bot_engine_ctf_flag_carrier(object, 1);
-    enemy_target = enemy_flag ? enemy_flag : nox_bot_engine_ctf_flag_carrier(object, 0);
-
-    /* Go TeamTank: a flag carrier guards the current own-flag/base position. */
-    if (nox_bot_engine_carrying_ctf_flag(object)) {
-        if (!own_target)
-            return 0;
-        nox_bot_engine_position(own_target, &x, &y);
-        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION);
-        nox_bot_engine_guard_position(object, x, y, NOX_BOT_WARRIOR_CTF_GUARD_RADIUS);
-        return 1;
-    }
-
-    /* Own flag present: attack the enemy flag, or escort its native carrier. */
-    if (own_flag) {
-        if (!enemy_target)
-            return 0;
-        nox_bot_engine_position(enemy_target, &x, &y);
-        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
-        nox_bot_engine_walk_to(object, x, y);
-        return 1;
-    }
-
-    /* Both flags carried: pursue the native carrier of our own flag. */
-    if (!enemy_flag && own_target) {
-        nox_bot_engine_position(own_target, &x, &y);
-        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
-        nox_bot_engine_walk_to(object, x, y);
-        return 1;
-    }
-    return 0;
-}
-
-static void nox_bot_warrior_ctf_walk_to_own_flag(int object)
-{
-    float x;
-    float y;
-    int own_flag;
-
-    if (!nox_bot_engine_is_ctf())
-        return;
-    own_flag = nox_bot_engine_ctf_flag_world(object, 1);
-    if (own_flag && !nox_bot_engine_ctf_flag_at_home(own_flag)) {
-        nox_bot_engine_position(own_flag, &x, &y);
-        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION);
-        nox_bot_engine_walk_to(object, x, y);
-        return;
-    }
-    nox_bot_warrior_ctf_attack_or_defend(object);
 }
 
 static void nox_bot_warrior_start_teleport_wake_pursuit(
@@ -616,7 +552,7 @@ static void nox_bot_warrior_process_end_waypoint(
     state->warrior.seeking_potion = 0;
     nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
     if (nox_bot_engine_is_ctf())
-        nox_bot_warrior_ctf_attack_or_defend(object);
+        nox_bot_team_ctf_attack_or_defend(object);
     else
         nox_bot_engine_hunt(object);
     nox_bot_policy_clear_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT);
@@ -633,7 +569,7 @@ static void nox_bot_warrior_process_lost_sight(
         NOX_BOT_LOST_SIGHT_DELAY;
     if (nox_bot_engine_is_ctf() && !state->warrior.lost_sight_ctf_handled &&
         nox_bot_reaction_ready(frame, ctf_deadline)) {
-        nox_bot_warrior_ctf_walk_to_own_flag(object);
+        nox_bot_team_ctf_walk_to_own_flag(object);
         state->warrior.lost_sight_ctf_handled = 1;
     }
     if (!nox_bot_warrior_event_due(
