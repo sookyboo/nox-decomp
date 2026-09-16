@@ -81,11 +81,6 @@ The unresolved work after the current Warrior/native-runtime foundation is:
 - **non-client player lifecycle:** authoritative free-slot selection, complete
   player object/runtime creation without `sub_4DD320`'s client join packet, and
   authoritative bot-player removal/freeing;
-- **held escape:** NoxScript's reference behavior casts Slow through the direct
-  spell path and removes `HELD`, but it suppresses that behavior for Berserker
-  crash stun and Bomber stun. `sub_4FDD20`/`sub_4FF5B0` are known, but the
-  protected-hold source must be retained reliably across native collision
-  processing before enabling the escape;
 - **CTF objectives:** ordinary CTF flag mechanics and the Warrior's basic
   attack/defend/escort/return steering are now native-backed. Shared multi-class
   coordination and teammate-directed orders remain pending;
@@ -1421,6 +1416,48 @@ Resolve these once through the game's authoritative spell/name tables.
 
 ---
 
+## 11.6 Direct NoxScript-style self casting and Warrior `HELD` escape
+
+The Go Warrior does not queue a monster cast when escaping ordinary `HELD`. It
+calls NoxScript `CastSpell(SLOW, self, self)` and then removes `HELD`. OpenNox's
+NoxScript bridge confirms that this is the direct spell dispatcher path that
+reaches `sub_4FDD20`, with a spell-accept argument containing the target object
+and target position.
+
+For a normal native player object, `sub_4FE7B0` would derive spell power from
+the player's learned-spell array. That is not equivalent to the reference NPC.
+The recovered player-bot AI initialization in `nox_xxx_playerBotCreate_4FA700`
+sets AI DWORD `510`, byte offset `+2040`, to `3`; while the player is in the
+existing monster view, `sub_4FE7B0` reads that value as monster spell power.
+`nox_bot_engine_cast_script_self()` therefore enters the same temporary monster
+view already used by other bot adapters, builds the ordinary target/position
+argument, calls `sub_4FDD20`, and restores player form. This reproduces the
+script/NPC casting semantics without granting Slow to the player's learned
+spell table.
+
+Native enchant `HELD` is ID `5`. `sub_4FF5B0(object, 5)` is the authoritative
+enchant removal path. Warrior policy performs the direct Slow self-cast first
+and then removes `HELD`, matching the reference ordering.
+
+The reference intentionally does not escape two collision-derived stuns:
+
+- a Berserker Charge crash/immobile impact;
+- collision with an enemy `Bomber`.
+
+The player collision event is observed before `nox_xxx_collidePlayer_4E8460`
+processes Charge. Policy records only that Charge owned the collision; on the
+next class update it protects the hold only if native collision actually left
+`HELD` active. This avoids treating normal Charge contact with a player/monster
+as a crash stun. Enemy `Bomber` collision starts the same two-second protected
+window used by the Bot-Script timer. Ordinary `HELD`, or a protected hold still
+present after that window, is converted to Slow and removed.
+
+Only the source/timer distinction is bot-local. The Slow spell effect, native
+Charge collision stun, Bomber behavior, enchant lifetime, and enchant removal
+remain engine-owned.
+
+---
+
 # 12. Name/type lookup used during native AI initialization
 
 ## 12.1 `nox_xxx_getNameId_4E3AA0`
@@ -2454,6 +2491,8 @@ nox_xxx_unitHunt_5157A0
 nox_xxx_mobSetFightTarg_515D30            [native NoxScript Attack/Fight target]
 nox_xxx_monsterGoPatrol_515680            [native NoxScript Guard/Patrol]
 nox_xxx_monsterCast_540A30
+sub_4FDD20                              [direct NoxScript-style spell execution]
+sub_4FF5B0                              [native enchant removal]
 nox_xxx_monsterClearActionStack_50A3A0  [only when interruption required]
 nox_xxx_monsterIsActionScheduled_50A090
 nox_xxx_unitIsEnemyTo_5330C0
@@ -3021,6 +3060,8 @@ nox_xxx_harpoonBreakForPlr_537520     [native attached-Harpoon cleanup]
 
 ```text
 nox_xxx_monsterCast_540A30
+sub_4FDD20                         [direct script/NoxScript spell cast]
+sub_4FF5B0                         [native enchant removal]
 nox_xxx_abilityNameToN_424D80
 nox_xxx_abilityCooldown_4252D0
 nox_xxx_playerExecuteAbil_4FBB70

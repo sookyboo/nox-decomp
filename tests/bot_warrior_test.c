@@ -72,6 +72,11 @@ static float ctf_own_x;
 static float ctf_own_y;
 static float ctf_enemy_x;
 static float ctf_enemy_y;
+static int self_held;
+static int bomber_object;
+static int script_self_cast_calls;
+static const char *last_script_spell;
+static int remove_buff_calls;
 
 int nox_bot_engine_ability_ready(int object, int ability)
 {
@@ -114,7 +119,33 @@ int nox_bot_engine_has_buff(int object, int buff)
         return object == invisible_target;
     if (buff == 23)
         return object == invulnerable_target;
+    if (buff == 5)
+        return object == 1 && self_held;
     return 0;
+}
+
+int nox_bot_engine_remove_buff(int object, int buff)
+{
+    if (object == 1 && buff == 5) {
+        ++remove_buff_calls;
+        self_held = 0;
+        return 1;
+    }
+    return 0;
+}
+
+int nox_bot_engine_is_object_type(int object, const char *type_name)
+{
+    return object == bomber_object && strcmp(type_name, "Bomber") == 0;
+}
+
+int nox_bot_engine_cast_script_self(int object, const char *spell_name)
+{
+    if (object != 1)
+        return 0;
+    ++script_self_cast_calls;
+    last_script_spell = spell_name;
+    return 1;
 }
 
 int nox_bot_engine_health(int object)
@@ -429,6 +460,11 @@ static void reset_case(nox_bot_policy_state *state)
     ctf_own_y = 0.0f;
     ctf_enemy_x = 0.0f;
     ctf_enemy_y = 0.0f;
+    self_held = 0;
+    bomber_object = 0;
+    script_self_cast_calls = 0;
+    last_script_spell = 0;
+    remove_buff_calls = 0;
 }
 
 static int test_eye_reaction_delay(void)
@@ -1085,6 +1121,74 @@ static int test_ctf_lost_sight_returns_dropped_own_flag(void)
     return 0;
 }
 
+static int test_held_escape_and_protected_stuns(void)
+{
+    nox_bot_policy_state state;
+
+    /* Ordinary HELD is immediately converted to Slow and removed. */
+    reset_case(&state);
+    self_held = 1;
+    nox_bot_warrior_update(1, &state, 4000);
+    if (self_held || script_self_cast_calls != 1 || remove_buff_calls != 1 ||
+        !last_script_spell || strcmp(last_script_spell, "SLOW") != 0)
+        return 190;
+
+    /* A native Charge collision is protected only when collision produced HELD. */
+    reset_case(&state);
+    active_abilities = 1 << NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    nox_bot_warrior_observe_collision(1, &state, 0, 4100);
+    active_abilities = 0;
+    self_held = 1;
+    nox_bot_warrior_update(1, &state, 4100);
+    if (!self_held || script_self_cast_calls || remove_buff_calls ||
+        state.warrior.protected_hold_until != 4160)
+        return 191;
+    nox_bot_warrior_update(1, &state, 4159);
+    if (!self_held || script_self_cast_calls)
+        return 192;
+    nox_bot_warrior_update(1, &state, 4160);
+    if (self_held || script_self_cast_calls != 1 || remove_buff_calls != 1)
+        return 193;
+
+    /* Charge contact that does not apply HELD must not suppress a later hold. */
+    reset_case(&state);
+    active_abilities = 1 << NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    nox_bot_warrior_observe_collision(1, &state, 44, 4200);
+    active_abilities = 0;
+    nox_bot_warrior_update(1, &state, 4200);
+    if (state.warrior.protected_hold_until)
+        return 194;
+    self_held = 1;
+    nox_bot_warrior_update(1, &state, 4201);
+    if (self_held || script_self_cast_calls != 1)
+        return 195;
+
+    /* Enemy Bomber collision preserves its two-second stun window. */
+    reset_case(&state);
+    bomber_object = 88;
+    self_held = 1;
+    nox_bot_warrior_observe_collision(1, &state, bomber_object, 4300);
+    nox_bot_warrior_update(1, &state, 4300);
+    if (!self_held || script_self_cast_calls ||
+        state.warrior.protected_hold_until != 4360)
+        return 196;
+    nox_bot_warrior_update(1, &state, 4360);
+    if (self_held || script_self_cast_calls != 1 || remove_buff_calls != 1)
+        return 197;
+
+    /* Friendly Bomber contact is not protected in the reference. */
+    reset_case(&state);
+    bomber_object = 89;
+    enemy_result = 0;
+    self_held = 1;
+    nox_bot_warrior_observe_collision(1, &state, bomber_object, 4400);
+    nox_bot_warrior_update(1, &state, 4400);
+    if (self_held || script_self_cast_calls != 1 ||
+        state.warrior.protected_hold_until)
+        return 198;
+    return 0;
+}
+
 static int test_death_clears_warrior_tactical_state(void)
 {
     nox_bot_policy_state state;
@@ -1166,6 +1270,9 @@ int main(void)
     if (result)
         return result;
     result = test_ctf_lost_sight_returns_dropped_own_flag();
+    if (result)
+        return result;
+    result = test_held_escape_and_protected_stuns();
     if (result)
         return result;
     return test_death_clears_warrior_tactical_state();
