@@ -29963,9 +29963,9 @@ int __cdecl sub_4CA540(_DWORD *a1, int a2)
 //  }
 //  return result;
 //}
-int __cdecl sub_4CA650(int a1, int a2)
+int __cdecl sub_4CA650(int a1, intptr_t a2)
 {
-  int obj = a2;
+  intptr_t obj = a2;
 
   int curX = *(_DWORD *)(obj + 12);
   int curY = *(_DWORD *)(obj + 16);
@@ -30079,7 +30079,7 @@ int __cdecl sub_4CA650(int a1, int a2)
 //  }
 //  return result;
 //}
-int __cdecl sub_4CA720(int a1, int a2)
+int __cdecl sub_4CA720(int a1, intptr_t a2)
 {
   int v2; // ebx
   int v3; // ebp

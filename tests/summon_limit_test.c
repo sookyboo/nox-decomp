@@ -1,5 +1,6 @@
 /* Regression for 736e9f2: the summon limit must reject a fifth creature. */
 #include <stdbool.h>
+#include <stdint.h>
 
 static int pending_summon_count;
 static int last_requested_type;
@@ -22,13 +23,13 @@ int sub_427460(int summon_type)
     return pending_summon_count;
 }
 
-bool sub_500D70(int owner, int summon_type);
+bool sub_500D70(intptr_t owner, int summon_type);
 
 static int allowed(unsigned char *owner, int pending, int summon_type)
 {
     pending_summon_count = pending;
     last_requested_type = -1;
-    if (!sub_500D70((int)owner, summon_type))
+    if (!sub_500D70((intptr_t)owner, summon_type))
         return 0;
     return last_requested_type == summon_type;
 }

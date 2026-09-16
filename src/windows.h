@@ -79,7 +79,8 @@ typedef int LCID;
 typedef int REGSAM;
 typedef int SOCKET;
 typedef INT_PTR LRESULT;
-typedef INT_PTR LSTATUS;
+/* Win32 registry status values are LONGs, not pointer-sized values. */
+typedef LONG LSTATUS;
 typedef INT_PTR LPARAM;
 typedef UINT_PTR WPARAM;
 

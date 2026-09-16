@@ -7,6 +7,36 @@ where the change is shared. “Existing” refers to `abi_cross_test`, which is
 registered with CTest and runs on i386; its ARMHF build is also validated with
 `qemu-arm`.
 
+## Native 64-bit experiment
+
+The normal build remains a 32-bit game ABI: x86_64 hosts add `-m32`, and
+aarch64 configuration is rejected. To expose native 64-bit compile and test
+failures during the porting effort, configure with:
+
+```sh
+cmake -S . -B build-x86_64 -DBUILD_TESTING=ON -DNOX_ALLOW_64BIT=ON
+```
+
+`NOX_ALLOW_64BIT` is deliberately opt-in. It removes the automatic x86
+`-m32` flags and the aarch64 configure rejection. Tests whose contract is
+specifically the 32-bit Nox ABI (`abi_cross_test` and
+`x86_64_compat_test`) are not registered in this mode; the remaining tests
+exercise native pointer widths. The default 32-bit builds and their ABI tests
+remain unchanged.
+
+The compatibility headers must still use fixed-width Win32 types in this mode.
+In particular, `LSTATUS` is a 32-bit `LONG`, not a pointer-sized `INT_PTR`;
+the latter changes to 64 bits on Linux x86_64 and makes registry API
+declarations incompatible with their callers.
+
+The native 64-bit fixes currently covered here preserve the observed function
+contracts while widening only pointer-bearing parameters: `sub_4CA650` and
+`sub_4CA720` consume an effect record and advance/remove it through the render
+callbacks, while `sub_500D10` counts an owner's active summons and
+`sub_500D70` applies the inclusive limit of four. Their field layouts and
+gameplay data remain the original 32-bit Nox layout; only host pointer
+transport is widened for the opt-in experiment.
+
 | Commit | Compatibility change | Regression test to write |
 |---|---|---|
 | `cde5a30` | Adds FFmpeg video support to the Linux targets. | Build/run a tiny FFmpeg probe for each target that opens a VQA/video stream and verifies the expected decoder libraries are linked for the target architecture. |

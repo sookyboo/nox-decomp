@@ -23,7 +23,7 @@ void __wrap_sub_49AA90(uint32_t *object, int x, int y)
     moved_y = y;
 }
 
-int sub_4CA720(int unused, int object);
+int sub_4CA720(int unused, intptr_t object);
 
 int main(void)
 {
@@ -47,7 +47,7 @@ int main(void)
     *(int32_t *)(byte_587000 + table) = 16;
     *(int32_t *)(byte_587000 + table + 4) = -16;
 
-    if (sub_4CA720(0, (int)(uintptr_t)effect) != 1)
+    if (sub_4CA720(0, (intptr_t)effect) != 1)
         return 1;
     if (!moved || moved_x != 234 || moved_y != 66 || removed)
         return 2;
@@ -61,7 +61,7 @@ int main(void)
     *(int *)(effect + 12) = 95;
     *(int *)(effect + 16) = 195;
     *(uint32_t *)(byte_5D4594 + 2598000) = 10;
-    if (sub_4CA720(0, (int)(uintptr_t)effect) != 0)
+    if (sub_4CA720(0, (intptr_t)effect) != 0)
         return 4;
     if (!removed || moved)
         return 5;

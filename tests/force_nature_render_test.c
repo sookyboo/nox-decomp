@@ -24,7 +24,7 @@ void __wrap_sub_49AA90(uint32_t *object, int x, int y)
 }
 
 unsigned int sub_48C6B0(int x, int y);
-int sub_4CA650(int unused, int object);
+int sub_4CA650(int unused, intptr_t object);
 
 static void set_distance_fixture(int dx, int dy, unsigned char lookup_value)
 {
@@ -52,7 +52,7 @@ int main(void)
 
     if (sub_48C6B0(target_x, 0) != 100)
         return 1;
-    if (sub_4CA650(0, (int)(uintptr_t)effect) != 1)
+    if (sub_4CA650(0, (intptr_t)effect) != 1)
         return 2;
     if (!moved || moved_x != 9 || moved_y != 0 || removed)
         return 3;
@@ -61,7 +61,7 @@ int main(void)
     moved = 0;
     removed = 0;
     *(int *)(effect + 12) = 95;
-    if (sub_4CA650(0, (int)(uintptr_t)effect) != 0)
+    if (sub_4CA650(0, (intptr_t)effect) != 0)
         return 4;
     if (!removed || moved)
         return 5;
