@@ -28,7 +28,7 @@ void sub_401010();
 wchar_t *sub_401020();
 BOOL sub_401040();
 int sub_401060();
-size_t *__cdecl sub_401070(int a1, int a2);
+size_t *__cdecl sub_401070(int a1, intptr_t a2);
 void sub_401B10();
 void __cdecl sub_401B20(char *);
 HWND sub_401FD0();
@@ -622,6 +622,9 @@ int sub_416A10();
 HANDLE sub_416B00();
 void __cdecl sub_416B20();
 BOOL sub_416B80();
+#if UINTPTR_MAX > UINT32_MAX
+extern __int64 (*nox_time_provider)(void);
+#endif
 __int64 sub_416BB0();
 LONGLONG sub_416BC0();
 __int64 sub_416BF0();
@@ -1533,7 +1536,7 @@ DWORD sub_435750();
 DWORD sub_435770();
 DWORD sub_435780();
 int sub_4357A0();
-BOOL __cdecl sub_4357D0(int a1, int a2);
+BOOL __cdecl sub_4357D0(int a1, intptr_t a2);
 char *sub_4358A0();
 int __cdecl sub_435A10(signed int *a1);
 int sub_435CC0();

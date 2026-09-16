@@ -12,7 +12,8 @@ extern void (*mainloop_enter)(void *);
 extern void *mainloop_enter_args;
 extern void (*mainloop_exit)();
 extern int g_v20, g_v21;
-extern int g_a1, g_a2;
+extern int g_a1;
+extern intptr_t g_a2;
 
 typedef union
 {

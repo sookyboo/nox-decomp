@@ -45,6 +45,13 @@ their original records, so native 64-bit tests place those records below 4 GiB
 before storing legacy links. The map-dispatch test uses a non-PIE test binary
 because its callback address is likewise stored in a four-byte legacy slot.
 
+The startup path applies the same separation to transient initialization data:
+`sub_416B20` selects the timer callback used by `sub_416BB0`, so native 64-bit
+builds keep that function pointer outside the recovered four-byte global slot.
+`sub_401070` and `sub_4357D0` likewise carry the host-width `argv` pointer and
+walk the native pointer array by element size; their argument count and the
+legacy engine globals remain 32-bit values.
+
 ## General approach for 64-bit pointer truncation
 
 When a native 64-bit build exposes a pointer truncation failure in code that
