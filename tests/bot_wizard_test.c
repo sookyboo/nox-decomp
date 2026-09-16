@@ -14,12 +14,14 @@
 #define ENCHANT_PROTECT_FIRE 17
 #define ENCHANT_PROTECT_SHOCK 20
 #define ENCHANT_SHOCK 22
+#define ENCHANT_INVULNERABLE 23
 #define ENCHANT_SHIELD 26
 #define ENCHANT_REFLECTIVE_SHIELD 27
 #define ENCHANT_ANTI_MAGIC 29
 
 static int self_health;
 static int target_health;
+static int target_max_health;
 static int self_mana;
 static uint32_t self_buffs;
 static uint32_t target_buffs;
@@ -46,7 +48,10 @@ static int force_wand_item;
 static int ctf_walk_own_flag_calls;
 static int ctf_attack_or_defend_calls;
 static int mana_source;
+static int mana_source_minimum;
 static int mana_source_require_visible;
+static float mana_source_x;
+static float mana_source_y;
 static int aggression_calls;
 static float aggression_value;
 static int walk_calls;
@@ -74,6 +79,13 @@ int nox_bot_engine_health(int object)
     if (object == TARGET)
         return target_health;
     return 0;
+}
+
+int nox_bot_engine_max_health(int object)
+{
+    if (object == TARGET)
+        return target_max_health;
+    return object == SELF ? 150 : 0;
 }
 
 int nox_bot_engine_mana(int object)
@@ -116,9 +128,9 @@ int nox_bot_engine_can_interact(int self, int other)
 void nox_bot_engine_position(int object, float *x, float *y)
 {
     if (x)
-        *x = object == TARGET ? 30.0f : (object == mana_source ? 50.0f : 10.0f);
+        *x = object == TARGET ? 30.0f : (object == mana_source ? mana_source_x : 10.0f);
     if (y)
-        *y = object == TARGET ? 40.0f : (object == mana_source ? 60.0f : 20.0f);
+        *y = object == TARGET ? 40.0f : (object == mana_source ? mana_source_y : 20.0f);
 }
 
 static void record_cast(const char *name, int kind, int target, float x, float y)
@@ -234,8 +246,9 @@ int nox_bot_engine_find_nearest_missile_owned_by(
 int nox_bot_engine_find_nearest_mana_source(
     int object, int minimum_mana, int require_visible)
 {
-    if (object != SELF || minimum_mana != 10)
+    if (object != SELF || (minimum_mana != 1 && minimum_mana != 10))
         return 0;
+    mana_source_minimum = minimum_mana;
     mana_source_require_visible = require_visible;
     return mana_source;
 }
@@ -351,6 +364,7 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
 
     self_health = 150;
     target_health = 100;
+    target_max_health = 100;
     self_mana = 150;
     self_buffs = 0;
     target_buffs = 0;
@@ -377,7 +391,10 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     ctf_walk_own_flag_calls = 0;
     ctf_attack_or_defend_calls = 0;
     mana_source = 0;
+    mana_source_minimum = 0;
     mana_source_require_visible = 0;
+    mana_source_x = 50.0f;
+    mana_source_y = 60.0f;
     aggression_calls = 0;
     aggression_value = 0.0f;
     walk_calls = 0;
@@ -817,6 +834,53 @@ static int test_hidden_target_creates_owned_spell_trap(void)
     return 0;
 }
 
+static int test_visible_target_drain_mana_uses_native_spell(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 900);
+
+    if (!state)
+        return 163;
+    state->wizard.target = TARGET;
+    target_max_health = 100;
+    target_buffs = buff_mask(ENCHANT_INVULNERABLE) |
+        buff_mask(ENCHANT_REFLECTIVE_SHIELD);
+    nox_bot_wizard_update(SELF, state, 900);
+    if (!state->wizard.pending_spell || cast_calls)
+        return 164;
+    nox_bot_wizard_update(SELF, state, 914);
+    if (cast_calls)
+        return 165;
+    nox_bot_wizard_update(SELF, state, 915);
+    if (cast_calls != 1 || strcmp(cast_name, "DRAIN_MANA") != 0 ||
+        cast_kind != 1 || cast_target != SELF || self_mana != 150)
+        return 166;
+    if (state->wizard.drain_mana_ready_frame != 1005)
+        return 167;
+    return 0;
+}
+
+static int test_nearby_mana_source_starts_native_drain(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 920);
+
+    if (!state)
+        return 168;
+    self_mana = 120;
+    mana_source = 600;
+    mana_source_x = 30.0f;
+    mana_source_y = 40.0f;
+    nox_bot_wizard_update(SELF, state, 920);
+    if (!state->wizard.pending_spell || cast_calls || mana_source_minimum != 1 ||
+        !mana_source_require_visible)
+        return 169;
+    nox_bot_wizard_update(SELF, state, 935);
+    if (cast_calls != 1 || strcmp(cast_name, "DRAIN_MANA") != 0 ||
+        cast_kind != 1 || self_mana != 120 ||
+        state->wizard.drain_mana_ready_frame != 1025)
+        return 170;
+    return 0;
+}
+
 static int test_death_clears_wizard_life_state(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_NORMAL, 600);
@@ -887,6 +951,12 @@ int main(void)
     if (result)
         return result;
     result = test_hidden_target_creates_owned_spell_trap();
+    if (result)
+        return result;
+    result = test_visible_target_drain_mana_uses_native_spell();
+    if (result)
+        return result;
+    result = test_nearby_mana_source_starts_native_drain();
     if (result)
         return result;
     return test_death_clears_wizard_life_state();

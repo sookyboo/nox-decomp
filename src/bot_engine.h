@@ -89,10 +89,12 @@ int nox_bot_engine_find_nearest_mana_source(
 int nox_bot_engine_owned_type_count(int object, const char *type_name);
 int nox_bot_engine_summon_cage_used(int object);
 int nox_bot_engine_summon_spell_fits(int object, const char *spell_name);
+int nox_bot_engine_bomber_fits(int object);
 int nox_bot_engine_random_int(int minimum, int maximum);
 int nox_bot_engine_create_spell_trap(int object, const char *spell_name);
 int nox_bot_engine_create_owned_spell_trap3(
     int object, const char *spell1, const char *spell2, const char *spell3);
+int nox_bot_engine_create_bomber(int object);
 int nox_bot_engine_pickup_item(int object, int item);
 int nox_bot_engine_equip_weapon(int object, int item);
 int nox_bot_engine_equip_armor(int object, int item);
