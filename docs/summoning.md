@@ -37,7 +37,11 @@ coordinates, object creation, and summoned flag. The action stores the two
 position floats beginning at offset 74, so the test reads them with `memcpy`
 to remain alignment-safe on ARMHF. The Windows build supplies a deterministic
 position collaborator and a flag-safe fixture because the native PE runtime
-uses the same pointer field for a bitmask check. Collision rejection,
+uses the same pointer field for a bitmask check. `sub_500DA0()` and
+`sub_5010D0()` carry the action pointer as `intptr_t`; the recovered action and
+owner records themselves retain their original 32-bit pointer slots, so the
+native 64-bit fixture places those records below 4 GiB before storing their
+legacy links. Collision rejection,
 interruption, and the full world/object database remain untested.
 
 ## Bot lifecycle comparison diagnostic

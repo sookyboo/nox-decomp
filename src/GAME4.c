@@ -10,7 +10,7 @@
 #endif
 
 #ifdef NOX_SUMMON_BEHAVIOR_TEST
-int nox_test_sub_500F40(int action, void *out_xy);
+int nox_test_sub_500F40(intptr_t action, void *out_xy);
 #define sub_500F40 nox_test_sub_500F40
 #endif
 
@@ -9007,7 +9007,7 @@ bool __cdecl sub_500D70(intptr_t a1, int a2)
 
 //----- (00500DA0) --------------------------------------------------------
 // nox_xxx_summonStart_500DA0
-int __cdecl sub_500DA0(int a1)
+int __cdecl sub_500DA0(intptr_t a1)
 {
   int v1; // eax
   int v2; // edi
@@ -9204,7 +9204,7 @@ LABEL_22:
 //}
 
 //----- (005010D0) --------------------------------------------------------
-int __cdecl sub_5010D0(int a1)
+int __cdecl sub_5010D0(intptr_t a1)
 {
   int v1; // eax
   int v2; // edi

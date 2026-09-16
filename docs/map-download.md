@@ -23,6 +23,12 @@ transfer record, sends a packet with sequence `0x80`, and verifies that the
 callback receives the chunk and the next expected sequence becomes `0x81`.
 The fixture does not extract the comparison into a test-only helper.
 
+The connection record remains the recovered 32-bit layout, including its
+four-byte buffer and callback slots. The native 64-bit test allocates the
+synthetic record and buffers below 4 GiB and uses a non-PIE test executable so
+those legacy slots retain valid addresses; this keeps the test focused on the
+production dispatcher rather than changing the wire/record contract.
+
 Run it with:
 
 ```sh

@@ -889,6 +889,12 @@ if (BUILD_TESTING)
         )
     endif()
     target_link_options(map_download_dispatch_test PRIVATE -Wl,--gc-sections)
+    if (NOX_ALLOW_64BIT AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        # The callback is stored in the recovered 32-bit connection record.
+        # Keep this focused fixture executable below 4 GiB so its code pointer
+        # can be represented by that legacy slot.
+        target_link_options(map_download_dispatch_test PRIVATE -no-pie)
+    endif()
     target_link_libraries(map_download_dispatch_test PRIVATE
         SDL2
         openal

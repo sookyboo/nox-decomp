@@ -37,6 +37,14 @@ callbacks, while `sub_500D10` counts an owner's active summons and
 gameplay data remain the original 32-bit Nox layout; only host pointer
 transport is widened for the opt-in experiment.
 
+The summon lifecycle coverage also widens the host-pointer transport for
+`sub_500DA0`, `sub_500F40`, and `sub_5010D0`, and `sub_5281F0` now decodes its
+wrapper slot without passing the pointer through an `int`. The synthetic
+summon and map-dispatch fixtures keep the recovered four-byte pointer slots in
+their original records, so native 64-bit tests place those records below 4 GiB
+before storing legacy links. The map-dispatch test uses a non-PIE test binary
+because its callback address is likewise stored in a four-byte legacy slot.
+
 | Commit | Compatibility change | Regression test to write |
 |---|---|---|
 | `cde5a30` | Adds FFmpeg video support to the Linux targets. | Build/run a tiny FFmpeg probe for each target that opens a VQA/video stream and verifies the expected decoder libraries are linked for the target architecture. |
