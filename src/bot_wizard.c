@@ -88,6 +88,117 @@ static const nox_bot_wizard_spell_def nox_bot_wizard_spells[] = {
     { "LIGHTNING", 11, 0, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
 };
 
+typedef struct nox_bot_wizard_phoneme_sequence {
+    const unsigned char *steps;
+    unsigned char count;
+    uint32_t check_mask;
+} nox_bot_wizard_phoneme_sequence;
+
+#define NOX_BOT_PHONEME_PAUSE 0u
+#define NOX_BOT_SEQUENCE_COUNT(seq) ((unsigned char)(sizeof(seq) / sizeof((seq)[0])))
+
+static const unsigned char nox_bot_wizard_ph_slow[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_wizard_ph_death_ray[] = {
+    NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_DOWN_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_fireball[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_wizard_ph_burn[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_wizard_ph_magic_missile[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_wizard_ph_counterspell[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_inversion[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_FEMALE_UP_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_blink[] = {
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_wizard_ph_trap[] = {
+    NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_PAUSE,
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_RIGHT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_PAUSE,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT,
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_PAUSE,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_wizard_ph_drain_mana[] = {
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN,
+    NOX_BOT_PHONEME_UP_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_shield[] = {
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_lesser_heal[] = {
+    NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_wizard_ph_haste[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_shock[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_LEFT,
+};
+static const unsigned char nox_bot_wizard_ph_protect_shock[] = {
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT,
+    NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_wizard_ph_protect_fire[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_RIGHT,
+    NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_wizard_ph_invisibility[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_wizard_ph_ring_of_fire[] = {
+    NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_wizard_ph_energy_bolt[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_UP,
+};
+
+static nox_bot_wizard_phoneme_sequence nox_bot_wizard_phonemes(nox_bot_wizard_spell spell)
+{
+    nox_bot_wizard_phoneme_sequence seq = { 0, 0, 0 };
+
+#define NOX_BOT_WIZARD_SEQUENCE(value, mask) \
+    do { seq.steps = (value); seq.count = NOX_BOT_SEQUENCE_COUNT(value); seq.check_mask = (mask); } while (0)
+    switch (spell) {
+    case NOX_BOT_WIZARD_SPELL_SLOW: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_slow, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_DEATH_RAY: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_death_ray, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_FIREBALL: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_fireball, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_BURN: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_burn, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_MAGIC_MISSILE: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_magic_missile, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_COUNTERSPELL: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_counterspell, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_INVERSION: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_inversion, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_BLINK: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_blink, 1u); break;
+    /* Trap rechecks before each nested chant at sequence indices 0/5/10/15. */
+    case NOX_BOT_WIZARD_SPELL_TRAP: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_trap, 0x8421u); break;
+    case NOX_BOT_WIZARD_SPELL_DRAIN_MANA: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_drain_mana, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_SHIELD: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_shield, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_LESSER_HEAL: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_lesser_heal, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_HASTE: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_haste, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_SHOCK: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_shock, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_PROTECT_SHOCK: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_protect_shock, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_PROTECT_FIRE: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_protect_fire, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_INVISIBILITY: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_invisibility, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_RING_OF_FIRE: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_ring_of_fire, 1u); break;
+    case NOX_BOT_WIZARD_SPELL_ENERGY_BOLT: NOX_BOT_WIZARD_SEQUENCE(nox_bot_wizard_ph_energy_bolt, 1u); break;
+    default: break;
+    }
+#undef NOX_BOT_WIZARD_SEQUENCE
+    return seq;
+}
+
 static uint32_t *nox_bot_wizard_ready_frame(
     nox_bot_wizard_policy_state *wizard, nox_bot_wizard_spell spell)
 {
@@ -238,6 +349,7 @@ static int nox_bot_wizard_schedule(
     wizard->pending_target = target;
     wizard->pending_x = x;
     wizard->pending_y = y;
+    wizard->pending_phoneme_index = 0;
     wizard->pending_cast_frame = nox_bot_reaction_deadline(
         frame, (nox_bot_difficulty)state->difficulty);
     return 1;
@@ -261,8 +373,41 @@ static void nox_bot_wizard_cancel_pending(
 {
     state->wizard.pending_spell = NOX_BOT_WIZARD_SPELL_NONE;
     state->wizard.pending_target = 0;
+    state->wizard.pending_phoneme_index = 0;
     state->wizard.global_ready_frame = nox_bot_reaction_deadline(
         frame, (nox_bot_difficulty)state->difficulty);
+}
+
+static int nox_bot_wizard_advance_phonemes(
+    int object, nox_bot_policy_state *state, uint32_t frame, nox_bot_wizard_spell spell)
+{
+    nox_bot_wizard_policy_state *wizard = &state->wizard;
+    nox_bot_wizard_phoneme_sequence seq = nox_bot_wizard_phonemes(spell);
+    unsigned int index;
+    unsigned int step;
+
+    if (!seq.steps || !seq.count)
+        return nox_bot_reaction_ready(frame, wizard->pending_cast_frame);
+    if (!nox_bot_reaction_ready(frame, wizard->pending_cast_frame))
+        return 0;
+    index = wizard->pending_phoneme_index;
+    if (index >= seq.count)
+        return 1;
+
+    if ((seq.check_mask & (1u << index)) &&
+        (nox_bot_engine_health(object) <= 0 ||
+         nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC))) {
+        nox_bot_wizard_cancel_pending(state, frame);
+        return 0;
+    }
+
+    /* Every phoneme and explicit concentration pause consumes three frames. */
+    step = seq.steps[index];
+    wizard->pending_phoneme_index = (unsigned char)(index + 1u);
+    if (step != NOX_BOT_PHONEME_PAUSE)
+        nox_bot_engine_play_phoneme(object, (nox_bot_phoneme)step);
+    wizard->pending_cast_frame = frame + 3u;
+    return 0;
 }
 
 static void nox_bot_wizard_finish_cast(
@@ -275,7 +420,7 @@ static void nox_bot_wizard_finish_cast(
     uint32_t cooldown;
 
     if (spell == NOX_BOT_WIZARD_SPELL_NONE ||
-        !nox_bot_reaction_ready(frame, wizard->pending_cast_frame))
+        !nox_bot_wizard_advance_phonemes(object, state, frame, spell))
         return;
 
     def = &nox_bot_wizard_spells[spell];
@@ -315,6 +460,7 @@ static void nox_bot_wizard_finish_cast(
 
     wizard->pending_spell = NOX_BOT_WIZARD_SPELL_NONE;
     wizard->pending_target = 0;
+    wizard->pending_phoneme_index = 0;
     wizard->global_ready_frame = frame +
         (spell == NOX_BOT_WIZARD_SPELL_TRAP ?
             NOX_BOT_WIZARD_TRAP_GLOBAL_COOLDOWN_FRAMES :

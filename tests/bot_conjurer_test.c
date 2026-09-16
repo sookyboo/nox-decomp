@@ -68,6 +68,8 @@ static int bomber_create_calls;
 static int random_values[4];
 static int random_value_count;
 static int random_value_index;
+static int phoneme_calls;
+static nox_bot_phoneme phoneme_log[96];
 
 static uint32_t buff_mask(int buff)
 {
@@ -149,6 +151,16 @@ static void record_cast(const char *name, int kind, int target, float x, float y
     cast_y = y;
     strncpy(cast_name, name, sizeof(cast_name) - 1);
     cast_name[sizeof(cast_name) - 1] = 0;
+}
+
+int nox_bot_engine_play_phoneme(int object, nox_bot_phoneme phoneme)
+{
+    if (object != SELF)
+        return 0;
+    if (phoneme_calls < (int)(sizeof(phoneme_log) / sizeof(phoneme_log[0])))
+        phoneme_log[phoneme_calls] = phoneme;
+    ++phoneme_calls;
+    return 1;
 }
 
 int nox_bot_engine_cast_script_self(int object, const char *name)
@@ -450,6 +462,8 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     random_values[1] = 10;
     random_value_count = 2;
     random_value_index = 0;
+    phoneme_calls = 0;
+    memset(phoneme_log, 0, sizeof(phoneme_log));
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -458,9 +472,22 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     return state;
 }
 
+static uint32_t finish_pending_spell(nox_bot_policy_state *state)
+{
+    uint32_t frame = 0;
+    int guard = 96;
+
+    while (state && state->conjurer.pending_spell && guard-- > 0) {
+        frame = state->conjurer.pending_cast_frame;
+        nox_bot_conjurer_update(SELF, state, frame);
+    }
+    return frame;
+}
+
 static int test_enemy_sighted_force_of_nature(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_NORMAL, 100);
+    uint32_t release;
 
     if (!state)
         return 1;
@@ -469,14 +496,14 @@ static int test_enemy_sighted_force_of_nature(void)
     if (!state->conjurer.pending_spell || cast_calls || state->conjurer.target != TARGET)
         return 2;
     nox_bot_conjurer_update(SELF, state, 129);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 3;
-    nox_bot_conjurer_update(SELF, state, 130);
-    if (cast_calls != 1 || strcmp(cast_name, "FORCE_OF_NATURE") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 139 || cast_calls != 1 || strcmp(cast_name, "FORCE_OF_NATURE") != 0 ||
         cast_kind != 3 || cast_x != 30.0f || cast_y != 40.0f || self_mana != 65)
         return 4;
-    if (state->conjurer.global_ready_frame != 133 ||
-        state->conjurer.force_of_nature_ready_frame != 280)
+    if (state->conjurer.global_ready_frame != 142 ||
+        state->conjurer.force_of_nature_ready_frame != 289)
         return 5;
     return 0;
 }
@@ -484,17 +511,18 @@ static int test_enemy_sighted_force_of_nature(void)
 static int test_held_target_meteor_priority(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 200);
+    uint32_t release;
 
     if (!state)
         return 10;
     state->conjurer.target = TARGET;
     target_buffs = buff_mask(ENCHANT_HELD);
     nox_bot_conjurer_update(SELF, state, 200);
-    nox_bot_conjurer_update(SELF, state, 200);
-    if (cast_calls != 1 || strcmp(cast_name, "METEOR") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 206 || cast_calls != 1 || strcmp(cast_name, "METEOR") != 0 ||
         cast_kind != 3 || cast_x != 30.0f || cast_y != 40.0f || self_mana != 95)
         return 11;
-    if (state->conjurer.meteor_ready_frame != 350)
+    if (state->conjurer.meteor_ready_frame != 356)
         return 12;
     return 0;
 }
@@ -507,8 +535,7 @@ static int test_non_ctf_stun_and_ctf_slow(void)
         return 20;
     state->conjurer.target = TARGET;
     nox_bot_conjurer_update(SELF, state, 300);
-    nox_bot_conjurer_update(SELF, state, 300);
-    if (cast_calls != 1 || strcmp(cast_name, "STUN") != 0 ||
+    if (finish_pending_spell(state) != 306 || cast_calls != 1 || strcmp(cast_name, "STUN") != 0 ||
         cast_kind != 2 || !(target_buffs & buff_mask(ENCHANT_HELD)))
         return 21;
 
@@ -518,8 +545,7 @@ static int test_non_ctf_stun_and_ctf_slow(void)
     state->conjurer.target = TARGET;
     ctf_mode = 1;
     nox_bot_conjurer_update(SELF, state, 310);
-    nox_bot_conjurer_update(SELF, state, 310);
-    if (cast_calls != 1 || strcmp(cast_name, "SLOW") != 0 ||
+    if (finish_pending_spell(state) != 319 || cast_calls != 1 || strcmp(cast_name, "SLOW") != 0 ||
         cast_kind != 2 || !(target_buffs & buff_mask(ENCHANT_SLOWED)))
         return 23;
     return 0;
@@ -535,8 +561,7 @@ static int test_lesser_heal_precedes_offense(void)
     self_health = 60;
     target_buffs = buff_mask(ENCHANT_HELD);
     nox_bot_conjurer_update(SELF, state, 400);
-    nox_bot_conjurer_update(SELF, state, 400);
-    if (cast_calls != 1 || strcmp(cast_name, "LESSER_HEAL") != 0 ||
+    if (finish_pending_spell(state) != 409 || cast_calls != 1 || strcmp(cast_name, "LESSER_HEAL") != 0 ||
         cast_kind != 1 || self_mana != 95)
         return 31;
     return 0;
@@ -551,15 +576,14 @@ static int test_hidden_buff_priority(void)
     target_visible = 0;
     state->conjurer.target = TARGET;
     nox_bot_conjurer_update(SELF, state, 500);
-    nox_bot_conjurer_update(SELF, state, 500);
-    if (cast_calls != 1 || strcmp(cast_name, "VAMPIRISM") != 0 ||
+    if (finish_pending_spell(state) != 512 || cast_calls != 1 || strcmp(cast_name, "VAMPIRISM") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_VAMPIRISM)) || self_mana != 105)
         return 41;
 
     state->conjurer.global_ready_frame = 0;
-    nox_bot_conjurer_update(SELF, state, 501);
-    nox_bot_conjurer_update(SELF, state, 501);
-    if (cast_calls != 2 || strcmp(cast_name, "PROTECTION_FROM_ELECTRICITY") != 0 ||
+    nox_bot_conjurer_update(SELF, state, 513);
+    if (finish_pending_spell(state) != 525 || cast_calls != 2 ||
+        strcmp(cast_name, "PROTECTION_FROM_ELECTRICITY") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_PROTECT_SHOCK)) || self_mana != 75)
         return 42;
     return 0;
@@ -573,8 +597,7 @@ static int test_looking_for_enemy_infravision(void)
         return 50;
     nox_bot_policy_record_event(state, NOX_BOT_EVENT_LOOKING_FOR_ENEMY, 0, 600);
     nox_bot_conjurer_update(SELF, state, 600);
-    nox_bot_conjurer_update(SELF, state, 615);
-    if (cast_calls != 1 || strcmp(cast_name, "INFRAVISION") != 0 ||
+    if (finish_pending_spell(state) != 627 || cast_calls != 1 || strcmp(cast_name, "INFRAVISION") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_INFRAVISION)) || self_mana != 95)
         return 51;
     return 0;
@@ -631,13 +654,12 @@ static int test_pixie_swarm_uses_native_owned_pixie_state(void)
     nox_bot_conjurer_update(SELF, state, 825);
     if (!state->conjurer.pending_spell || cast_calls)
         return 85;
-    nox_bot_conjurer_update(SELF, state, 825);
-    if (cast_calls != 1 || strcmp(cast_name, "PIXIE_SWARM") != 0 ||
+    if (finish_pending_spell(state) != 837 || cast_calls != 1 || strcmp(cast_name, "PIXIE_SWARM") != 0 ||
         cast_kind != 1 || self_mana != 95 || owned_pixies != 1)
         return 86;
 
     state->conjurer.global_ready_frame = 0;
-    nox_bot_conjurer_update(SELF, state, 826);
+    nox_bot_conjurer_update(SELF, state, 838);
     if (state->conjurer.pending_spell || cast_calls != 1)
         return 87;
     return 0;
@@ -646,6 +668,7 @@ static int test_pixie_swarm_uses_native_owned_pixie_state(void)
 static int test_hostile_deathball_uses_long_counterspell_cooldown(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 840);
+    uint32_t release;
 
     if (!state)
         return 88;
@@ -654,19 +677,19 @@ static int test_hostile_deathball_uses_long_counterspell_cooldown(void)
     nox_bot_conjurer_update(SELF, state, 840);
     if (!state->conjurer.pending_spell || cast_calls)
         return 89;
-    nox_bot_conjurer_update(SELF, state, 840);
-    if (cast_calls != 1 || strcmp(cast_name, "COUNTERSPELL") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 846 || cast_calls != 1 || strcmp(cast_name, "COUNTERSPELL") != 0 ||
         cast_kind != 3 || cast_x != 10.0f || cast_y != 20.0f || self_mana != 105)
         return 90;
-    if (state->conjurer.counterspell_ready_frame != 1440)
+    if (state->conjurer.counterspell_ready_frame != 1446)
         return 91;
     return 0;
 }
 
-
 static int test_generic_target_missile_inversion(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 845);
+    uint32_t release;
 
     if (!state)
         return 120;
@@ -676,13 +699,15 @@ static int test_generic_target_missile_inversion(void)
     if (!state->conjurer.pending_spell || cast_calls)
         return 121;
     nox_bot_conjurer_update(SELF, state, 859);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 122;
-    nox_bot_conjurer_update(SELF, state, 860);
-    if (cast_calls != 1 || strcmp(cast_name, "INVERSION") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 866 || cast_calls != 1 || strcmp(cast_name, "INVERSION") != 0 ||
         cast_kind != 1 || cast_target != SELF || self_mana != 115)
         return 123;
-    if (state->conjurer.inversion_ready_frame != 890)
+    if (state->conjurer.inversion_ready_frame != 896 || phoneme_calls != 2 ||
+        phoneme_log[0] != NOX_BOT_PHONEME_UP_LEFT ||
+        phoneme_log[1] != NOX_BOT_PHONEME_FEMALE_UP_RIGHT)
         return 124;
     return 0;
 }
@@ -690,6 +715,7 @@ static int test_generic_target_missile_inversion(void)
 static int test_retreat_and_held_blink(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 847);
+    uint32_t release;
 
     if (!state)
         return 130;
@@ -699,11 +725,11 @@ static int test_retreat_and_held_blink(void)
         nox_bot_policy_event_pending(state, NOX_BOT_EVENT_RETREAT))
         return 131;
     nox_bot_conjurer_update(SELF, state, 861);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 132;
-    nox_bot_conjurer_update(SELF, state, 862);
-    if (cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0 ||
-        self_mana != 115 || state->conjurer.blink_ready_frame != 892)
+    release = finish_pending_spell(state);
+    if (release != 871 || cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0 ||
+        self_mana != 115 || state->conjurer.blink_ready_frame != 901)
         return 133;
 
     state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 848);
@@ -712,8 +738,8 @@ static int test_retreat_and_held_blink(void)
     state->conjurer.target = TARGET;
     self_buffs = buff_mask(ENCHANT_HELD);
     nox_bot_conjurer_update(SELF, state, 848);
-    nox_bot_conjurer_update(SELF, state, 848);
-    if (cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0)
+    if (finish_pending_spell(state) != 857 || cast_calls || trap_calls != 1 ||
+        strcmp(trap_name, "BLINK") != 0)
         return 135;
     return 0;
 }
@@ -721,6 +747,7 @@ static int test_retreat_and_held_blink(void)
 static int test_native_random_summon_and_cage_gate(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 849);
+    uint32_t release;
 
     if (!state)
         return 136;
@@ -736,9 +763,10 @@ static int test_native_random_summon_and_cage_gate(void)
     nox_bot_conjurer_update(SELF, state, 849);
     if (!state->conjurer.pending_spell || !state->conjurer.pending_summon || cast_calls)
         return 137;
-    nox_bot_conjurer_update(SELF, state, 849);
-    if (cast_calls != 1 || strcmp(cast_name, "SUMMON_MECHANICAL_GOLEM") != 0 ||
-        cast_kind != 1 || self_mana != 40 || state->conjurer.summon_ready_frame != 1239)
+    release = finish_pending_spell(state);
+    if (release != 867 || cast_calls != 1 || strcmp(cast_name, "SUMMON_MECHANICAL_GOLEM") != 0 ||
+        cast_kind != 1 || self_mana != 40 || state->conjurer.summon_ready_frame != 1257 ||
+        phoneme_calls != 6)
         return 138;
 
     state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
@@ -762,6 +790,7 @@ static int test_native_random_summon_and_cage_gate(void)
 static int test_custom_bomber_uses_native_summon_path(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 910);
+    uint32_t release;
 
     if (!state)
         return 145;
@@ -774,16 +803,15 @@ static int test_custom_bomber_uses_native_summon_path(void)
     random_value_count = 1;
     random_value_index = 0;
     nox_bot_conjurer_update(SELF, state, 910);
-    if (!state->conjurer.pending_spell || !state->conjurer.pending_summon ||
-        bomber_create_calls)
+    if (!state->conjurer.pending_spell || !state->conjurer.pending_summon || bomber_create_calls)
         return 146;
     nox_bot_conjurer_update(SELF, state, 924);
-    if (bomber_create_calls)
+    if (bomber_create_calls || phoneme_calls)
         return 147;
-    nox_bot_conjurer_update(SELF, state, 925);
-    if (bomber_create_calls != 1 || owned_bombers != 1 || self_mana != 125 ||
-        state->conjurer.summon_ready_frame != 928 ||
-        state->conjurer.global_ready_frame != 928)
+    release = finish_pending_spell(state);
+    if (release != 973 || bomber_create_calls != 1 || owned_bombers != 1 || self_mana != 125 ||
+        state->conjurer.summon_ready_frame != 976 || state->conjurer.global_ready_frame != 976 ||
+        phoneme_calls != 13)
         return 148;
 
     state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 930);

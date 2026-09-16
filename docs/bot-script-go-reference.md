@@ -52,8 +52,8 @@ Implemented so far:
 - `[x]` Bot-Script reaction delays (`0/15/30/45/60` simulation frames), including wrap-safe deadline comparison;
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
 - `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
-- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Ring of Fire/Slow/Energy Bolt/Magic Missile/Counterspell/Drain Mana priority, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, the owned three-spell Glyph Trap, native nearby-source Drain Mana, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, native mana-obelisk routing/restoration, reference reaction delays, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, CTF enemy-flag-carrier (`TeamTank`) awareness, and shared native-backed CTF objective steering;
-- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state and native `BomberSummon` audio, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, the literal 10-second reference weapon preference, and shared native-backed CTF objective steering;
+- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Ring of Fire/Slow/Energy Bolt/Magic Missile/Counterspell/Drain Mana priority, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, the owned three-spell Glyph Trap, native nearby-source Drain Mana, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, native mana-obelisk routing/restoration, reference reaction delays and spell-phoneme timing, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, CTF enemy-flag-carrier (`TeamTank`) awareness, and shared native-backed CTF objective steering;
+- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state and native `BomberSummon` audio, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference spell-phoneme/summon-chant timing, reference cooldowns, 15-frame native loot/equip pickup, the literal 10-second reference weapon preference, and shared native-backed CTF objective steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets;
 - `[~]` server-side lifecycle commands and opt-in lifecycle tracing, including a complete experimental `bot spawn`/`bot clear` attempt that reuses the native join/leave owners without a remote client. The code path is structurally covered but still requires hosted-game runtime verification.
 
@@ -62,10 +62,10 @@ Still intentionally not implemented where native ownership is not completely rec
 - `[~]` non-client player creation now has an experimental socketless path using the normal native player constructor; runtime logs still need to verify its network-slot assumptions and mode-specific side effects;
 - `[~]` server-created bot cleanup now uses the normal native leave owner and bot-local ownership tracking; runtime logs still need to verify complete reuse/cleanup of a slot that never had a real peer;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
-- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt, Ring of Fire, and native Drain Mana, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, the owned three-spell Glyph Trap, native mana-obelisk routing, nearby loot, wand preference, CTF carrier-role-aware Invisibility, and shared CTF steering are implemented; broader coordinated team roles and phonemes remain);
-- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks, `BomberSummon` audio, Alert status, and Enemy Sighted/Enemy Heard/Lost Enemy action choreography, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, and shared CTF steering; broader team roles, commands, and phonemes remain);
+- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt, Ring of Fire, and native Drain Mana, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, the owned three-spell Glyph Trap, native mana-obelisk routing, nearby loot, wand preference, reference phoneme sequencing/timing, CTF carrier-role-aware Invisibility, and shared CTF steering are implemented; broader coordinated team roles remain);
+- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks, `BomberSummon` audio, Alert status, and Enemy Sighted/Enemy Heard/Lost Enemy action choreography, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, reference phoneme/summon-chant sequencing, and shared CTF steering; broader team roles and commands remain);
 - `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; broader coordinated multi-bot strategy and teammate orders remain pending;
-- `[ ]` cosmetic spell-phoneme parity.
+- `[x]` spell-phoneme sequencing/timing for the implemented Wizard/Conjurer spells and Conjurer summon chants, including compound Trap/Bomber concentration pauses.
 
 The optional bot build now exposes a traced server-side lifecycle surface:
 
@@ -169,8 +169,9 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   cap. Policy casts native `DRAIN_MANA` after the difficulty reaction delay and
   keeps the reference three-second cooldown; native spell code remains
   authoritative for choosing the actual source and transferring mana, so the
-  script's manual source-drain loop is not duplicated. Wizard gaps are broader
-  coordinated team roles, teammate commands, and phoneme sequencing;
+  script's manual source-drain loop is not duplicated. Implemented Wizard casts
+  now also use the Bot-Script phoneme sequences and three-frame phoneme cadence.
+  Wizard gaps are broader coordinated team roles and teammate commands;
 - Conjurer now has a first native tactical slice: Enemy Sighted Force of Nature,
   Looking/Lost Sight Infravision, the reference held/slowed-target Meteor →
   Toxic Cloud → Burn → Counterspell priority, non-CTF Stun versus CTF Slow,
@@ -209,8 +210,9 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   `Attack(con.target)`, while Lost Enemy restores `Follow(con.unit)`. The normal
   native monster callback dispatch still runs afterward, so this adds no custom
   script-callback descriptors. Normal mana-obelisk routing/restoration is also
-  native-backed. Remaining Conjurer gaps are broader team roles, teammate
-  commands, and phonemes;
+  native-backed. Implemented spell/summon branches now also preserve their
+  reference phoneme chants. Remaining Conjurer gaps are broader team roles and
+  teammate commands;
 
 ### Team and game-mode strategy
 
@@ -231,8 +233,9 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   console; the new non-client spawn/clear subset remains runtime-unverified;
 - human teammate orders (`follow`, `attack`, `guard`, `stay`, `escort`) need an
   order executor on top of the existing policy enum;
-- spell phoneme sequencing, chat responses, and other presentation details remain
-  fidelity work after gameplay parity.
+- spell phoneme sequencing/timing is implemented for the current Wizard and
+  Conjurer spell/summon surface; chat responses and other presentation details
+  remain fidelity work after gameplay parity.
 
 ### Integration coverage
 
@@ -1054,7 +1057,9 @@ native `ALERT` monster-status bit. The already-hooked native Enemy Sighted,
 Enemy Heard, and Lost Sight dispatch sites reproduce the three Bomber closures
 without replacing normal monster callbacks: an owned Bomber attacks its active
 Conjurer owner's current target on sight/hearing and follows that owner again on
-Lost Enemy. Spell phonemes remain deferred. Hostile `DeathBall` Counterspell and
+Lost Enemy. Implemented direct spells, Blink, Pixie Swarm, native summon spells,
+and the custom Bomber now use the reference phoneme/summon chants and three-frame
+cadence before release. Hostile `DeathBall` Counterspell and
 generic target-owned missile Inversion are implemented separately through native
 world/owner state. Pixie Swarm itself is native-backed; ownership/counting comes
 from the authoritative world object owner field instead of duplicate policy
@@ -1160,8 +1165,9 @@ quirk where `mana > 10` is checked but no mana is deducted. Ring of Fire uses
 native `CLEANSING_FLAME`; the reference sets `RingOfFireReady=false` and its
 five-second timer mistakenly writes `ShockReady=true`, so the native policy
 preserves the resulting once-per-life Ring of Fire behavior instead of silently
-correcting the source script. Spell phoneme sequences are intentionally not part
-of this slice. Generic target-owned missile Inversion is now implemented with the
+correcting the source script. Implemented Wizard casts now reproduce the reference
+phoneme sequence after the difficulty reaction delay and before spell release.
+Generic target-owned missile Inversion is now implemented with the
 reference 500-unit scan, 10-mana cost, one-second cooldown, and difficulty
 reaction delay. `DeathBall` retains priority over that branch: any nearby
 DeathBall suppresses generic Inversion for the update, while an enemy-owned one
@@ -1217,25 +1223,48 @@ uint32_t spell_ready_at[BOT_MAX_SPELLS];
 
 # 15. Spell Phonemes
 
-The Go reference includes a useful presentation detail: spell phonemes are played sequentially before the actual cast.
+Wizard and Conjurer policy now reproduces the Bot-Script chant timing for every
+spell/summon branch currently implemented by the native port. The authoritative
+spell or summon effect remains native; bot policy only owns the pre-release audio
+sequence and its deterministic frame deadlines.
 
-Conceptually:
+The reference `castPhonemes()` emits the first audio event immediately, waits
+three simulation frames, emits the next, and invokes the cast callback three
+frames after the final phoneme. The native scheduler therefore runs:
 
 ```text
-phoneme
-    ↓ 3 frames
-phoneme
-    ↓ 3 frames
-phoneme
+difficulty reaction delay
     ↓
-cast spell
+phoneme 1
+    ↓ 3 frames
+phoneme 2
+    ↓ 3 frames
+...
+    ↓ 3 frames after final phoneme
+native spell / trap / summon release
 ```
 
-This should be treated as a fidelity feature rather than an initial blocker.
+`bot_wizard.c` and `bot_conjurer.c` keep only a pending phoneme index alongside
+the existing pending-cast deadline. `bot_engine.c` maps the reference phoneme
+names to native sounds with `sub_40AF50(name)` and emits them at the bot object
+with `sub_501960(sound, object, 0, 0)`. Inversion intentionally preserves the Go
+reference's mixed chant and uses `FemaleSpellPhonemeUpRight` as its second sound.
 
-The first native spell implementation may cast immediately.
+Ordinary casts check alive/Anti-Magic state before the chant begins and again at
+release through the existing policy path. Wizard Trap and Conjurer Bomber are
+compound chants in the reference, so their scheduler tables also contain the
+explicit three-frame concentration pauses and recheck alive/Anti-Magic before
+each nested chant. Their total pre-release timings are therefore:
 
-Once combat behaviour is stable, add a small casting-sequence state machine if required for parity.
+```text
+Wizard Trap:      reaction delay + 57 frames
+Conjurer Bomber:  reaction delay + 48 frames
+```
+
+Death/reset clears pending policy state, so the native port does not attempt to
+continue purely cosmetic remaining phoneme timers after the bot has died. Spell
+release, mana, cooldowns, traps, creature creation, and gameplay effects remain
+owned by their existing native engine paths.
 
 ---
 
@@ -1493,7 +1522,6 @@ Add server commands and friendly bot orders.
 
 After the main system is functional:
 
-- casting phonemes;
 - richer bot identities;
 - scoreboard integration;
 - additional game modes;
@@ -1669,14 +1697,14 @@ Wizard
 [x] nearby loot + FireStormWand/ForceWand preference
 [x] native Drain Mana triggers / source transfer
 [~] shared CTF/team-role policy (shared CTF steering implemented; teammate commands remain)
-[ ] spell phonemes
+[x] reference spell phoneme sequencing / release timing
 ```
 
 Current Conjurer status:
 
 ```text
 Conjurer
-[ ] non-client player creation / spawn command
+[~] non-client player creation / spawn command (experimental native join/leave-owner attempt implemented; hosted verification pending)
 [x] native player mana accounting + passive regeneration
 [x] RedPotion / BluePotion threshold policy
 [x] Enemy Sighted Force of Nature
@@ -1689,7 +1717,7 @@ Conjurer
 [x] native mana-obelisk routing / restoration
 [x] equipment / loot preference (loot/equip-on-pickup + literal 10-second reference weapon preference implemented)
 [~] shared CTF/team-role policy (shared CTF steering implemented; teammate commands remain)
-[ ] spell phonemes
+[x] reference spell phoneme sequencing / release timing
 ```
 
 When native behaviour intentionally differs from the Go reference, document:

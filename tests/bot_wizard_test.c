@@ -61,6 +61,8 @@ static int trap_calls;
 static char trap_name[64];
 static int owned_glyphs;
 static int owned_trap_calls;
+static int phoneme_calls;
+static nox_bot_phoneme phoneme_log[64];
 
 static uint32_t buff_mask(int buff)
 {
@@ -142,6 +144,16 @@ static void record_cast(const char *name, int kind, int target, float x, float y
     cast_y = y;
     strncpy(cast_name, name, sizeof(cast_name) - 1);
     cast_name[sizeof(cast_name) - 1] = 0;
+}
+
+int nox_bot_engine_play_phoneme(int object, nox_bot_phoneme phoneme)
+{
+    if (object != SELF)
+        return 0;
+    if (phoneme_calls < (int)(sizeof(phoneme_log) / sizeof(phoneme_log[0])))
+        phoneme_log[phoneme_calls] = phoneme;
+    ++phoneme_calls;
+    return 1;
 }
 
 int nox_bot_engine_cast_script_self(int object, const char *name)
@@ -404,6 +416,8 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     trap_name[0] = '\0';
     owned_glyphs = 0;
     owned_trap_calls = 0;
+    phoneme_calls = 0;
+    memset(phoneme_log, 0, sizeof(phoneme_log));
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -412,9 +426,22 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     return state;
 }
 
+static uint32_t finish_pending_spell(nox_bot_policy_state *state)
+{
+    uint32_t frame = 0;
+    int guard = 64;
+
+    while (state && state->wizard.pending_spell && guard-- > 0) {
+        frame = state->wizard.pending_cast_frame;
+        nox_bot_wizard_update(SELF, state, frame);
+    }
+    return frame;
+}
+
 static int test_enemy_sighted_slow_then_death_ray(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_NORMAL, 100);
+    uint32_t release;
 
     if (!state)
         return 1;
@@ -423,28 +450,33 @@ static int test_enemy_sighted_slow_then_death_ray(void)
     if (!state->wizard.pending_spell || cast_calls)
         return 2;
     nox_bot_wizard_update(SELF, state, 129);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 3;
     nox_bot_wizard_update(SELF, state, 130);
-    if (cast_calls != 1 || strcmp(cast_name, "SLOW") != 0 || cast_kind != 2 ||
-        cast_target != TARGET || self_mana != 140 || !(target_buffs & buff_mask(ENCHANT_SLOWED)))
+    if (cast_calls || phoneme_calls != 1 || phoneme_log[0] != NOX_BOT_PHONEME_DOWN)
         return 4;
-    if (state->wizard.global_ready_frame != 133 || state->wizard.slow_ready_frame != 220)
+    release = finish_pending_spell(state);
+    if (release != 139 || cast_calls != 1 || strcmp(cast_name, "SLOW") != 0 ||
+        cast_kind != 2 || cast_target != TARGET || self_mana != 140 ||
+        !(target_buffs & buff_mask(ENCHANT_SLOWED)))
         return 5;
-
-    nox_bot_wizard_update(SELF, state, 133);
-    if (!state->wizard.pending_spell || cast_calls != 1)
+    if (state->wizard.global_ready_frame != 142 || state->wizard.slow_ready_frame != 229)
         return 6;
-    nox_bot_wizard_update(SELF, state, 163);
-    if (cast_calls != 2 || strcmp(cast_name, "DEATH_RAY") != 0 || cast_kind != 3 ||
-        cast_x != 30.0f || cast_y != 40.0f || self_mana != 80)
+
+    nox_bot_wizard_update(SELF, state, 142);
+    if (!state->wizard.pending_spell || cast_calls != 1)
         return 7;
+    release = finish_pending_spell(state);
+    if (release != 178 || cast_calls != 2 || strcmp(cast_name, "DEATH_RAY") != 0 ||
+        cast_kind != 3 || cast_x != 30.0f || cast_y != 40.0f || self_mana != 81)
+        return 8;
     return 0;
 }
 
 static int test_visible_fireball_priority(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 200);
+    uint32_t release;
 
     if (!state)
         return 10;
@@ -452,11 +484,11 @@ static int test_visible_fireball_priority(void)
     nox_bot_wizard_update(SELF, state, 200);
     if (!state->wizard.pending_spell || cast_calls)
         return 11;
-    nox_bot_wizard_update(SELF, state, 200);
-    if (cast_calls != 1 || strcmp(cast_name, "FIREBALL") != 0 || cast_kind != 3 ||
-        cast_x != 30.0f || cast_y != 40.0f || self_mana != 120)
+    release = finish_pending_spell(state);
+    if (release != 209 || cast_calls != 1 || strcmp(cast_name, "FIREBALL") != 0 ||
+        cast_kind != 3 || cast_x != 30.0f || cast_y != 40.0f || self_mana != 120)
         return 12;
-    if (state->wizard.fireball_ready_frame != 350)
+    if (state->wizard.fireball_ready_frame != 359)
         return 13;
     return 0;
 }
@@ -464,6 +496,7 @@ static int test_visible_fireball_priority(void)
 static int test_energy_bolt_reference_mana_quirk(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 250);
+    uint32_t release;
 
     if (!state)
         return 14;
@@ -473,10 +506,10 @@ static int test_energy_bolt_reference_mana_quirk(void)
     nox_bot_wizard_update(SELF, state, 250);
     if (!state->wizard.pending_spell || cast_calls)
         return 15;
-    nox_bot_wizard_update(SELF, state, 250);
-    if (cast_calls != 1 || strcmp(cast_name, "LIGHTNING") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 262 || cast_calls != 1 || strcmp(cast_name, "LIGHTNING") != 0 ||
         cast_kind != 2 || cast_target != TARGET || self_mana != 11 ||
-        state->wizard.energy_bolt_ready_frame != 340)
+        state->wizard.energy_bolt_ready_frame != 352)
         return 16;
     return 0;
 }
@@ -484,6 +517,7 @@ static int test_energy_bolt_reference_mana_quirk(void)
 static int test_ring_of_fire_reference_once_per_life_quirk(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 275);
+    uint32_t release;
 
     if (!state)
         return 17;
@@ -492,13 +526,13 @@ static int test_ring_of_fire_reference_once_per_life_quirk(void)
     self_mana = 60;
     target_buffs = buff_mask(ENCHANT_REFLECTIVE_SHIELD);
     nox_bot_wizard_update(SELF, state, 275);
-    nox_bot_wizard_update(SELF, state, 275);
-    if (cast_calls != 1 || strcmp(cast_name, "CLEANSING_FLAME") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 287 || cast_calls != 1 || strcmp(cast_name, "CLEANSING_FLAME") != 0 ||
         cast_kind != 1 || self_mana != 0 || !state->wizard.ring_of_fire_used)
         return 18;
 
     self_mana = 60;
-    nox_bot_wizard_update(SELF, state, 278);
+    nox_bot_wizard_update(SELF, state, 290);
     if (cast_calls != 1 || state->wizard.pending_spell)
         return 19;
     return 0;
@@ -507,6 +541,7 @@ static int test_ring_of_fire_reference_once_per_life_quirk(void)
 static int test_enemy_heard_hidden_target_invisibility(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 290);
+    uint32_t release;
 
     if (!state)
         return 25;
@@ -517,8 +552,8 @@ static int test_enemy_heard_hidden_target_invisibility(void)
     if (!state->wizard.pending_spell ||
         nox_bot_policy_event_pending(state, NOX_BOT_EVENT_ENEMY_HEARD))
         return 26;
-    nox_bot_wizard_update(SELF, state, 305);
-    if (cast_calls != 1 || strcmp(cast_name, "INVISIBILITY") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 317 || cast_calls != 1 || strcmp(cast_name, "INVISIBILITY") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_INVISIBLE)) || self_mana != 120)
         return 27;
     return 0;
@@ -534,34 +569,32 @@ static int test_hidden_defensive_priority_and_ctf_tank_invisibility(void)
     state->wizard.target = TARGET;
     self_buffs = buff_mask(ENCHANT_SHIELD) | buff_mask(ENCHANT_HASTED) | buff_mask(ENCHANT_SHOCK);
     nox_bot_wizard_update(SELF, state, 300);
-    nox_bot_wizard_update(SELF, state, 300);
-    if (cast_calls != 1 || strcmp(cast_name, "PROTECTION_FROM_ELECTRICITY") != 0 ||
+    if (finish_pending_spell(state) != 312 || cast_calls != 1 ||
+        strcmp(cast_name, "PROTECTION_FROM_ELECTRICITY") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_PROTECT_SHOCK)))
         return 21;
 
     state->wizard.global_ready_frame = 0;
     state->wizard.protect_shock_ready_frame = 9999;
     self_mana = 150;
-    nox_bot_wizard_update(SELF, state, 301);
-    nox_bot_wizard_update(SELF, state, 301);
-    if (cast_calls != 2 || strcmp(cast_name, "PROTECTION_FROM_FIRE") != 0 ||
+    nox_bot_wizard_update(SELF, state, 313);
+    if (finish_pending_spell(state) != 325 || cast_calls != 2 ||
+        strcmp(cast_name, "PROTECTION_FROM_FIRE") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_PROTECT_FIRE)))
         return 22;
 
-    /* Bot-Script only blocks Invisibility for CTF TeamTank, which becomes the
-     * enemy-flag carrier after pickup. */
     state->wizard.global_ready_frame = 0;
     state->wizard.protect_fire_ready_frame = 9999;
     self_mana = 150;
     ctf_mode = 1;
     ctf_tank = 1;
-    nox_bot_wizard_update(SELF, state, 302);
+    nox_bot_wizard_update(SELF, state, 326);
     if (state->wizard.pending_spell || cast_calls != 2)
         return 23;
     ctf_tank = 0;
-    nox_bot_wizard_update(SELF, state, 303);
-    nox_bot_wizard_update(SELF, state, 303);
-    if (cast_calls != 3 || strcmp(cast_name, "INVISIBILITY") != 0 ||
+    nox_bot_wizard_update(SELF, state, 327);
+    if (finish_pending_spell(state) != 339 || cast_calls != 3 ||
+        strcmp(cast_name, "INVISIBILITY") != 0 ||
         !(self_buffs & buff_mask(ENCHANT_INVISIBLE)))
         return 24;
     return 0;
@@ -570,6 +603,7 @@ static int test_hidden_defensive_priority_and_ctf_tank_invisibility(void)
 static int test_hostile_deathball_counterspell_priority(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 350);
+    uint32_t release;
 
     if (!state)
         return 28;
@@ -579,21 +613,21 @@ static int test_hostile_deathball_counterspell_priority(void)
     if (!state->wizard.pending_spell || cast_calls)
         return 29;
     nox_bot_wizard_update(SELF, state, 364);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 33;
-    nox_bot_wizard_update(SELF, state, 365);
-    if (cast_calls != 1 || strcmp(cast_name, "COUNTERSPELL") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 371 || cast_calls != 1 || strcmp(cast_name, "COUNTERSPELL") != 0 ||
         cast_kind != 3 || cast_x != 10.0f || cast_y != 20.0f || self_mana != 130)
         return 34;
-    if (state->wizard.counterspell_ready_frame != 965)
+    if (state->wizard.counterspell_ready_frame != 971)
         return 39;
     return 0;
 }
 
-
 static int test_generic_target_missile_inversion(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 380);
+    uint32_t release;
 
     if (!state)
         return 140;
@@ -603,13 +637,15 @@ static int test_generic_target_missile_inversion(void)
     if (!state->wizard.pending_spell || cast_calls)
         return 141;
     nox_bot_wizard_update(SELF, state, 394);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 142;
-    nox_bot_wizard_update(SELF, state, 395);
-    if (cast_calls != 1 || strcmp(cast_name, "INVERSION") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 401 || cast_calls != 1 || strcmp(cast_name, "INVERSION") != 0 ||
         cast_kind != 1 || cast_target != SELF || self_mana != 140)
         return 143;
-    if (state->wizard.inversion_ready_frame != 425)
+    if (state->wizard.inversion_ready_frame != 431 || phoneme_calls != 2 ||
+        phoneme_log[0] != NOX_BOT_PHONEME_UP_LEFT ||
+        phoneme_log[1] != NOX_BOT_PHONEME_FEMALE_UP_RIGHT)
         return 144;
     return 0;
 }
@@ -741,6 +777,7 @@ static int test_ctf_objective_events(void)
 static int test_retreat_blinks_with_reaction_and_cooldown(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 590);
+    uint32_t release;
 
     if (!state)
         return 150;
@@ -753,11 +790,11 @@ static int test_retreat_blinks_with_reaction_and_cooldown(void)
         nox_bot_policy_event_pending(state, NOX_BOT_EVENT_RETREAT))
         return 151;
     nox_bot_wizard_update(SELF, state, 604);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 152;
-    nox_bot_wizard_update(SELF, state, 605);
-    if (cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0 ||
-        self_mana != 140 || state->wizard.blink_ready_frame != 635)
+    release = finish_pending_spell(state);
+    if (release != 614 || cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0 ||
+        self_mana != 140 || state->wizard.blink_ready_frame != 644)
         return 153;
     return 0;
 }
@@ -801,6 +838,7 @@ static int test_low_mana_hit_routes_to_native_obelisk(void)
 static int test_hidden_target_creates_owned_spell_trap(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 598);
+    uint32_t release;
 
     if (!state)
         return 158;
@@ -813,10 +851,10 @@ static int test_hidden_target_creates_owned_spell_trap(void)
     nox_bot_wizard_update(SELF, state, 598);
     if (!state->wizard.pending_spell || owned_trap_calls || self_mana != 150)
         return 159;
-    nox_bot_wizard_update(SELF, state, 598);
-    if (owned_trap_calls != 1 || owned_glyphs != 4 || self_mana != 45 ||
-        state->wizard.trap_ready_frame != 748 ||
-        state->wizard.global_ready_frame != 613)
+    release = finish_pending_spell(state);
+    if (release != 655 || owned_trap_calls != 1 || owned_glyphs != 4 || self_mana != 45 ||
+        state->wizard.trap_ready_frame != 805 || state->wizard.global_ready_frame != 670 ||
+        phoneme_calls != 16)
         return 160;
 
     state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 599);
@@ -837,24 +875,24 @@ static int test_hidden_target_creates_owned_spell_trap(void)
 static int test_visible_target_drain_mana_uses_native_spell(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 900);
+    uint32_t release;
 
     if (!state)
         return 163;
     state->wizard.target = TARGET;
     target_max_health = 100;
-    target_buffs = buff_mask(ENCHANT_INVULNERABLE) |
-        buff_mask(ENCHANT_REFLECTIVE_SHIELD);
+    target_buffs = buff_mask(ENCHANT_INVULNERABLE) | buff_mask(ENCHANT_REFLECTIVE_SHIELD);
     nox_bot_wizard_update(SELF, state, 900);
     if (!state->wizard.pending_spell || cast_calls)
         return 164;
     nox_bot_wizard_update(SELF, state, 914);
-    if (cast_calls)
+    if (cast_calls || phoneme_calls)
         return 165;
-    nox_bot_wizard_update(SELF, state, 915);
-    if (cast_calls != 1 || strcmp(cast_name, "DRAIN_MANA") != 0 ||
+    release = finish_pending_spell(state);
+    if (release != 927 || cast_calls != 1 || strcmp(cast_name, "DRAIN_MANA") != 0 ||
         cast_kind != 1 || cast_target != SELF || self_mana != 150)
         return 166;
-    if (state->wizard.drain_mana_ready_frame != 1005)
+    if (state->wizard.drain_mana_ready_frame != 1017)
         return 167;
     return 0;
 }
@@ -862,6 +900,7 @@ static int test_visible_target_drain_mana_uses_native_spell(void)
 static int test_nearby_mana_source_starts_native_drain(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 920);
+    uint32_t release;
 
     if (!state)
         return 168;
@@ -873,10 +912,9 @@ static int test_nearby_mana_source_starts_native_drain(void)
     if (!state->wizard.pending_spell || cast_calls || mana_source_minimum != 1 ||
         !mana_source_require_visible)
         return 169;
-    nox_bot_wizard_update(SELF, state, 935);
-    if (cast_calls != 1 || strcmp(cast_name, "DRAIN_MANA") != 0 ||
-        cast_kind != 1 || self_mana != 120 ||
-        state->wizard.drain_mana_ready_frame != 1025)
+    release = finish_pending_spell(state);
+    if (release != 947 || cast_calls != 1 || strcmp(cast_name, "DRAIN_MANA") != 0 ||
+        cast_kind != 1 || self_mana != 120 || state->wizard.drain_mana_ready_frame != 1037)
         return 170;
     return 0;
 }

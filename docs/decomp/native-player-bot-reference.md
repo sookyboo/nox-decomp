@@ -106,8 +106,8 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   implemented. Hostile DeathBall Counterspell, generic target-owned missile
   Inversion, Bot-Script Blink-as-Glyph escape, the owned three-spell Glyph Trap,
   native mana-source routing, native Drain Mana triggers/transfer, and CTF
-  carrier-role-aware Invisibility are also implemented. Broader team-role
-  coordination and phonemes remain;
+  carrier-role-aware Invisibility and Bot-Script phoneme sequencing/timing are
+  also implemented. Broader team-role coordination remains;
 - **Conjurer policy:** the direct-cast priority slice now includes Pixie Swarm
   gated by authoritative owned-Pixie world state, native mana/buff/spell
   ownership, hostile DeathBall Counterspell, generic target-owned missile
@@ -115,13 +115,14 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   native random summon spells/cage accounting, the custom native-backed Bomber
   summon/Glyph path with native `BomberSummon` audio, Alert status, and
   Enemy Sighted/Enemy Heard/Lost Enemy action choreography, mana-source routing,
-  the literal reference 10-second weapon preference, and shared CTF steering.
-  Team roles, commands, and phonemes remain;
+  the literal reference 10-second weapon preference, Bot-Script spell/summon
+  phoneme sequencing, and shared CTF steering. Team roles and commands remain;
 - **orders/commands:** spawn/clear, attach/detach, difficulty, trace control, and
   3v3 setup are implemented; teammate order execution and broader coordinated
   team commands remain pending and are intentionally last;
-- **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
-  behavior are intentionally deferred;
+- **fidelity:** spell phoneme sequencing/timing is implemented for the current
+  Wizard/Conjurer policy surface; chat responses and remaining cosmetic behavior
+  are intentionally deferred;
 - **production lifecycle integration tests:** current deterministic tests cover
   adapters and policy, but end-to-end spawn/removal coverage awaits the real
   non-client lifecycle.
@@ -1553,8 +1554,11 @@ targets and nearby visible mana sources schedule `DRAIN_MANA` after the configur
 reaction delay, with the reference three-second cooldown. Native
 `nox_xxx_spellDrainMana_52E210`/`sub_52E610` choose the actual source and
 `sub_52E450` performs the transfer, so bot policy does not duplicate the Go
-script's manual source/player mana mutation. Phoneme sequencing remains outside
-this slice. Hostile `DeathBall` reaction is implemented
+script's manual source/player mana mutation. Implemented Wizard spells now run
+the reference phoneme sequence between the configured reaction deadline and the
+native release, at three frames per phoneme; compound Trap additionally preserves
+its three concentration pauses, producing a `reaction + 57` release deadline.
+Hostile `DeathBall` reaction is implemented
 by scanning the native world list within 500 units, following object owner links
 at `+492`, requiring an enemy player/monster in that chain, and scheduling
 Counterspell at the Wizard position. If no `DeathBall` is present, a class-`0x01`
@@ -1669,6 +1673,15 @@ an attempted `FireStormWand` equip; only when that branch does not apply does a
 present unequipped `InfinitePainWand` gate an attempted `ForceWand` equip. The
 native inventory and equipped-weapon adapters remain authoritative for those
 checks and equipment transitions.
+
+All currently implemented Conjurer spell and summon branches now preserve the
+Bot-Script chant before native release. The scheduler starts after the configured
+difficulty reaction delay, emits one reference phoneme every three frames, and
+releases three frames after the final sound. The custom Bomber preserves its
+four nested Stun/Burn/Toxic Cloud/Glyph chants plus the three explicit
+concentration pauses, giving a `reaction + 48` release deadline. Ordinary native
+summon spells use their exact Bot-Script summon chants. Inversion deliberately
+uses `FemaleSpellPhonemeUpRight` for its second phoneme, matching the reference.
 
 ## 11.9 Shared native-backed CTF destination policy
 
@@ -2006,8 +2019,13 @@ creating parallel bot state:
   world-owner query rather than a policy counter.
   `sub_40AF50(name)` is the native sound-name-to-ID lookup used throughout the
   game data paths; `sub_501960(sound, object, 0, 0)` dispatches that sound as an
-  object-centered audio event. `nox_bot_engine_owner_player()` follows the same
-  bounded native owner chain used by the other bot world queries, while
+  object-centered audio event. `nox_bot_engine_play_phoneme()` reuses this pair
+  for Bot-Script `AudioEvent` spell chants, mapping the male NPC directional
+  phonemes plus the reference Inversion-specific `FemaleSpellPhonemeUpRight`.
+  Wizard/Conjurer policy owns only the deterministic three-frame chant scheduler;
+  the sound system and final spell/summon mechanics remain native.
+  `nox_bot_engine_owner_player()` follows the same bounded native owner chain
+  used by the other bot world queries, while
   `nox_bot_engine_enable_monster_alert()` keeps the recovered status mutation and
   `sub_4E8020` update notification behind the adapter boundary.
 
