@@ -3,6 +3,7 @@
 #endif
 
 #include "proto.h"
+#include <stdlib.h>
 
 extern int g_fullscreen;
 extern float draw_gamma;
@@ -134,6 +135,33 @@ int sub_401060()
 {
   return *(_DWORD *)&byte_5D4594[264];
 }
+
+static int nox_manual_spell_timeout_ticks(const char *value, int tick_rate)
+{
+  char *end;
+  double seconds;
+  double ticks;
+
+  if ( !value || !*value || tick_rate <= 0 )
+    return tick_rate > 0 ? tick_rate >> 1 : 0;
+
+  end = 0;
+  seconds = strtod(value, &end);
+  if ( end == value || *end || seconds < 0.0 )
+    return tick_rate >> 1;
+
+  ticks = seconds * tick_rate;
+  if ( ticks > 2147483647.0 )
+    return 2147483647;
+  return (int)ticks;
+}
+
+#ifdef NOX_MANUAL_SPELL_INPUT_TEST
+int nox_test_manual_spell_timeout_ticks(const char *value, int tick_rate)
+{
+  return nox_manual_spell_timeout_ticks(value, tick_rate);
+}
+#endif
 
 //----- (00401070) --------------------------------------------------------
 size_t *__cdecl sub_401070(int a1, int a2)
@@ -429,7 +457,8 @@ LABEL_45:
   NOX_INIT_LOG("step 023: sub_409F80(32)");
   sub_409F80(32);
 
-  *(_DWORD *)&byte_5D4594[2614260] = *(_DWORD *)&byte_5D4594[2649704] >> 1;
+  *(_DWORD *)&byte_5D4594[2614260] = nox_manual_spell_timeout_ticks(
+      getenv("NOX_MANUAL_CAST_TIMEOUT"), *(_DWORD *)&byte_5D4594[2649704]);
 
   NOX_INIT_LOG("step 024: sub_4093A0()");
   sub_4093A0();
@@ -39647,6 +39676,49 @@ static int nox_direct_spell_set_action_id(const char *name)
   return -1;
 }
 
+static const char *nox_manual_spell_action_name(int action)
+{
+  switch ( action )
+  {
+    case 18: return "PhonemeUN";
+    case 19: return "PhonemeZO";
+    case 20: return "PhonemeET";
+    case 21: return "PhonemeCHA";
+    case 22: return "PhonemeIN";
+    case 23: return "PhonemeKA";
+    case 24: return "PhonemeDO";
+    case 25: return "PhonemeRO";
+    case 26: return "SpellEnd";
+    default: return 0;
+  }
+}
+
+static int nox_manual_spell_action_id(const char *name)
+{
+  int action;
+
+  if ( !name )
+    return -1;
+  for ( action = 18; action <= 26; ++action )
+  {
+    if ( !_strcmpi(name, nox_manual_spell_action_name(action)) )
+      return action;
+  }
+  return -1;
+}
+
+#ifdef NOX_MANUAL_SPELL_INPUT_TEST
+const char *nox_test_manual_spell_action_name(int action)
+{
+  return nox_manual_spell_action_name(action);
+}
+
+int nox_test_manual_spell_action_id(const char *name)
+{
+  return nox_manual_spell_action_id(name);
+}
+#endif
+
 //----- (0042CDF0) --------------------------------------------------------
 _DWORD *__cdecl sub_42CDF0(FILE *a1)
 {
@@ -39708,9 +39780,14 @@ _DWORD *__cdecl sub_42CDF0(FILE *a1)
         {
           {
             const char *direct_spell_set_action = nox_direct_spell_set_action_name(*v12);
+            const char *manual_spell_action = nox_manual_spell_action_name(*v12);
             if ( direct_spell_set_action )
             {
               fprintf(v2, (const char *)&byte_587000[80180], direct_spell_set_action);
+            }
+            else if ( manual_spell_action )
+            {
+              fprintf(v2, (const char *)&byte_587000[80180], manual_spell_action);
             }
             else if ( *(_DWORD *)&byte_587000[75880] )
             {
@@ -39842,13 +39919,15 @@ LABEL_21:
             if ( *v11 != 43 )
             {
               int direct_spell_set_action = nox_direct_spell_set_action_id(v11);
-              if ( direct_spell_set_action >= 0 )
+              int manual_spell_action = nox_manual_spell_action_id(v11);
+              if ( direct_spell_set_action >= 0 || manual_spell_action >= 0 )
               {
                 v3 = (_DWORD *)v17;
                 v15 = *(_DWORD *)(v17 + 68);
                 if ( v15 == 8 )
                   goto LABEL_38;
-                *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action;
+                *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action >= 0
+                  ? direct_spell_set_action : manual_spell_action;
                 ++*(_DWORD *)(v17 + 68);
               }
               else

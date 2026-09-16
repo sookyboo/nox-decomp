@@ -153,6 +153,37 @@ if (BUILD_TESTING)
         target_link_options(cheat_spell_test PRIVATE -m32)
     endif()
     add_test(NAME cheat_spell_test COMMAND cheat_spell_test)
+    add_executable(manual_spell_input_test
+        tests/manual_spell_input_test.c
+        src/GAME1.c
+    )
+    target_include_directories(manual_spell_input_test PRIVATE
+        src/external/include
+    )
+    target_compile_definitions(manual_spell_input_test PRIVATE
+        NOX_MANUAL_SPELL_INPUT_TEST
+    )
+    if (MSVC)
+        target_compile_options(manual_spell_input_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(manual_spell_input_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(manual_spell_input_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(manual_spell_input_test PRIVATE -m32)
+        target_link_options(manual_spell_input_test PRIVATE -m32)
+    endif()
+    add_test(NAME manual_spell_input_test COMMAND manual_spell_input_test)
     add_executable(gamepad_radial_test
         tests/gamepad_radial_test.c
         src/input.c
