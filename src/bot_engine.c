@@ -33,6 +33,7 @@
 #define NOX_OBJECT_STATE_FLAGS_OFFSET 16
 #define NOX_OBJECT_STATE_REMOVED 0x20u
 #define NOX_OBJECT_CLASS_CTF_FLAG 0x10000000u
+#define NOX_CTF_FLAG_HOME_TOLERANCE_OFFSET 10160
 
 #define NOX_GAME_FRAME_OFFSET 2598000
 #define NOX_GAME_FPS_OFFSET 2649704
@@ -427,6 +428,75 @@ int nox_bot_engine_carrying_ctf_flag(int object)
     return 0;
 }
 
+static int nox_bot_engine_ctf_flag_matches_team(int object, int flag, int own_team)
+{
+    int same_team;
+
+    if (!object || !flag ||
+        !(*(uint32_t *)(flag + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_CLASS_CTF_FLAG))
+        return 0;
+    same_team = sub_4EC520(object, flag) != 0;
+    return own_team ? same_team : !same_team;
+}
+
+int nox_bot_engine_ctf_flag_world(int object, int own_team)
+{
+    int flag;
+
+    if (!object || !nox_bot_engine_is_ctf())
+        return 0;
+    for (flag = sub_4DA790(); flag; flag = sub_4DA7A0(flag)) {
+        if ((*(unsigned char *)(flag + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED) ||
+            !nox_bot_engine_ctf_flag_matches_team(object, flag, own_team))
+            continue;
+        return flag;
+    }
+    return 0;
+}
+
+int nox_bot_engine_ctf_flag_carrier(int object, int own_team)
+{
+    int carrier;
+    int item;
+
+    if (!object || !nox_bot_engine_is_ctf())
+        return 0;
+    for (carrier = sub_4DA790(); carrier; carrier = sub_4DA7A0(carrier)) {
+        if (!(*(unsigned char *)(carrier + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_PLAYER_CATEGORY) ||
+            (*(unsigned char *)(carrier + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED))
+            continue;
+        for (item = *(int *)(carrier + NOX_OBJECT_INVENTORY_HEAD_OFFSET); item;
+             item = *(int *)(item + NOX_OBJECT_INVENTORY_NEXT_OFFSET)) {
+            if (nox_bot_engine_ctf_flag_matches_team(object, item, own_team))
+                return carrier;
+        }
+    }
+    return 0;
+}
+
+int nox_bot_engine_ctf_flag_at_home(int flag)
+{
+    double tolerance;
+    float dx;
+    float dy;
+    int update_data;
+
+    if (!flag ||
+        !(*(uint32_t *)(flag + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_CLASS_CTF_FLAG))
+        return 0;
+    update_data = *(int *)(flag + NOX_OBJECT_RUNTIME_OFFSET);
+    if (!update_data)
+        return 0;
+    tolerance = *(double *)&byte_581450[NOX_CTF_FLAG_HOME_TOLERANCE_OFFSET];
+    dx = *(float *)(flag + NOX_OBJECT_X_OFFSET) - *(float *)update_data;
+    dy = *(float *)(flag + NOX_OBJECT_Y_OFFSET) - *(float *)(update_data + 4);
+    if (dx < 0.0f)
+        dx = -dx;
+    if (dy < 0.0f)
+        dy = -dy;
+    return (double)dx <= tolerance && (double)dy <= tolerance;
+}
+
 int nox_bot_engine_inventory_item(int object, const char *type_name)
 {
     int item;
@@ -581,6 +651,32 @@ void nox_bot_engine_walk_to(int object, float x, float y)
     memcpy(&x_bits, &x, sizeof(x_bits));
     memcpy(&y_bits, &y, sizeof(y_bits));
     sub_514110(object, x_bits, y_bits);
+    nox_bot_engine_end_monster_view(object, morphed);
+}
+
+void nox_bot_engine_attack_target(int object, int target)
+{
+    int morphed;
+
+    if (!target || !nox_bot_engine_begin_monster_view(object, &morphed))
+        return;
+    sub_515D30(object, target);
+    nox_bot_engine_end_monster_view(object, morphed);
+}
+
+void nox_bot_engine_guard_position(int object, float x, float y, float radius)
+{
+    int morphed;
+    int args[5];
+
+    if (!nox_bot_engine_begin_monster_view(object, &morphed))
+        return;
+    memcpy(&args[0], &x, sizeof(x));
+    memcpy(&args[1], &y, sizeof(y));
+    memcpy(&args[2], &x, sizeof(x));
+    memcpy(&args[3], &y, sizeof(y));
+    memcpy(&args[4], &radius, sizeof(radius));
+    sub_515680(object, (int)(uintptr_t)args);
     nox_bot_engine_end_monster_view(object, morphed);
 }
 

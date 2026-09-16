@@ -18,6 +18,162 @@
 #define NOX_BOT_WARRIOR_CHAKRAM_COOLDOWN_SECONDS 10u
 #define NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION 0.16f
 #define NOX_BOT_WARRIOR_DEFAULT_AGGRESSION 0.83f
+#define NOX_BOT_WARRIOR_CTF_GUARD_RADIUS 20.0f
+#define NOX_BOT_WARRIOR_TELEPORT_WAKE "TeleportWake"
+#define NOX_BOT_WARRIOR_TELEPORT_WAKE_RANGE 100.0f
+
+
+static int nox_bot_warrior_in_range(
+    float x1, float y1, float x2, float y2, float radius)
+{
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+
+    return dx * dx + dy * dy <= radius * radius;
+}
+
+static int nox_bot_warrior_ctf_attack_or_defend(int object)
+{
+    float x;
+    float y;
+    int enemy_flag;
+    int enemy_target;
+    int own_flag;
+    int own_target;
+
+    if (!nox_bot_engine_is_ctf())
+        return 0;
+    own_flag = nox_bot_engine_ctf_flag_world(object, 1);
+    enemy_flag = nox_bot_engine_ctf_flag_world(object, 0);
+    own_target = own_flag ? own_flag : nox_bot_engine_ctf_flag_carrier(object, 1);
+    enemy_target = enemy_flag ? enemy_flag : nox_bot_engine_ctf_flag_carrier(object, 0);
+
+    /* Go TeamTank: a flag carrier guards the current own-flag/base position. */
+    if (nox_bot_engine_carrying_ctf_flag(object)) {
+        if (!own_target)
+            return 0;
+        nox_bot_engine_position(own_target, &x, &y);
+        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION);
+        nox_bot_engine_guard_position(object, x, y, NOX_BOT_WARRIOR_CTF_GUARD_RADIUS);
+        return 1;
+    }
+
+    /* Own flag present: attack the enemy flag, or escort its native carrier. */
+    if (own_flag) {
+        if (!enemy_target)
+            return 0;
+        nox_bot_engine_position(enemy_target, &x, &y);
+        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
+        nox_bot_engine_walk_to(object, x, y);
+        return 1;
+    }
+
+    /* Both flags carried: pursue the native carrier of our own flag. */
+    if (!enemy_flag && own_target) {
+        nox_bot_engine_position(own_target, &x, &y);
+        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
+        nox_bot_engine_walk_to(object, x, y);
+        return 1;
+    }
+    return 0;
+}
+
+static void nox_bot_warrior_ctf_walk_to_own_flag(int object)
+{
+    float x;
+    float y;
+    int own_flag;
+
+    if (!nox_bot_engine_is_ctf())
+        return;
+    own_flag = nox_bot_engine_ctf_flag_world(object, 1);
+    if (own_flag && !nox_bot_engine_ctf_flag_at_home(own_flag)) {
+        nox_bot_engine_position(own_flag, &x, &y);
+        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_POTION_SEEK_AGGRESSION);
+        nox_bot_engine_walk_to(object, x, y);
+        return;
+    }
+    nox_bot_warrior_ctf_attack_or_defend(object);
+}
+
+static void nox_bot_warrior_start_teleport_wake_pursuit(
+    int object, nox_bot_policy_state *state)
+{
+    float self_x;
+    float self_y;
+    float wake_x;
+    float wake_y;
+    uint32_t event_frame;
+    int target;
+    int wake;
+
+    if (!nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT))
+        return;
+    event_frame = nox_bot_policy_event_frame(state, NOX_BOT_EVENT_LOST_SIGHT);
+    if (state->warrior.teleport_wake_event_seen &&
+        state->warrior.teleport_wake_event_frame == event_frame)
+        return;
+    state->warrior.teleport_wake_event_seen = 1;
+    state->warrior.teleport_wake_event_frame = event_frame;
+    state->warrior.lost_sight_ctf_handled = 0;
+    state->warrior.teleport_wake_tracking = 0;
+    state->warrior.teleport_wake_target = 0;
+
+    target = nox_bot_policy_event_object(state, NOX_BOT_EVENT_LOST_SIGHT);
+    if (!target)
+        target = nox_bot_engine_current_target(object);
+    wake = nox_bot_engine_find_nearest_type(
+        object, NOX_BOT_WARRIOR_TELEPORT_WAKE, 0.0f);
+    if (!wake)
+        return;
+    nox_bot_engine_position(object, &self_x, &self_y);
+    nox_bot_engine_position(wake, &wake_x, &wake_y);
+
+    /*
+     * The reference calls Attack first when the wake is already >100 units,
+     * then immediately replaces that action with WalkTo(wake). Preserve that
+     * target side effect, but only keep polling when the wake starts nearby.
+     */
+    if (!nox_bot_warrior_in_range(
+            self_x, self_y, wake_x, wake_y, NOX_BOT_WARRIOR_TELEPORT_WAKE_RANGE)) {
+        if (target)
+            nox_bot_engine_attack_target(object, target);
+    } else {
+        state->warrior.teleport_wake_tracking = 1;
+        state->warrior.teleport_wake_target = target;
+        state->warrior.teleport_wake_x = wake_x;
+        state->warrior.teleport_wake_y = wake_y;
+    }
+    nox_bot_engine_walk_to(object, wake_x, wake_y);
+}
+
+static void nox_bot_warrior_update_teleport_wake_pursuit(
+    int object, nox_bot_policy_state *state)
+{
+    float self_x;
+    float self_y;
+    int target;
+
+    if (!state->warrior.teleport_wake_tracking)
+        return;
+    target = state->warrior.teleport_wake_target;
+    if (!target || nox_bot_engine_health(target) <= 0) {
+        state->warrior.teleport_wake_tracking = 0;
+        state->warrior.teleport_wake_target = 0;
+        return;
+    }
+    nox_bot_engine_position(object, &self_x, &self_y);
+    if (nox_bot_warrior_in_range(
+            self_x,
+            self_y,
+            state->warrior.teleport_wake_x,
+            state->warrior.teleport_wake_y,
+            NOX_BOT_WARRIOR_TELEPORT_WAKE_RANGE))
+        return;
+    nox_bot_engine_attack_target(object, target);
+    state->warrior.teleport_wake_tracking = 0;
+    state->warrior.teleport_wake_target = 0;
+}
 
 
 static int nox_bot_warrior_pickup_type(int object, const char *type_name, int equip_kind)
@@ -390,14 +546,37 @@ static void nox_bot_warrior_process_end_waypoint(
 {
     if (!nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT))
         return;
-    if (state->warrior.seeking_potion) {
-        state->warrior.seeking_potion = 0;
-        nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
-        /* CTF objective selection is a separate policy tier and remains pending. */
-        if (!nox_bot_engine_is_ctf())
-            nox_bot_engine_hunt(object);
-    }
+    state->warrior.seeking_potion = 0;
+    nox_bot_engine_set_aggression(object, NOX_BOT_WARRIOR_DEFAULT_AGGRESSION);
+    if (nox_bot_engine_is_ctf())
+        nox_bot_warrior_ctf_attack_or_defend(object);
+    else
+        nox_bot_engine_hunt(object);
     nox_bot_policy_clear_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT);
+}
+
+static void nox_bot_warrior_process_lost_sight(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    uint32_t ctf_deadline;
+
+    if (!nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT))
+        return;
+    ctf_deadline = nox_bot_policy_event_frame(state, NOX_BOT_EVENT_LOST_SIGHT) +
+        NOX_BOT_LOST_SIGHT_DELAY;
+    if (nox_bot_engine_is_ctf() && !state->warrior.lost_sight_ctf_handled &&
+        nox_bot_reaction_ready(frame, ctf_deadline)) {
+        nox_bot_warrior_ctf_walk_to_own_flag(object);
+        state->warrior.lost_sight_ctf_handled = 1;
+    }
+    if (!nox_bot_warrior_event_due(
+            state, NOX_BOT_EVENT_LOST_SIGHT, frame, NOX_BOT_LOST_SIGHT_DELAY))
+        return;
+    if (nox_bot_engine_ability_ready(object, NOX_BOT_ABILITY_EYE_OF_THE_WOLF))
+        nox_bot_engine_execute_ability(object, NOX_BOT_ABILITY_EYE_OF_THE_WOLF);
+    state->warrior.teleport_wake_event_seen = 0;
+    state->warrior.teleport_wake_event_frame = 0;
+    nox_bot_policy_clear_event(state, NOX_BOT_EVENT_LOST_SIGHT);
 }
 
 static void nox_bot_warrior_track_harpoon_charge(
@@ -506,6 +685,8 @@ void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t fr
     }
 
     nox_bot_warrior_use_potion(object);
+    nox_bot_warrior_start_teleport_wake_pursuit(object, state);
+    nox_bot_warrior_update_teleport_wake_pursuit(object, state);
     if (!nox_bot_warrior_update_chakram_attack(object, state)) {
         nox_bot_warrior_loot_scan(object, state, frame);
         nox_bot_warrior_weapon_preference(object, state, frame);
@@ -548,9 +729,7 @@ void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t fr
             nox_bot_policy_clear_event(state, NOX_BOT_EVENT_ENEMY_HEARD);
     }
 
-    if (nox_bot_warrior_event_due(
-            state, NOX_BOT_EVENT_LOST_SIGHT, frame, NOX_BOT_LOST_SIGHT_DELAY))
-        nox_bot_warrior_try_eye(object, state, NOX_BOT_EVENT_LOST_SIGHT);
+    nox_bot_warrior_process_lost_sight(object, state, frame);
 
     if (!state->warrior.chakram_attack_active) {
         nox_bot_warrior_try_collision_charge(object, state, frame);

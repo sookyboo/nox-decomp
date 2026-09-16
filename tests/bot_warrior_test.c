@@ -54,6 +54,24 @@ static float last_walk_y;
 static int hunt_calls;
 static int ctf_result;
 static int carrying_flag_result;
+static int teleport_wake_item;
+static float teleport_wake_x;
+static float teleport_wake_y;
+static int attack_target_calls;
+static int last_attack_target;
+static int guard_calls;
+static float last_guard_x;
+static float last_guard_y;
+static float last_guard_radius;
+static int ctf_own_flag_world;
+static int ctf_enemy_flag_world;
+static int ctf_own_flag_carrier;
+static int ctf_enemy_flag_carrier;
+static int ctf_own_flag_at_home;
+static float ctf_own_x;
+static float ctf_own_y;
+static float ctf_enemy_x;
+static float ctf_enemy_y;
 
 int nox_bot_engine_ability_ready(int object, int ability)
 {
@@ -139,6 +157,8 @@ int nox_bot_engine_find_nearest_type(
     (void)max_distance;
     if (nearest_type_item && strcmp(type_name, "RedPotion") == 0)
         return nearest_type_item;
+    if (teleport_wake_item && strcmp(type_name, "TeleportWake") == 0)
+        return teleport_wake_item;
     return 0;
 }
 
@@ -243,6 +263,15 @@ void nox_bot_engine_position(int object, float *x, float *y)
     } else if (object == nearest_type_item) {
         px = nearest_type_x;
         py = nearest_type_y;
+    } else if (object == teleport_wake_item) {
+        px = teleport_wake_x;
+        py = teleport_wake_y;
+    } else if (object == ctf_own_flag_world || object == ctf_own_flag_carrier) {
+        px = ctf_own_x;
+        py = ctf_own_y;
+    } else if (object == ctf_enemy_flag_world || object == ctf_enemy_flag_carrier) {
+        px = ctf_enemy_x;
+        py = ctf_enemy_y;
     } else {
         px = target_x;
         py = target_y;
@@ -272,12 +301,45 @@ int nox_bot_engine_carrying_ctf_flag(int object)
     return carrying_flag_result;
 }
 
+int nox_bot_engine_ctf_flag_world(int object, int own_team)
+{
+    (void)object;
+    return own_team ? ctf_own_flag_world : ctf_enemy_flag_world;
+}
+
+int nox_bot_engine_ctf_flag_carrier(int object, int own_team)
+{
+    (void)object;
+    return own_team ? ctf_own_flag_carrier : ctf_enemy_flag_carrier;
+}
+
+int nox_bot_engine_ctf_flag_at_home(int flag)
+{
+    return flag == ctf_own_flag_world && ctf_own_flag_at_home;
+}
+
 void nox_bot_engine_walk_to(int object, float x, float y)
 {
     (void)object;
     ++walk_calls;
     last_walk_x = x;
     last_walk_y = y;
+}
+
+void nox_bot_engine_attack_target(int object, int target)
+{
+    (void)object;
+    ++attack_target_calls;
+    last_attack_target = target;
+}
+
+void nox_bot_engine_guard_position(int object, float x, float y, float radius)
+{
+    (void)object;
+    ++guard_calls;
+    last_guard_x = x;
+    last_guard_y = y;
+    last_guard_radius = radius;
 }
 
 void nox_bot_engine_hunt(int object)
@@ -349,6 +411,24 @@ static void reset_case(nox_bot_policy_state *state)
     hunt_calls = 0;
     ctf_result = 0;
     carrying_flag_result = 0;
+    teleport_wake_item = 0;
+    teleport_wake_x = 0.0f;
+    teleport_wake_y = 0.0f;
+    attack_target_calls = 0;
+    last_attack_target = 0;
+    guard_calls = 0;
+    last_guard_x = 0.0f;
+    last_guard_y = 0.0f;
+    last_guard_radius = 0.0f;
+    ctf_own_flag_world = 0;
+    ctf_enemy_flag_world = 0;
+    ctf_own_flag_carrier = 0;
+    ctf_enemy_flag_carrier = 0;
+    ctf_own_flag_at_home = 0;
+    ctf_own_x = 0.0f;
+    ctf_own_y = 0.0f;
+    ctf_enemy_x = 0.0f;
+    ctf_enemy_y = 0.0f;
 }
 
 static int test_eye_reaction_delay(void)
@@ -870,6 +950,141 @@ static int test_non_ctf_potion_seek_and_waypoint_resume(void)
     return 0;
 }
 
+static int test_lost_sight_teleport_wake_pursuit(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    teleport_wake_item = 66;
+    teleport_wake_x = 50.0f;
+    teleport_wake_y = 0.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_LOST_SIGHT, 44, 3600);
+    nox_bot_warrior_update(1, &state, 3600);
+    if (!state.warrior.teleport_wake_tracking ||
+        state.warrior.teleport_wake_target != 44 || walk_calls != 1 ||
+        last_walk_x != 50.0f || last_walk_y != 0.0f || attack_target_calls)
+        return 160;
+
+    self_x = 151.0f;
+    nox_bot_warrior_update(1, &state, 3601);
+    if (state.warrior.teleport_wake_tracking || attack_target_calls != 1 ||
+        last_attack_target != 44)
+        return 161;
+
+    reset_case(&state);
+    teleport_wake_item = 67;
+    teleport_wake_x = 150.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_LOST_SIGHT, 45, 3650);
+    nox_bot_warrior_update(1, &state, 3650);
+    if (state.warrior.teleport_wake_tracking || attack_target_calls != 1 ||
+        last_attack_target != 45 || walk_calls != 1 || last_walk_x != 150.0f)
+        return 162;
+    return 0;
+}
+
+static int test_ctf_end_waypoint_strategy(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ctf_result = 1;
+    ctf_own_flag_world = 70;
+    ctf_enemy_flag_world = 71;
+    ctf_enemy_x = 300.0f;
+    ctf_enemy_y = -20.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 3700);
+    nox_bot_warrior_update(1, &state, 3700);
+    if (walk_calls != 1 || guard_calls || last_walk_x != 300.0f ||
+        last_walk_y != -20.0f || last_aggression != 0.83f)
+        return 170;
+
+    reset_case(&state);
+    ctf_result = 1;
+    carrying_flag_result = 1;
+    ctf_own_flag_world = 70;
+    ctf_own_x = 20.0f;
+    ctf_own_y = 30.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 3710);
+    nox_bot_warrior_update(1, &state, 3710);
+    if (guard_calls != 1 || walk_calls || last_guard_x != 20.0f ||
+        last_guard_y != 30.0f || last_guard_radius != 20.0f ||
+        last_aggression != 0.16f)
+        return 171;
+
+    /* Reference TeamBase follows the current own flag, including its carrier. */
+    reset_case(&state);
+    ctf_result = 1;
+    carrying_flag_result = 1;
+    ctf_own_flag_carrier = 72;
+    ctf_own_x = -25.0f;
+    ctf_own_y = 35.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 3715);
+    nox_bot_warrior_update(1, &state, 3715);
+    if (guard_calls != 1 || walk_calls || last_guard_x != -25.0f ||
+        last_guard_y != 35.0f || last_guard_radius != 20.0f ||
+        last_aggression != 0.16f)
+        return 172;
+
+    reset_case(&state);
+    ctf_result = 1;
+    ctf_own_flag_carrier = 72;
+    ctf_enemy_flag_carrier = 73;
+    ctf_own_x = -40.0f;
+    ctf_own_y = 12.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 3720);
+    nox_bot_warrior_update(1, &state, 3720);
+    if (walk_calls != 1 || last_walk_x != -40.0f || last_walk_y != 12.0f ||
+        last_aggression != 0.83f)
+        return 173;
+
+    reset_case(&state);
+    ctf_result = 1;
+    ctf_own_flag_carrier = 72;
+    ctf_enemy_flag_world = 71;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_END_OF_WAYPOINT, 0, 3730);
+    nox_bot_warrior_update(1, &state, 3730);
+    if (walk_calls || guard_calls)
+        return 174;
+    return 0;
+}
+
+static int test_ctf_lost_sight_returns_dropped_own_flag(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ctf_result = 1;
+    ctf_own_flag_world = 70;
+    ctf_enemy_flag_world = 71;
+    ctf_own_flag_at_home = 0;
+    ctf_own_x = 40.0f;
+    ctf_own_y = 45.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_LOST_SIGHT, 44, 3800);
+    nox_bot_warrior_update(1, &state, 3814);
+    if (walk_calls)
+        return 180;
+    nox_bot_warrior_update(1, &state, 3815);
+    if (walk_calls != 1 || last_walk_x != 40.0f || last_walk_y != 45.0f ||
+        last_aggression != 0.16f ||
+        !nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_LOST_SIGHT))
+        return 181;
+    nox_bot_warrior_update(1, &state, 3845);
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_LOST_SIGHT))
+        return 182;
+
+    reset_case(&state);
+    ctf_result = 1;
+    ctf_own_flag_world = 70;
+    ctf_enemy_flag_world = 71;
+    ctf_own_flag_at_home = 1;
+    ctf_enemy_x = 200.0f;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_LOST_SIGHT, 44, 3900);
+    nox_bot_warrior_update(1, &state, 3915);
+    if (walk_calls != 1 || last_walk_x != 200.0f || last_aggression != 0.83f)
+        return 183;
+    return 0;
+}
+
 static int test_death_clears_warrior_tactical_state(void)
 {
     nox_bot_policy_state state;
@@ -942,6 +1157,15 @@ int main(void)
     if (result)
         return result;
     result = test_non_ctf_potion_seek_and_waypoint_resume();
+    if (result)
+        return result;
+    result = test_lost_sight_teleport_wake_pursuit();
+    if (result)
+        return result;
+    result = test_ctf_end_waypoint_strategy();
+    if (result)
+        return result;
+    result = test_ctf_lost_sight_returns_dropped_own_flag();
     if (result)
         return result;
     return test_death_clears_warrior_tactical_state();
