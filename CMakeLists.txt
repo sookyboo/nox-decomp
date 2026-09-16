@@ -3,6 +3,7 @@ project (nox-port)
 
 option (USE_ASAN "Enable address sanitizer" OFF)
 option (USE_EUD_COMPAT "Build and enable Panic EUD/MemoryHack compatibility" OFF)
+option (USE_BOT_SUPPORT "Build native player bot support" OFF)
 option (USE_EUD_MAP_TESTS "Build temporary external EUD map smoke tests" OFF)
 option (USE_MANUAL_SPELL_CASTING "Enable manual spell casting input" ON)
 set (EUD_MAP_PROJECT_DIR "${PROJECT_SOURCE_DIR}/build-deps/eud-maps-project" CACHE PATH
@@ -38,6 +39,62 @@ if (BUILD_TESTING)
     endif()
     add_test(NAME abi_cross_test COMMAND abi_cross_test)
     endif()
+    if (USE_BOT_SUPPORT)
+        add_executable(bot_policy_test
+            tests/bot_policy_test.c
+            src/bot_policy.c
+        )
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_policy_test PRIVATE -m32)
+            target_link_options(bot_policy_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_policy_test COMMAND bot_policy_test)
+        add_executable(bot_engine_test
+            tests/bot_engine_test.c
+            src/bot_engine.c
+        )
+        if (NOT MSVC)
+            target_compile_options(bot_engine_test PRIVATE
+                -g
+                -fno-strict-aliasing
+                -fno-strict-overflow
+                -fshort-wchar
+                -O0
+                -fcommon
+                -Wno-error=int-conversion
+                -Wno-error=incompatible-pointer-types
+                -ffunction-sections
+            )
+            target_link_options(bot_engine_test PRIVATE -Wl,--gc-sections)
+        endif()
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_engine_test PRIVATE -m32)
+            target_link_options(bot_engine_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_engine_test COMMAND bot_engine_test)
+        add_executable(bot_runtime_test
+            tests/bot_runtime_test.c
+            src/bot_runtime.c
+            src/bot_policy.c
+        )
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_runtime_test PRIVATE -m32)
+            target_link_options(bot_runtime_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_runtime_test COMMAND bot_runtime_test)
+
+        add_executable(bot_warrior_test
+            tests/bot_warrior_test.c
+            src/bot_warrior.c
+            src/bot_policy.c
+        )
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_warrior_test PRIVATE -m32)
+            target_link_options(bot_warrior_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_warrior_test COMMAND bot_warrior_test)
+    endif()
+
     add_executable(render_arch_test tests/render_arch_test.c)
     target_compile_definitions(render_arch_test PRIVATE SDL_MAIN_HANDLED)
     target_link_libraries(render_arch_test PRIVATE SDL2)

@@ -3,6 +3,9 @@
 #endif
 #include "proto.h"
 #include "netextras.h"
+#ifdef NOX_BOT_SUPPORT
+#include "bot_runtime.h"
+#endif
 
 //-------------------------------------------------------------------------
 // Function declarations
@@ -1248,7 +1251,12 @@ int *__cdecl sub_546850(int a1)
 
   v1 = *(_DWORD *)(a1 + 748);
   if ( *(_DWORD *)&byte_5D4594[2598000] - *(_DWORD *)(v1 + 24 * *(char *)(v1 + 544) + 556) == *(__int16 *)(v1 + 1220) )
+  {
+#ifdef NOX_BOT_SUPPORT
+    nox_bot_runtime_event(a1, NOX_BOT_EVENT_LOOKING_FOR_ENEMY, 0);
+#endif
     sub_502490((int *)(v1 + 1224), 0, a1);
+  }
   if ( !(*(_DWORD *)(a1 + 16) & 0x1000000) )
     goto LABEL_23;
   if ( sub_5343C0(a1) || sub_534390(a1) )
@@ -1954,6 +1962,9 @@ LABEL_8:
             sub_50A260(v1, 6);
           if ( v44 )
             sub_501960(v44[13], v1, 0, 0);
+#ifdef NOX_BOT_SUPPORT
+          nox_bot_runtime_event(v1, NOX_BOT_EVENT_RETREAT, 0);
+#endif
           LOBYTE(v3) = (unsigned int)sub_502490((int *)(v2 + 1256), 0, v1);
           return (char)v3;
         }
