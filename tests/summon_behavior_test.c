@@ -8,7 +8,9 @@ unsigned char byte_587000[400000];
 static uint8_t summoned[900];
 static uint8_t summoned_state[1500];
 static uint8_t owner_fixture[800] __attribute__((aligned(64)));
-static uint8_t template_fixture[100] __attribute__((aligned(64)));
+/* The production field carries both a pointer and flag bits. Keep the
+ * fixture address clear in those bits so ASLR cannot change the test path. */
+static uint8_t template_fixture[100] __attribute__((aligned(65536)));
 static uint8_t owner_state[1200] __attribute__((aligned(64)));
 static uint8_t owner_data[4200] __attribute__((aligned(64)));
 static uint8_t action_fixture[100] __attribute__((aligned(64)));

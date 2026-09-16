@@ -9,10 +9,11 @@
 #endif ()
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" NOX_ARCH)
 
-if (NOX_ARCH MATCHES "^(aarch64|arm64)$")
+if (NOX_ARCH MATCHES "^(aarch64|arm64)$" AND NOT NOX_ALLOW_64BIT)
     message(FATAL_ERROR
-        "64-bit ARM/x86 builds are not yet supported. "
-        "Please build with a 32-bit ARM target/toolchain instead."
+        "64-bit ARM builds are not yet supported by default. "
+        "Please build with a 32-bit ARM target/toolchain instead, or set "
+        "NOX_ALLOW_64BIT=ON to experiment with native 64-bit support."
     )
 endif()
 if (MSVC)
@@ -21,7 +22,7 @@ else ()
     add_compile_options(-g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0)
     add_compile_options(-fcommon -Wno-error=int-conversion -Wno-error=incompatible-pointer-types)
 
-    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$" AND NOT NOX_ALLOW_64BIT)
         add_compile_options(-m32)
     endif()
 
@@ -197,7 +198,7 @@ if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
         target_compile_options(eud_compat_memory_test PRIVATE -ffunction-sections)
         target_link_options(eud_compat_memory_test PRIVATE -Wl,--gc-sections)
         target_link_libraries(eud_compat_memory_test PRIVATE nox_test_runtime)
-        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$" AND NOT NOX_ALLOW_64BIT)
             target_compile_options(eud_compat_memory_test PRIVATE -m32)
             target_link_options(eud_compat_memory_test PRIVATE -m32)
         endif()
@@ -255,7 +256,7 @@ if (BUILD_TESTING AND USE_EUD_MAP_TESTS)
     )
 endif()
 
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$" AND NOT NOX_ALLOW_64BIT)
     target_link_options(out PRIVATE -m32)
 endif()
 
