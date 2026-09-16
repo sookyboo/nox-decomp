@@ -626,6 +626,15 @@ static int test_berserker_charge_event_priority(void)
     nox_bot_warrior_update(1, &state, 1030);
     if (execute_calls != 1 || executed_ability != NOX_BOT_ABILITY_BERSERKER_CHARGE)
         return 54;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    ctf_result = 1;
+    carrying_flag_result = 1;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_CHANGE_FOCUS, 44, 1100);
+    nox_bot_warrior_update(1, &state, 1130);
+    if (execute_calls)
+        return 55;
     return 0;
 }
 

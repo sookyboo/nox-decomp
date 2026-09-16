@@ -78,6 +78,8 @@ int nox_bot_engine_find_nearest_type(
     int object, const char *type_name, float max_distance);
 int nox_bot_engine_find_nearest_visible_type(
     int object, const char *type_name, float max_distance);
+int nox_bot_engine_find_nearest_enemy_owned_type(
+    int object, const char *type_name, float max_distance);
 int nox_bot_engine_owned_type_count(int object, const char *type_name);
 int nox_bot_engine_pickup_item(int object, int item);
 int nox_bot_engine_equip_weapon(int object, int item);
