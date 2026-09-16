@@ -27,6 +27,8 @@ static int target_visible;
 static int ctf_mode;
 static int ctf_tank;
 static int enemy_deathball;
+static int any_deathball;
+static int target_missile;
 static int cast_calls;
 static int cast_kind;
 static int cast_target;
@@ -197,11 +199,25 @@ int nox_bot_team_is_ctf_tank(int object)
     return object == SELF && ctf_mode && ctf_tank;
 }
 
+int nox_bot_engine_find_nearest_world_type(
+    int object, const char *type_name, float max_distance)
+{
+    return object == SELF && (any_deathball || enemy_deathball) && max_distance >= 500.0f &&
+        strcmp(type_name, "DeathBall") == 0 ? 900 : 0;
+}
+
 int nox_bot_engine_find_nearest_enemy_owned_type(
     int object, const char *type_name, float max_distance)
 {
     return object == SELF && enemy_deathball && max_distance >= 500.0f &&
         strcmp(type_name, "DeathBall") == 0 ? 900 : 0;
+}
+
+int nox_bot_engine_find_nearest_missile_owned_by(
+    int object, int owner_target, float max_distance)
+{
+    return object == SELF && owner_target == TARGET && target_missile &&
+        max_distance >= 500.0f ? 901 : 0;
 }
 
 int nox_bot_engine_find_nearest_visible_type(
@@ -275,6 +291,8 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     ctf_mode = 0;
     ctf_tank = 0;
     enemy_deathball = 0;
+    any_deathball = 0;
+    target_missile = 0;
     cast_calls = 0;
     cast_kind = 0;
     cast_target = 0;
@@ -477,6 +495,49 @@ static int test_hostile_deathball_counterspell_priority(void)
     return 0;
 }
 
+
+static int test_generic_target_missile_inversion(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 380);
+
+    if (!state)
+        return 140;
+    state->wizard.target = TARGET;
+    target_missile = 1;
+    nox_bot_wizard_update(SELF, state, 380);
+    if (!state->wizard.pending_spell || cast_calls)
+        return 141;
+    nox_bot_wizard_update(SELF, state, 394);
+    if (cast_calls)
+        return 142;
+    nox_bot_wizard_update(SELF, state, 395);
+    if (cast_calls != 1 || strcmp(cast_name, "INVERSION") != 0 ||
+        cast_kind != 1 || cast_target != SELF || self_mana != 140)
+        return 143;
+    if (state->wizard.inversion_ready_frame != 425)
+        return 144;
+    return 0;
+}
+
+static int test_deathball_blocks_generic_inversion_branch(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 390);
+
+    if (!state)
+        return 145;
+    state->wizard.target = TARGET;
+    any_deathball = 1;
+    target_missile = 1;
+    target_visible = 0;
+    self_buffs = buff_mask(ENCHANT_SHIELD) | buff_mask(ENCHANT_HASTED) |
+        buff_mask(ENCHANT_SHOCK) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_INVISIBLE);
+    nox_bot_wizard_update(SELF, state, 390);
+    if (state->wizard.pending_spell || cast_calls || state->wizard.inversion_ready_frame)
+        return 146;
+    return 0;
+}
+
 static int test_antimagic_cancels_pending_without_spending_mana(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 400);
@@ -622,6 +683,12 @@ int main(void)
     if (result)
         return result;
     result = test_hostile_deathball_counterspell_priority();
+    if (result)
+        return result;
+    result = test_generic_target_missile_inversion();
+    if (result)
+        return result;
+    result = test_deathball_blocks_generic_inversion_branch();
     if (result)
         return result;
     result = test_antimagic_cancels_pending_without_spending_mana();

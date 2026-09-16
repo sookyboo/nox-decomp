@@ -30,6 +30,7 @@ typedef enum nox_bot_wizard_spell {
     NOX_BOT_WIZARD_SPELL_BURN,
     NOX_BOT_WIZARD_SPELL_MAGIC_MISSILE,
     NOX_BOT_WIZARD_SPELL_COUNTERSPELL,
+    NOX_BOT_WIZARD_SPELL_INVERSION,
     NOX_BOT_WIZARD_SPELL_SHIELD,
     NOX_BOT_WIZARD_SPELL_LESSER_HEAL,
     NOX_BOT_WIZARD_SPELL_HASTE,
@@ -64,6 +65,7 @@ static const nox_bot_wizard_spell_def nox_bot_wizard_spells[] = {
     { "BURN", 10, 10, 0, 3, NOX_BOT_WIZARD_CAST_POSITION },
     { "MAGIC_MISSILE", 15, 15, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
     { "COUNTERSPELL", 20, 20, 20, 0, NOX_BOT_WIZARD_CAST_POSITION },
+    { "INVERSION", 10, 10, 1, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "SHIELD", 80, 80, 10, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "LESSER_HEAL", 30, 30, 1, 0, NOX_BOT_WIZARD_CAST_SELF },
     { "HASTE", 10, 10, 20, 0, NOX_BOT_WIZARD_CAST_SELF },
@@ -93,6 +95,8 @@ static uint32_t *nox_bot_wizard_ready_frame(
         return &wizard->magic_missile_ready_frame;
     case NOX_BOT_WIZARD_SPELL_COUNTERSPELL:
         return &wizard->counterspell_ready_frame;
+    case NOX_BOT_WIZARD_SPELL_INVERSION:
+        return &wizard->inversion_ready_frame;
     case NOX_BOT_WIZARD_SPELL_SHIELD:
         return &wizard->shield_ready_frame;
     case NOX_BOT_WIZARD_SPELL_LESSER_HEAL:
@@ -142,6 +146,9 @@ static int nox_bot_wizard_spell_ready(
         break;
     case NOX_BOT_WIZARD_SPELL_COUNTERSPELL:
         ready = &wizard->counterspell_ready_frame;
+        break;
+    case NOX_BOT_WIZARD_SPELL_INVERSION:
+        ready = &wizard->inversion_ready_frame;
         break;
     case NOX_BOT_WIZARD_SPELL_SHIELD:
         ready = &wizard->shield_ready_frame;
@@ -457,18 +464,32 @@ static int nox_bot_wizard_try_hidden_target_buffs(
     return 0;
 }
 
-static int nox_bot_wizard_try_deathball_counterspell(
+static int nox_bot_wizard_try_missile_reaction(
     int object, nox_bot_policy_state *state, uint32_t frame)
 {
     float x;
     float y;
+    int target = state->wizard.target;
 
-    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
-        !nox_bot_engine_find_nearest_enemy_owned_type(object, "DeathBall", 500.0f))
+    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC))
         return 0;
-    nox_bot_engine_position(object, &x, &y);
+
+    /* Bot-Script checks DeathBall first. The presence of any nearby DeathBall
+     * suppresses the generic missile/Inversion branch, even when that nearest
+     * DeathBall is not enemy-owned. */
+    if (nox_bot_engine_find_nearest_world_type(object, "DeathBall", 500.0f)) {
+        if (!nox_bot_engine_find_nearest_enemy_owned_type(object, "DeathBall", 500.0f))
+            return 0;
+        nox_bot_engine_position(object, &x, &y);
+        return nox_bot_wizard_schedule(
+            object, state, frame, NOX_BOT_WIZARD_SPELL_COUNTERSPELL, 0, x, y);
+    }
+
+    if (!target ||
+        !nox_bot_engine_find_nearest_missile_owned_by(object, target, 500.0f))
+        return 0;
     return nox_bot_wizard_schedule(
-        object, state, frame, NOX_BOT_WIZARD_SPELL_COUNTERSPELL, 0, x, y);
+        object, state, frame, NOX_BOT_WIZARD_SPELL_INVERSION, object, 0.0f, 0.0f);
 }
 
 static int nox_bot_wizard_pickup_type(int object, const char *type_name, int equip_kind)
@@ -633,7 +654,7 @@ void nox_bot_wizard_update(int object, nox_bot_policy_state *state, uint32_t fra
     if (!nox_bot_wizard_global_ready(wizard, frame))
         return;
 
-    if (nox_bot_wizard_try_deathball_counterspell(object, state, frame))
+    if (nox_bot_wizard_try_missile_reaction(object, state, frame))
         return;
 
     target = wizard->target;
