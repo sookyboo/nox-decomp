@@ -42,6 +42,8 @@ static int ctf_walk_own_flag_calls;
 static int ctf_attack_or_defend_calls;
 static int owned_pixies;
 static int enemy_deathball;
+static int any_deathball;
+static int target_missile;
 
 static uint32_t buff_mask(int buff)
 {
@@ -187,11 +189,25 @@ int nox_bot_engine_is_ctf(void)
     return ctf_mode;
 }
 
+int nox_bot_engine_find_nearest_world_type(
+    int object, const char *type_name, float max_distance)
+{
+    return object == SELF && (any_deathball || enemy_deathball) && max_distance >= 500.0f &&
+        strcmp(type_name, "DeathBall") == 0 ? 900 : 0;
+}
+
 int nox_bot_engine_find_nearest_enemy_owned_type(
     int object, const char *type_name, float max_distance)
 {
     return object == SELF && enemy_deathball && max_distance >= 500.0f &&
         strcmp(type_name, "DeathBall") == 0 ? 900 : 0;
+}
+
+int nox_bot_engine_find_nearest_missile_owned_by(
+    int object, int owner_target, float max_distance)
+{
+    return object == SELF && owner_target == TARGET && target_missile &&
+        max_distance >= 500.0f ? 901 : 0;
 }
 
 int nox_bot_engine_find_nearest_visible_type(
@@ -489,6 +505,30 @@ static int test_hostile_deathball_uses_long_counterspell_cooldown(void)
     return 0;
 }
 
+
+static int test_generic_target_missile_inversion(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 845);
+
+    if (!state)
+        return 120;
+    state->conjurer.target = TARGET;
+    target_missile = 1;
+    nox_bot_conjurer_update(SELF, state, 845);
+    if (!state->conjurer.pending_spell || cast_calls)
+        return 121;
+    nox_bot_conjurer_update(SELF, state, 859);
+    if (cast_calls)
+        return 122;
+    nox_bot_conjurer_update(SELF, state, 860);
+    if (cast_calls != 1 || strcmp(cast_name, "INVERSION") != 0 ||
+        cast_kind != 1 || cast_target != SELF || self_mana != 115)
+        return 123;
+    if (state->conjurer.inversion_ready_frame != 890)
+        return 124;
+    return 0;
+}
+
 static int test_loot_scan(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
@@ -587,6 +627,9 @@ int main(void)
     if (result)
         return result;
     result = test_hostile_deathball_uses_long_counterspell_cooldown();
+    if (result)
+        return result;
+    result = test_generic_target_missile_inversion();
     if (result)
         return result;
     result = test_loot_scan();
