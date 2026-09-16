@@ -156,11 +156,13 @@ endif()
 
 if (USE_BOT_SUPPORT)
     list(APPEND NOX_RUNTIME_SOURCES
+        bot_console.c
         bot_engine.c
         bot_conjurer.c
         bot_policy.c
         bot_runtime.c
         bot_team.c
+        bot_trace.c
         bot_warrior.c
         bot_wizard.c
     )

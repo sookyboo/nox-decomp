@@ -52,6 +52,7 @@ if (BUILD_TESTING)
         add_executable(bot_engine_test
             tests/bot_engine_test.c
             src/bot_engine.c
+            src/bot_trace.c
         )
         if (NOT MSVC)
             target_compile_options(bot_engine_test PRIVATE
@@ -76,12 +77,30 @@ if (BUILD_TESTING)
             tests/bot_runtime_test.c
             src/bot_runtime.c
             src/bot_policy.c
+            src/bot_trace.c
         )
+        if (NOT MSVC)
+            target_compile_options(bot_runtime_test PRIVATE -fshort-wchar)
+        endif()
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
             target_compile_options(bot_runtime_test PRIVATE -m32)
             target_link_options(bot_runtime_test PRIVATE -m32)
         endif()
         add_test(NAME bot_runtime_test COMMAND bot_runtime_test)
+
+        add_executable(bot_console_test
+            tests/bot_console_test.c
+            src/bot_console.c
+            src/bot_trace.c
+        )
+        if (NOT MSVC)
+            target_compile_options(bot_console_test PRIVATE -fshort-wchar)
+        endif()
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_console_test PRIVATE -m32)
+            target_link_options(bot_console_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_console_test COMMAND bot_console_test)
 
         add_executable(bot_team_test
             tests/bot_team_test.c

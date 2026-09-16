@@ -3,6 +3,9 @@
 #endif
 
 #include "proto.h"
+#ifdef NOX_BOT_SUPPORT
+#include "bot_console.h"
+#endif
 #ifdef NOX_MANUAL_SPELL_CASTING
 #include <stdlib.h>
 #endif
@@ -56813,7 +56816,16 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
       while ( v5 );
       if ( v3 )
       {
-        v11 = sub_443A20(0, v10, (int)v12, (const wchar_t **)&byte_587000[97368], a2);
+#ifdef NOX_BOT_SUPPORT
+        /* Player-issued command contexts set byte_5D4594[823692] before
+         * entering this dispatcher. Keep lifecycle controls on the server/local
+         * command surfaces rather than bypassing the original player-command
+         * permission path. */
+        v11 = *(_DWORD *)&byte_5D4594[823692] ? 0 :
+          nox_bot_console_command((unsigned __int8)v10, (const wchar_t *const *)v12);
+        if (!v11)
+#endif
+          v11 = sub_443A20(0, v10, (int)v12, (const wchar_t **)&byte_587000[97368], a2);
         if ( !v11 )
         {
           v9 = sub_40F1D0((char *)&byte_587000[107236], 0, (const char *)&byte_587000[107196], 4226);

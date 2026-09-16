@@ -23,6 +23,48 @@ static int warrior_collision_observe_calls;
 static int warrior_collision_object;
 static int warrior_collision_other;
 static uint32_t warrior_collision_frame;
+static int spawn_engine_result;
+static int spawn_engine_calls;
+static int spawn_engine_team;
+static int spawn_engine_class;
+static int spawn_remove_result;
+static int spawn_remove_calls;
+static int spawn_slot_object;
+
+int nox_bot_engine_find_free_player_slot(void)
+{
+    return player_slot;
+}
+
+int nox_bot_engine_spawn_player_attempt(
+    int slot, int requested_class, nox_bot_spawn_team team, const wchar_t *name)
+{
+    (void)name;
+    ++spawn_engine_calls;
+    spawn_engine_team = (int)team;
+    spawn_engine_class = requested_class;
+    if (!spawn_engine_result)
+        return 0;
+    player_slot = slot;
+    player_class = requested_class;
+    spawn_slot_object = 123;
+    return spawn_slot_object;
+}
+
+int nox_bot_engine_player_object_by_slot(int slot)
+{
+    return slot == player_slot ? spawn_slot_object : 0;
+}
+
+int nox_bot_engine_remove_player_attempt(int slot, int expected_object)
+{
+    ++spawn_remove_calls;
+    if (!spawn_remove_result || slot != player_slot || expected_object != spawn_slot_object)
+        return 0;
+    spawn_slot_object = 0;
+    native_bot = 0;
+    return 1;
+}
 
 int nox_bot_engine_enable_existing_player_bot(int object)
 {
@@ -122,6 +164,13 @@ static void reset_stubs(void)
     warrior_collision_object = 0;
     warrior_collision_other = 0;
     warrior_collision_frame = 0;
+    spawn_engine_result = 1;
+    spawn_engine_calls = 0;
+    spawn_engine_team = -1;
+    spawn_engine_class = -1;
+    spawn_remove_result = 1;
+    spawn_remove_calls = 0;
+    spawn_slot_object = 0;
     nox_bot_policy_reset_all();
 }
 
@@ -143,6 +192,109 @@ static int test_attach_detach(void)
         return 4;
     if (native_bot || disable_calls != 1 || state->active)
         return 5;
+    return 0;
+}
+
+static int test_runtime_difficulty_update(void)
+{
+    nox_bot_policy_state *state;
+
+    reset_stubs();
+    if (!nox_bot_runtime_attach_existing_player(123, NOX_BOT_DIFFICULTY_NORMAL))
+        return 7;
+    current_frame = 250;
+    if (!nox_bot_runtime_set_difficulty(123, NOX_BOT_DIFFICULTY_BEGINNER))
+        return 8;
+    state = nox_bot_policy_get(4);
+    if (!state || state->difficulty != NOX_BOT_DIFFICULTY_BEGINNER ||
+        state->next_reaction_frame != 310)
+        return 9;
+
+    native_bot = 0;
+    if (nox_bot_runtime_set_difficulty(123, NOX_BOT_DIFFICULTY_HARD))
+        return 12;
+    return 0;
+}
+
+static int test_server_created_spawn_and_clear(void)
+{
+    nox_bot_policy_state *state;
+    int slot = -1;
+
+    reset_stubs();
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_RED, 1, NOX_BOT_DIFFICULTY_HARD, &slot))
+        return 13;
+    if (slot != 4 || spawn_engine_calls != 1 ||
+        spawn_engine_team != NOX_BOT_SPAWN_TEAM_RED || spawn_engine_class != 1)
+        return 14;
+    if (!nox_bot_runtime_is_server_created(4) || spawn_slot_object != 123 || !native_bot)
+        return 15;
+    state = nox_bot_policy_get(4);
+    if (!state || !state->active || state->native_object != 123 ||
+        state->difficulty != NOX_BOT_DIFFICULTY_HARD)
+        return 16;
+    if (!nox_bot_runtime_clear_server_created(4))
+        return 17;
+    if (nox_bot_runtime_is_server_created(4) || spawn_slot_object ||
+        spawn_remove_calls != 1 || native_bot || state->active)
+        return 18;
+    return 0;
+}
+
+static int test_spawn_activation_failure_rolls_back_native_player(void)
+{
+    int slot = -1;
+
+    reset_stubs();
+    enable_result = 0;
+    if (nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_BLUE, 2, NOX_BOT_DIFFICULTY_NORMAL, &slot))
+        return 19;
+    if (spawn_engine_calls != 1 || spawn_remove_calls != 1 || spawn_slot_object ||
+        nox_bot_runtime_is_server_created(4))
+        return 73;
+    return 0;
+}
+
+static int test_failed_clear_keeps_server_ownership_and_restores_bot(void)
+{
+    int slot = -1;
+
+    reset_stubs();
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 0, NOX_BOT_DIFFICULTY_EASY, &slot))
+        return 74;
+    spawn_remove_result = 0;
+    if (nox_bot_runtime_clear_server_created(slot))
+        return 75;
+    if (!nox_bot_runtime_is_server_created(slot) || spawn_slot_object != 123 ||
+        !native_bot || spawn_remove_calls != 1 || enable_calls != 2 || disable_calls != 1)
+        return 76;
+
+    /* Simulate an external native removal after the failed clear so this test
+     * leaves process-local lifecycle ownership clean for subsequent cases. */
+    nox_bot_runtime_note_player_removed(slot, 123);
+    if (nox_bot_runtime_is_server_created(slot) || nox_bot_policy_get(slot)->active)
+        return 77;
+    spawn_slot_object = 0;
+    native_bot = 0;
+    return 0;
+}
+
+static int test_external_player_removal_releases_server_ownership(void)
+{
+    int slot = -1;
+
+    reset_stubs();
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 2, NOX_BOT_DIFFICULTY_NORMAL, &slot))
+        return 78;
+    nox_bot_runtime_note_player_removed(slot, 123);
+    if (nox_bot_runtime_is_server_created(slot) || nox_bot_policy_get(slot)->active)
+        return 79;
+    spawn_slot_object = 0;
+    native_bot = 0;
     return 0;
 }
 
@@ -304,6 +456,21 @@ int main(void)
     int result;
 
     result = test_attach_detach();
+    if (result)
+        return result;
+    result = test_runtime_difficulty_update();
+    if (result)
+        return result;
+    result = test_server_created_spawn_and_clear();
+    if (result)
+        return result;
+    result = test_spawn_activation_failure_rolls_back_native_player();
+    if (result)
+        return result;
+    result = test_failed_clear_keeps_server_ownership_and_restores_bot();
+    if (result)
+        return result;
+    result = test_external_player_removal_releases_server_ownership();
     if (result)
         return result;
     result = test_attach_rolls_back_without_slot();
