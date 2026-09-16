@@ -38,6 +38,8 @@ typedef enum nox_bot_conjurer_spell {
     NOX_BOT_CONJURER_SPELL_COUNTERSPELL,
     NOX_BOT_CONJURER_SPELL_COUNTERSPELL_DEATHBALL,
     NOX_BOT_CONJURER_SPELL_INVERSION,
+    NOX_BOT_CONJURER_SPELL_BLINK,
+    NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE,
     NOX_BOT_CONJURER_SPELL_STUN,
     NOX_BOT_CONJURER_SPELL_SLOW,
     NOX_BOT_CONJURER_SPELL_PIXIE_SWARM,
@@ -47,6 +49,7 @@ typedef enum nox_bot_conjurer_cast_kind {
     NOX_BOT_CONJURER_CAST_SELF = 0,
     NOX_BOT_CONJURER_CAST_OBJECT,
     NOX_BOT_CONJURER_CAST_POSITION,
+    NOX_BOT_CONJURER_CAST_TRAP,
 } nox_bot_conjurer_cast_kind;
 
 typedef struct nox_bot_conjurer_spell_def {
@@ -72,9 +75,140 @@ static const nox_bot_conjurer_spell_def nox_bot_conjurer_spells[] = {
     { "COUNTERSPELL", 20, 5, 0, NOX_BOT_CONJURER_CAST_POSITION },
     { "COUNTERSPELL", 20, 20, 0, NOX_BOT_CONJURER_CAST_POSITION },
     { "INVERSION", 10, 1, 0, NOX_BOT_CONJURER_CAST_SELF },
+    { "BLINK", 10, 1, 0, NOX_BOT_CONJURER_CAST_TRAP },
+    { 0, 0, 0, 0, NOX_BOT_CONJURER_CAST_SELF },
     { "STUN", 10, 5, 0, NOX_BOT_CONJURER_CAST_OBJECT },
     { "SLOW", 10, 3, 0, NOX_BOT_CONJURER_CAST_OBJECT },
     { "PIXIE_SWARM", 30, 0, 0, NOX_BOT_CONJURER_CAST_SELF },
+};
+
+typedef enum nox_bot_conjurer_summon {
+    NOX_BOT_CONJURER_SUMMON_NONE = 0,
+    NOX_BOT_CONJURER_SUMMON_WASP,
+    NOX_BOT_CONJURER_SUMMON_URCHIN,
+    NOX_BOT_CONJURER_SUMMON_SMALL_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_SMALL_ALBINO_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_MECHANICAL_FLYER,
+    NOX_BOT_CONJURER_SUMMON_IMP,
+    NOX_BOT_CONJURER_SUMMON_GIANT_LEECH,
+    NOX_BOT_CONJURER_SUMMON_BAT,
+    NOX_BOT_CONJURER_SUMMON_GHOST,
+    NOX_BOT_CONJURER_SUMMON_BLACK_BEAR,
+    NOX_BOT_CONJURER_SUMMON_OGRE_BRUTE,
+    NOX_BOT_CONJURER_SUMMON_BLACK_WOLF,
+    NOX_BOT_CONJURER_SUMMON_WHITE_WOLF,
+    NOX_BOT_CONJURER_SUMMON_WOLF,
+    NOX_BOT_CONJURER_SUMMON_EVIL_CHERUB,
+    NOX_BOT_CONJURER_SUMMON_OGRE,
+    NOX_BOT_CONJURER_SUMMON_OGRE_WARLORD,
+    NOX_BOT_CONJURER_SUMMON_ZOMBIE,
+    NOX_BOT_CONJURER_SUMMON_VILE_ZOMBIE,
+    NOX_BOT_CONJURER_SUMMON_EMBER_DEMON,
+    NOX_BOT_CONJURER_SUMMON_SHADE,
+    NOX_BOT_CONJURER_SUMMON_ALBINO_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_BEAR,
+    NOX_BOT_CONJURER_SUMMON_SKELETON,
+    NOX_BOT_CONJURER_SUMMON_SKELETON_LORD,
+    NOX_BOT_CONJURER_SUMMON_SCORPION,
+    NOX_BOT_CONJURER_SUMMON_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_SPITTING_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_TROLL,
+    NOX_BOT_CONJURER_SUMMON_MECHANICAL_GOLEM,
+    NOX_BOT_CONJURER_SUMMON_STONE_GOLEM,
+    NOX_BOT_CONJURER_SUMMON_CARNIVOROUS_PLANT,
+    NOX_BOT_CONJURER_SUMMON_WILLOWISP,
+    NOX_BOT_CONJURER_SUMMON_MIMIC,
+    NOX_BOT_CONJURER_SUMMON_BEHOLDER,
+} nox_bot_conjurer_summon;
+
+typedef struct nox_bot_conjurer_summon_def {
+    const char *name;
+    unsigned char mana;
+    unsigned char cooldown_seconds;
+} nox_bot_conjurer_summon_def;
+
+static const nox_bot_conjurer_summon_def nox_bot_conjurer_summons[] = {
+    { 0, 0, 0 },
+    { "SUMMON_WASP", 15, 2 },
+    { "SUMMON_URCHIN", 30, 2 },
+    { "SUMMON_SMALL_SPIDER", 15, 2 },
+    { "SUMMON_SMALL_ALBINO_SPIDER", 15, 2 },
+    { "SUMMON_MECHANICAL_FLYER", 30, 2 },
+    { "SUMMON_IMP", 30, 2 },
+    { "SUMMON_GIANT_LEECH", 30, 2 },
+    { "SUMMON_BAT", 15, 2 },
+    { "SUMMON_GHOST", 15, 2 },
+    { "SUMMON_BLACK_BEAR", 60, 7 },
+    { "SUMMON_OGRE_BRUTE", 60, 7 },
+    { "SUMMON_BLACK_WOLF", 60, 7 },
+    { "SUMMON_WHITE_WOLF", 30, 7 },
+    { "SUMMON_WOLF", 30, 7 },
+    { "SUMMON_EVIL_CHERUB", 60, 7 },
+    { "SUMMON_OGRE", 30, 7 },
+    { "SUMMON_OGRE_WARLORD", 85, 7 },
+    { "SUMMON_ZOMBIE", 30, 7 },
+    { "SUMMON_VILE_ZOMBIE", 60, 7 },
+    { "SUMMON_EMBER_DEMON", 60, 7 },
+    { "SUMMON_SHADE", 30, 7 },
+    { "SUMMON_ALBINO_SPIDER", 30, 7 },
+    { "SUMMON_BEAR", 60, 7 },
+    { "SUMMON_SKELETON", 30, 7 },
+    { "SUMMON_SKELETON_LORD", 60, 7 },
+    { "SUMMON_SCORPION", 60, 7 },
+    { "SUMMON_SPIDER", 30, 7 },
+    { "SUMMON_SPITTING_SPIDER", 30, 7 },
+    { "SUMMON_TROLL", 30, 7 },
+    { "SUMMON_MECHANICAL_GOLEM", 85, 13 },
+    { "SUMMON_STONE_GOLEM", 85, 13 },
+    { "SUMMON_CARNIVOROUS_PLANT", 30, 13 },
+    { "SUMMON_WILLOWISP", 60, 13 },
+    { "SUMMON_MIMIC", 85, 13 },
+    { "SUMMON_BEHOLDER", 60, 13 },
+};
+
+static const unsigned char nox_bot_conjurer_small_summons[] = {
+    NOX_BOT_CONJURER_SUMMON_WASP,
+    NOX_BOT_CONJURER_SUMMON_URCHIN,
+    NOX_BOT_CONJURER_SUMMON_SMALL_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_SMALL_ALBINO_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_MECHANICAL_FLYER,
+    NOX_BOT_CONJURER_SUMMON_IMP,
+    NOX_BOT_CONJURER_SUMMON_GIANT_LEECH,
+    NOX_BOT_CONJURER_SUMMON_BAT,
+    NOX_BOT_CONJURER_SUMMON_GHOST,
+    NOX_BOT_CONJURER_SUMMON_NONE, /* Bot-Script's custom Bomber branch. */
+};
+
+static const unsigned char nox_bot_conjurer_medium_summons[] = {
+    NOX_BOT_CONJURER_SUMMON_BLACK_BEAR,
+    NOX_BOT_CONJURER_SUMMON_OGRE_BRUTE,
+    NOX_BOT_CONJURER_SUMMON_BLACK_WOLF,
+    NOX_BOT_CONJURER_SUMMON_WHITE_WOLF,
+    NOX_BOT_CONJURER_SUMMON_WOLF,
+    NOX_BOT_CONJURER_SUMMON_EVIL_CHERUB,
+    NOX_BOT_CONJURER_SUMMON_OGRE,
+    NOX_BOT_CONJURER_SUMMON_OGRE_WARLORD,
+    NOX_BOT_CONJURER_SUMMON_ZOMBIE,
+    NOX_BOT_CONJURER_SUMMON_VILE_ZOMBIE,
+    NOX_BOT_CONJURER_SUMMON_EMBER_DEMON,
+    NOX_BOT_CONJURER_SUMMON_SHADE,
+    NOX_BOT_CONJURER_SUMMON_ALBINO_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_BEAR,
+    NOX_BOT_CONJURER_SUMMON_SKELETON,
+    NOX_BOT_CONJURER_SUMMON_SKELETON_LORD,
+    NOX_BOT_CONJURER_SUMMON_SCORPION,
+    NOX_BOT_CONJURER_SUMMON_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_SPITTING_SPIDER,
+    NOX_BOT_CONJURER_SUMMON_TROLL,
+};
+
+static const unsigned char nox_bot_conjurer_large_summons[] = {
+    NOX_BOT_CONJURER_SUMMON_MECHANICAL_GOLEM,
+    NOX_BOT_CONJURER_SUMMON_STONE_GOLEM,
+    NOX_BOT_CONJURER_SUMMON_CARNIVOROUS_PLANT,
+    NOX_BOT_CONJURER_SUMMON_WILLOWISP,
+    NOX_BOT_CONJURER_SUMMON_MIMIC,
+    NOX_BOT_CONJURER_SUMMON_BEHOLDER,
 };
 
 static uint32_t *nox_bot_conjurer_ready_frame(
@@ -94,6 +228,10 @@ static uint32_t *nox_bot_conjurer_ready_frame(
         return &conjurer->counterspell_ready_frame;
     case NOX_BOT_CONJURER_SPELL_INVERSION:
         return &conjurer->inversion_ready_frame;
+    case NOX_BOT_CONJURER_SPELL_BLINK:
+        return &conjurer->blink_ready_frame;
+    case NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE:
+        return &conjurer->summon_ready_frame;
     case NOX_BOT_CONJURER_SPELL_STUN:
         return &conjurer->stun_ready_frame;
     case NOX_BOT_CONJURER_SPELL_SLOW:
@@ -134,6 +272,12 @@ static int nox_bot_conjurer_spell_ready(
         break;
     case NOX_BOT_CONJURER_SPELL_INVERSION:
         ready = &conjurer->inversion_ready_frame;
+        break;
+    case NOX_BOT_CONJURER_SPELL_BLINK:
+        ready = &conjurer->blink_ready_frame;
+        break;
+    case NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE:
+        ready = &conjurer->summon_ready_frame;
         break;
     case NOX_BOT_CONJURER_SPELL_STUN:
         ready = &conjurer->stun_ready_frame;
@@ -184,6 +328,34 @@ static int nox_bot_conjurer_schedule(
     return 1;
 }
 
+static int nox_bot_conjurer_schedule_summon(
+    int object,
+    nox_bot_policy_state *state,
+    uint32_t frame,
+    nox_bot_conjurer_summon summon)
+{
+    nox_bot_conjurer_policy_state *conjurer = &state->conjurer;
+    const nox_bot_conjurer_summon_def *def;
+
+    if (summon <= NOX_BOT_CONJURER_SUMMON_NONE ||
+        summon >= (int)(sizeof(nox_bot_conjurer_summons) / sizeof(nox_bot_conjurer_summons[0])))
+        return 0;
+    def = &nox_bot_conjurer_summons[summon];
+    if (!nox_bot_conjurer_global_ready(conjurer, frame) ||
+        !nox_bot_conjurer_deadline_ready(frame, conjurer->summon_ready_frame) ||
+        nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+        nox_bot_engine_mana(object) < def->mana ||
+        !nox_bot_engine_summon_spell_fits(object, def->name))
+        return 0;
+
+    conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE;
+    conjurer->pending_summon = (unsigned char)summon;
+    conjurer->pending_target = 0;
+    conjurer->pending_cast_frame = nox_bot_reaction_deadline(
+        frame, (nox_bot_difficulty)state->difficulty);
+    return 1;
+}
+
 static int nox_bot_conjurer_pending_target_valid(
     int object,
     const nox_bot_conjurer_policy_state *conjurer,
@@ -201,6 +373,7 @@ static void nox_bot_conjurer_cancel_pending(
     nox_bot_policy_state *state, uint32_t frame)
 {
     state->conjurer.pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
+    state->conjurer.pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
     state->conjurer.pending_target = 0;
     state->conjurer.global_ready_frame = nox_bot_reaction_deadline(
         frame, (nox_bot_difficulty)state->difficulty);
@@ -218,6 +391,36 @@ static void nox_bot_conjurer_finish_cast(
     if (spell == NOX_BOT_CONJURER_SPELL_NONE ||
         !nox_bot_reaction_ready(frame, conjurer->pending_cast_frame))
         return;
+
+    if (spell == NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE) {
+        nox_bot_conjurer_summon summon = (nox_bot_conjurer_summon)conjurer->pending_summon;
+        const nox_bot_conjurer_summon_def *summon_def;
+
+        if (summon <= NOX_BOT_CONJURER_SUMMON_NONE ||
+            summon >= (int)(sizeof(nox_bot_conjurer_summons) / sizeof(nox_bot_conjurer_summons[0]))) {
+            nox_bot_conjurer_cancel_pending(state, frame);
+            return;
+        }
+        summon_def = &nox_bot_conjurer_summons[summon];
+        if (nox_bot_engine_health(object) <= 0 ||
+            nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+            nox_bot_engine_mana(object) < summon_def->mana ||
+            !nox_bot_engine_summon_spell_fits(object, summon_def->name)) {
+            nox_bot_conjurer_cancel_pending(state, frame);
+            return;
+        }
+        nox_bot_engine_mana_sub(object, summon_def->mana);
+        nox_bot_engine_cast_script_self(object, summon_def->name);
+        conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
+        conjurer->pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
+        conjurer->pending_target = 0;
+        conjurer->global_ready_frame = frame + NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES;
+        cooldown = nox_bot_engine_fps() * summon_def->cooldown_seconds;
+        if (!cooldown)
+            cooldown = 1;
+        conjurer->summon_ready_frame = frame + cooldown;
+        return;
+    }
 
     def = &nox_bot_conjurer_spells[spell];
     if (nox_bot_engine_health(object) <= 0 ||
@@ -237,10 +440,13 @@ static void nox_bot_conjurer_finish_cast(
         nox_bot_engine_cast_script_self(object, def->name);
     else if (def->cast_kind == NOX_BOT_CONJURER_CAST_OBJECT)
         nox_bot_engine_cast_script_object(object, def->name, conjurer->pending_target);
+    else if (def->cast_kind == NOX_BOT_CONJURER_CAST_TRAP)
+        nox_bot_engine_create_spell_trap(object, def->name);
     else
         nox_bot_engine_cast_script_position(object, def->name, conjurer->pending_x, conjurer->pending_y);
 
     conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
+    conjurer->pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
     conjurer->pending_target = 0;
     conjurer->global_ready_frame = frame + NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES;
 
@@ -362,6 +568,84 @@ static int nox_bot_conjurer_try_debuff(
     return 0;
 }
 
+static int nox_bot_conjurer_try_blink(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+        nox_bot_team_is_ctf_tank(object))
+        return 0;
+    return nox_bot_conjurer_schedule(
+        object, state, frame, NOX_BOT_CONJURER_SPELL_BLINK, 0, 0.0f, 0.0f);
+}
+
+static int nox_bot_conjurer_go_to_mana_source(
+    int object, nox_bot_policy_state *state)
+{
+    nox_bot_conjurer_policy_state *conjurer = &state->conjurer;
+    float x;
+    float y;
+    int source;
+
+    if (conjurer->mana_route_active)
+        return conjurer->mana_source != 0;
+    conjurer->mana_route_active = 1;
+    nox_bot_engine_set_aggression(object, 0.16f);
+    source = nox_bot_engine_find_nearest_mana_source(
+        object, 10, nox_bot_team_is_ctf_tank(object));
+    conjurer->mana_source = source;
+    if (!source)
+        return 0;
+    nox_bot_engine_position(source, &x, &y);
+    nox_bot_engine_walk_to(object, x, y);
+    return 1;
+}
+
+static void nox_bot_conjurer_maybe_seek_mana(
+    int object, nox_bot_policy_state *state)
+{
+    if (!nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_VAMPIRISM) ||
+        !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_PROTECT_FROM_POISON) ||
+        !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_PROTECT_FROM_ELECTRICITY) ||
+        !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_PROTECT_FROM_FIRE) ||
+        nox_bot_engine_summon_cage_used(object) <= 3)
+        nox_bot_conjurer_go_to_mana_source(object, state);
+}
+
+static int nox_bot_conjurer_try_random_summon(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    int cage;
+    int category;
+    int choice;
+    nox_bot_conjurer_summon summon = NOX_BOT_CONJURER_SUMMON_NONE;
+
+    if (!nox_bot_conjurer_deadline_ready(frame, state->conjurer.summon_ready_frame) ||
+        nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+        nox_bot_engine_mana(object) < 85)
+        return 0;
+
+    cage = nox_bot_engine_summon_cage_used(object);
+    category = nox_bot_engine_random_int(1, 3);
+    if (category == 1) {
+        /* At cage weight 3 the reference first creates its custom Bomber,
+         * which consumes the summon gate. Keep that unrecovered object path
+         * explicit instead of incorrectly substituting a native summon. */
+        if (cage == 3)
+            return 0;
+        choice = nox_bot_engine_random_int(1, 10);
+        summon = (nox_bot_conjurer_summon)nox_bot_conjurer_small_summons[choice - 1];
+    } else if (category == 2) {
+        choice = nox_bot_engine_random_int(1, 20);
+        summon = (nox_bot_conjurer_summon)nox_bot_conjurer_medium_summons[choice - 1];
+    } else if (category == 3) {
+        choice = nox_bot_engine_random_int(1, 6);
+        summon = (nox_bot_conjurer_summon)nox_bot_conjurer_large_summons[choice - 1];
+    }
+    if (summon == NOX_BOT_CONJURER_SUMMON_NONE)
+        return 0;
+    return nox_bot_conjurer_schedule_summon(object, state, frame, summon);
+}
+
 static int nox_bot_conjurer_try_missile_reaction(
     int object, nox_bot_policy_state *state, uint32_t frame)
 {
@@ -403,6 +687,8 @@ static int nox_bot_conjurer_try_hidden_buffs(
         return 1;
     if (nox_bot_engine_mana(object) < 85)
         return 0;
+    if (nox_bot_conjurer_try_random_summon(object, state, frame))
+        return 1;
     if (!nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_PROTECT_FROM_ELECTRICITY) &&
         nox_bot_conjurer_schedule(
             object, state, frame, NOX_BOT_CONJURER_SPELL_PROTECT_SHOCK, object, 0.0f, 0.0f))
@@ -529,6 +815,17 @@ static void nox_bot_conjurer_process_events(
         nox_bot_policy_clear_event(state, NOX_BOT_EVENT_LOOKING_FOR_ENEMY);
     }
 
+    if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_IS_HIT)) {
+        if (nox_bot_engine_mana(object) <= 20)
+            nox_bot_conjurer_go_to_mana_source(object, state);
+        nox_bot_policy_clear_event(state, NOX_BOT_EVENT_IS_HIT);
+    }
+
+    if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_RETREAT)) {
+        nox_bot_conjurer_try_blink(object, state, frame);
+        nox_bot_policy_clear_event(state, NOX_BOT_EVENT_RETREAT);
+    }
+
     if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT)) {
         nox_bot_conjurer_try_infravision(object, state, frame);
         if (nox_bot_engine_is_ctf())
@@ -537,7 +834,12 @@ static void nox_bot_conjurer_process_events(
     }
 
     if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_END_OF_WAYPOINT)) {
-        if (nox_bot_engine_is_ctf())
+        conjurer->mana_route_active = 0;
+        conjurer->mana_source = 0;
+        nox_bot_engine_set_aggression(object, 0.83f);
+        if (nox_bot_engine_mana(object) <= 49)
+            nox_bot_conjurer_go_to_mana_source(object, state);
+        else if (nox_bot_engine_is_ctf())
             nox_bot_team_ctf_attack_or_defend(object);
         nox_bot_policy_clear_event(state, NOX_BOT_EVENT_END_OF_WAYPOINT);
     }
@@ -581,6 +883,7 @@ void nox_bot_conjurer_update(int object, nox_bot_policy_state *state, uint32_t f
         return;
     }
 
+    nox_bot_conjurer_maybe_seek_mana(object, state);
     target = conjurer->target;
     nox_bot_conjurer_use_potions(object, target);
     nox_bot_conjurer_cap_mana(object);
@@ -595,11 +898,18 @@ void nox_bot_conjurer_update(int object, nox_bot_policy_state *state, uint32_t f
         nox_bot_engine_can_interact(object, target)) {
         if (nox_bot_conjurer_try_lesser_heal(object, state, frame))
             return;
+        if ((nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_HELD) ||
+             nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_SLOWED)) &&
+            nox_bot_conjurer_try_blink(object, state, frame))
+            return;
         if (nox_bot_conjurer_try_held_target(object, state, frame, target))
             return;
         nox_bot_conjurer_try_debuff(object, state, frame, target);
         return;
     }
 
+    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_SLOWED) &&
+        nox_bot_conjurer_try_blink(object, state, frame))
+        return;
     nox_bot_conjurer_try_hidden_buffs(object, state, frame);
 }

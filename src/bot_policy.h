@@ -46,14 +46,19 @@ typedef struct nox_bot_conjurer_policy_state {
     uint32_t burn_ready_frame;
     uint32_t counterspell_ready_frame;
     uint32_t inversion_ready_frame;
+    uint32_t blink_ready_frame;
+    uint32_t summon_ready_frame;
     uint32_t stun_ready_frame;
     uint32_t slow_ready_frame;
     uint32_t pending_cast_frame;
     int target;
+    int mana_source;
     int pending_target;
     float pending_x;
     float pending_y;
     unsigned char pending_spell;
+    unsigned char pending_summon;
+    unsigned char mana_route_active;
 } nox_bot_conjurer_policy_state;
 
 typedef struct nox_bot_wizard_policy_state {
@@ -69,6 +74,8 @@ typedef struct nox_bot_wizard_policy_state {
     uint32_t magic_missile_ready_frame;
     uint32_t counterspell_ready_frame;
     uint32_t inversion_ready_frame;
+    uint32_t blink_ready_frame;
+    uint32_t trap_ready_frame;
     uint32_t shield_ready_frame;
     uint32_t lesser_heal_ready_frame;
     uint32_t haste_ready_frame;
@@ -78,11 +85,13 @@ typedef struct nox_bot_wizard_policy_state {
     uint32_t invisibility_ready_frame;
     uint32_t pending_cast_frame;
     int target;
+    int mana_source;
     int pending_target;
     float pending_x;
     float pending_y;
     unsigned char pending_spell;
     unsigned char ring_of_fire_used;
+    unsigned char mana_route_active;
 } nox_bot_wizard_policy_state;
 
 typedef struct nox_bot_warrior_policy_state {

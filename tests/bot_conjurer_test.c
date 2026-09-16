@@ -44,6 +44,21 @@ static int owned_pixies;
 static int enemy_deathball;
 static int any_deathball;
 static int target_missile;
+static int ctf_tank;
+static int mana_source;
+static int mana_source_require_visible;
+static int aggression_calls;
+static float aggression_value;
+static int walk_calls;
+static float walk_x;
+static float walk_y;
+static int trap_calls;
+static char trap_name[64];
+static int summon_cage_used;
+static int summon_spell_fits;
+static int random_values[4];
+static int random_value_count;
+static int random_value_index;
 
 static uint32_t buff_mask(int buff)
 {
@@ -111,9 +126,9 @@ int nox_bot_engine_can_interact(int self, int other)
 void nox_bot_engine_position(int object, float *x, float *y)
 {
     if (x)
-        *x = object == TARGET ? 30.0f : 10.0f;
+        *x = object == TARGET ? 30.0f : (object == mana_source ? 50.0f : 10.0f);
     if (y)
-        *y = object == TARGET ? 40.0f : 20.0f;
+        *y = object == TARGET ? 40.0f : (object == mana_source ? 60.0f : 20.0f);
 }
 
 static void record_cast(const char *name, int kind, int target, float x, float y)
@@ -187,6 +202,73 @@ int nox_bot_engine_use_inventory_potion(int object, const char *name)
 int nox_bot_engine_is_ctf(void)
 {
     return ctf_mode;
+}
+
+int nox_bot_team_is_ctf_tank(int object)
+{
+    return object == SELF && ctf_mode && ctf_tank;
+}
+
+int nox_bot_engine_find_nearest_mana_source(
+    int object, int minimum_mana, int require_visible)
+{
+    if (object != SELF || minimum_mana != 10)
+        return 0;
+    mana_source_require_visible = require_visible;
+    return mana_source;
+}
+
+int nox_bot_engine_set_aggression(int object, float aggression)
+{
+    if (object != SELF)
+        return 0;
+    ++aggression_calls;
+    aggression_value = aggression;
+    return 1;
+}
+
+void nox_bot_engine_walk_to(int object, float x, float y)
+{
+    if (object != SELF)
+        return;
+    ++walk_calls;
+    walk_x = x;
+    walk_y = y;
+}
+
+int nox_bot_engine_create_spell_trap(int object, const char *spell_name)
+{
+    if (object != SELF || !spell_name)
+        return 0;
+    ++trap_calls;
+    strncpy(trap_name, spell_name, sizeof(trap_name) - 1);
+    trap_name[sizeof(trap_name) - 1] = '\0';
+    return 700;
+}
+
+int nox_bot_engine_summon_cage_used(int object)
+{
+    return object == SELF ? summon_cage_used : 0;
+}
+
+int nox_bot_engine_summon_spell_fits(int object, const char *spell_name)
+{
+    return object == SELF && spell_name && *spell_name && summon_spell_fits;
+}
+
+int nox_bot_engine_random_int(int minimum, int maximum)
+{
+    int value;
+
+    if (random_value_index < random_value_count)
+        value = random_values[random_value_index++];
+    else
+        value = minimum;
+    if (value < minimum)
+        return minimum;
+    if (value > maximum)
+        return maximum;
+    return value;
 }
 
 int nox_bot_engine_find_nearest_world_type(
@@ -276,6 +358,7 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     target_buffs = 0;
     target_visible = 1;
     ctf_mode = 0;
+    ctf_tank = 0;
     cast_calls = 0;
     cast_kind = 0;
     cast_target = 0;
@@ -292,6 +375,23 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     ctf_attack_or_defend_calls = 0;
     owned_pixies = 1;
     enemy_deathball = 0;
+    any_deathball = 0;
+    target_missile = 0;
+    mana_source = 0;
+    mana_source_require_visible = 0;
+    aggression_calls = 0;
+    aggression_value = 0.0f;
+    walk_calls = 0;
+    walk_x = 0.0f;
+    walk_y = 0.0f;
+    trap_calls = 0;
+    trap_name[0] = '\0';
+    summon_cage_used = 4;
+    summon_spell_fits = 0;
+    random_values[0] = 1;
+    random_values[1] = 10;
+    random_value_count = 2;
+    random_value_index = 0;
     nox_bot_policy_reset_all();
     if (!nox_bot_policy_activate(0, difficulty, frame))
         return 0;
@@ -529,6 +629,112 @@ static int test_generic_target_missile_inversion(void)
     return 0;
 }
 
+static int test_retreat_and_held_blink(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 847);
+
+    if (!state)
+        return 130;
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_RETREAT, 0, 847);
+    nox_bot_conjurer_update(SELF, state, 847);
+    if (!state->conjurer.pending_spell || cast_calls ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_RETREAT))
+        return 131;
+    nox_bot_conjurer_update(SELF, state, 861);
+    if (cast_calls)
+        return 132;
+    nox_bot_conjurer_update(SELF, state, 862);
+    if (cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0 ||
+        self_mana != 115 || state->conjurer.blink_ready_frame != 892)
+        return 133;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 848);
+    if (!state)
+        return 134;
+    state->conjurer.target = TARGET;
+    self_buffs = buff_mask(ENCHANT_HELD);
+    nox_bot_conjurer_update(SELF, state, 848);
+    nox_bot_conjurer_update(SELF, state, 848);
+    if (cast_calls || trap_calls != 1 || strcmp(trap_name, "BLINK") != 0)
+        return 135;
+    return 0;
+}
+
+static int test_native_random_summon_and_cage_gate(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 849);
+
+    if (!state)
+        return 136;
+    target_visible = 0;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    summon_cage_used = 0;
+    summon_spell_fits = 1;
+    random_values[0] = 3;
+    random_values[1] = 1;
+    random_value_count = 2;
+    random_value_index = 0;
+    nox_bot_conjurer_update(SELF, state, 849);
+    if (!state->conjurer.pending_spell || !state->conjurer.pending_summon || cast_calls)
+        return 137;
+    nox_bot_conjurer_update(SELF, state, 849);
+    if (cast_calls != 1 || strcmp(cast_name, "SUMMON_MECHANICAL_GOLEM") != 0 ||
+        cast_kind != 1 || self_mana != 40 || state->conjurer.summon_ready_frame != 1239)
+        return 138;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
+    if (!state)
+        return 139;
+    target_visible = 0;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    summon_cage_used = 0;
+    summon_spell_fits = 0;
+    random_values[0] = 3;
+    random_values[1] = 1;
+    random_value_count = 2;
+    random_value_index = 0;
+    nox_bot_conjurer_update(SELF, state, 850);
+    if (state->conjurer.pending_spell || cast_calls)
+        return 140;
+    return 0;
+}
+
+static int test_low_mana_hit_routes_to_native_obelisk(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 851);
+
+    if (!state)
+        return 141;
+    self_mana = 20;
+    mana_source = 600;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_IS_HIT, TARGET, 851);
+    nox_bot_conjurer_update(SELF, state, 851);
+    if (!state->conjurer.mana_route_active || state->conjurer.mana_source != 600 ||
+        mana_source_require_visible || aggression_calls != 1 || aggression_value != 0.16f ||
+        walk_calls != 1 || walk_x != 50.0f || walk_y != 60.0f ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_IS_HIT))
+        return 142;
+
+    state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 852);
+    if (!state)
+        return 143;
+    self_mana = 20;
+    mana_source = 600;
+    ctf_mode = 1;
+    ctf_tank = 1;
+    self_buffs = buff_mask(ENCHANT_VAMPIRISM) | buff_mask(ENCHANT_PROTECT_SHOCK) |
+        buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_PROTECT_POISON);
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_IS_HIT, TARGET, 852);
+    nox_bot_conjurer_update(SELF, state, 852);
+    if (!mana_source_require_visible || walk_calls != 1)
+        return 144;
+    return 0;
+}
+
 static int test_loot_scan(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 850);
@@ -630,6 +836,15 @@ int main(void)
     if (result)
         return result;
     result = test_generic_target_missile_inversion();
+    if (result)
+        return result;
+    result = test_retreat_and_held_blink();
+    if (result)
+        return result;
+    result = test_native_random_summon_and_cage_gate();
+    if (result)
+        return result;
+    result = test_low_mana_hit_routes_to_native_obelisk();
     if (result)
         return result;
     result = test_loot_scan();
