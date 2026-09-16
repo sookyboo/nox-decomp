@@ -69,6 +69,8 @@ int nox_bot_engine_same_team(int self, int other);
 int nox_bot_engine_has_buff(int object, int buff);
 int nox_bot_engine_remove_buff(int object, int buff);
 int nox_bot_engine_is_object_type(int object, const char *type_name);
+int nox_bot_engine_owner_player(int object);
+int nox_bot_engine_enable_monster_alert(int object);
 /* Reproduces NoxScript CastSpell(source=object, target=object). */
 int nox_bot_engine_cast_script_self(int object, const char *spell_name);
 int nox_bot_engine_cast_script_object(int object, const char *spell_name, int target);
@@ -124,6 +126,7 @@ int nox_bot_engine_player_attack_step(int object);
 void nox_bot_engine_hunt(int object);
 void nox_bot_engine_walk_to(int object, float x, float y);
 void nox_bot_engine_attack_target(int object, int target);
+void nox_bot_engine_follow_target(int object, int target);
 void nox_bot_engine_guard_position(int object, float x, float y, float radius);
 void nox_bot_engine_interrupt(int object);
 int nox_bot_engine_action_scheduled(int object, int action);

@@ -1,6 +1,7 @@
 #include "../src/bot_runtime.h"
 
 #include <stdint.h>
+#include <string.h>
 
 static int native_bot;
 static int player_slot;
@@ -30,6 +31,13 @@ static int spawn_engine_class;
 static int spawn_remove_result;
 static int spawn_remove_calls;
 static int spawn_slot_object;
+static int bomber_owned;
+static int bomber_attack_calls;
+static int bomber_attack_object;
+static int bomber_attack_target;
+static int bomber_follow_calls;
+static int bomber_follow_object;
+static int bomber_follow_target;
 
 int nox_bot_engine_find_free_player_slot(void)
 {
@@ -107,6 +115,30 @@ int nox_bot_engine_player_class(int object)
     return player_class;
 }
 
+int nox_bot_engine_is_object_type(int object, const char *type_name)
+{
+    return object == 777 && type_name && strcmp(type_name, "Bomber") == 0;
+}
+
+int nox_bot_engine_owner_player(int object)
+{
+    return object == 777 && bomber_owned ? 123 : 0;
+}
+
+void nox_bot_engine_attack_target(int object, int target)
+{
+    ++bomber_attack_calls;
+    bomber_attack_object = object;
+    bomber_attack_target = target;
+}
+
+void nox_bot_engine_follow_target(int object, int target)
+{
+    ++bomber_follow_calls;
+    bomber_follow_object = object;
+    bomber_follow_target = target;
+}
+
 void nox_bot_warrior_observe_collision(
     int object, nox_bot_policy_state *state, int other, uint32_t frame)
 {
@@ -171,6 +203,13 @@ static void reset_stubs(void)
     spawn_remove_result = 1;
     spawn_remove_calls = 0;
     spawn_slot_object = 0;
+    bomber_owned = 0;
+    bomber_attack_calls = 0;
+    bomber_attack_object = 0;
+    bomber_attack_target = 0;
+    bomber_follow_calls = 0;
+    bomber_follow_object = 0;
+    bomber_follow_target = 0;
     nox_bot_policy_reset_all();
 }
 
@@ -385,6 +424,54 @@ static int test_event_capture(void)
     return 0;
 }
 
+static int test_owned_conjurer_bomber_event_choreography(void)
+{
+    nox_bot_policy_state *state;
+
+    reset_stubs();
+    native_bot = 1;
+    player_class = 2;
+    bomber_owned = 1;
+    if (!nox_bot_runtime_sync_native_player_bot(123))
+        return 80;
+    state = nox_bot_policy_get(4);
+    if (!state || !state->active)
+        return 81;
+    state->conjurer.target = 456;
+
+    nox_bot_runtime_event(777, NOX_BOT_EVENT_ENEMY_SIGHTED, 888);
+    if (bomber_attack_calls != 1 || bomber_attack_object != 777 ||
+        bomber_attack_target != 456 || bomber_follow_calls)
+        return 82;
+
+    nox_bot_runtime_event(777, NOX_BOT_EVENT_ENEMY_HEARD, 889);
+    if (bomber_attack_calls != 2 || bomber_attack_object != 777 ||
+        bomber_attack_target != 456 || bomber_follow_calls)
+        return 83;
+
+    nox_bot_runtime_event(777, NOX_BOT_EVENT_LOST_SIGHT, 890);
+    if (bomber_attack_calls != 2 || bomber_follow_calls != 1 ||
+        bomber_follow_object != 777 || bomber_follow_target != 123)
+        return 84;
+
+    /* The Bomber callbacks are local monster choreography; they must not add
+     * player-policy events to the owning Conjurer. */
+    if (state->pending_events)
+        return 85;
+
+    bomber_owned = 0;
+    nox_bot_runtime_event(777, NOX_BOT_EVENT_ENEMY_SIGHTED, 891);
+    if (bomber_attack_calls != 2 || bomber_follow_calls != 1)
+        return 86;
+
+    bomber_owned = 1;
+    player_class = 1;
+    nox_bot_runtime_event(777, NOX_BOT_EVENT_ENEMY_SIGHTED, 892);
+    if (bomber_attack_calls != 2 || bomber_follow_calls != 1)
+        return 87;
+    return 0;
+}
+
 
 static int test_runtime_clear_life_state(void)
 {
@@ -483,6 +570,9 @@ int main(void)
     if (result)
         return result;
     result = test_event_capture();
+    if (result)
+        return result;
+    result = test_owned_conjurer_bomber_event_choreography();
     if (result)
         return result;
     result = test_runtime_clear_life_state();
