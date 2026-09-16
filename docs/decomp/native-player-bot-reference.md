@@ -28,7 +28,7 @@ USE_BOT_SUPPORT=OFF (default)
     -> bot sources and integration hooks are excluded
 
 USE_BOT_SUPPORT=ON
-    -> bot_engine.c + bot_policy.c + bot_runtime.c + bot_warrior.c + bot_wizard.c are compiled
+    -> bot_engine.c + bot_policy.c + bot_runtime.c + bot_warrior.c + bot_wizard.c + bot_conjurer.c are compiled
     -> NOX_BOT_SUPPORT is defined
     -> confirmed native player-bot event sites record server-local policy events
 ```
@@ -47,6 +47,8 @@ and recovery movement, loot/equipment, RoundChakram, Eye of the Wolf, War Cry,
 TeleportWake pursuit, and native-backed CTF objective-steering subset.
 `src/bot_wizard.c` implements the first high-confidence Wizard direct-cast
 priority slice while leaving spell effects and player mana authoritative in Nox.
+`src/bot_conjurer.c` now applies the same ownership boundary to the first
+high-confidence Conjurer spell-priority slice.
 `src/bot_runtime.c` synchronizes
 that state with existing native player bots and can attach/detach an
 **already-created** normal player from the recovered player-monster update path.
@@ -93,8 +95,9 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   buffs/protections, potions, reaction delays, cooldowns, and native mana spending
   are implemented. Blink, traps, Drain Mana/obelisk routing, projectile reactions,
   wand/loot policy, CTF team-role distinctions, and phonemes remain;
-- **Conjurer policy:** native casting/class support exists but its reference
-  tactical decision tree is not implemented;
+- **Conjurer policy:** the first direct-cast priority slice is implemented with
+  native mana/buff/spell ownership. Blink, projectile reactions, Pixies/summons,
+  mana-obelisk routing, equipment/loot, team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1506,6 +1509,50 @@ routing, projectile-reflection reactions, equipment/loot behavior, and phoneme
 sequencing are intentionally outside this slice.
 
 ---
+
+## 11.8 Conjurer direct-cast policy and native mana
+
+Native player class `2` now dispatches to `bot_conjurer.c` through the same
+server-local policy/runtime boundary used by Warrior and Wizard. No new spell
+mechanics are implemented in bot code: Conjurer casts go through the recovered
+NoxScript-style direct dispatcher documented above, and mana is read/added/
+subtracted through the normal player runtime helpers.
+
+The first policy slice preserves the reference's deterministic choices where
+the engine owner is already clear:
+
+```text
+Enemy Sighted
+    -> Force of Nature at target position
+
+Looking For Enemy / Lost Sight
+    -> Infravision
+
+visible Held/Slowed target
+    -> Meteor -> Toxic Cloud -> Burn -> Counterspell
+
+ordinary visible target
+    -> Stun outside CTF
+    -> Slow in CTF
+
+no visible target
+    -> Vampirism -> Protection From Electricity
+       -> Protection From Fire -> Protection From Poison
+```
+
+Lesser Heal is considered before visible-target offense when health is `<= 60`
+and native mana is at least 100. Red/Blue potion use delegates to the existing
+player inventory/potion path. Passive mana uses the reference default cadence of
+one point every two simulation seconds and is capped at 125 for Conjurer policy.
+Only reaction/cooldown deadlines and the remembered tactical target are
+server-local; health, mana, enchant state, spell effects, damage, and target
+visibility remain native Nox state.
+
+The following reference systems are intentionally not folded into this slice:
+Blink's `NewTrap` execution, projectile/DeathBall Inversion-Counterspell checks,
+Pixie/summon ownership and creature-cage accounting, mana-obelisk transfer, and
+class equipment/loot strategy. Each needs its own native lifecycle/ownership
+trace before implementation.
 
 # 12. Name/type lookup used during native AI initialization
 

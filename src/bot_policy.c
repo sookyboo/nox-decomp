@@ -89,6 +89,7 @@ void nox_bot_policy_clear_life_state(nox_bot_policy_state *state)
     memset(state->event_object, 0, sizeof(state->event_object));
     memset(&state->warrior, 0, sizeof(state->warrior));
     memset(&state->wizard, 0, sizeof(state->wizard));
+    memset(&state->conjurer, 0, sizeof(state->conjurer));
 }
 
 int nox_bot_policy_set_difficulty(int player_slot, nox_bot_difficulty difficulty, uint32_t frame)
