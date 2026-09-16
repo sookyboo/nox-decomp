@@ -111,9 +111,9 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   ownership, hostile DeathBall Counterspell, generic target-owned missile
   Inversion, Bot-Script Blink-as-Glyph escape, native nearby loot/equip pickup,
   native random summon spells/cage accounting, the custom native-backed Bomber
-  summon/Glyph path, mana-source routing, and shared CTF steering. The reference's
-  internally inconsistent 10-second weapon preference, exact Bomber
-  event/alert/audio choreography, team roles, commands, and phonemes remain;
+  summon/Glyph path with native `BomberSummon` audio, mana-source routing, the
+  literal reference 10-second weapon preference, and shared CTF steering. Exact
+  Bomber alert/event choreography, team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1627,9 +1627,11 @@ native `sub_5016C0` constructs the Bomber using summon-guide capacity index `5`
 from `sub_500D70`, establishing summoned state, owner/player bookkeeping and team
 membership. Bot policy checks authoritative owned `Bomber` world objects, creates
 the reference inventory `Glyph` carrying `BURN`, `TOXIC_CLOUD`, and `STUN`,
-inserts it through `sub_4F3070`, and invokes native Follow through `sub_5158C0`.
-The reference `mana >= 80` check/no-subtraction quirk and three-frame summon gate
-are preserved. Exact Bomber event/alert/audio choreography remains deferred.
+inserts it through `sub_4F3070`, invokes native Follow through `sub_5158C0`, and
+looks up/dispatches `BomberSummon` through `sub_40AF50`/`sub_501960`. The
+reference `mana >= 80` check/no-subtraction quirk and three-frame summon gate are
+preserved. Exact Bomber Alert status and Enemy Sighted/Enemy Heard/Lost Enemy
+event choreography remain deferred.
 Hostile `DeathBall` Counterspell is implemented through the same native owner-chain
 search as Wizard policy; the Conjurer keeps the reference 20-second cooldown for
 that reaction while its ordinary Counterspell remains 5 seconds. If no nearby
@@ -1638,10 +1640,13 @@ target schedules native Inversion using the reference 10-mana cost, one-second
 cooldown, reaction delay, and shared three-frame spell gate. Pixie Swarm itself
 is now direct-cast through native spell mechanics and uses
 world ownership to decide whether another swarm should be created.
-The reference `WeaponPreference()` is also intentionally unresolved because it
-checks `CrossBow`/`InfinitePainWand` availability but attempts to equip
-`FireStormWand`/`ForceWand`; the native port does not silently guess which side
-of that mismatch is intended.
+The reference `WeaponPreference()` remains internally inconsistent, but its
+observable control flow is now preserved literally every 10 seconds instead of
+being reinterpreted: a present `CrossBow` that is not the equipped weapon gates
+an attempted `FireStormWand` equip; only when that branch does not apply does a
+present unequipped `InfinitePainWand` gate an attempted `ForceWand` equip. The
+native inventory and equipped-weapon adapters remain authoritative for those
+checks and equipment transitions.
 
 ## 11.9 Shared native-backed CTF destination policy
 
@@ -1972,9 +1977,13 @@ creating parallel bot state:
   object creation to `sub_5016C0`, which establishes summoned state, owner/player
   bookkeeping, team membership, and native acquisition/network state. The helper
   creates a `Glyph` with `BURN`, `TOXIC_CLOUD`, and `STUN`, inserts it in the
-  Bomber inventory through `sub_4F3070`, and calls `sub_5158C0` for the explicit
-  Bot-Script Follow behavior. Owned-Bomber limits still come from the existing
-  authoritative world-owner query rather than a policy counter.
+  Bomber inventory through `sub_4F3070`, calls `sub_5158C0` for the explicit
+  Bot-Script Follow behavior, resolves `BomberSummon` through `sub_40AF50`, and
+  emits it on the new Bomber through `sub_501960`. Owned-Bomber limits still come
+  from the existing authoritative world-owner query rather than a policy counter.
+  `sub_40AF50(name)` is the native sound-name-to-ID lookup used throughout the
+  game data paths; `sub_501960(sound, object, 0, 0)` dispatches that sound as an
+  object-centered audio event.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.
@@ -3382,6 +3391,8 @@ sub_500D70                         [native requested-summon capacity check]
 sub_5016C0                         [native summoned-monster constructor used for Bomber]
 sub_4F3070                         [native inventory insertion used for Bomber Glyph]
 sub_5158C0                         [native Follow action used by Bomber]
+sub_40AF50                         [native sound-name to sound-ID lookup]
+sub_501960                         [native object-centered audio event dispatch]
 sub_415FA0                         [native inclusive RNG used by random summon policy]
 sub_4E3810 / sub_4DAA50            [native object creation/placement used by NewTrap parity]
 sub_4EC290                          [native SetOwner path used by Wizard Trap Glyph]

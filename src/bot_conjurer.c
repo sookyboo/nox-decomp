@@ -22,6 +22,7 @@
 #define NOX_BOT_CONJURER_MAX_MANA 125
 #define NOX_BOT_CONJURER_LOOT_RADIUS 75.0f
 #define NOX_BOT_CONJURER_LOOT_SCAN_FRAMES 15u
+#define NOX_BOT_CONJURER_WEAPON_PREFERENCE_SECONDS 10u
 
 typedef enum nox_bot_conjurer_spell {
     NOX_BOT_CONJURER_SPELL_NONE = 0,
@@ -775,6 +776,44 @@ static void nox_bot_conjurer_loot_scan(
         nox_bot_conjurer_pickup_type(object, potions[i], 0);
 }
 
+static int nox_bot_conjurer_apply_weapon_preference(int object)
+{
+    int equipped = nox_bot_engine_equipped_weapon(object);
+    int guard = nox_bot_engine_inventory_item(object, "CrossBow");
+    int item;
+
+    /* Preserve the Bot-Script reference literally. Its first guard checks for
+     * a CrossBow but equips FireStormWand, and its second guard checks for
+     * InfinitePainWand but equips ForceWand. Do not reinterpret those guards
+     * as the items being equipped here. */
+    if (guard && equipped != guard) {
+        item = nox_bot_engine_inventory_item(object, "FireStormWand");
+        return item ? nox_bot_engine_equip_weapon(object, item) : 0;
+    }
+
+    guard = nox_bot_engine_inventory_item(object, "InfinitePainWand");
+    if (guard && equipped != guard) {
+        item = nox_bot_engine_inventory_item(object, "ForceWand");
+        return item ? nox_bot_engine_equip_weapon(object, item) : 0;
+    }
+    return 0;
+}
+
+static void nox_bot_conjurer_weapon_preference(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    uint32_t interval;
+
+    if (state->conjurer.next_weapon_preference_frame &&
+        !nox_bot_reaction_ready(frame, state->conjurer.next_weapon_preference_frame))
+        return;
+    interval = nox_bot_engine_fps() * NOX_BOT_CONJURER_WEAPON_PREFERENCE_SECONDS;
+    if (!interval)
+        interval = 1;
+    state->conjurer.next_weapon_preference_frame = frame + interval;
+    nox_bot_conjurer_apply_weapon_preference(object);
+}
+
 static void nox_bot_conjurer_regen_mana(
     int object, nox_bot_policy_state *state, uint32_t frame)
 {
@@ -888,6 +927,7 @@ void nox_bot_conjurer_update(int object, nox_bot_policy_state *state, uint32_t f
 
     nox_bot_conjurer_regen_mana(object, state, frame);
     nox_bot_conjurer_loot_scan(object, state, frame);
+    nox_bot_conjurer_weapon_preference(object, state, frame);
     nox_bot_conjurer_process_events(object, state, frame);
 
     if (conjurer->pending_spell != NOX_BOT_CONJURER_SPELL_NONE) {

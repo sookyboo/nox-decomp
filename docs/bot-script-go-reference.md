@@ -53,7 +53,7 @@ Implemented so far:
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
 - `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
 - `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Ring of Fire/Slow/Energy Bolt/Magic Missile/Counterspell/Drain Mana priority, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, the owned three-spell Glyph Trap, native nearby-source Drain Mana, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, native mana-obelisk routing/restoration, reference reaction delays, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, CTF enemy-flag-carrier (`TeamTank`) awareness, and shared native-backed CTF objective steering;
-- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, and shared native-backed CTF objective steering;
+- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state and native `BomberSummon` audio, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, the literal 10-second reference weapon preference, and shared native-backed CTF objective steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets.
 
 Still intentionally not implemented where native ownership is not completely recovered:
@@ -62,7 +62,7 @@ Still intentionally not implemented where native ownership is not completely rec
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
 - `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt, Ring of Fire, and native Drain Mana, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, the owned three-spell Glyph Trap, native mana-obelisk routing, nearby loot, wand preference, CTF carrier-role-aware Invisibility, and shared CTF steering are implemented; broader coordinated team roles and phonemes remain);
-- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks, native mana-obelisk routing, nearby loot/equip pickup, and shared CTF steering; the ambiguous reference weapon preference, exact Bomber event/alert/audio choreography, broader team roles, commands, and phonemes remain);
+- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks and `BomberSummon` audio, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, and shared CTF steering; exact Bomber alert/event choreography, broader team roles, commands, and phonemes remain);
 - `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; broader coordinated multi-bot strategy, teammate orders, and bot commands remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
@@ -153,8 +153,10 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   and reuses the shared native-backed CTF Lost Sight/End Of Waypoint steering;
 - the reference Conjurer `WeaponPreference()` is internally inconsistent: it
   checks for `CrossBow`/`InfinitePainWand` but attempts to equip
-  `FireStormWand`/`ForceWand`. The native port intentionally does not guess a
-  corrected 10-second preference until that upstream intent is resolved;
+  `FireStormWand`/`ForceWand`. The native port now preserves that literal
+  behavior every 10 seconds rather than guessing a corrected intent: a present
+  but unequipped `CrossBow` gates a `FireStormWand` equip attempt, otherwise a
+  present but unequipped `InfinitePainWand` gates a `ForceWand` equip attempt;
 - Conjurer Pixie Swarm is now implemented without a bot-local `PixieCount`:
   policy queries the authoritative native world list for non-removed `Pixie`
   objects whose native owner chain reaches the Conjurer and casts `PIXIE_SWARM`
@@ -169,11 +171,11 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   `BomberCount <= 1`, 80-mana requirement/no-subtraction quirk and three-frame
   summon gate, while native `sub_5016C0` creates the summoned monster and owns
   its player/team bookkeeping. An inventory `Glyph` carries `BURN`,
-  `TOXIC_CLOUD`, and `STUN`, and the Bomber is placed on native Follow toward
-  its Conjurer. Normal mana-obelisk routing/restoration is also native-backed.
-  Remaining Conjurer gaps are the ambiguous weapon preference, exact Bomber
-  event/alert/audio choreography, broader team roles, teammate commands, and
-  phonemes;
+  `TOXIC_CLOUD`, and `STUN`, the Bomber is placed on native Follow toward its
+  Conjurer, and the reference `BomberSummon` sound is dispatched through the
+  native sound lookup/audio-event path. Normal mana-obelisk routing/restoration
+  is also native-backed. Remaining Conjurer gaps are exact Bomber alert/event
+  choreography, broader team roles, teammate commands, and phonemes;
 
 ### Team and game-mode strategy
 
@@ -1007,16 +1009,18 @@ and the custom `Bomber` path are now included. Creature-cage usage/capacity and
 Bomber ownership come from native summon/world state rather than duplicate policy
 counters. Bomber creation uses the native summon constructor and carries the
 reference `BURN`/`TOXIC_CLOUD`/`STUN` Glyph in its inventory; the reference's
-no-mana-subtraction quirk is preserved. Exact audio/chat/event choreography and
-spell phonemes remain deferred. Hostile `DeathBall` Counterspell and
+no-mana-subtraction quirk is preserved and `BomberSummon` is emitted through the
+native sound lookup/audio-event path. Exact alert/event choreography and spell
+phonemes remain deferred. Hostile `DeathBall` Counterspell and
 generic target-owned missile Inversion are implemented separately through native
 world/owner state. Pixie Swarm itself is native-backed; ownership/counting comes
 from the authoritative world object owner field instead of duplicate policy
-state. The reference 10-second Conjurer `WeaponPreference()` remains
-intentionally unported because its conditions and equipped item names contradict
-each other (`CrossBow`/`InfinitePainWand` checks versus
-`FireStormWand`/`ForceWand` equips). Those require separate native ownership
-traces rather than approximating them inside the direct-cast policy.
+state. The reference 10-second Conjurer `WeaponPreference()` is preserved literally
+despite its contradictory-looking guards: an inventory `CrossBow` that is not
+the equipped weapon gates a `FireStormWand` equip attempt; only when that branch
+does not apply does an inventory `InfinitePainWand` that is not equipped gate a
+`ForceWand` equip attempt. The port intentionally does not reinterpret the
+reference into a more conventional priority list.
 
 ---
 
@@ -1637,10 +1641,10 @@ Conjurer
 [~] visible-target spell priority (Meteor/Toxic Cloud/Burn/Counterspell + Stun/Slow implemented)
 [x] Lesser Heal threshold policy
 [x] defensive buffs / escape (Vampirism + three protections + Blink implemented)
-[~] Pixie Swarm / summon creature policy (Pixie Swarm + native random summons + Bomber creation/Glyph implemented; exact Bomber event/alert/audio choreography remains)
+[~] Pixie Swarm / summon creature policy (Pixie Swarm + native random summons + Bomber creation/Glyph + summon audio implemented; exact Bomber alert/event choreography remains)
 [x] generic target-owned missile Inversion
 [x] native mana-obelisk routing / restoration
-[~] equipment / loot preference (loot/equip-on-pickup implemented; 10-second preference remains ambiguous)
+[x] equipment / loot preference (loot/equip-on-pickup + literal 10-second reference weapon preference implemented)
 [~] shared CTF/team-role policy (shared CTF steering implemented; teammate commands remain)
 [ ] spell phonemes
 ```
