@@ -11,6 +11,46 @@
 static unsigned char nox_bot_server_created[NOX_BOT_PLAYER_SLOTS];
 static int nox_bot_server_created_object[NOX_BOT_PLAYER_SLOTS];
 
+static int nox_bot_runtime_handle_owned_bomber_event(
+    int object, nox_bot_event event, int event_object)
+{
+    nox_bot_policy_state *state;
+    int owner;
+    int slot;
+    int target;
+
+    (void)event_object;
+    if (!nox_bot_engine_is_object_type(object, "Bomber"))
+        return 0;
+    if (event != NOX_BOT_EVENT_ENEMY_SIGHTED &&
+        event != NOX_BOT_EVENT_ENEMY_HEARD &&
+        event != NOX_BOT_EVENT_LOST_SIGHT)
+        return 0;
+
+    owner = nox_bot_engine_owner_player(object);
+    if (!owner || nox_bot_engine_player_class(owner) != 2)
+        return 0;
+    slot = nox_bot_engine_player_slot(owner);
+    if (slot < 0)
+        return 0;
+    state = nox_bot_policy_get(slot);
+    if (!state || !state->active || state->native_object != owner)
+        return 0;
+
+    /* Bot-Script's Bomber callbacks intentionally use the Conjurer's current
+     * target rather than the event caller. Lost Enemy returns the Bomber to
+     * Follow(con.unit). Native action helpers remain authoritative for the
+     * resulting monster action stack. */
+    if (event == NOX_BOT_EVENT_LOST_SIGHT) {
+        nox_bot_engine_follow_target(object, owner);
+        return 1;
+    }
+    target = state->conjurer.target;
+    if (target)
+        nox_bot_engine_attack_target(object, target);
+    return 1;
+}
+
 static void nox_bot_runtime_spawn_name(
     wchar_t *out, int out_count, nox_bot_spawn_team team, int player_class, int slot)
 {
@@ -248,6 +288,8 @@ void nox_bot_runtime_event(int object, nox_bot_event event, int event_object)
     int slot;
     nox_bot_policy_state *state;
 
+    if (nox_bot_runtime_handle_owned_bomber_event(object, event, event_object))
+        return;
     if (!nox_bot_runtime_sync_native_player_bot(object))
         return;
     slot = nox_bot_engine_player_slot(object);

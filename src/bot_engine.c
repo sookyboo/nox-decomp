@@ -42,6 +42,8 @@
 #define NOX_TEAM_COLOR_BLUE 2u
 #define NOX_PLAYER_BOT_AI_CURRENT_TARGET_OFFSET 1196
 #define NOX_PLAYER_BOT_AI_PLAYER_RUNTIME_OFFSET 2180
+#define NOX_MONSTER_RUNTIME_STATUS_OFFSET 1440
+#define NOX_MONSTER_STATUS_ALERT 0x100u
 
 #define NOX_OBJECT_TYPE_ID_OFFSET 4
 #define NOX_OBJECT_X_OFFSET 56
@@ -602,6 +604,41 @@ int nox_bot_engine_is_object_type(int object, const char *type_name)
         return 0;
     return *(unsigned short *)(object + NOX_OBJECT_TYPE_ID_OFFSET) ==
         (unsigned short)type_id;
+}
+
+int nox_bot_engine_owner_player(int object)
+{
+    int owner;
+    int depth;
+
+    if (!object)
+        return 0;
+    for (owner = *(int *)(object + NOX_OBJECT_OWNER_OFFSET), depth = 0;
+         owner && depth < 32; ++depth) {
+        if (*(unsigned char *)(owner + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_PLAYER_CATEGORY)
+            return owner;
+        owner = *(int *)(owner + NOX_OBJECT_OWNER_OFFSET);
+    }
+    return 0;
+}
+
+int nox_bot_engine_enable_monster_alert(int object)
+{
+    int runtime;
+
+    if (!object ||
+        !(*(unsigned char *)(object + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_MONSTER_CATEGORY))
+        return 0;
+    runtime = *(int *)(object + NOX_OBJECT_RUNTIME_OFFSET);
+    if (!runtime)
+        return 0;
+
+    /* OpenNox's recovered MonsterStatusEnable and the native monster update
+     * layout both place MonStatusAlert at runtime+1440 bit 0x100. Marking the
+     * object for update keeps the status change visible through native state. */
+    *(uint32_t *)(runtime + NOX_MONSTER_RUNTIME_STATUS_OFFSET) |= NOX_MONSTER_STATUS_ALERT;
+    sub_4E8020(object);
+    return 1;
 }
 
 static int nox_bot_engine_cast_script_arg(
@@ -1246,7 +1283,8 @@ int nox_bot_engine_create_bomber(int object)
         sub_501960(sound, bomber, 0, 0);
     sub_4F3070(bomber, trap, 1);
     /* Bot-Script explicitly follows the Conjurer after creation. */
-    sub_5158C0(bomber, object);
+    nox_bot_engine_follow_target(bomber, object);
+    nox_bot_engine_enable_monster_alert(bomber);
     return bomber;
 }
 
@@ -1369,6 +1407,16 @@ void nox_bot_engine_attack_target(int object, int target)
     if (!target || !nox_bot_engine_begin_monster_view(object, &morphed))
         return;
     sub_515D30(object, target);
+    nox_bot_engine_end_monster_view(object, morphed);
+}
+
+void nox_bot_engine_follow_target(int object, int target)
+{
+    int morphed;
+
+    if (!target || !nox_bot_engine_begin_monster_view(object, &morphed))
+        return;
+    sub_5158C0(object, target);
     nox_bot_engine_end_monster_view(object, morphed);
 }
 

@@ -113,9 +113,10 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   ownership, hostile DeathBall Counterspell, generic target-owned missile
   Inversion, Bot-Script Blink-as-Glyph escape, native nearby loot/equip pickup,
   native random summon spells/cage accounting, the custom native-backed Bomber
-  summon/Glyph path with native `BomberSummon` audio, mana-source routing, the
-  literal reference 10-second weapon preference, and shared CTF steering. Exact
-  Bomber alert/event choreography, team roles, commands, and phonemes remain;
+  summon/Glyph path with native `BomberSummon` audio, Alert status, and
+  Enemy Sighted/Enemy Heard/Lost Enemy action choreography, mana-source routing,
+  the literal reference 10-second weapon preference, and shared CTF steering.
+  Team roles, commands, and phonemes remain;
 - **orders/commands:** spawn/clear, attach/detach, difficulty, trace control, and
   3v3 setup are implemented; teammate order execution and broader coordinated
   team commands remain pending and are intentionally last;
@@ -1633,8 +1634,26 @@ the reference inventory `Glyph` carrying `BURN`, `TOXIC_CLOUD`, and `STUN`,
 inserts it through `sub_4F3070`, invokes native Follow through `sub_5158C0`, and
 looks up/dispatches `BomberSummon` through `sub_40AF50`/`sub_501960`. The
 reference `mana >= 80` check/no-subtraction quirk and three-frame summon gate are
-preserved. Exact Bomber Alert status and Enemy Sighted/Enemy Heard/Lost Enemy
-event choreography remain deferred.
+preserved. Creation now ORs `0x100` (`MonStatusAlert`) into the Bomber monster
+runtime status word at `+1440` and calls `sub_4E8020` to mark the native monster
+state update. This matches the recovered OpenNox `MonsterStatusEnable` layout
+without introducing bot-local alert state.
+
+Bomber event choreography reuses the native dispatch sites already intercepted
+for player-bot event capture rather than fabricating NoxScript callback records:
+
+- `sub_5287B0` / `sub_533030` — Enemy Sighted;
+- `sub_50D110` — Enemy Heard;
+- `sub_528560` — Lost Enemy/Lost Sight.
+
+`nox_bot_runtime_event()` first checks whether the event receiver is a native
+`Bomber` whose owner chain reaches an active Conjurer player bot. Enemy Sighted
+and Enemy Heard call native `sub_515D30` through the bot-engine attack adapter
+using the owning Conjurer's current Bot-Script target, exactly matching the
+reference closures' `bomber.Attack(con.target)`. Lost Enemy calls native
+`sub_5158C0` through the Follow adapter and restores `Follow(con.unit)`. The
+normal `sub_502490` monster script callback still runs after the hook, so normal
+monster/script behavior is not replaced and non-bot Bombers are unaffected.
 Hostile `DeathBall` Counterspell is implemented through the same native owner-chain
 search as Wizard policy; the Conjurer keeps the reference 20-second cooldown for
 that reaction while its ordinary Counterspell remains 5 seconds. If no nearby
@@ -1980,13 +1999,17 @@ creating parallel bot state:
   object creation to `sub_5016C0`, which establishes summoned state, owner/player
   bookkeeping, team membership, and native acquisition/network state. The helper
   creates a `Glyph` with `BURN`, `TOXIC_CLOUD`, and `STUN`, inserts it in the
-  Bomber inventory through `sub_4F3070`, calls `sub_5158C0` for the explicit
-  Bot-Script Follow behavior, resolves `BomberSummon` through `sub_40AF50`, and
-  emits it on the new Bomber through `sub_501960`. Owned-Bomber limits still come
-  from the existing authoritative world-owner query rather than a policy counter.
+  Bomber inventory through `sub_4F3070`, calls `sub_5158C0` through the shared
+  Follow adapter, enables `MonStatusAlert` in native monster status, resolves
+  `BomberSummon` through `sub_40AF50`, and emits it on the new Bomber through
+  `sub_501960`. Owned-Bomber limits still come from the existing authoritative
+  world-owner query rather than a policy counter.
   `sub_40AF50(name)` is the native sound-name-to-ID lookup used throughout the
   game data paths; `sub_501960(sound, object, 0, 0)` dispatches that sound as an
-  object-centered audio event.
+  object-centered audio event. `nox_bot_engine_owner_player()` follows the same
+  bounded native owner chain used by the other bot world queries, while
+  `nox_bot_engine_enable_monster_alert()` keeps the recovered status mutation and
+  `sub_4E8020` update notification behind the adapter boundary.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.
