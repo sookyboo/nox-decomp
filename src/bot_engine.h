@@ -52,6 +52,9 @@ int nox_bot_engine_remove_buff(int object, int buff);
 int nox_bot_engine_is_object_type(int object, const char *type_name);
 /* Reproduces NoxScript CastSpell(source=object, target=object). */
 int nox_bot_engine_cast_script_self(int object, const char *spell_name);
+int nox_bot_engine_cast_script_object(int object, const char *spell_name, int target);
+int nox_bot_engine_cast_script_position(int object, const char *spell_name, float x, float y);
+void nox_bot_engine_face_position(int object, float x, float y);
 int nox_bot_engine_current_target(int object);
 int nox_bot_engine_harpoon_attached_target(int object);
 int nox_bot_engine_stop_harpoon(int object);
@@ -59,6 +62,8 @@ int nox_bot_engine_health(int object);
 int nox_bot_engine_max_health(int object);
 int nox_bot_engine_mana(int object);
 int nox_bot_engine_max_mana(int object);
+int nox_bot_engine_mana_add(int object, int amount);
+int nox_bot_engine_mana_sub(int object, int amount);
 int nox_bot_engine_can_interact(int self, int other);
 void nox_bot_engine_position(int object, float *x, float *y);
 int nox_bot_engine_set_aggression(int object, float aggression);

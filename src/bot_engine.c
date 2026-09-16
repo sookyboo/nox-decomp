@@ -281,6 +281,19 @@ void nox_bot_engine_face_target(int object, int target)
     *(short *)(object + 124) = (short)sub_509ED0(&delta);
 }
 
+void nox_bot_engine_face_position(int object, float x, float y)
+{
+    float2 delta;
+
+    if (!object)
+        return;
+    delta.field_0 = x - *(float *)(object + NOX_OBJECT_X_OFFSET);
+    delta.field_4 = y - *(float *)(object + NOX_OBJECT_Y_OFFSET);
+    if (delta.field_0 == 0.0f && delta.field_4 == 0.0f)
+        return;
+    *(short *)(object + 124) = (short)sub_509ED0(&delta);
+}
+
 int nox_bot_engine_spell_allowed_for_class(int player_class, int spell)
 {
     if (spell <= 0)
@@ -330,7 +343,8 @@ int nox_bot_engine_is_object_type(int object, const char *type_name)
         (unsigned short)type_id;
 }
 
-int nox_bot_engine_cast_script_self(int object, const char *spell_name)
+static int nox_bot_engine_cast_script_arg(
+    int object, const char *spell_name, int target, float x, float y)
 {
     struct nox_bot_spell_accept_arg {
         int object;
@@ -348,17 +362,43 @@ int nox_bot_engine_cast_script_self(int object, const char *spell_name)
         return 0;
 
     /*
-     * NoxScript CastSpell uses the direct spell dispatcher rather than a
-     * queued monster-cast action. Entering the native bot monster view makes
-     * sub_4FE7B0 read the bot AI spell power (initialized to 3 by 4FA700),
-     * which matches the NPC/script path instead of player learned-spell data.
+     * OpenNox/NoxScript SpellAcceptArg is {Object *Obj; Pointf Pos}. CastSpell
+     * faces Pos, then calls the direct spell dispatcher. Entering the native
+     * player-bot monster view makes sub_4FE7B0 read AI spell power 3, matching
+     * NPC/script semantics instead of player learned-spell state.
      */
-    arg.object = object;
-    arg.x = *(float *)(object + NOX_OBJECT_X_OFFSET);
-    arg.y = *(float *)(object + NOX_OBJECT_Y_OFFSET);
+    nox_bot_engine_face_position(object, x, y);
+    arg.object = target;
+    arg.x = x;
+    arg.y = y;
     result = sub_4FDD20(spell, (_DWORD *)object, (int *)&arg);
     nox_bot_engine_end_monster_view(object, morphed);
     return result != 0;
+}
+
+int nox_bot_engine_cast_script_self(int object, const char *spell_name)
+{
+    if (!object)
+        return 0;
+    return nox_bot_engine_cast_script_arg(
+        object, spell_name, object,
+        *(float *)(object + NOX_OBJECT_X_OFFSET),
+        *(float *)(object + NOX_OBJECT_Y_OFFSET));
+}
+
+int nox_bot_engine_cast_script_object(int object, const char *spell_name, int target)
+{
+    if (!object || !target)
+        return 0;
+    return nox_bot_engine_cast_script_arg(
+        object, spell_name, target,
+        *(float *)(target + NOX_OBJECT_X_OFFSET),
+        *(float *)(target + NOX_OBJECT_Y_OFFSET));
+}
+
+int nox_bot_engine_cast_script_position(int object, const char *spell_name, float x, float y)
+{
+    return nox_bot_engine_cast_script_arg(object, spell_name, 0, x, y);
 }
 
 int nox_bot_engine_current_target(int object)
@@ -431,6 +471,34 @@ int nox_bot_engine_max_mana(int object)
     if (!object)
         return 0;
     return (unsigned short)sub_4EECB0(object);
+}
+
+int nox_bot_engine_mana_add(int object, int amount)
+{
+    int before;
+
+    if (!object || amount < 0 || amount > 0x7FFF)
+        return 0;
+    before = nox_bot_engine_mana(object);
+    if (!amount)
+        return 1;
+    sub_4EEB80(object, (short)amount);
+    return nox_bot_engine_mana(object) > before;
+}
+
+int nox_bot_engine_mana_sub(int object, int amount)
+{
+    int before;
+
+    if (!object || amount < 0)
+        return 0;
+    before = nox_bot_engine_mana(object);
+    if (before < amount)
+        return 0;
+    if (!amount)
+        return 1;
+    sub_4EEBF0(object, amount);
+    return nox_bot_engine_mana(object) == before - amount;
 }
 
 int nox_bot_engine_can_interact(int self, int other)

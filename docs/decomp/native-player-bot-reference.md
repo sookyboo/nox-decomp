@@ -28,7 +28,7 @@ USE_BOT_SUPPORT=OFF (default)
     -> bot sources and integration hooks are excluded
 
 USE_BOT_SUPPORT=ON
-    -> bot_engine.c + bot_policy.c + bot_runtime.c + bot_warrior.c are compiled
+    -> bot_engine.c + bot_policy.c + bot_runtime.c + bot_warrior.c + bot_wizard.c are compiled
     -> NOX_BOT_SUPPORT is defined
     -> confirmed native player-bot event sites record server-local policy events
 ```
@@ -45,6 +45,8 @@ deadlines, orders, and pending event records. `src/bot_warrior.c` currently
 implements the high-confidence native Harpoon, Berserker Charge, health-potion
 and recovery movement, loot/equipment, RoundChakram, Eye of the Wolf, War Cry,
 TeleportWake pursuit, and native-backed CTF objective-steering subset.
+`src/bot_wizard.c` implements the first high-confidence Wizard direct-cast
+priority slice while leaving spell effects and player mana authoritative in Nox.
 `src/bot_runtime.c` synchronizes
 that state with existing native player bots and can attach/detach an
 **already-created** normal player from the recovered player-monster update path.
@@ -87,8 +89,12 @@ The unresolved work after the current Warrior/native-runtime foundation is:
 - **Warrior lost-target behavior:** the Bot-Script `TeleportWake` pursuit/check
   loop is implemented; additional lost-target behavior is only pending where it
   depends on future shared team/order policy;
-- **Wizard/Conjurer policy:** native casting and class validation exist, but the
-  reference tactical decision trees are not implemented;
+- **Wizard policy:** the core direct-cast visible-target priority, basic defensive
+  buffs/protections, potions, reaction delays, cooldowns, and native mana spending
+  are implemented. Blink, traps, Drain Mana/obelisk routing, projectile reactions,
+  wand/loot policy, CTF team-role distinctions, and phonemes remain;
+- **Conjurer policy:** native casting/class support exists but its reference
+  tactical decision tree is not implemented;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1416,13 +1422,24 @@ Resolve these once through the game's authoritative spell/name tables.
 
 ---
 
-## 11.6 Direct NoxScript-style self casting and Warrior `HELD` escape
+## 11.6 Direct NoxScript-style casting and Warrior `HELD` escape
 
 The Go Warrior does not queue a monster cast when escaping ordinary `HELD`. It
 calls NoxScript `CastSpell(SLOW, self, self)` and then removes `HELD`. OpenNox's
 NoxScript bridge confirms that this is the direct spell dispatcher path that
-reaches `sub_4FDD20`, with a spell-accept argument containing the target object
-and target position.
+reaches `sub_4FDD20`. OpenNox defines the accepted payload as:
+
+```c
+struct SpellAcceptArg {
+    Object *Obj;
+    Pointf Pos;
+};
+```
+
+On the 32-bit native ABI this is one object pointer/handle followed by two
+`float` coordinates. NoxScript `CastSpell` faces `Pos` before dispatch. For an
+object-target cast `Obj` is the target and `Pos` is its current position; for a
+position cast `Obj` is null and `Pos` carries the requested cursor point.
 
 For a normal native player object, `sub_4FE7B0` would derive spell power from
 the player's learned-spell array. That is not equivalent to the reference NPC.
@@ -1455,6 +1472,38 @@ present after that window, is converted to Slow and removed.
 Only the source/timer distinction is bot-local. The Slow spell effect, native
 Charge collision stun, Bomber behavior, enchant lifetime, and enchant removal
 remain engine-owned.
+
+## 11.7 Wizard direct-cast policy and native mana
+
+The same direct-script contract is now exposed for self, object, and position
+targets. `nox_bot_engine_cast_script_object()` and
+`nox_bot_engine_cast_script_position()` build the exact `SpellAcceptArg` shape,
+face the target position, enter the existing player-bot monster view, call
+`sub_4FDD20`, and restore normal player form. This is intentionally separate
+from `nox_xxx_monsterCast_540A30`, which queues a monster cast action rather than
+reproducing NoxScript's direct `CastSpell` semantics.
+
+Wizard policy uses authoritative player mana rather than recreating the Go
+script's `wiz.mana` value. `nox_xxx_playerManaSub_4EEBF0` (`sub_4EEBF0`) is the
+native player mana-subtraction path; `nox_xxx_playerManaAdd_4EEB80` (`sub_4EEB80`)
+is the corresponding native addition path. The adapter checks the normal player
+runtime first and verifies the resulting native mana value. With the reference
+default `BotMana=true`, Wizard policy uses the add path for one mana point every
+two simulation seconds while below the reference 150-mana ceiling. Spell effects
+themselves do not receive a second bot-owned mana model.
+
+The Bot-Script concepts that do not exist as authoritative Nox state remain
+server-local policy deadlines: its three-frame global spell gate, per-spell
+cooldowns, difficulty reaction delay, pending target/cursor snapshot, and current
+reference target. Runtime class dispatch now calls this policy for player class
+`1` after `4FAB20` has restored normal player form.
+
+Current spell decisions implemented by this first slice are Slow, Death Ray,
+Fireball, Burn, Magic Missile, Counterspell, Shield, Lesser Heal, Haste, Shock,
+Protection From Electricity, Protection From Fire, and Invisibility. Native
+spell/enchant mechanics remain authoritative. Blink, traps, Drain Mana/obelisk
+routing, projectile-reflection reactions, equipment/loot behavior, and phoneme
+sequencing are intentionally outside this slice.
 
 ---
 
@@ -2502,6 +2551,8 @@ nox_xxx_unitGetHP_4EE780
 nox_xxx_unitGetMaxHP_4EE7A0
 nox_xxx_unitGetOldMana_4EEC80
 nox_xxx_playerGetMaxMana_4EECB0
+nox_xxx_playerManaAdd_4EEB80
+nox_xxx_playerManaSub_4EEBF0
 nox_xxx_unitCanInteractWith_5370E0
 sub_515980                              [native aggression setter]
 sub_40A5C0                             [game-mode flag query]
@@ -3060,7 +3111,7 @@ nox_xxx_harpoonBreakForPlr_537520     [native attached-Harpoon cleanup]
 
 ```text
 nox_xxx_monsterCast_540A30
-sub_4FDD20                         [direct script/NoxScript spell cast]
+sub_4FDD20                         [direct script/NoxScript spell cast; SpellAcceptArg {Obj, Pos}]
 sub_4FF5B0                         [native enchant removal]
 nox_xxx_abilityNameToN_424D80
 nox_xxx_abilityCooldown_4252D0
