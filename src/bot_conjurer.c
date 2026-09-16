@@ -38,6 +38,7 @@ typedef enum nox_bot_conjurer_spell {
     NOX_BOT_CONJURER_SPELL_COUNTERSPELL,
     NOX_BOT_CONJURER_SPELL_STUN,
     NOX_BOT_CONJURER_SPELL_SLOW,
+    NOX_BOT_CONJURER_SPELL_PIXIE_SWARM,
 } nox_bot_conjurer_spell;
 
 typedef enum nox_bot_conjurer_cast_kind {
@@ -69,6 +70,7 @@ static const nox_bot_conjurer_spell_def nox_bot_conjurer_spells[] = {
     { "COUNTERSPELL", 20, 5, 0, NOX_BOT_CONJURER_CAST_POSITION },
     { "STUN", 10, 5, 0, NOX_BOT_CONJURER_CAST_OBJECT },
     { "SLOW", 10, 3, 0, NOX_BOT_CONJURER_CAST_OBJECT },
+    { "PIXIE_SWARM", 30, 0, 0, NOX_BOT_CONJURER_CAST_SELF },
 };
 
 static uint32_t *nox_bot_conjurer_ready_frame(
@@ -265,6 +267,17 @@ static int nox_bot_conjurer_try_infravision(
         return 0;
     return nox_bot_conjurer_schedule(
         object, state, frame, NOX_BOT_CONJURER_SPELL_INFRAVISION, object, 0.0f, 0.0f);
+}
+
+static int nox_bot_conjurer_try_pixie_swarm(
+    int object, nox_bot_policy_state *state, uint32_t frame)
+{
+    if (nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC) ||
+        nox_bot_engine_owned_type_count(object, "Pixie") != 0)
+        return 0;
+    return nox_bot_conjurer_schedule(
+        object, state, frame, NOX_BOT_CONJURER_SPELL_PIXIE_SWARM,
+        object, 0.0f, 0.0f);
 }
 
 static int nox_bot_conjurer_try_lesser_heal(
@@ -526,6 +539,12 @@ void nox_bot_conjurer_update(int object, nox_bot_policy_state *state, uint32_t f
     target = conjurer->target;
     nox_bot_conjurer_use_potions(object, target);
     nox_bot_conjurer_cap_mana(object);
+
+    /* Bot-Script checks Pixie Swarm before Lesser Heal/offense and only casts
+     * when it cannot find an owned Pixie. Native world ownership is the
+     * authoritative replacement for the script-local PixieCount flag. */
+    if (nox_bot_conjurer_try_pixie_swarm(object, state, frame))
+        return;
 
     if (target && nox_bot_engine_health(target) > 0 &&
         nox_bot_engine_can_interact(object, target)) {

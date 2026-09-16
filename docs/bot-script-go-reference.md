@@ -52,8 +52,8 @@ Implemented so far:
 - `[x]` Bot-Script reaction delays (`0/15/30/45/60` simulation frames), including wrap-safe deadline comparison;
 - `[x]` server-local capture of all ten native event concepts used by the Go reference, alongside the original Nox callbacks;
 - `[~]` Warrior tactical subset: native Harpoon, reaction-timed Berserker Charge, native RedPotion use/recovery movement, nearby loot pickup, the reference `GreatSword → WarHammer → Longsword` melee preference, native RoundChakram throwing with the reference 10-second cooldown, reaction-timed Eye of the Wolf/War Cry, the reference one-second close-range ability scan, Harpoon-hit-to-Charge scheduling, Harpoon break-on-hit, held-state escape with protected Charge/Bomber stun windows, TeleportWake pursuit, and native-backed CTF attack/defend/escort/return steering;
-- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Slow/Magic Missile/Counterspell priority, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, reference reaction delays, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, and shared native-backed CTF objective steering;
-- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, and shared native-backed CTF objective steering;
+- `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Ring of Fire/Slow/Energy Bolt/Magic Missile/Counterspell priority, hidden Enemy-Heard Invisibility, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, reference reaction delays, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, and shared native-backed CTF objective steering;
+- `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, passive mana regeneration, reaction delays, reference cooldowns, 15-frame native loot/equip pickup, and shared native-backed CTF objective steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets.
 
 Still intentionally not implemented where native ownership is not completely recovered:
@@ -61,8 +61,8 @@ Still intentionally not implemented where native ownership is not completely rec
 - `[ ]` claiming/creating a free player slot and player object without a human network client;
 - `[ ]` authoritative cleanup/freeing of that newly created player slot;
 - `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
-- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority, nearby loot, wand preference, and shared CTF steering are implemented; Blink, traps, Drain Mana/obelisk routing, projectile reactions, team-role distinctions, and phonemes remain);
-- `[~]` Conjurer Bot-Script tactical policy (the first direct-cast priority slice, nearby loot/equip pickup, and shared CTF steering are implemented; Blink, missile reactions, Pixies/summons, mana-obelisk routing, the ambiguous reference weapon preference, team roles, commands, and phonemes remain);
+- `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt and Ring of Fire, hidden Enemy-Heard Invisibility, nearby loot, wand preference, and shared CTF steering are implemented; Blink, traps, Drain Mana/obelisk routing, projectile reactions, team-role distinctions, and phonemes remain);
+- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, nearby loot/equip pickup, and shared CTF steering; Blink, missile reactions, random creature summons/creature-cage accounting, mana-obelisk routing, the ambiguous reference weapon preference, team roles, commands, and phonemes remain);
 - `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer; higher-level role assignment, coordinated multi-bot strategy, teammate orders, and bot commands remain pending;
 - `[ ]` cosmetic spell-phoneme parity.
 
@@ -116,9 +116,17 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   armor, and potions, uses the unambiguous `FireStormWand → ForceWand` 10-second
   preference, and reuses the shared native-backed CTF Lost Sight/End Of Waypoint
   steering;
-- Wizard gaps remain Blink/retreat escape, Trap, Energy Bolt/Ring of Fire and
-  other omitted offensive branches, Drain Mana and mana-obelisk routing,
-  projectile Inversion/Counterspell reactions, CTF TeamTank role-aware
+- Wizard now also ports Energy Bolt (`LIGHTNING`) and Ring of Fire
+  (`CLEANSING_FLAME`) through the native direct spell dispatcher. The port
+  preserves two observable reference quirks: Energy Bolt requires `mana > 10`
+  but does not subtract mana, while Ring of Fire becomes unavailable after its
+  first cast because the reference timer mistakenly re-enables `ShockReady`
+  instead of `RingOfFireReady`. Hidden Enemy Heard events also reproduce the
+  reference's reachable Invisibility response; the preceding FireballAtHeard
+  call is not ported because the reference enters the callback only when the
+  target is not visible while that helper itself requires visibility;
+- Wizard gaps remain Blink/retreat escape, Trap, Drain Mana and mana-obelisk
+  routing, projectile Inversion/Counterspell reactions, CTF TeamTank role-aware
   invisibility, teammate commands, and phoneme sequencing;
 - Conjurer now has a first native tactical slice: Enemy Sighted Force of Nature,
   Looking/Lost Sight Infravision, the reference held/slowed-target Meteor →
@@ -133,11 +141,15 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   checks for `CrossBow`/`InfinitePainWand` but attempts to equip
   `FireStormWand`/`ForceWand`. The native port intentionally does not guess a
   corrected 10-second preference until that upstream intent is resolved;
+- Conjurer Pixie Swarm is now implemented without a bot-local `PixieCount`:
+  policy queries the authoritative native world list for non-removed `Pixie`
+  objects whose native owner chain reaches the Conjurer and casts `PIXIE_SWARM`
+  only when that count is zero, preserving the reference 30-mana/global-gate
+  behavior;
 - Conjurer gaps remain Blink/retreat escape, projectile Inversion and DeathBall
-  counterspell reactions, Pixie Swarm tracking, random creature summoning and
-  creature-cage accounting, mana-obelisk routing/restoration, the ambiguous
-  weapon preference, CTF/team-role distinctions, teammate commands, and
-  phonemes.
+  counterspell reactions, random creature summoning and creature-cage
+  accounting, mana-obelisk routing/restoration, the ambiguous weapon
+  preference, CTF/team-role distinctions, teammate commands, and phonemes.
 
 ### Team and game-mode strategy
 
@@ -945,6 +957,10 @@ Implemented reference behavior includes:
   Shock;
 - a normally visible target receives Stun outside CTF, while CTF uses Slow,
   preserving the reference's Warrior-like `MaxHealth == 150` Stun exclusion;
+- Pixie Swarm is considered before Lesser Heal/offense. Instead of mirroring
+  the script's once-per-second `PixieCount`, policy counts live native `Pixie`
+  world objects whose owner chain reaches the Conjurer and casts only when none
+  exist;
 - Lesser Heal has priority at `<= 60` health when mana is at least 100;
 - when no target is visible, Vampirism is preferred first, followed (at >= 85
   mana) by Protection From Electricity, Protection From Fire, and Protection
@@ -962,9 +978,10 @@ Implemented reference behavior includes:
   attack/defend/return destination policy already used by Warrior.
 
 Not included in this slice are Blink (`NewTrap` in the reference), projectile
-Inversion/DeathBall reactions, Pixie ownership/counting, random creature
-summoning and creature-cage limits, mana-obelisk routing/restoration, or spell
-phonemes. The reference 10-second Conjurer `WeaponPreference()` remains
+Inversion/DeathBall reactions, random creature summoning and creature-cage
+limits, mana-obelisk routing/restoration, or spell phonemes. Pixie Swarm itself
+is now native-backed; ownership/counting comes from the authoritative world
+object owner field instead of duplicate policy state. The reference 10-second Conjurer `WeaponPreference()` remains
 intentionally unported because its conditions and equipped item names contradict
 each other (`CrossBow`/`InfinitePainWand` checks versus
 `FireStormWand`/`ForceWand` equips). Those require separate native ownership
@@ -1031,12 +1048,19 @@ The current policy ports these high-confidence reference decisions:
 
 - Enemy Sighted attempts Slow after the configured difficulty reaction delay;
 - visible targets preserve the reference priority among Death Ray (held/slowed or
-  while the Wizard is invisible), Fireball, Burn against Reflective Shield, Slow,
-  Magic Missile, and Counterspell against Shock;
+  while the Wizard is invisible), Fireball, Burn against Reflective Shield,
+  Ring of Fire against a Reflective Shield target within 40 units, Slow,
+  Energy Bolt within 200 units, Magic Missile, and Counterspell against Shock;
 - when no higher-priority attack is selected, Shield is preferred, followed at
   high mana by Lesser Heal, Haste, and Shock;
-- when the target is not visible, Protection From Electricity and Protection From
-  Fire are considered before Invisibility;
+- a hidden Enemy Heard event attempts the reference's reachable Invisibility
+  response immediately (outside CTF until TeamTank role assignment exists); the
+  reference's preceding `castFireballAtHeard()` is contradictory because the
+  event branch requires the target to be unseen while that helper requires it
+  to be visible;
+- when no event-specific response is pending and the target is not visible,
+  Protection From Electricity and Protection From Fire are considered before
+  Invisibility;
 - RedPotion at `<= 25` health and BluePotion at `<= 100` mana use the native
   player inventory/potion path;
 - the Go bot's spell costs are charged against authoritative native player mana;
@@ -1052,9 +1076,15 @@ The current policy ports these high-confidence reference decisions:
 - Lost Sight and End Of Waypoint in CTF use the same shared native-backed
   attack/defend/return destination policy as Warrior.
 
-Spell phoneme sequences are intentionally not part of this slice. Blink, Trap,
-Drain Mana/obelisk routing, missile Inversion logic, CTF TeamTank role-aware
-invisibility, and several secondary offensive spells remain explicit gaps. The Go reference
+Energy Bolt uses native `LIGHTNING` and intentionally preserves the reference
+quirk where `mana > 10` is checked but no mana is deducted. Ring of Fire uses
+native `CLEANSING_FLAME`; the reference sets `RingOfFireReady=false` and its
+five-second timer mistakenly writes `ShockReady=true`, so the native policy
+preserves the resulting once-per-life Ring of Fire behavior instead of silently
+correcting the source script. Spell phoneme sequences are intentionally not part
+of this slice. Blink, Trap, Drain Mana/obelisk routing, missile Inversion logic,
+CTF TeamTank role-aware invisibility, and other still-omitted branches remain
+explicit gaps. The Go reference
 only suppresses Invisibility for its CTF `TeamTank`; native team-role assignment
 is not yet ported, so the current subset conservatively suppresses Wizard
 Invisibility for all CTF bots rather than guessing that role.

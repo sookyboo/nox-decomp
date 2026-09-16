@@ -37,6 +37,8 @@ typedef enum nox_bot_wizard_spell {
     NOX_BOT_WIZARD_SPELL_PROTECT_SHOCK,
     NOX_BOT_WIZARD_SPELL_PROTECT_FIRE,
     NOX_BOT_WIZARD_SPELL_INVISIBILITY,
+    NOX_BOT_WIZARD_SPELL_RING_OF_FIRE,
+    NOX_BOT_WIZARD_SPELL_ENERGY_BOLT,
 } nox_bot_wizard_spell;
 
 typedef enum nox_bot_wizard_cast_kind {
@@ -47,27 +49,32 @@ typedef enum nox_bot_wizard_cast_kind {
 
 typedef struct nox_bot_wizard_spell_def {
     const char *name;
-    unsigned short mana;
+    unsigned short mana_required;
+    unsigned short mana_cost;
     unsigned short cooldown_seconds;
     unsigned short cooldown_frames;
     unsigned char cast_kind;
 } nox_bot_wizard_spell_def;
 
 static const nox_bot_wizard_spell_def nox_bot_wizard_spells[] = {
-    { 0, 0, 0, 0, 0 },
-    { "SLOW", 10, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
-    { "DEATH_RAY", 60, 5, 0, NOX_BOT_WIZARD_CAST_POSITION },
-    { "FIREBALL", 30, 5, 0, NOX_BOT_WIZARD_CAST_POSITION },
-    { "BURN", 10, 0, 3, NOX_BOT_WIZARD_CAST_POSITION },
-    { "MAGIC_MISSILE", 15, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
-    { "COUNTERSPELL", 20, 20, 0, NOX_BOT_WIZARD_CAST_POSITION },
-    { "SHIELD", 80, 10, 0, NOX_BOT_WIZARD_CAST_SELF },
-    { "LESSER_HEAL", 30, 1, 0, NOX_BOT_WIZARD_CAST_SELF },
-    { "HASTE", 10, 20, 0, NOX_BOT_WIZARD_CAST_SELF },
-    { "SHOCK", 30, 5, 0, NOX_BOT_WIZARD_CAST_SELF },
-    { "PROTECTION_FROM_ELECTRICITY", 30, 60, 0, NOX_BOT_WIZARD_CAST_SELF },
-    { "PROTECTION_FROM_FIRE", 30, 60, 0, NOX_BOT_WIZARD_CAST_SELF },
-    { "INVISIBILITY", 30, 60, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { 0, 0, 0, 0, 0, 0 },
+    { "SLOW", 10, 10, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
+    { "DEATH_RAY", 60, 60, 5, 0, NOX_BOT_WIZARD_CAST_POSITION },
+    { "FIREBALL", 30, 30, 5, 0, NOX_BOT_WIZARD_CAST_POSITION },
+    { "BURN", 10, 10, 0, 3, NOX_BOT_WIZARD_CAST_POSITION },
+    { "MAGIC_MISSILE", 15, 15, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
+    { "COUNTERSPELL", 20, 20, 20, 0, NOX_BOT_WIZARD_CAST_POSITION },
+    { "SHIELD", 80, 80, 10, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { "LESSER_HEAL", 30, 30, 1, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { "HASTE", 10, 10, 20, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { "SHOCK", 30, 30, 5, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { "PROTECTION_FROM_ELECTRICITY", 30, 30, 60, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { "PROTECTION_FROM_FIRE", 30, 30, 60, 0, NOX_BOT_WIZARD_CAST_SELF },
+    { "INVISIBILITY", 30, 30, 60, 0, NOX_BOT_WIZARD_CAST_SELF },
+    /* Bot-Script's RingOfFireReady is never re-enabled after the first cast. */
+    { "CLEANSING_FLAME", 60, 60, 0, 0, NOX_BOT_WIZARD_CAST_SELF },
+    /* Bot-Script checks mana > 10 for Energy Bolt but does not deduct mana. */
+    { "LIGHTNING", 11, 0, 3, 0, NOX_BOT_WIZARD_CAST_OBJECT },
 };
 
 static uint32_t *nox_bot_wizard_ready_frame(
@@ -100,6 +107,8 @@ static uint32_t *nox_bot_wizard_ready_frame(
         return &wizard->protect_fire_ready_frame;
     case NOX_BOT_WIZARD_SPELL_INVISIBILITY:
         return &wizard->invisibility_ready_frame;
+    case NOX_BOT_WIZARD_SPELL_ENERGY_BOLT:
+        return &wizard->energy_bolt_ready_frame;
     default:
         return 0;
     }
@@ -155,6 +164,11 @@ static int nox_bot_wizard_spell_ready(
     case NOX_BOT_WIZARD_SPELL_INVISIBILITY:
         ready = &wizard->invisibility_ready_frame;
         break;
+    case NOX_BOT_WIZARD_SPELL_RING_OF_FIRE:
+        return !wizard->ring_of_fire_used;
+    case NOX_BOT_WIZARD_SPELL_ENERGY_BOLT:
+        ready = &wizard->energy_bolt_ready_frame;
+        break;
     default:
         break;
     }
@@ -186,7 +200,7 @@ static int nox_bot_wizard_schedule(
     def = &nox_bot_wizard_spells[spell];
     if (!nox_bot_wizard_global_ready(wizard, frame) ||
         !nox_bot_wizard_spell_ready(wizard, spell, frame) ||
-        nox_bot_engine_mana(object) < def->mana)
+        nox_bot_engine_mana(object) < def->mana_required)
         return 0;
 
     wizard->pending_spell = (unsigned char)spell;
@@ -205,6 +219,7 @@ static int nox_bot_wizard_pending_target_valid(
         return 0;
     if (spell == NOX_BOT_WIZARD_SPELL_DEATH_RAY ||
         spell == NOX_BOT_WIZARD_SPELL_BURN ||
+        spell == NOX_BOT_WIZARD_SPELL_RING_OF_FIRE ||
         spell == NOX_BOT_WIZARD_SPELL_COUNTERSPELL)
         return nox_bot_engine_can_interact(object, wizard->pending_target);
     return 1;
@@ -238,7 +253,7 @@ static void nox_bot_wizard_finish_cast(
         nox_bot_wizard_cancel_pending(state, frame);
         return;
     }
-    if (nox_bot_engine_mana(object) < def->mana) {
+    if (nox_bot_engine_mana(object) < def->mana_required) {
         nox_bot_wizard_cancel_pending(state, frame);
         return;
     }
@@ -249,8 +264,12 @@ static void nox_bot_wizard_finish_cast(
         return;
     }
 
-    /* The Go reference deducts its bot-local mana immediately before CastSpell. */
-    nox_bot_engine_mana_sub(object, def->mana);
+    /* The Go reference deducts bot-local mana immediately before CastSpell,
+     * except Energy Bolt where the script checks mana but never subtracts it. */
+    if (def->mana_cost)
+        nox_bot_engine_mana_sub(object, def->mana_cost);
+    if (spell == NOX_BOT_WIZARD_SPELL_RING_OF_FIRE && wizard->pending_target)
+        nox_bot_engine_face_target(object, wizard->pending_target);
     if (def->cast_kind == NOX_BOT_WIZARD_CAST_SELF)
         nox_bot_engine_cast_script_self(object, def->name);
     else if (def->cast_kind == NOX_BOT_WIZARD_CAST_OBJECT)
@@ -262,6 +281,13 @@ static void nox_bot_wizard_finish_cast(
     wizard->pending_target = 0;
     wizard->global_ready_frame = frame + NOX_BOT_WIZARD_GLOBAL_COOLDOWN_FRAMES;
 
+    if (spell == NOX_BOT_WIZARD_SPELL_RING_OF_FIRE) {
+        /* Reference quirk: the five-second timer sets ShockReady, not
+         * RingOfFireReady, so Ring of Fire remains unavailable this life. */
+        wizard->ring_of_fire_used = 1;
+        return;
+    }
+
     ready = nox_bot_wizard_ready_frame(wizard, spell);
     if (!ready)
         return;
@@ -272,6 +298,24 @@ static void nox_bot_wizard_finish_cast(
             cooldown = 1;
     }
     *ready = cooldown ? frame + cooldown : frame;
+}
+
+static int nox_bot_wizard_within_radius(int object, int target, float radius)
+{
+    float self_x;
+    float self_y;
+    float target_x;
+    float target_y;
+    float dx;
+    float dy;
+
+    if (!object || !target || radius < 0.0f)
+        return 0;
+    nox_bot_engine_position(object, &self_x, &self_y);
+    nox_bot_engine_position(target, &target_x, &target_y);
+    dx = target_x - self_x;
+    dy = target_y - self_y;
+    return dx * dx + dy * dy <= radius * radius;
 }
 
 static int nox_bot_wizard_try_slow(
@@ -324,7 +368,23 @@ static int nox_bot_wizard_try_visible_target(
             object, state, frame, NOX_BOT_WIZARD_SPELL_BURN, target, x, y))
         return 1;
 
+    if (!self_invisible &&
+        nox_bot_engine_has_buff(target, NOX_BOT_ENCHANT_REFLECTIVE_SHIELD) &&
+        !nox_bot_engine_has_buff(target, NOX_BOT_ENCHANT_INVULNERABLE) &&
+        nox_bot_wizard_within_radius(object, target, 40.0f) &&
+        nox_bot_wizard_schedule(
+            object, state, frame, NOX_BOT_WIZARD_SPELL_RING_OF_FIRE, target, x, y))
+        return 1;
+
     if (!self_invisible && nox_bot_wizard_try_slow(object, state, frame, target))
+        return 1;
+
+    if (!self_invisible &&
+        !nox_bot_engine_has_buff(target, NOX_BOT_ENCHANT_INVULNERABLE) &&
+        !nox_bot_engine_has_buff(target, NOX_BOT_ENCHANT_REFLECTIVE_SHIELD) &&
+        nox_bot_wizard_within_radius(object, target, 200.0f) &&
+        nox_bot_wizard_schedule(
+            object, state, frame, NOX_BOT_WIZARD_SPELL_ENERGY_BOLT, target, x, y))
         return 1;
 
     if (!self_invisible &&
@@ -464,9 +524,25 @@ static void nox_bot_wizard_weapon_preference(
     nox_bot_wizard_apply_weapon_preference(object);
 }
 
-static void nox_bot_wizard_process_objective_events(
-    int object, nox_bot_policy_state *state)
+static void nox_bot_wizard_process_events(
+    int object, nox_bot_policy_state *state, uint32_t frame)
 {
+    if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_ENEMY_HEARD)) {
+        /* onEnemyHeard only enters when the current target cannot be seen. Its
+         * FireballAtHeard helper then requires CanSee(target), so that branch
+         * cannot fire as written; the subsequent Invisibility attempt is the
+         * observable high-confidence response. TeamTank is not ported yet, so
+         * keep the existing conservative CTF suppression. */
+        if (state->wizard.target &&
+            !nox_bot_engine_can_interact(object, state->wizard.target) &&
+            !nox_bot_engine_is_ctf() &&
+            !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_INVISIBLE) &&
+            !nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC))
+            nox_bot_wizard_schedule(
+                object, state, frame, NOX_BOT_WIZARD_SPELL_INVISIBILITY,
+                object, 0.0f, 0.0f);
+        nox_bot_policy_clear_event(state, NOX_BOT_EVENT_ENEMY_HEARD);
+    }
     if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_LOST_SIGHT)) {
         if (nox_bot_engine_is_ctf())
             nox_bot_team_ctf_walk_to_own_flag(object);
@@ -526,7 +602,7 @@ void nox_bot_wizard_update(int object, nox_bot_policy_state *state, uint32_t fra
     nox_bot_wizard_regen_mana(object, state, frame);
     nox_bot_wizard_loot_scan(object, state, frame);
     nox_bot_wizard_weapon_preference(object, state, frame);
-    nox_bot_wizard_process_objective_events(object, state);
+    nox_bot_wizard_process_events(object, state, frame);
 
     if (nox_bot_policy_event_pending(state, NOX_BOT_EVENT_ENEMY_SIGHTED)) {
         target = nox_bot_policy_event_object(state, NOX_BOT_EVENT_ENEMY_SIGHTED);
