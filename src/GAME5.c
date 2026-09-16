@@ -9528,7 +9528,7 @@ void sub_551DF0()
 }
 
 //----- (00551E00) --------------------------------------------------------
-int __cdecl sub_551E00(unsigned __int8 a1, int a2)
+int __cdecl sub_551E00(unsigned __int8 a1, intptr_t a2)
 {
   int v2; // edx
   unsigned __int8 *v3; // ecx
@@ -9546,14 +9546,14 @@ int __cdecl sub_551E00(unsigned __int8 a1, int a2)
     }
     v3 += 4;
     ++v2;
-    if ( (int)v3 >= (int)&byte_5D4594[3844300] )
+    if ( v3 >= &byte_5D4594[3844300] )
       return 0;
   }
   return 1;
 }
 
 //----- (00551E60) --------------------------------------------------------
-LPVOID __cdecl sub_551E60(int a1)
+LPVOID __cdecl sub_551E60(intptr_t a1)
 {
   int v1; // edx
   unsigned __int8 *v2; // ecx
@@ -9571,10 +9571,10 @@ LPVOID __cdecl sub_551E60(int a1)
     }
     v2 += 4;
     ++v1;
-    if ( (int)v2 >= (int)&byte_5D4594[3844300] )
+    if ( v2 >= &byte_5D4594[3844300] )
       return 0;
   }
-  return *(LPVOID *)&byte_5D4594[4 * v1 + 3843788];
+  return (LPVOID)(uintptr_t)*(uint32_t *)&byte_5D4594[4 * v1 + 3843788];
 }
 
 //----- (00551EB0) --------------------------------------------------------
@@ -9593,7 +9593,8 @@ int __cdecl sub_551EB0(int a1, unsigned int a2, unsigned __int8 a3, int a4, int 
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[4 * a2 + 3843788] + 152) = 2;
       *(_BYTE *)(*(_DWORD *)&byte_5D4594[4 * a2 + 3843788] + 156) = -1;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[4 * a2 + 3843788] + 160) = 0;
-      (*(void (__cdecl **)(unsigned int, int, int, _DWORD))(*(_DWORD *)&byte_5D4594[4 * a1 + 3843788] + 144))(
+      ((void (__cdecl *)(unsigned int, int, int, _DWORD))(uintptr_t)
+       *(_DWORD *)(*(_DWORD *)&byte_5D4594[4 * a1 + 3843788] + 144))(
         a2,
         a4 + 4,
         a5 - 4,
@@ -9615,7 +9616,7 @@ int __cdecl sub_551F90(SOCKET s, char *buf, int len, int flags, struct sockaddr 
   _BYTE *v6; // eax
   char v7; // al
 
-  v6 = sub_551E60((int)to);
+  v6 = sub_551E60((intptr_t)to);
   if ( !v6 )
     return sendto(s, buf, len, flags, to, tolen);
   v7 = v6[148];
@@ -9646,7 +9647,7 @@ int __cdecl sub_552020(SOCKET s, char *buf, int len, int flags, struct sockaddr 
   v6 = recvfrom(s, buf, len, flags, from, fromlen);
   if ( v6 != -1 )
   {
-    v7 = sub_551E60((int)from);
+    v7 = sub_551E60((intptr_t)from);
     if ( v7 )
     {
       v8 = v7[148];
@@ -10244,7 +10245,7 @@ int __cdecl sub_552A80(unsigned int a1, char a2)
     {
 LABEL_10:
       v25 = *(_DWORD *)(v2 + 44) - *(_DWORD *)(v2 + 36);
-      v24 = *(char **)(v2 + 36);
+      v24 = (char *)(uintptr_t)*(uint32_t *)(v2 + 36);
       v4 = *(_DWORD *)v2;
       v33 = 1;
       v5 = sub_552020(v4, v24, v25, 0, &to, &tolen);
@@ -10254,7 +10255,7 @@ LABEL_10:
       sub_553FC0(v5, 1);
       if ( v6 < 3 )
         goto LABEL_48;
-      v7 = *(unsigned __int8 **)(v2 + 40);
+      v7 = (unsigned __int8 *)(uintptr_t)*(uint32_t *)(v2 + 40);
       *(_DWORD *)(v2 + 36) += v6;
       v8 = *v7;
       v9 = v7[1];
@@ -10285,7 +10286,7 @@ LABEL_10:
         else
         {
           v26 = 0;
-          if ( !sub_551E00(v8 & 0x7F, (int)&to) )
+          if ( !sub_551E00(v8 & 0x7F, (intptr_t)&to) )
             goto LABEL_48;
           v10 = v27;
           v9 = v31;
@@ -10329,8 +10330,8 @@ LABEL_10:
             }
             goto LABEL_42;
           }
-          **(_BYTE **)(v2 + 40) &= 0x7Fu;
-          v8 = **(unsigned __int8 **)(v2 + 40);
+          *v7 &= 0x7Fu;
+          v8 = *v7;
           if ( !v29 )
             goto LABEL_48;
           v16 = *(_DWORD *)(v29 + 48);
@@ -10363,7 +10364,7 @@ LABEL_42:
         v15 = v21;
 LABEL_29:
         qmemcpy(v13, v14, v15 & 3);
-        v6 = sub_553210(a1, *(unsigned __int8 **)(v2 + 40), *(_DWORD *)(v2 + 36) - *(_DWORD *)(v2 + 40), (int)buf);
+        v6 = sub_553210(a1, v7, *(_DWORD *)(v2 + 36) - *(_DWORD *)(v2 + 40), (int)buf);
         if ( v6 > 0 )
         {
           v6 = sub_551F90(*(_DWORD *)v2, buf, v6, 0, &to, tolen);
@@ -10372,7 +10373,8 @@ LABEL_29:
         goto LABEL_48;
       }
       if ( v29 && !(a2 & 2) )
-        (*(void (__cdecl **)(unsigned int, int, int, _DWORD))(v2 + 144))(
+        ((void (__cdecl *)(unsigned int, int, int, _DWORD))(uintptr_t)
+         *(_DWORD *)(v2 + 144))(
           v8,
           *(_DWORD *)(v2 + 40) + 2,
           v6 - 2,

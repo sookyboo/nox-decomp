@@ -853,7 +853,10 @@ void __cdecl sub_5281F0__abi_raw(nox_abi_ptrslot_t a1)
   float v20; // [esp+18h] [ebp-8h]
   float v21; // [esp+24h] [ebp+4h]
 
-  const uintptr_t self = (uintptr_t)NOX_PTR(a1);
+  /* This entry point receives a host pointer on i386/x86_64 and a bit-cast
+   * pointer slot on ARMHF. NOX_PTR() returns an int for the legacy ABI and
+   * would truncate native 64-bit pointers here. */
+  const uintptr_t self = (uintptr_t)nox_from_ptrslot(a1);
 
   v17 = 0;
   v2 = *(_DWORD *)((uintptr_t)self + 16);
@@ -3500,7 +3503,7 @@ int __cdecl sub_500F40__abi_raw(
     nox_abi_ptrslot_t a1,
     nox_abi_ptrslot_t a2
 #else
-    int a1,
+    intptr_t a1,
     void *a2
 #endif
 )
@@ -3525,7 +3528,7 @@ int __cdecl sub_500F40__abi_raw(
   int v18; // edx
   float4 v19; // [esp+8h] [ebp-10h]
 
-  const int self = NOX_PTR(a1);
+  const uintptr_t self = (uintptr_t)nox_from_ptrslot(a1);
 
   /* a2 is pointer to out float2 (x,y) */
   uint32_t *out = (uint32_t *)(uintptr_t)nox_from_ptrslot(a2);
