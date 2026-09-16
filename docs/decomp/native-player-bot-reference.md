@@ -103,16 +103,17 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   FireStormWand/ForceWand preference, and shared CTF steering are also
   implemented. Hostile DeathBall Counterspell, generic target-owned missile
   Inversion, Bot-Script Blink-as-Glyph escape, the owned three-spell Glyph Trap,
-  native mana-source routing, and CTF carrier-role-aware Invisibility are also
-  implemented. Drain Mana, broader team-role coordination, and phonemes remain;
+  native mana-source routing, native Drain Mana triggers/transfer, and CTF
+  carrier-role-aware Invisibility are also implemented. Broader team-role
+  coordination and phonemes remain;
 - **Conjurer policy:** the direct-cast priority slice now includes Pixie Swarm
   gated by authoritative owned-Pixie world state, native mana/buff/spell
   ownership, hostile DeathBall Counterspell, generic target-owned missile
   Inversion, Bot-Script Blink-as-Glyph escape, native nearby loot/equip pickup,
-  native random summon spells/cage accounting, mana-source routing, and shared
-  CTF steering. The custom Bomber summon branch, the reference's internally
-  inconsistent 10-second weapon preference, team roles, commands, and phonemes
-  remain;
+  native random summon spells/cage accounting, the custom native-backed Bomber
+  summon/Glyph path, mana-source routing, and shared CTF steering. The reference's
+  internally inconsistent 10-second weapon preference, exact Bomber
+  event/alert/audio choreography, team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1542,8 +1543,14 @@ walk there; an active CTF `TeamTank` only chooses a visible source. Native
 regeneration. Hidden-target Trap placement now mirrors the reference owned
 three-spell `Glyph`: `CLEANSING_FLAME`, `MAGIC_MISSILE`, and `SHOCK`, with a
 105-mana cost, five-second Trap cooldown, 15-frame global gate, and no more than
-four active Glyphs owned by the Wizard. Drain Mana/its extended source-drain
-behavior and phoneme sequencing remain outside this slice. Hostile `DeathBall` reaction is implemented
+four active Glyphs owned by the Wizard. Drain Mana now preserves the reachable
+Bot-Script triggers while leaving mechanics native: eligible visible 75/100-HP
+targets and nearby visible mana sources schedule `DRAIN_MANA` after the configured
+reaction delay, with the reference three-second cooldown. Native
+`nox_xxx_spellDrainMana_52E210`/`sub_52E610` choose the actual source and
+`sub_52E450` performs the transfer, so bot policy does not duplicate the Go
+script's manual source/player mana mutation. Phoneme sequencing remains outside
+this slice. Hostile `DeathBall` reaction is implemented
 by scanning the native world list within 500 units, following object owner links
 at `+492`, requiring an enemy player/monster in that chain, and scheduling
 Counterspell at the Wizard position. If no `DeathBall` is present, a class-`0x01`
@@ -1615,8 +1622,14 @@ uses the reference small/medium/large selection and cooldown families, but check
 capacity through native `sub_500D10`/`sub_500D70` rather than maintaining a second
 `CreatureCage` counter. The ordinary mana-source route uses the same native
 `sub_53C580` source state and transfer path as Wizard. The custom Bot-Script
-Bomber creation branch is intentionally still omitted because it creates and
-configures a Bomber/Glyph object rather than invoking an ordinary summon spell.
+Bomber branch is now implemented without inventing a second summon lifecycle:
+native `sub_5016C0` constructs the Bomber using summon-guide capacity index `5`
+from `sub_500D70`, establishing summoned state, owner/player bookkeeping and team
+membership. Bot policy checks authoritative owned `Bomber` world objects, creates
+the reference inventory `Glyph` carrying `BURN`, `TOXIC_CLOUD`, and `STUN`,
+inserts it through `sub_4F3070`, and invokes native Follow through `sub_5158C0`.
+The reference `mana >= 80` check/no-subtraction quirk and three-frame summon gate
+are preserved. Exact Bomber event/alert/audio choreography remains deferred.
 Hostile `DeathBall` Counterspell is implemented through the same native owner-chain
 search as Wizard policy; the Conjurer keeps the reference 20-second cooldown for
 that reaction while its ordinary Counterspell remains 5 seconds. If no nearby
@@ -1926,6 +1939,13 @@ creating parallel bot state:
   object, scans nearby eligible players within 50 world units, consumes source
   charge while increasing player mana, and regenerates an idle source toward 50;
   policy only chooses/walks to a source and never reproduces that transfer.
+- Wizard Drain Mana deliberately uses a different native ownership path from
+  ordinary obelisk routing. `nox_xxx_spellDrainMana_52E210` is the duration-spell
+  update, `sub_52E610` scans `ManaDrainRange` for the best eligible source, and
+  `sub_52E660` applies source/player/monster eligibility plus visibility/enemy
+  checks. `sub_52E450` performs the actual source-to-caster mana transfer. Bot
+  policy therefore only decides when to cast `DRAIN_MANA`; it does not replay the
+  Go reference's direct mana writes on top of the authoritative native spell.
 - `nox_bot_engine_summon_cage_used()` delegates to `sub_500D10(player)`, which
   walks the player's native controlled/summoned-object chain and sums each
   creature's cage weight. `nox_bot_engine_summon_spell_fits()` resolves the
@@ -1947,6 +1967,14 @@ creating parallel bot state:
   engine ownership path behind NoxScript `SetOwner`. The policy counts `Glyph`
   objects through the existing owner-chain world query instead of maintaining a
   second TrapCount, so native object ownership remains authoritative.
+- `nox_bot_engine_bomber_fits()` hides the recovered native Bomber summon-guide
+  index `5` behind `sub_500D70`. `nox_bot_engine_create_bomber()` then delegates
+  object creation to `sub_5016C0`, which establishes summoned state, owner/player
+  bookkeeping, team membership, and native acquisition/network state. The helper
+  creates a `Glyph` with `BURN`, `TOXIC_CLOUD`, and `STUN`, inserts it in the
+  Bomber inventory through `sub_4F3070`, and calls `sub_5158C0` for the explicit
+  Bot-Script Follow behavior. Owned-Bomber limits still come from the existing
+  authoritative world-owner query rather than a policy counter.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.
@@ -3345,8 +3373,15 @@ nox_xxx_spellBuffOff_4FF5B0
 sub_52BEB0                         [native Inversion area scan]
 sub_52BE40                         [native missile inversion/ownership transfer]
 sub_53C580                         [native mana-source transfer/regeneration update]
+nox_xxx_spellDrainMana_52E210      [native Drain Mana duration/update]
+sub_52E610                         [Drain Mana source selection in ManaDrainRange]
+sub_52E660                         [Drain Mana source eligibility/visibility filtering]
+sub_52E450                         [authoritative Drain Mana transfer]
 sub_500D10                         [native controlled-summon cage weight]
 sub_500D70                         [native requested-summon capacity check]
+sub_5016C0                         [native summoned-monster constructor used for Bomber]
+sub_4F3070                         [native inventory insertion used for Bomber Glyph]
+sub_5158C0                         [native Follow action used by Bomber]
 sub_415FA0                         [native inclusive RNG used by random summon policy]
 sub_4E3810 / sub_4DAA50            [native object creation/placement used by NewTrap parity]
 sub_4EC290                          [native SetOwner path used by Wizard Trap Glyph]

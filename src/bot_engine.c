@@ -28,6 +28,7 @@
 #define NOX_OBJECT_TYPE_ID_OFFSET 4
 #define NOX_OBJECT_X_OFFSET 56
 #define NOX_OBJECT_Y_OFFSET 60
+#define NOX_OBJECT_DIRECTION_OFFSET 124
 #define NOX_OBJECT_OWNER_OFFSET 492
 #define NOX_OBJECT_INVENTORY_NEXT_OFFSET 496
 #define NOX_OBJECT_INVENTORY_HEAD_OFFSET 504
@@ -853,6 +854,13 @@ int nox_bot_engine_summon_spell_fits(int object, const char *spell_name)
     return sub_500D70(object, summon_index) != 0;
 }
 
+int nox_bot_engine_bomber_fits(int object)
+{
+    /* Native Conjurer Glyph casting passes summon-guide index 5 for Bomber.
+     * Keep that reverse-engineered index behind this adapter. */
+    return object && sub_500D70(object, 5) != 0;
+}
+
 int nox_bot_engine_random_int(int minimum, int maximum)
 {
     if (minimum > maximum)
@@ -922,6 +930,61 @@ int nox_bot_engine_create_owned_spell_trap3(
     spells[1] = spell2;
     spells[2] = spell3;
     return nox_bot_engine_create_spell_trap_impl(object, spells, 3, 1);
+}
+
+int nox_bot_engine_create_bomber(int object)
+{
+    static const char *const spell_names[] = { "BURN", "TOXIC_CLOUD", "STUN" };
+    float pos[2];
+    uint32_t spells[3];
+    int type_id;
+    int trap;
+    int init;
+    int bomber;
+    unsigned int i;
+
+    if (!object || !nox_bot_engine_bomber_fits(object))
+        return 0;
+    type_id = sub_4E3AA0("Bomber");
+    if (type_id <= 0)
+        return 0;
+    for (i = 0; i < sizeof(spells) / sizeof(spells[0]); ++i) {
+        int spell = sub_51E1D0(spell_names[i]);
+
+        if (spell <= 0)
+            return 0;
+        spells[i] = (uint32_t)spell;
+    }
+
+    trap = (int)sub_4E3810("Glyph");
+    if (!trap)
+        return 0;
+    init = *(int *)(trap + 692);
+    if (!init) {
+        sub_4E38A0(trap);
+        return 0;
+    }
+
+    nox_bot_engine_position(object, &pos[0], &pos[1]);
+    memset((void *)init, 0, 36);
+    for (i = 0; i < sizeof(spells) / sizeof(spells[0]); ++i)
+        *(uint32_t *)(init + i * sizeof(uint32_t)) = spells[i];
+    *(uint32_t *)(init + 20) = 3;
+    *(float *)(init + 28) = pos[0];
+    *(float *)(init + 32) = pos[1];
+
+    /* sub_5016C0 is the native summoned-monster constructor. It establishes
+     * summoned status, owner/player bookkeeping and team membership. */
+    bomber = (int)sub_5016C0(
+        type_id, (int *)pos, object, *(unsigned char *)(object + NOX_OBJECT_DIRECTION_OFFSET));
+    if (!bomber) {
+        sub_4E38A0(trap);
+        return 0;
+    }
+    sub_4F3070(bomber, trap, 1);
+    /* Bot-Script explicitly follows the Conjurer after creation. */
+    sub_5158C0(bomber, object);
+    return bomber;
 }
 
 int nox_bot_engine_owned_type_count(int object, const char *type_name)

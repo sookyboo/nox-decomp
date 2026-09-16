@@ -76,6 +76,7 @@ typedef struct nox_bot_wizard_policy_state {
     uint32_t inversion_ready_frame;
     uint32_t blink_ready_frame;
     uint32_t trap_ready_frame;
+    uint32_t drain_mana_ready_frame;
     uint32_t shield_ready_frame;
     uint32_t lesser_heal_ready_frame;
     uint32_t haste_ready_frame;
