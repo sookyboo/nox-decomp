@@ -2,7 +2,7 @@
 
 ## Status
 
-Tier-4.5/Tier-5 source implementation checkpoint: 2026-09-14.
+Post-Tier-5 recovery/string compatibility checkpoint: 2026-09-16.
 
 Tier 1 implements checked BYTE/WORD/DWORD access to the preserved original Nox data image, direct `SetMemory`/`GetMemory` builtin handling, and semantic replacement of the four known non-DWORD helper targets.
 
@@ -16,7 +16,9 @@ Tier 4.5 recognizes the fully patched generated `SetUnitCallbackOnDiscardBypass`
 
 Tier 5 adds a bounded portable EUD heap (`MemAlloc`/`MemFree`), semantic `DwordCopy`, SmartMemory cleanup interception, typed ThingDB/GameData traversal, safe translation of selected pointer-valued database fields, and the specific object-extension/update-function translation required by Panic's `MagicMissile`. EUD-owned heap token slots are quarantined until script reset so stale pointers cannot silently alias a later allocation.
 
-The compatibility layer is opt-in via `USE_EUD_COMPAT`; the default build does not compile or use it. The focused memory test is registered for opt-in Linux and Windows test-runtime configurations.
+The post-Tier-5 compatibility step adds an exact semantic replacement for Panic's `BindImpl`, replays the two known `recovery.h` destructor/list formats during EUD reset, and translates SpellDB/AbilityDB name/description pointers to bounded wide-string or heap tokens. The recovery implementation preserves Panic's distinction between the guarded normal helper and the unconditional map-changed helper without installing either generated x86 destructor.
+
+The compatibility layer is opt-in via `USE_EUD_COMPAT`; the default build does not compile or use it. The focused memory test is registered for opt-in Linux and Windows test-runtime configurations and now covers recovery-list replay plus heap-backed SpellDB/AbilityDB string-pointer restoration.
 
 Repository workflow and review requirements are defined by the root `AGENTS.md` and `CONTRIBUTING.md`; this document records the EUD subsystem-specific contract and limitations.
 
@@ -179,6 +181,7 @@ Tier 4 now handles the five common object-handler replacements through a bounded
 | 4 - callbacks | collide, pickup, discard, death, use-item | Medium-high / medium-high | Exact thunk recognition, handler replacement and NoxScript VM dispatch |
 | 4.5 - callback chaining | `SetUnitCallbackOnDiscardBypass` | High for verified generated thunk | Semantic callback + previous-handler chain; opaque native-handler token |
 | 5 - portable allocation/data helpers | MemAlloc/MemFree, DwordCopy, ThingDB/GameData, MagicMissile | Medium-high / medium | Bounded heap/tokens, typed field access and explicit pointer/function translation |
+| 5.5 - recovery/string/runtime helpers | Bind, `recovery.h`, SpellDB/AbilityDB strings | High-medium / medium | Exact helper matching, semantic VM dispatch, recovery-list replay and typed wide-string pointers |
 | Later - arbitrary native patches | melee/potion copied code, unknown injected x86 | Low as generic compatibility | Implement known behaviour individually; reject unknown code |
 
 ## Safety and portability rules
@@ -207,7 +210,9 @@ When the feature is enabled, `eud_compat_memory_test` covers the mapped-memory c
 7. little-endian value behaviour independent of host alignment;
 8. protection against integer overflow in `address + width` validation;
 9. a known Panic EUD legacy data address resolving to the expected backing array offset;
-10. verification that executable EUD callback/function-pointer behaviour is not accidentally invoked by the raw memory layer.
+10. verification that executable EUD callback/function-pointer behaviour is not accidentally invoked by the raw memory layer;
+11. exact Panic recovery helpers restoring their linked-list targets at reset, including the normal-helper guard and map-changed unconditional path;
+12. SpellDB/AbilityDB name/description fields round-tripping heap-backed UTF-16 pointers as compatibility tokens and restoring the original engine pointer at reset.
 
 ## Implementation sequence
 
@@ -219,7 +224,8 @@ The first three stages are now represented in source:
 4. Tier 4: callback registration and NoxScript VM dispatch for collide/pickup/discard/death/use-item handlers.
 5. Tier 4.5: semantic chaining for the exact generated DiscardBypass thunk.
 6. Tier 5: bounded EUD allocations, safe pointer-field translation, typed ThingDB/GameData access, semantic DwordCopy and the known MagicMissile path.
-7. Later compatibility: recovery journals with exact Panic lifetime semantics and individually understood copied-code gameplay helpers; continue rejecting arbitrary native code.
+7. Post-Tier-5: exact semantic Bind, Panic recovery-list lifetime replay, and SpellDB/AbilityDB wide-string pointer translation.
+8. Later compatibility: individually understood copied-code gameplay helpers; continue rejecting arbitrary native code.
 
 ## Progress summary
 
@@ -234,12 +240,11 @@ Completed investigation:
 - established that real EUD maps use callbacks and other advanced facilities;
 - defined a portable first-patch boundary that can provide useful compatibility without debug logs or x86 execution.
 
-Remaining after the current Tier-4.5/Tier-5 checkpoint:
+Remaining after the current post-Tier-5 checkpoint:
 
-- full Panic `recovery.h` lifetime semantics (the injected recovery destructor is currently suppressed, not executed);
-- heap-backed SpellDB/AbilityDB wide-string pointer replacement;
 - copied/re-written melee, potion-pickup and AbsolutePickup implementations;
-- generic `Bind`, `callmethod`, `invokeRawCode` and arbitrary EUD native/x86 execution (intentionally unsupported);
+- generic `callmethod`, generic `invokeRawCode`, arbitrary copied native functions, and unknown EUD native/x86 execution (intentionally unsupported);
+- additional pointer-bearing database fields only when their semantics are confirmed from real map/library usage;
 - map-level compatibility testing by the caller.
 
 
@@ -593,10 +598,6 @@ No compile or test execution was performed for this patch. When building externa
 11. script reload/teardown restores installed handlers and clears EUD tokens/callback state;
 12. `SetUnitCallbackOnDiscardBypass`, missile/melee thunks, and unknown script-local code remain blocked and are never executed.
 
-### Next compatibility tier
-
-The next useful work is Tier 4.5/Tier 5: semantic support for the dynamically generated discard-bypass/chaining helper and selected missile/melee callbacks, followed by portable `MemAlloc`/`MemFree` and broader ThingDB/GameData traversal. These should continue to be implemented as named semantic operations, not as a generic x86 execution facility.
-
 ## Implementation progress: Tier 4.5 callback chaining and Tier 5 portable data helpers
 
 The current patch extends the portable compatibility layer without introducing an x86 emulator or a generic historical-function trampoline.
@@ -617,7 +618,7 @@ Known Panic `MemAlloc` and `MemFree` helpers are recognized by helper bytecode p
 
 Panic SmartMemory writes a generated cleanup routine and patches the legacy function slot at `0x59824C`. The compatibility layer preserves the EUD-visible write/read state but never places that generated code into the live reconstructed function slot. All live EUD allocations are already released by `nox_eud_reset()`, and the mapped SmartMemory list head at `0x5956DC` is cleared at reset.
 
-The corresponding recovery hook at `0x59821C` is also protected from generated-code installation. Its EUD-visible target is shadowed, but **full `recovery.h` restore semantics are not claimed by this patch**. Known translated database pointer fields instead use a small internal restore journal solely to ensure that freeing an EUD allocation cannot leave a dangling C pointer in engine data.
+The corresponding recovery hook at `0x59821C` remains protected from generated-code installation. Tier 5 originally shadowed that target only; the post-Tier-5 compatibility step described below now recognizes Panic's exact recovery helpers and replays their linked restoration lists semantically before EUD-owned allocations are freed. The internal pointer-field restore journal remains separate and exists to ensure that freeing an EUD allocation cannot leave a dangling C pointer in engine data.
 
 ### DwordCopy
 
@@ -637,8 +638,40 @@ The normal object finalizer frees `+0x2EC` with `free()`. Tier 5 therefore notif
 
 ### Deliberately unsupported after Tier 5
 
-The compatibility layer still does not execute arbitrary allocations as code, call arbitrary legacy function addresses, expose native pointers as EUD integers, or accept generic writes to function-pointer fields. Large libraries which copy and rewrite native implementations (`meleeattack.h`, `potionpickup.h`, `absolutelypickup.h`) remain future semantic ports rather than generic x86 compatibility.
+The compatibility layer still does not execute arbitrary allocations as code, call arbitrary legacy function addresses, expose native pointers as EUD integers, or accept generic writes to function-pointer fields. `Bind` is supported only for Panic's exact known helper and routes through the existing NoxScript VM; generic `callmethod`/`invokeRawCode` behavior is not enabled. Large libraries which copy and rewrite native implementations (`meleeattack.h`, `potionpickup.h`, `absolutelypickup.h`) remain future semantic ports rather than generic x86 compatibility.
 
 ### Validation checklist for the caller
 
-Build with `-DUSE_EUD_COMPAT=ON` and run `eud_compat_memory_test` for mapped-memory boundaries, little-endian unaligned access, and rejection of out-of-range operations. Further validation should exercise MemAlloc/SetMemory/GetMemory/MemFree including stale-token rejection; SmartMemory allocation followed by map/script reset; DwordCopy across two EUD allocations and between allocation/mapped data; ThingDB/GameData reads used by a real Panic map; pointer-field replacement followed by MemFree/reset; MagicMissile creation/update; normal Tier-4 callbacks; and DiscardBypass chaining over both an original native discard handler and an existing Tier-4 EUD discard handler.
+Build with `-DUSE_EUD_COMPAT=ON` and run `eud_compat_memory_test` for mapped-memory boundaries, little-endian unaligned access, rejection of out-of-range operations, Panic recovery-list reset behavior, and heap-backed SpellDB/AbilityDB string-pointer restoration. Further validation should exercise semantic `Bind` from a real compiled Panic script; MemAlloc/SetMemory/GetMemory/MemFree including stale-token rejection; SmartMemory allocation followed by map/script reset; DwordCopy across two EUD allocations and between allocation/mapped data; ThingDB/GameData reads used by a real Panic map; pointer-field replacement followed by MemFree/reset; MagicMissile creation/update; normal Tier-4 callbacks; and DiscardBypass chaining over both an original native discard handler and an existing Tier-4 EUD discard handler.
+
+## Implementation progress: semantic Bind, recovery replay and wide-string database fields
+
+This post-Tier-5 step closes three dependencies used together by Panic's database-editing libraries without enabling generic script/native code execution.
+
+### Exact semantic `Bind`
+
+Panic's `Bind` temporarily places an 88-byte helper into NoxScript builtin slot `0xA5`. The compatibility layer accepts that target only when the fixed instruction bytes and all five relocated call destinations match the known helper: three calls to `script_pop` (`0x507250`), one argument push call (`0x507230`), and the final VM dispatch call (`0x507310`). It then performs the same operation in C: pop the argument-array token, function id and function-record token; validate that the record is the requested entry in the current `0x30`-byte script table; push the function arguments in reverse order; and call the current VM with the existing caller/trigger context. An unknown slot-`0xA5` target is not treated as Bind.
+
+The reconstructed `sub_507310(function_id, caller, trigger)` is the authoritative VM entry used here. Observed behavior from `GAME4.c`: it stores `caller` and `trigger` in the legacy globals at `0x979720/0x979724`, reads the selected function's argument count from script-record `+0x08`, pops that many VM-stack values into the function's local argument storage, then interprets the function bytecode and returns the VM result. Existing engine callback paths also call this routine, so the compatibility layer reuses it rather than implementing a second script executor.
+
+### Panic `recovery.h` lifetime replay
+
+Panic builds two allocation-backed destructor helpers and installs them through legacy slot `0x59821C`. Each helper walks a singly linked list of 12-byte recovery nodes containing `(target, original_value, next)`, restores each target, restores the previous destructor target, and returns to that previous target. The normal 52-byte helper is guarded by a DWORD read from `0x852980`; `recovery.h` initially embeds a different address in its byte template but overwrites that operand before installation. The 44-byte map-changed helper has no guard. `AllocSmartMemEx` returns the user pointer eight bytes into its allocation, so helper/list-holder/node tokens are intentionally accepted at valid nonzero offsets inside an `ALLOC` token.
+
+The compatibility layer never installs these x86 helpers. A write to `0x59821C` is accepted only when the complete helper shape, list-head holder and previous-helper chain are valid. During `nox_eud_reset()`, before EUD allocations are freed, the chain is decoded and each trusted allocation-backed list is replayed through `nox_eud_write_u32`. The normal helper restores only while the mapped `0x852980` guard is nonzero; the map-changed helper restores unconditionally. Recovery nodes themselves must live in EUD allocations, but their targets still pass through the ordinary compatibility write layer so mapped data and supported typed-token fields retain their normal safety rules.
+
+This makes the script-side `setRecoveryData`/`SetRecoveryDataType2` logic authoritative for deduplication and saved values; no second recovery journal is invented for Panic semantics. The older internal pointer-field restore journal remains only a memory-safety mechanism for translated host-pointer fields.
+
+### SpellDB and AbilityDB wide strings
+
+Panic treats SpellDB records as 80-byte entries rooted at legacy `0x663EF0` and AbilityDB records as five 52-byte entries rooted at `0x666A24`. The compatibility layer recognizes only the name/description pointer fields at record offsets `+0x00` and `+0x04`. Reads translate a host pointer back to an existing EUD allocation token when possible; otherwise they create a bounded `WSTRING` token. Writes accept only `ALLOC` or `WSTRING` compatibility tokens and store the resolved host pointer into the preserved legacy data image. Heap-backed writes are registered with the existing restore mechanism so an allocation cannot be freed while the engine still points into it.
+
+`WSTRING` tokens include the UTF-16 terminator plus the following DWORD because Panic's `SpellDbCheckRemovable` probes a marker immediately after the terminator before deciding whether an older dynamically allocated spell string may be freed. Unterminated strings exceeding the bounded scan are rejected.
+
+The decompiled database accessors corroborate these layouts. `sub_424930` accepts spell ids `1..136`, uses an 80-byte record stride, checks the record's populated marker and returns its first pointer; `sub_424960` searches the same 80-byte records by the first wide-string pointer. `sub_425290` searches five 52-byte ability records beginning at `0x666A24` by their first wide-string pointer. These routines remain unchanged; the EUD layer only makes the pointer values stored in their existing backing records safe to manipulate from EUD code.
+
+### Regression coverage added for this step
+
+The focused opt-in `eud_compat_memory_test` now constructs the exact allocation-backed recovery helper/list shape through the production memory API and covers: guarded normal restoration, normal-helper skip when the `0x852980` guard is zero, unconditional map-changed restoration, SmartMemory-style `+8` allocation offsets, SpellDB heap-backed name/description pointer round-trip/reset, and AbilityDB heap-backed name/description pointer round-trip/reset. A narrow test-only allocator entry point is compiled only into the opt-in test runtime so the regression uses the production EUD allocation/token implementation rather than duplicating it.
+
+Per repository workflow, these tests are added but were not compiled or executed while preparing the patch because the maintainer explicitly requested no local compile/test run.

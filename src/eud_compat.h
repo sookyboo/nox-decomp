@@ -13,8 +13,10 @@
  * replacements while keeping callback ids in shadow state. Tier 4.5 adds the
  * understood discard-bypass chain. Tier 5 adds bounded EUD-owned allocations,
  * typed database traversal, safe pointer-field translation, selected memory
- * helpers, and the known MagicMissile update path. Callers must never cast
- * these representations to host pointers or execute code stored at them.
+ * helpers, and the known MagicMissile update path. The next compatibility
+ * layer adds semantic Bind dispatch, exact Panic recovery-list replay, and
+ * heap-backed SpellDB/AbilityDB wide-string pointer translation. Callers must
+ * never cast these representations to host pointers or execute code stored at them.
  */
 int nox_eud_read_u8(uint32_t address, uint8_t *value);
 int nox_eud_read_u16(uint32_t address, uint16_t *value);
@@ -37,5 +39,10 @@ void nox_eud_reset(void);
  * NoxScript VM.
  */
 int nox_eud_dispatch_builtin(int builtin_id, uint32_t target, int *result);
+
+#ifdef NOX_EUD_COMPAT_TESTING
+/* Focused regression tests use the production allocator through this narrow hook. */
+uint32_t nox_eud_test_alloc(uint32_t size);
+#endif
 
 #endif

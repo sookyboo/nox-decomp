@@ -188,12 +188,14 @@ if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
     endif()
 
     if (USE_EUD_COMPAT)
+        target_compile_definitions(nox_test_runtime PRIVATE NOX_EUD_COMPAT_TESTING)
         add_executable(eud_compat_memory_test
             ${PROJECT_SOURCE_DIR}/tests/eud_compat_memory_test.c
         )
         target_include_directories(eud_compat_memory_test PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
         )
+        target_compile_definitions(eud_compat_memory_test PRIVATE NOX_EUD_COMPAT_TESTING)
         target_compile_options(eud_compat_memory_test PRIVATE -ffunction-sections)
         target_link_options(eud_compat_memory_test PRIVATE -Wl,--gc-sections)
         target_link_libraries(eud_compat_memory_test PRIVATE nox_test_runtime)

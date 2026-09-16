@@ -287,8 +287,9 @@ ctest --test-dir build-i386 -R '^eud_dim_map_test$' --output-on-failure
 
 It checks `Dim.map`, `dim.c`, all custom resources declared by
 `resource_dim.txt`, and the Nox gamefiles. Passing this test only confirms the
-inputs are available; `Bind`, copied melee/potion/pickup implementations, and
-other advanced native patches remain intentionally unsupported until separately
+inputs are available; the exact Panic `Bind` helper and recovery/string database
+paths are now handled semantically, while copied melee/potion/pickup implementations
+and other advanced native patches remain intentionally unsupported until separately
 ported.
 
 ## Linux headless OpenGL

@@ -1,3 +1,4 @@
+- Extended Reloaded/Panic EUD compatibility with exact semantic Bind dispatch, recovery.h list restoration, and heap-backed SpellDB/AbilityDB wide-string pointer handling without executing generated x86
 - Added Tier 4.5/5 Reloaded/Panic EUD compatibility for discard-handler chaining, portable EUD allocations, typed ThingDB/GameData access, DwordCopy and MagicMissile without executing injected x86
 - Added Tier 3 Reloaded/Panic EUD semantic compatibility for known spell, object, monster-action, wall, NPC equipment, sound and simple FX helpers without executing injected x86
 - Extended Reloaded/Panic EUD compatibility with portable live object/player pointer tokens and semantic UnitToPtr support without executing injected x86

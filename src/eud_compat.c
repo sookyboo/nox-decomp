@@ -23,6 +23,7 @@
 #define NOX_EUD_NPC_EQUIPMENT_BUILTIN 0x5A
 #define NOX_EUD_SPELL_LOOKUP_BUILTIN 0x5E
 #define NOX_EUD_PLAY_SOUND_BUILTIN 0x74
+#define NOX_EUD_BIND_BUILTIN 0xA5
 #define NOX_EUD_UNIT_TO_PTR_BUILTIN 0xB8
 #define NOX_EUD_GET_DWORD_BUILTIN 0xB9
 
@@ -53,6 +54,15 @@
 #define NOX_EUD_RECOVERY_DESTRUCTOR_SLOT 0x0059821Cu
 #define NOX_EUD_SMART_DESTRUCTOR_ORIGINAL 0x005060D0u
 #define NOX_EUD_RECOVERY_DESTRUCTOR_ORIGINAL 0x0042A6E0u
+#define NOX_EUD_RECOVERY_NORMAL_GUARD 0x00852980u
+#define NOX_EUD_SCRIPT_CALLER 0x00979720u
+#define NOX_EUD_SCRIPT_TRIGGER 0x00979724u
+#define NOX_EUD_SPELLDB_BASE 0x00663EF0u
+#define NOX_EUD_SPELLDB_RECORD_SIZE 80u
+#define NOX_EUD_SPELLDB_RECORD_COUNT 137u
+#define NOX_EUD_ABILITYDB_BASE 0x00666A24u
+#define NOX_EUD_ABILITYDB_RECORD_SIZE 52u
+#define NOX_EUD_ABILITYDB_RECORD_COUNT 5u
 #define NOX_EUD_MAGIC_MISSILE_UPDATE 0x0053BDA0u
 
 /* Original runtime structure sizes/offsets that survive in the decomp. */
@@ -130,7 +140,8 @@ typedef enum nox_eud_pointer_kind
   NOX_EUD_POINTER_GAMEDATA_SUBTABLE,
   NOX_EUD_POINTER_GAMEDATA_VALUE_DESC,
   NOX_EUD_POINTER_GAMEDATA_VALUES,
-  NOX_EUD_POINTER_CSTRING
+  NOX_EUD_POINTER_CSTRING,
+  NOX_EUD_POINTER_WSTRING
 } nox_eud_pointer_kind;
 
 typedef struct nox_eud_pointer_entry
@@ -457,6 +468,7 @@ static int nox_eud_pointer_is_valid(const nox_eud_pointer_entry *entry)
              (uint64_t)nox_eud_host_read_u32(entry->owner + 4) * 4u == entry->span;
 
     case NOX_EUD_POINTER_CSTRING:
+    case NOX_EUD_POINTER_WSTRING:
       return entry->host != 0 && entry->span != 0;
 
     default:
@@ -638,6 +650,56 @@ static uint32_t nox_eud_register_cstring(uint32_t pointer)
                                   span, 0, 0);
 }
 
+static uint32_t nox_eud_register_wstring(uint32_t pointer)
+{
+  const unsigned char *host;
+  uint32_t span;
+  int terminated = 0;
+
+  if (!pointer)
+    return 0;
+  host = (const unsigned char *)(uintptr_t)pointer;
+  /* Panic SpellDB probes a DWORD marker immediately after the UTF-16 NUL. */
+  for (span = 0; span + 6u <= NOX_EUD_MAX_STRING_SPAN; span += 2u)
+  {
+    if (host[span] == 0 && host[span + 1u] == 0)
+    {
+      span += 6u;
+      terminated = 1;
+      break;
+    }
+  }
+  if (!terminated)
+    return 0;
+  span = (span + 3u) & ~3u;
+  return nox_eud_pointer_register(NOX_EUD_POINTER_WSTRING, (unsigned char *)(uintptr_t)pointer,
+                                  span, 0, 0);
+}
+
+static int nox_eud_is_wide_string_pointer_field(uint32_t address)
+{
+  uint32_t relative;
+  uint32_t record_offset;
+
+  if (address >= NOX_EUD_SPELLDB_BASE &&
+      address < NOX_EUD_SPELLDB_BASE + NOX_EUD_SPELLDB_RECORD_COUNT * NOX_EUD_SPELLDB_RECORD_SIZE)
+  {
+    relative = address - NOX_EUD_SPELLDB_BASE;
+    record_offset = relative % NOX_EUD_SPELLDB_RECORD_SIZE;
+    return record_offset == 0u || record_offset == 4u;
+  }
+
+  if (address >= NOX_EUD_ABILITYDB_BASE &&
+      address < NOX_EUD_ABILITYDB_BASE + NOX_EUD_ABILITYDB_RECORD_COUNT * NOX_EUD_ABILITYDB_RECORD_SIZE)
+  {
+    relative = address - NOX_EUD_ABILITYDB_BASE;
+    record_offset = relative % NOX_EUD_ABILITYDB_RECORD_SIZE;
+    return record_offset == 0u || record_offset == 4u;
+  }
+
+  return 0;
+}
+
 static uint32_t nox_eud_register_thingdb_table(uint32_t pointer, int sprite)
 {
   uint32_t count;
@@ -767,6 +829,13 @@ static uint32_t nox_eud_alloc(uint32_t size)
   ++nox_eud_live_alloc_count;
   return token;
 }
+
+#ifdef NOX_EUD_COMPAT_TESTING
+uint32_t nox_eud_test_alloc(uint32_t size)
+{
+  return nox_eud_alloc(size);
+}
+#endif
 
 static int nox_eud_record_restore(unsigned char *target)
 {
@@ -1055,6 +1124,123 @@ static int nox_eud_target_is_dword_copy_helper(uint32_t target)
       0x78, 0x04, 0x8B, 0x48, 0x08, 0xF3, 0xA5, 0x59, 0x5F, 0x5E, 0x31, 0xC0, 0xC3};
 
   return nox_eud_target_matches_bytes(target, helper, sizeof(helper));
+}
+
+static int nox_eud_target_is_bind_helper(uint32_t target)
+{
+  static const unsigned char prefix[] = {0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x0C};
+  static const unsigned char after_pop_args[] = {0x89, 0x45, 0xF4};
+  static const unsigned char after_pop_function[] = {0x89, 0x45, 0xF8};
+  static const unsigned char body[] = {
+      0x89, 0x45, 0xFC, 0x51, 0x31, 0xC9, 0x8A, 0x48, 0x08, 0x84, 0xC9, 0x74,
+      0x14, 0x8B, 0x45, 0xF4, 0xFE, 0xC9, 0x51, 0x8B, 0x04, 0x88, 0x50, 0x90};
+  static const unsigned char before_dispatch[] = {
+      0x59, 0x59, 0xEB, 0xE8, 0xB8, 0x24, 0x97, 0x97, 0x00, 0xFF,
+      0x30, 0x8D, 0x40, 0xFC, 0xFF, 0x30, 0x8B, 0x45, 0xF8, 0x50};
+  static const unsigned char tail[] = {0x83, 0xC4, 0x18, 0x59, 0x5D, 0xC3, 0x90};
+  nox_eud_pointer_entry *entry;
+  uint32_t offset;
+  const unsigned char *code;
+
+  if (!nox_eud_target_code(target, 88u, &entry, &offset) ||
+      entry->kind != NOX_EUD_POINTER_SCRIPT_LOCALS)
+    return 0;
+  code = entry->host + offset;
+  if (memcmp(code, prefix, sizeof(prefix)) != 0 ||
+      memcmp(code + 11u, after_pop_args, sizeof(after_pop_args)) != 0 ||
+      memcmp(code + 19u, after_pop_function, sizeof(after_pop_function)) != 0 ||
+      memcmp(code + 27u, body, sizeof(body)) != 0 ||
+      memcmp(code + 56u, before_dispatch, sizeof(before_dispatch)) != 0 ||
+      memcmp(code + 81u, tail, sizeof(tail)) != 0)
+    return 0;
+  return nox_eud_relative_call_is(code, target, 6u, 0x00507250u) &&
+         nox_eud_relative_call_is(code, target, 14u, 0x00507250u) &&
+         nox_eud_relative_call_is(code, target, 22u, 0x00507250u) &&
+         nox_eud_relative_call_is(code, target, 51u, 0x00507230u) &&
+         nox_eud_relative_call_is(code, target, 76u, 0x00507310u);
+}
+
+typedef enum nox_eud_recovery_kind
+{
+  NOX_EUD_RECOVERY_NORMAL = 0,
+  NOX_EUD_RECOVERY_MAP_CHANGED = 1
+} nox_eud_recovery_kind;
+
+static int nox_eud_target_is_recovery_helper(uint32_t target, nox_eud_recovery_kind *kind,
+                                              uint32_t *head_holder, uint32_t *previous)
+{
+  static const unsigned char normal_prefix[] = {
+      0x56, 0x55, 0x8B, 0x05, 0x80, 0x29, 0x85, 0x00, 0x85, 0xC0, 0x74, 0x16, 0x8B, 0x05};
+  static const unsigned char normal_middle[] = {
+      0x85, 0xC0, 0x74, 0x0C, 0x8B, 0x30, 0x8B, 0x68, 0x04, 0x89, 0x2E, 0x8B,
+      0x40, 0x08, 0xEB, 0xF0, 0x5D, 0x5E, 0xC7, 0x05, 0x1C, 0x82, 0x59, 0x00};
+  static const unsigned char changed_prefix[] = {0x56, 0x55, 0x8B, 0x05};
+  static const unsigned char changed_middle[] = {
+      0x85, 0xC0, 0x74, 0x0C, 0x8B, 0x30, 0x8B, 0x68, 0x04, 0x89, 0x2E, 0x8B,
+      0x40, 0x08, 0xEB, 0xF0, 0x5D, 0x5E, 0xC7, 0x05, 0x1C, 0x82, 0x59, 0x00};
+  nox_eud_pointer_entry *entry;
+  nox_eud_pointer_entry *holder_entry;
+  uint32_t offset;
+  uint32_t holder_offset;
+  uint32_t previous2;
+  const unsigned char *code;
+
+  if (!kind || !head_holder || !previous)
+    return 0;
+  if (nox_eud_target_code(target, 52u, &entry, &offset) && entry->kind == NOX_EUD_POINTER_ALLOC)
+  {
+    code = entry->host + offset;
+    if (memcmp(code, normal_prefix, sizeof(normal_prefix)) == 0 &&
+        memcmp(code + 18u, normal_middle, sizeof(normal_middle)) == 0 &&
+        code[46] == 0x68 && code[51] == 0xC3)
+    {
+      *head_holder = nox_eud_host_read_u32(code + 14u);
+      *previous = nox_eud_host_read_u32(code + 42u);
+      previous2 = nox_eud_host_read_u32(code + 47u);
+      if (*previous != previous2)
+        return 0;
+      if (!nox_eud_pointer_decode(*head_holder, 4u, &holder_entry, &holder_offset) ||
+          holder_entry->kind != NOX_EUD_POINTER_ALLOC)
+        return 0;
+      *kind = NOX_EUD_RECOVERY_NORMAL;
+      return 1;
+    }
+  }
+  if (!nox_eud_target_code(target, 44u, &entry, &offset) || entry->kind != NOX_EUD_POINTER_ALLOC)
+    return 0;
+  code = entry->host + offset;
+  if (memcmp(code, changed_prefix, sizeof(changed_prefix)) != 0 ||
+      memcmp(code + 8u, changed_middle, sizeof(changed_middle)) != 0 ||
+      code[36] != 0x68 || code[41] != 0xC3 || code[42] != 0x90 || code[43] != 0x90)
+    return 0;
+  *head_holder = nox_eud_host_read_u32(code + 4u);
+  *previous = nox_eud_host_read_u32(code + 32u);
+  previous2 = nox_eud_host_read_u32(code + 37u);
+  if (*previous != previous2)
+    return 0;
+  if (!nox_eud_pointer_decode(*head_holder, 4u, &holder_entry, &holder_offset) ||
+      holder_entry->kind != NOX_EUD_POINTER_ALLOC)
+    return 0;
+  *kind = NOX_EUD_RECOVERY_MAP_CHANGED;
+  return 1;
+}
+
+static int nox_eud_recovery_chain_is_valid(uint32_t target)
+{
+  unsigned int depth;
+  nox_eud_recovery_kind kind;
+  uint32_t holder;
+  uint32_t previous;
+
+  for (depth = 0; depth < 8u; ++depth)
+  {
+    if (target == NOX_EUD_RECOVERY_DESTRUCTOR_ORIGINAL)
+      return 1;
+    if (!nox_eud_target_is_recovery_helper(target, &kind, &holder, &previous) || previous == target)
+      return 0;
+    target = previous;
+  }
+  return 0;
 }
 
 static int nox_eud_target_is_discard_bypass_helper(uint32_t target, int *callback, uint32_t *previous)
@@ -1964,6 +2150,7 @@ static int nox_eud_dynamic_read_allowed(const nox_eud_pointer_entry *entry, uint
 
     case NOX_EUD_POINTER_SCRIPT_LOCALS:
     case NOX_EUD_POINTER_CSTRING:
+    case NOX_EUD_POINTER_WSTRING:
       return 1;
 
     case NOX_EUD_POINTER_ALLOC:
@@ -2230,6 +2417,14 @@ static uint32_t nox_eud_translate_mapped_pointer(uint32_t address, uint32_t valu
   if (!value)
     return 0;
 
+  if (nox_eud_is_wide_string_pointer_field(address))
+  {
+    uint32_t token = nox_eud_token_for_host_pointer((unsigned char *)(uintptr_t)value);
+    if (token)
+      return token;
+    return nox_eud_register_wstring(value);
+  }
+
   if (address >= NOX_EUD_PLAYER_OBJECT_TABLE)
   {
     relative = address - NOX_EUD_PLAYER_OBJECT_TABLE;
@@ -2431,6 +2626,26 @@ static int nox_eud_try_semantic_pointer_read(uint32_t address, uint32_t *value)
   return 0;
 }
 
+static int nox_eud_try_mapped_pointer_write(uint32_t address, uint32_t value)
+{
+  nox_eud_pointer_entry *entry;
+  uint32_t offset;
+  unsigned char *host;
+
+  if (!nox_eud_is_wide_string_pointer_field(address) || !nox_eud_address_is_token(value))
+    return 0;
+  if (!nox_eud_pointer_decode(value, 1, &entry, &offset) ||
+      (entry->kind != NOX_EUD_POINTER_ALLOC && entry->kind != NOX_EUD_POINTER_WSTRING))
+    return 1;
+  host = entry->host + offset;
+  if ((uintptr_t)host > UINT32_MAX)
+    return 1;
+  if (entry->kind == NOX_EUD_POINTER_ALLOC && !nox_eud_record_restore(nox_eud_data_byte(address)))
+    return 1;
+  nox_eud_host_write_u32(nox_eud_data_byte(address), (uint32_t)(uintptr_t)host);
+  return 1;
+}
+
 static int nox_eud_range_overlaps_protected_slot(uint32_t address, size_t size)
 {
   uint64_t begin;
@@ -2482,10 +2697,10 @@ static int nox_eud_try_protected_mapped_write(uint32_t address, uint32_t value)
   }
   if (address == NOX_EUD_RECOVERY_DESTRUCTOR_SLOT)
   {
-    if (nox_eud_address_is_token(value))
-      nox_eud_recovery_destructor_target = value;
-    else if (value == NOX_EUD_RECOVERY_DESTRUCTOR_ORIGINAL)
+    if (value == NOX_EUD_RECOVERY_DESTRUCTOR_ORIGINAL)
       nox_eud_recovery_destructor_target = 0;
+    else if (nox_eud_address_is_token(value) && nox_eud_recovery_chain_is_valid(value))
+      nox_eud_recovery_destructor_target = value;
     return 1;
   }
   return 0;
@@ -2553,6 +2768,62 @@ void nox_eud_object_extension_released(int object, uint32_t extension)
   }
 }
 
+static int nox_eud_restore_recovery_list(uint32_t head_holder)
+{
+  nox_eud_pointer_entry *node_entry;
+  uint32_t node_offset;
+  uint32_t node;
+  uint32_t target;
+  uint32_t original;
+  uint32_t next;
+  unsigned int guard;
+
+  if (!nox_eud_read_u32(head_holder, &node))
+    return 0;
+  for (guard = 0; node && guard < NOX_EUD_TOKEN_COUNT; ++guard)
+  {
+    if (!nox_eud_pointer_decode(node, 12u, &node_entry, &node_offset) ||
+        node_entry->kind != NOX_EUD_POINTER_ALLOC ||
+        !nox_eud_read_u32(node, &target) ||
+        !nox_eud_read_u32(node + 4u, &original) ||
+        !nox_eud_read_u32(node + 8u, &next))
+      return 0;
+    if (!nox_eud_write_u32(target, original))
+      return 0;
+    if (next == node)
+      return 0;
+    node = next;
+  }
+  return node == 0;
+}
+
+static void nox_eud_restore_recovery_chain(void)
+{
+  uint32_t target = nox_eud_recovery_destructor_target;
+  uint32_t head_holder;
+  uint32_t previous;
+  uint32_t guard_value;
+  unsigned int depth;
+  nox_eud_recovery_kind kind;
+
+  for (depth = 0; target && target != NOX_EUD_RECOVERY_DESTRUCTOR_ORIGINAL && depth < 8u; ++depth)
+  {
+    if (!nox_eud_target_is_recovery_helper(target, &kind, &head_holder, &previous))
+      break;
+    if (kind == NOX_EUD_RECOVERY_MAP_CHANGED)
+      nox_eud_restore_recovery_list(head_holder);
+    else if (nox_eud_range_is_mapped(NOX_EUD_RECOVERY_NORMAL_GUARD, 4u))
+    {
+      guard_value = nox_eud_host_read_u32(nox_eud_data_byte(NOX_EUD_RECOVERY_NORMAL_GUARD));
+      if (guard_value)
+        nox_eud_restore_recovery_list(head_holder);
+    }
+    if (previous == target)
+      break;
+    target = previous;
+  }
+}
+
 void nox_eud_reset(void)
 {
   unsigned int i;
@@ -2595,6 +2866,9 @@ void nox_eud_reset(void)
             (uint32_t)entry->pickup_once_callback)
       nox_eud_host_write_u32(entry->object + NOX_EUD_OBJECT_PICKUP_ONCE_CALLBACK_OFFSET, UINT32_MAX);
   }
+
+  /* Replay Panic recovery lists while their EUD-owned nodes are still alive. */
+  nox_eud_restore_recovery_chain();
 
   /* Restore engine fields before any EUD-owned backing allocations are freed. */
   nox_eud_restore_all_references();
@@ -2746,6 +3020,8 @@ int nox_eud_write_u32(uint32_t address, uint32_t value)
     return 1;
   if (nox_eud_range_overlaps_protected_slot(address, 4))
     return 1;
+  if (nox_eud_try_mapped_pointer_write(address, value))
+    return 1;
 
   if (nox_eud_range_is_mapped(address, 4))
   {
@@ -2798,6 +3074,48 @@ int nox_eud_dispatch_builtin(int builtin_id, uint32_t target, int *result)
 
   if (!result)
     return 0;
+
+  if (builtin_id == NOX_EUD_BIND_BUILTIN && nox_eud_target_is_bind_helper(target))
+  {
+    nox_eud_pointer_entry *function_table;
+    uint32_t function_offset;
+    uint32_t args;
+    uint32_t function_record;
+    uint32_t arg_value;
+    uint32_t function_count;
+    uint32_t caller;
+    uint32_t trigger;
+    int function_id;
+    unsigned int arg_count;
+    unsigned int i;
+
+    args = (uint32_t)script_pop();
+    function_id = script_pop();
+    function_record = (uint32_t)script_pop();
+    function_count = nox_eud_host_read_u32(nox_eud_data_byte(NOX_EUD_SCRIPT_FUNCTION_COUNT));
+    if (function_id < 0 || (uint32_t)function_id >= function_count ||
+        !nox_eud_pointer_decode(function_record, 12u, &function_table, &function_offset) ||
+        function_table->kind != NOX_EUD_POINTER_SCRIPT_TABLE ||
+        function_offset != (uint32_t)function_id * NOX_EUD_SCRIPT_RECORD_SIZE)
+    {
+      *result = 0;
+      return 1;
+    }
+    arg_count = function_table->host[function_offset + 8u];
+    for (i = arg_count; i > 0; --i)
+    {
+      if (!nox_eud_read_u32(args + 4u * (i - 1u), &arg_value))
+      {
+        *result = 0;
+        return 1;
+      }
+      sub_507230((int)arg_value);
+    }
+    caller = nox_eud_host_read_u32(nox_eud_data_byte(NOX_EUD_SCRIPT_CALLER));
+    trigger = nox_eud_host_read_u32(nox_eud_data_byte(NOX_EUD_SCRIPT_TRIGGER));
+    *result = sub_507310(function_id, (int)caller, (int)trigger);
+    return 1;
+  }
 
   if (builtin_id == NOX_EUD_MEM_ALLOC_BUILTIN && nox_eud_target_is_mem_alloc_helper(target))
   {
