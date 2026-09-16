@@ -3,7 +3,9 @@
 #endif
 
 #include "proto.h"
+#ifdef NOX_MANUAL_SPELL_CASTING
 #include <stdlib.h>
+#endif
 
 extern int g_fullscreen;
 extern float draw_gamma;
@@ -136,6 +138,7 @@ int sub_401060()
   return *(_DWORD *)&byte_5D4594[264];
 }
 
+#ifdef NOX_MANUAL_SPELL_CASTING
 static int nox_manual_spell_timeout_ticks(const char *value, int tick_rate)
 {
   char *end;
@@ -155,6 +158,7 @@ static int nox_manual_spell_timeout_ticks(const char *value, int tick_rate)
     return 2147483647;
   return (int)ticks;
 }
+#endif
 
 #ifdef NOX_MANUAL_SPELL_INPUT_TEST
 int nox_test_manual_spell_timeout_ticks(const char *value, int tick_rate)
@@ -457,8 +461,12 @@ LABEL_45:
   NOX_INIT_LOG("step 023: sub_409F80(32)");
   sub_409F80(32);
 
+#ifdef NOX_MANUAL_SPELL_CASTING
   *(_DWORD *)&byte_5D4594[2614260] = nox_manual_spell_timeout_ticks(
       getenv("NOX_MANUAL_CAST_TIMEOUT"), *(_DWORD *)&byte_5D4594[2649704]);
+#else
+  *(_DWORD *)&byte_5D4594[2614260] = *(_DWORD *)&byte_5D4594[2649704] >> 1;
+#endif
 
   NOX_INIT_LOG("step 024: sub_4093A0()");
   sub_4093A0();
@@ -39676,6 +39684,7 @@ static int nox_direct_spell_set_action_id(const char *name)
   return -1;
 }
 
+#ifdef NOX_MANUAL_SPELL_CASTING
 static const char *nox_manual_spell_action_name(int action)
 {
   switch ( action )
@@ -39692,7 +39701,6 @@ static const char *nox_manual_spell_action_name(int action)
     default: return 0;
   }
 }
-
 static int nox_manual_spell_action_id(const char *name)
 {
   int action;
@@ -39706,6 +39714,7 @@ static int nox_manual_spell_action_id(const char *name)
   }
   return -1;
 }
+#endif
 
 #ifdef NOX_MANUAL_SPELL_INPUT_TEST
 const char *nox_test_manual_spell_action_name(int action)
@@ -39780,15 +39789,19 @@ _DWORD *__cdecl sub_42CDF0(FILE *a1)
         {
           {
             const char *direct_spell_set_action = nox_direct_spell_set_action_name(*v12);
+#ifdef NOX_MANUAL_SPELL_CASTING
             const char *manual_spell_action = nox_manual_spell_action_name(*v12);
+#endif
             if ( direct_spell_set_action )
             {
               fprintf(v2, (const char *)&byte_587000[80180], direct_spell_set_action);
             }
+#ifdef NOX_MANUAL_SPELL_CASTING
             else if ( manual_spell_action )
             {
               fprintf(v2, (const char *)&byte_587000[80180], manual_spell_action);
             }
+#endif
             else if ( *(_DWORD *)&byte_587000[75880] )
             {
               v9 = &byte_587000[75880];
@@ -39919,15 +39932,24 @@ LABEL_21:
             if ( *v11 != 43 )
             {
               int direct_spell_set_action = nox_direct_spell_set_action_id(v11);
+#ifdef NOX_MANUAL_SPELL_CASTING
               int manual_spell_action = nox_manual_spell_action_id(v11);
-              if ( direct_spell_set_action >= 0 || manual_spell_action >= 0 )
+#endif
+              if ( direct_spell_set_action >= 0
+#ifdef NOX_MANUAL_SPELL_CASTING
+                || manual_spell_action >= 0
+#endif
+              )
               {
                 v3 = (_DWORD *)v17;
                 v15 = *(_DWORD *)(v17 + 68);
                 if ( v15 == 8 )
                   goto LABEL_38;
-                *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action >= 0
-                  ? direct_spell_set_action : manual_spell_action;
+                *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action;
+#ifdef NOX_MANUAL_SPELL_CASTING
+                if ( direct_spell_set_action < 0 )
+                  *(_DWORD *)(v17 + 4 * v15 + 36) = manual_spell_action;
+#endif
                 ++*(_DWORD *)(v17 + 68);
               }
               else

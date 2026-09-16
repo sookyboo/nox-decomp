@@ -1,5 +1,11 @@
 # Manual spell casting input
 
+Manual spell casting is controlled by the CMake option
+`USE_MANUAL_SPELL_CASTING`, which defaults to `ON`. Disable it with
+`-DUSE_MANUAL_SPELL_CASTING=OFF` to build without the manual spell input
+bindings, parser/serializer extensions, timeout override, and its regression
+test.
+
 Nox already contains the runtime path used for directional spell phonemes. The
 input dispatcher in `src/input.c` has hidden action IDs 18 through 26 for the
 eight phonemes and spell-pattern end. Those actions enqueue the original spell

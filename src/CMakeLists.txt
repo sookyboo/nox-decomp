@@ -156,12 +156,19 @@ endif()
 
 add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
 
+if (USE_MANUAL_SPELL_CASTING)
+    target_compile_definitions(out PRIVATE NOX_MANUAL_SPELL_CASTING)
+endif()
+
 # Standalone regression tests compile focused translation units directly so
 # they can replace selected collaborators with test doubles. The EUD memory
 # test also needs the real runtime collaborators, so provide the runtime as
 # an archive when that optional feature is enabled.
 if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
     add_library(nox_test_runtime STATIC ${NOX_RUNTIME_SOURCES})
+    if (USE_MANUAL_SPELL_CASTING)
+        target_compile_definitions(nox_test_runtime PUBLIC NOX_MANUAL_SPELL_CASTING)
+    endif()
     target_link_libraries(nox_test_runtime PUBLIC
         ${SDL2_LIBRARIES}
         ${OPENAL_LIBRARIES}

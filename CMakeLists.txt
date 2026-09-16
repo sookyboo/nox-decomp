@@ -4,6 +4,7 @@ project (nox-port)
 option (USE_ASAN "Enable address sanitizer" OFF)
 option (USE_EUD_COMPAT "Build and enable Panic EUD/MemoryHack compatibility" OFF)
 option (USE_EUD_MAP_TESTS "Build temporary external EUD map smoke tests" OFF)
+option (USE_MANUAL_SPELL_CASTING "Enable manual spell casting input" ON)
 set (EUD_MAP_PROJECT_DIR "${PROJECT_SOURCE_DIR}/build-deps/eud-maps-project" CACHE PATH
     "Panic EUD maps project checkout used by temporary map smoke tests")
 set (EUD_GAMEFILES_DIR "${PROJECT_SOURCE_DIR}/build-deps/gamefiles/app" CACHE PATH
@@ -153,6 +154,7 @@ if (BUILD_TESTING)
         target_link_options(cheat_spell_test PRIVATE -m32)
     endif()
     add_test(NAME cheat_spell_test COMMAND cheat_spell_test)
+    if (USE_MANUAL_SPELL_CASTING)
     add_executable(manual_spell_input_test
         tests/manual_spell_input_test.c
         src/GAME1.c
@@ -161,6 +163,7 @@ if (BUILD_TESTING)
         src/external/include
     )
     target_compile_definitions(manual_spell_input_test PRIVATE
+        NOX_MANUAL_SPELL_CASTING
         NOX_MANUAL_SPELL_INPUT_TEST
     )
     if (MSVC)
@@ -184,6 +187,7 @@ if (BUILD_TESTING)
         target_link_options(manual_spell_input_test PRIVATE -m32)
     endif()
     add_test(NAME manual_spell_input_test COMMAND manual_spell_input_test)
+    endif()
     add_executable(gamepad_radial_test
         tests/gamepad_radial_test.c
         src/input.c
