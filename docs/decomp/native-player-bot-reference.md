@@ -95,17 +95,19 @@ The unresolved work after the current Warrior/native-runtime foundation is:
 - **Warrior lost-target behavior:** the Bot-Script `TeleportWake` pursuit/check
   loop is implemented; additional lost-target behavior is only pending where it
   depends on future shared team/order policy;
-- **Wizard policy:** the core direct-cast visible-target priority, basic defensive
-  buffs/protections, potions, reaction delays, cooldowns, and native mana spending
-  are implemented, along with native nearby loot/equip pickup, the reference
-  FireStormWand/ForceWand preference, and shared CTF steering. Blink, traps,
-  Drain Mana/obelisk routing, projectile reactions, CTF team-role distinctions,
-  and phonemes remain;
-- **Conjurer policy:** the first direct-cast priority slice is implemented with
-  native mana/buff/spell ownership, native nearby loot/equip pickup, and shared
-  CTF steering. Blink, projectile reactions, Pixies/summons, mana-obelisk
-  routing, the reference's internally inconsistent 10-second weapon preference,
-  team roles, commands, and phonemes remain;
+- **Wizard policy:** the core direct-cast visible-target priority now includes
+  Energy Bolt and Ring of Fire, plus hidden Enemy-Heard Invisibility, basic
+  defensive buffs/protections, potions, reaction delays, cooldowns, and native
+  mana spending; native nearby loot/equip pickup, the reference
+  FireStormWand/ForceWand preference, and shared CTF steering are also
+  implemented. Blink, traps, Drain Mana/obelisk routing, projectile reactions,
+  CTF team-role distinctions, and phonemes remain;
+- **Conjurer policy:** the direct-cast priority slice now includes Pixie Swarm
+  gated by authoritative owned-Pixie world state, native mana/buff/spell
+  ownership, native nearby loot/equip pickup, and shared CTF steering. Blink,
+  projectile reactions, random creature summons/creature-cage accounting,
+  mana-obelisk routing, the reference's internally inconsistent 10-second
+  weapon preference, team roles, commands, and phonemes remain;
 - **orders/commands:** the policy enum exists but teammate order execution and
   user-facing spawn/difficulty/team commands remain pending;
 - **fidelity:** phoneme sequencing, chat responses, and remaining cosmetic
@@ -1509,15 +1511,25 @@ cooldowns, difficulty reaction delay, pending target/cursor snapshot, and curren
 reference target. Runtime class dispatch now calls this policy for player class
 `1` after `4FAB20` has restored normal player form.
 
-Current spell decisions implemented by this first slice are Slow, Death Ray,
-Fireball, Burn, Magic Missile, Counterspell, Shield, Lesser Heal, Haste, Shock,
-Protection From Electricity, Protection From Fire, and Invisibility. Native
+Current spell decisions implemented by this slice are Slow, Death Ray,
+Fireball, Burn, Ring of Fire (`CLEANSING_FLAME`), Energy Bolt (`LIGHTNING`),
+Magic Missile, Counterspell, Shield, Lesser Heal, Haste, Shock, Protection From
+Electricity, Protection From Fire, and Invisibility. Enemy Heard also uses the
+reachable reference Invisibility response when the remembered target is hidden
+(outside CTF until TeamTank role assignment exists). Native
 spell/enchant mechanics remain authoritative. The policy now also performs the
 reference 15-frame 75-unit nearby-loot scan through native pickup/equip paths,
 uses the unambiguous 10-second `FireStormWand -> ForceWand` preference, and
-reuses shared CTF destination steering on Lost Sight / End Of Waypoint. Blink,
-traps, Drain Mana/obelisk routing, projectile-reflection reactions, role-aware
-CTF invisibility, and phoneme sequencing remain outside this slice.
+reuses shared CTF destination steering on Lost Sight / End Of Waypoint.
+Two Bot-Script quirks are preserved deliberately: Energy Bolt requires
+`mana > 10` but never subtracts mana, and Ring of Fire becomes unavailable
+for the rest of the life because the reference cooldown callback writes
+`ShockReady=true` instead of restoring `RingOfFireReady`. The Enemy Heard
+`castFireballAtHeard()` branch is not reproduced because its caller requires an
+unseen target while the helper itself requires visibility, making that cast
+unreachable as written. Blink, traps, Drain Mana/obelisk routing,
+projectile-reflection reactions, role-aware CTF invisibility, and phoneme
+sequencing remain outside this slice.
 
 ---
 
@@ -1542,6 +1554,9 @@ Looking For Enemy / Lost Sight
 visible Held/Slowed target
     -> Meteor -> Toxic Cloud -> Burn -> Counterspell
 
+Pixie Swarm
+    -> cast when no live native Pixie is owned by this Conjurer
+
 ordinary visible target
     -> Stun outside CTF
     -> Slow in CTF
@@ -1556,8 +1571,11 @@ and native mana is at least 100. Red/Blue potion use delegates to the existing
 player inventory/potion path. Passive mana uses the reference default cadence of
 one point every two simulation seconds and is capped at 125 for Conjurer policy.
 Only reaction/cooldown deadlines and the remembered tactical target are
-server-local; health, mana, enchant state, spell effects, damage, and target
-visibility remain native Nox state.
+server-local; health, mana, enchant state, spell effects, damage, target
+visibility, and Pixie ownership remain native Nox state. `bot_engine.c` counts
+owned Pixies directly from the authoritative world-object list by type ID,
+removed-state flag, and the native owner chain; no duplicate `PixieCount` is
+stored.
 
 The Conjurer now also reuses the native world-object iterator, pickup dispatcher,
 and player equip paths for the reference 15-frame 75-unit loot loop: the listed
@@ -1569,7 +1587,9 @@ remain native.
 
 The following reference systems are intentionally not folded into this slice:
 Blink's `NewTrap` execution, projectile/DeathBall Inversion-Counterspell checks,
-Pixie/summon ownership and creature-cage accounting, and mana-obelisk transfer.
+random creature summoning/creature-cage accounting, and mana-obelisk transfer.
+Pixie Swarm itself is now direct-cast through native spell mechanics and uses
+world ownership to decide whether another swarm should be created.
 The reference `WeaponPreference()` is also intentionally unresolved because it
 checks `CrossBow`/`InfinitePainWand` availability but attempts to equip
 `FireStormWand`/`ForceWand`; the native port does not silently guess which side
@@ -1818,7 +1838,9 @@ sub_53E650                                  player armor equip
 ```
 
 World objects expose their native type identifier at object `+4`, world-list
-next pointer at `+444`, owner at `+492`, and position at `+56/+60`. The adapter
+next pointer at `+444`, owner at `+492`, and position at `+56/+60`. Native
+`sub_4F3070` writes the receiving object into item `+492` when inventory ownership
+is established, confirming the field's owner role. The adapter
 resolves the requested type name with `sub_4E3AA0` and ignores removed/owned
 objects. `nox_bot_engine_find_nearest_visible_type()` additionally applies the
 normal visibility trace for nearby loot, while `nox_bot_engine_find_nearest_type()`
@@ -1827,6 +1849,13 @@ behaviors such as long-range potion recovery. Pickup itself remains owned by
 `sub_4F36F0`, so
 capacity, item-specific pickup handlers, inventory linkage, and network-visible
 state stay in Nox.
+
+The same authoritative iterator/owner fields now support
+`nox_bot_engine_owned_type_count()`. Conjurer Pixie policy resolves `Pixie` via
+`sub_4E3AA0`, skips removed objects, and follows the native owner chain until it
+finds the Conjurer player. This matches the NoxScript `HasOwner` semantics more
+closely than a direct-owner-only test and replaces the Go script's separately
+polled `PixieCount` with existing engine ownership state.
 
 The current Warrior policy performs the Go reference's 75-unit scan every 15
 simulation frames for its listed melee weapons, Chakrams, potions, and armor.
@@ -2283,7 +2312,7 @@ The player-bot functions access the following object offsets.
 | `+60` | world Y position | Confirmed |
 | `+124` | facing/orientation used during bot-AI initialization and respawn helper calls | Confirmed use; exact semantic type should remain engine-owned |
 | `+136` | native player attack start frame used by `nox_xxx_playerAttack_538960` animation timing | Confirmed |
-| `+492` | object ownership/attachment-related field consulted by CTF | Strongly inferred; do not access from bot policy |
+| `+492` | native object owner pointer; set by inventory insertion and followed by ownership/owner-chain checks | Confirmed functional use; keep behind engine adapters |
 | `+496` | linked-object/inventory chain field used in native CTF traversal | Strongly inferred; indirect only |
 | `+504` | object inventory/list head used by native CTF | Confirmed functional use; indirect only |
 | `+556` | health-data reference; bot respawn dereferences it to determine zero health/death | Confirmed functional use |

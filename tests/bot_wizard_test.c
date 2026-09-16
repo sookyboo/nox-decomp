@@ -332,6 +332,69 @@ static int test_visible_fireball_priority(void)
     return 0;
 }
 
+static int test_energy_bolt_reference_mana_quirk(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 250);
+
+    if (!state)
+        return 14;
+    state->wizard.target = TARGET;
+    self_mana = 11;
+    target_buffs = buff_mask(ENCHANT_SLOWED);
+    nox_bot_wizard_update(SELF, state, 250);
+    if (!state->wizard.pending_spell || cast_calls)
+        return 15;
+    nox_bot_wizard_update(SELF, state, 250);
+    if (cast_calls != 1 || strcmp(cast_name, "LIGHTNING") != 0 ||
+        cast_kind != 2 || cast_target != TARGET || self_mana != 11 ||
+        state->wizard.energy_bolt_ready_frame != 340)
+        return 16;
+    return 0;
+}
+
+static int test_ring_of_fire_reference_once_per_life_quirk(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 275);
+
+    if (!state)
+        return 17;
+    state->wizard.target = TARGET;
+    state->wizard.burn_ready_frame = 9999;
+    self_mana = 60;
+    target_buffs = buff_mask(ENCHANT_REFLECTIVE_SHIELD);
+    nox_bot_wizard_update(SELF, state, 275);
+    nox_bot_wizard_update(SELF, state, 275);
+    if (cast_calls != 1 || strcmp(cast_name, "CLEANSING_FLAME") != 0 ||
+        cast_kind != 1 || self_mana != 0 || !state->wizard.ring_of_fire_used)
+        return 18;
+
+    self_mana = 60;
+    nox_bot_wizard_update(SELF, state, 278);
+    if (cast_calls != 1 || state->wizard.pending_spell)
+        return 19;
+    return 0;
+}
+
+static int test_enemy_heard_hidden_target_invisibility(void)
+{
+    nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARD, 290);
+
+    if (!state)
+        return 25;
+    state->wizard.target = TARGET;
+    target_visible = 0;
+    nox_bot_policy_record_event(state, NOX_BOT_EVENT_ENEMY_HEARD, TARGET, 290);
+    nox_bot_wizard_update(SELF, state, 290);
+    if (!state->wizard.pending_spell ||
+        nox_bot_policy_event_pending(state, NOX_BOT_EVENT_ENEMY_HEARD))
+        return 26;
+    nox_bot_wizard_update(SELF, state, 305);
+    if (cast_calls != 1 || strcmp(cast_name, "INVISIBILITY") != 0 ||
+        !(self_buffs & buff_mask(ENCHANT_INVISIBLE)) || self_mana != 120)
+        return 27;
+    return 0;
+}
+
 static int test_hidden_defensive_priority_and_ctf_invisibility_gap(void)
 {
     nox_bot_policy_state *state = reset_state(NOX_BOT_DIFFICULTY_HARDCORE, 300);
@@ -502,6 +565,15 @@ int main(void)
     if (result)
         return result;
     result = test_visible_fireball_priority();
+    if (result)
+        return result;
+    result = test_energy_bolt_reference_mana_quirk();
+    if (result)
+        return result;
+    result = test_ring_of_fire_reference_once_per_life_quirk();
+    if (result)
+        return result;
+    result = test_enemy_heard_hidden_target_invisibility();
     if (result)
         return result;
     result = test_hidden_defensive_priority_and_ctf_invisibility_gap();

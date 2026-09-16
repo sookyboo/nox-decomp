@@ -693,6 +693,37 @@ int nox_bot_engine_find_nearest_visible_type(
     return nox_bot_engine_find_nearest_type_impl(object, type_name, max_distance, 1);
 }
 
+int nox_bot_engine_owned_type_count(int object, const char *type_name)
+{
+    int count = 0;
+    int item;
+    int type_id;
+
+    if (!object || !type_name || !*type_name)
+        return 0;
+    type_id = sub_4E3AA0((CHAR *)type_name);
+    if (type_id <= 0)
+        return 0;
+    for (item = sub_4DA790(); item; item = sub_4DA7A0(item)) {
+        int owner;
+        int depth;
+
+        if (*(unsigned short *)(item + NOX_OBJECT_TYPE_ID_OFFSET) != (unsigned short)type_id ||
+            (*(unsigned char *)(item + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED))
+            continue;
+        /* NoxScript HasOwner follows the native owner chain. Keep a small
+         * defensive bound so corrupt/cyclic ownership cannot hang policy. */
+        for (owner = item, depth = 0; owner && depth < 32; ++depth) {
+            if (owner == object) {
+                ++count;
+                break;
+            }
+            owner = *(int *)(owner + NOX_OBJECT_OWNER_OFFSET);
+        }
+    }
+    return count;
+}
+
 int nox_bot_engine_pickup_item(int object, int item)
 {
     if (!object || !item ||

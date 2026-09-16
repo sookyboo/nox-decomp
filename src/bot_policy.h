@@ -64,6 +64,7 @@ typedef struct nox_bot_wizard_policy_state {
     uint32_t death_ray_ready_frame;
     uint32_t fireball_ready_frame;
     uint32_t burn_ready_frame;
+    uint32_t energy_bolt_ready_frame;
     uint32_t magic_missile_ready_frame;
     uint32_t counterspell_ready_frame;
     uint32_t shield_ready_frame;
@@ -79,6 +80,7 @@ typedef struct nox_bot_wizard_policy_state {
     float pending_x;
     float pending_y;
     unsigned char pending_spell;
+    unsigned char ring_of_fire_used;
 } nox_bot_wizard_policy_state;
 
 typedef struct nox_bot_warrior_policy_state {
