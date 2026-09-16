@@ -535,9 +535,33 @@ char *__cdecl sub_4E8020(int object)
 
 int __cdecl sub_40AF50(void *name)
 {
+    const char *value = (const char *)name;
+
     ++bomber_sound_lookup_calls;
-    bomber_sound_lookup_name = (const char *)name;
-    return name && strcmp((const char *)name, "BomberSummon") == 0 ? 73 : 0;
+    bomber_sound_lookup_name = value;
+    if (!value)
+        return 0;
+    if (strcmp(value, "BomberSummon") == 0)
+        return 73;
+    if (strcmp(value, "SpellPhonemeUp") == 0)
+        return 74;
+    if (strcmp(value, "SpellPhonemeDown") == 0)
+        return 75;
+    if (strcmp(value, "NPCSpellPhonemeLeft") == 0)
+        return 76;
+    if (strcmp(value, "NPCSpellPhonemeRight") == 0)
+        return 77;
+    if (strcmp(value, "NPCSpellPhonemeUpLeft") == 0)
+        return 78;
+    if (strcmp(value, "NPCSpellPhonemeUpRight") == 0)
+        return 79;
+    if (strcmp(value, "NPCSpellPhonemeDownLeft") == 0)
+        return 80;
+    if (strcmp(value, "NPCSpellPhonemeDownRight") == 0)
+        return 81;
+    if (strcmp(value, "FemaleSpellPhonemeUpRight") == 0)
+        return 82;
+    return 0;
 }
 
 _DWORD *__cdecl sub_501960(int sound, int object, int arg3, int arg4)
@@ -1285,6 +1309,42 @@ static int test_world_loot_and_equipment_wrappers(void)
     return 0;
 }
 
+static int test_phoneme_audio_wrapper(void)
+{
+    static const char *const expected_names[] = {
+        0,
+        "SpellPhonemeUp",
+        "SpellPhonemeDown",
+        "NPCSpellPhonemeLeft",
+        "NPCSpellPhonemeRight",
+        "NPCSpellPhonemeUpLeft",
+        "NPCSpellPhonemeUpRight",
+        "NPCSpellPhonemeDownLeft",
+        "NPCSpellPhonemeDownRight",
+        "FemaleSpellPhonemeUpRight",
+    };
+    unsigned char object[800];
+    int object_ptr = (int)(uintptr_t)object;
+    int phoneme;
+
+    memset(object, 0, sizeof(object));
+    bomber_sound_lookup_calls = 0;
+    bomber_sound_calls = 0;
+    for (phoneme = NOX_BOT_PHONEME_UP;
+         phoneme <= NOX_BOT_PHONEME_FEMALE_UP_RIGHT; ++phoneme) {
+        if (!nox_bot_engine_play_phoneme(object_ptr, (nox_bot_phoneme)phoneme) ||
+            bomber_sound_lookup_calls != phoneme ||
+            !bomber_sound_lookup_name ||
+            strcmp(bomber_sound_lookup_name, expected_names[phoneme]) != 0 ||
+            bomber_sound_calls != phoneme || bomber_sound_id != 73 + phoneme ||
+            bomber_sound_object != object_ptr || bomber_sound_arg3 || bomber_sound_arg4)
+            return 126;
+    }
+    if (nox_bot_engine_play_phoneme(object_ptr, (nox_bot_phoneme)99))
+        return 127;
+    return 0;
+}
+
 static int test_mana_source_and_summon_wrappers(void)
 {
     unsigned char object[800];
@@ -1671,6 +1731,9 @@ int main(void)
     if (result)
         return result;
     result = test_world_loot_and_equipment_wrappers();
+    if (result)
+        return result;
+    result = test_phoneme_audio_wrapper();
     if (result)
         return result;
     result = test_mana_source_and_summon_wrappers();

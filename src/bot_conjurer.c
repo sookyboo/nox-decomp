@@ -214,6 +214,294 @@ static const unsigned char nox_bot_conjurer_large_summons[] = {
     NOX_BOT_CONJURER_SUMMON_BEHOLDER,
 };
 
+typedef struct nox_bot_conjurer_phoneme_sequence {
+    const unsigned char *steps;
+    unsigned char count;
+    uint32_t check_mask;
+} nox_bot_conjurer_phoneme_sequence;
+
+#define NOX_BOT_PHONEME_PAUSE 0u
+#define NOX_BOT_SEQUENCE_COUNT(seq) ((unsigned char)(sizeof(seq) / sizeof((seq)[0])))
+
+static const unsigned char nox_bot_conjurer_ph_force_of_nature[] = {
+    NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_infravision[] = {
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_lesser_heal[] = {
+    NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_vampirism[] = {
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_protect_shock[] = {
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_protect_fire[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_protect_poison[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_UP_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_meteor[] = {
+    NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_toxic_cloud[] = {
+    NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_burn[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_counterspell[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_inversion[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_FEMALE_UP_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_blink[] = {
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_stun[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_slow[] = {
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_pixie_swarm[] = {
+    NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_bomber[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_PAUSE, NOX_BOT_PHONEME_DOWN,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_PAUSE,
+    NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_PAUSE,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_wasp[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_urchin[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_small_spider[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_small_albino_spider[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_mechanical_flyer[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_imp[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_giant_leech[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_bat[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_ghost[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_black_bear[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_ogre_brute[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_black_wolf[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_white_wolf[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_LEFT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_wolf[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_evil_cherub[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_ogre[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_ogre_warlord[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_zombie[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_DOWN_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_vile_zombie[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_ember_demon[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_shade[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_albino_spider[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_UP_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_bear[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_skeleton[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_skeleton_lord[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_UP_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_scorpion[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_spider[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_spitting_spider[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_UP,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_troll[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_mechanical_golem[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_stone_golem[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN_LEFT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_carnivorous_plant[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_UP, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_willowisp[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_DOWN,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_mimic[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_DOWN, NOX_BOT_PHONEME_RIGHT,
+};
+static const unsigned char nox_bot_conjurer_ph_summon_beholder[] = {
+    NOX_BOT_PHONEME_UP_LEFT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_UP_RIGHT, NOX_BOT_PHONEME_DOWN_LEFT,
+    NOX_BOT_PHONEME_RIGHT, NOX_BOT_PHONEME_DOWN_RIGHT, NOX_BOT_PHONEME_DOWN,
+};
+
+static nox_bot_conjurer_phoneme_sequence nox_bot_conjurer_summon_phonemes(
+    nox_bot_conjurer_summon summon)
+{
+    nox_bot_conjurer_phoneme_sequence seq = { 0, 0, 0 };
+
+#define NOX_BOT_CONJURER_SEQUENCE(value, mask) \
+    do { seq.steps = (value); seq.count = NOX_BOT_SEQUENCE_COUNT(value); seq.check_mask = (mask); } while (0)
+    switch (summon) {
+    /* Bomber rechecks before Stun/Burn/Toxic Cloud/Glyph at 0/3/8/12. */
+    case NOX_BOT_CONJURER_SUMMON_BOMBER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_bomber, 0x1109u); break;
+    case NOX_BOT_CONJURER_SUMMON_WASP: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_wasp, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_URCHIN: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_urchin, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SMALL_SPIDER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_small_spider, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SMALL_ALBINO_SPIDER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_small_albino_spider, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_MECHANICAL_FLYER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_mechanical_flyer, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_IMP: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_imp, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_GIANT_LEECH: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_giant_leech, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_BAT: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_bat, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_GHOST: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_ghost, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_BLACK_BEAR: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_black_bear, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_OGRE_BRUTE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_ogre_brute, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_BLACK_WOLF: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_black_wolf, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_WHITE_WOLF: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_white_wolf, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_WOLF: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_wolf, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_EVIL_CHERUB: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_evil_cherub, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_OGRE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_ogre, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_OGRE_WARLORD: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_ogre_warlord, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_ZOMBIE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_zombie, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_VILE_ZOMBIE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_vile_zombie, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_EMBER_DEMON: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_ember_demon, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SHADE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_shade, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_ALBINO_SPIDER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_albino_spider, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_BEAR: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_bear, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SKELETON: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_skeleton, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SKELETON_LORD: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_skeleton_lord, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SCORPION: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_scorpion, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SPIDER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_spider, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_SPITTING_SPIDER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_spitting_spider, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_TROLL: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_troll, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_MECHANICAL_GOLEM: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_mechanical_golem, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_STONE_GOLEM: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_stone_golem, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_CARNIVOROUS_PLANT: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_carnivorous_plant, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_WILLOWISP: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_willowisp, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_MIMIC: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_mimic, 1u); break;
+    case NOX_BOT_CONJURER_SUMMON_BEHOLDER: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_summon_beholder, 1u); break;
+    default: break;
+    }
+#undef NOX_BOT_CONJURER_SEQUENCE
+    return seq;
+}
+
+static nox_bot_conjurer_phoneme_sequence nox_bot_conjurer_phonemes(
+    nox_bot_conjurer_spell spell, nox_bot_conjurer_summon summon)
+{
+    nox_bot_conjurer_phoneme_sequence seq = { 0, 0, 0 };
+
+#define NOX_BOT_CONJURER_SEQUENCE(value, mask) \
+    do { seq.steps = (value); seq.count = NOX_BOT_SEQUENCE_COUNT(value); seq.check_mask = (mask); } while (0)
+    switch (spell) {
+    case NOX_BOT_CONJURER_SPELL_FORCE_OF_NATURE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_force_of_nature, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_INFRAVISION: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_infravision, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_LESSER_HEAL: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_lesser_heal, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_VAMPIRISM: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_vampirism, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_PROTECT_SHOCK: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_protect_shock, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_PROTECT_FIRE: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_protect_fire, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_PROTECT_POISON: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_protect_poison, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_METEOR: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_meteor, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_TOXIC_CLOUD: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_toxic_cloud, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_BURN: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_burn, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_COUNTERSPELL: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_counterspell, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_COUNTERSPELL_DEATHBALL: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_counterspell, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_INVERSION: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_inversion, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_BLINK: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_blink, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_STUN: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_stun, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_SLOW: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_slow, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_PIXIE_SWARM: NOX_BOT_CONJURER_SEQUENCE(nox_bot_conjurer_ph_pixie_swarm, 1u); break;
+    case NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE:
+        return nox_bot_conjurer_summon_phonemes(summon);
+    default: break;
+    }
+#undef NOX_BOT_CONJURER_SEQUENCE
+    return seq;
+}
+
 static uint32_t *nox_bot_conjurer_ready_frame(
     nox_bot_conjurer_policy_state *conjurer, nox_bot_conjurer_spell spell)
 {
@@ -326,6 +614,7 @@ static int nox_bot_conjurer_schedule(
     conjurer->pending_target = target;
     conjurer->pending_x = x;
     conjurer->pending_y = y;
+    conjurer->pending_phoneme_index = 0;
     conjurer->pending_cast_frame = nox_bot_reaction_deadline(
         frame, (nox_bot_difficulty)state->difficulty);
     return 1;
@@ -360,6 +649,7 @@ static int nox_bot_conjurer_schedule_summon(
     conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE;
     conjurer->pending_summon = (unsigned char)summon;
     conjurer->pending_target = 0;
+    conjurer->pending_phoneme_index = 0;
     conjurer->pending_cast_frame = nox_bot_reaction_deadline(
         frame, (nox_bot_difficulty)state->difficulty);
     return 1;
@@ -384,8 +674,42 @@ static void nox_bot_conjurer_cancel_pending(
     state->conjurer.pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
     state->conjurer.pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
     state->conjurer.pending_target = 0;
+    state->conjurer.pending_phoneme_index = 0;
     state->conjurer.global_ready_frame = nox_bot_reaction_deadline(
         frame, (nox_bot_difficulty)state->difficulty);
+}
+
+static int nox_bot_conjurer_advance_phonemes(
+    int object, nox_bot_policy_state *state, uint32_t frame, nox_bot_conjurer_spell spell)
+{
+    nox_bot_conjurer_policy_state *conjurer = &state->conjurer;
+    nox_bot_conjurer_phoneme_sequence seq = nox_bot_conjurer_phonemes(
+        spell, (nox_bot_conjurer_summon)conjurer->pending_summon);
+    unsigned int index;
+    unsigned int step;
+
+    if (!seq.steps || !seq.count)
+        return nox_bot_reaction_ready(frame, conjurer->pending_cast_frame);
+    if (!nox_bot_reaction_ready(frame, conjurer->pending_cast_frame))
+        return 0;
+    index = conjurer->pending_phoneme_index;
+    if (index >= seq.count)
+        return 1;
+
+    if ((seq.check_mask & (1u << index)) &&
+        (nox_bot_engine_health(object) <= 0 ||
+         nox_bot_engine_has_buff(object, NOX_BOT_ENCHANT_ANTI_MAGIC))) {
+        nox_bot_conjurer_cancel_pending(state, frame);
+        return 0;
+    }
+
+    /* Every phoneme and explicit concentration pause consumes three frames. */
+    step = seq.steps[index];
+    conjurer->pending_phoneme_index = (unsigned char)(index + 1u);
+    if (step != NOX_BOT_PHONEME_PAUSE)
+        nox_bot_engine_play_phoneme(object, (nox_bot_phoneme)step);
+    conjurer->pending_cast_frame = frame + 3u;
+    return 0;
 }
 
 static void nox_bot_conjurer_finish_cast(
@@ -398,7 +722,7 @@ static void nox_bot_conjurer_finish_cast(
     uint32_t cooldown;
 
     if (spell == NOX_BOT_CONJURER_SPELL_NONE ||
-        !nox_bot_reaction_ready(frame, conjurer->pending_cast_frame))
+        !nox_bot_conjurer_advance_phonemes(object, state, frame, spell))
         return;
 
     if (spell == NOX_BOT_CONJURER_SPELL_SUMMON_CREATURE) {
@@ -442,6 +766,7 @@ static void nox_bot_conjurer_finish_cast(
         conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
         conjurer->pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
         conjurer->pending_target = 0;
+        conjurer->pending_phoneme_index = 0;
         conjurer->global_ready_frame = frame + NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES;
         conjurer->summon_ready_frame = frame + cooldown;
         return;
@@ -473,6 +798,7 @@ static void nox_bot_conjurer_finish_cast(
     conjurer->pending_spell = NOX_BOT_CONJURER_SPELL_NONE;
     conjurer->pending_summon = NOX_BOT_CONJURER_SUMMON_NONE;
     conjurer->pending_target = 0;
+    conjurer->pending_phoneme_index = 0;
     conjurer->global_ready_frame = frame + NOX_BOT_CONJURER_GLOBAL_COOLDOWN_FRAMES;
 
     ready = nox_bot_conjurer_ready_frame(conjurer, spell);

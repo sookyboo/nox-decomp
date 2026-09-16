@@ -59,6 +59,7 @@ typedef struct nox_bot_conjurer_policy_state {
     float pending_y;
     unsigned char pending_spell;
     unsigned char pending_summon;
+    unsigned char pending_phoneme_index;
     unsigned char mana_route_active;
 } nox_bot_conjurer_policy_state;
 
@@ -92,6 +93,7 @@ typedef struct nox_bot_wizard_policy_state {
     float pending_x;
     float pending_y;
     unsigned char pending_spell;
+    unsigned char pending_phoneme_index;
     unsigned char ring_of_fire_used;
     unsigned char mana_route_active;
 } nox_bot_wizard_policy_state;
