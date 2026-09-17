@@ -51334,7 +51334,11 @@ void sub_43C1E0()
     v1 = v0;
     if ( v0 )
     {
+ #if UINTPTR_MAX > UINT32_MAX
+      ((int (*)(void))nox_native_pointer_from_32(v0[12]))();
+ #else
       ((int (*)(void))v0[12])();
+ #endif
       v1[13] = sub_43C0A0;
       sub_43BDC0();
     }
@@ -51354,7 +51358,11 @@ _DWORD *sub_43C220()
     v1 = result;
     if ( result )
     {
+ #if UINTPTR_MAX > UINT32_MAX
+      result = (_DWORD *)((int (*)(void))nox_native_pointer_from_32(result[12]))();
+ #else
       result = (_DWORD *)((int (*)(void))result[12])();
+ #endif
       v1[13] = sub_4AA6B0;
     }
   }
@@ -51380,7 +51388,11 @@ int sub_43C260()
       }
       else
       {
+ #if UINTPTR_MAX > UINT32_MAX
+        result = ((int (*)(void))nox_native_pointer_from_32(*(unsigned int *)(result + 48)))();
+ #else
         result = (*(int (**)(void))(result + 48))();
+ #endif
         *(_DWORD *)(v1 + 52) = sub_44A560;
       }
     }
@@ -51409,7 +51421,11 @@ int sub_43C2F0()
       }
       else
       {
+ #if UINTPTR_MAX > UINT32_MAX
+        result = ((int (*)(void))nox_native_pointer_from_32(*(unsigned int *)(result + 48)))();
+ #else
         result = (*(int (**)(void))(result + 48))();
+ #endif
         *(_DWORD *)(v1 + 52) = sub_4A1C00;
       }
     }

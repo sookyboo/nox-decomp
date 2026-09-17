@@ -125,6 +125,11 @@ The current branch contains native-width handling for:
 - the input-event cursor used by `sub_437060()`, `map_download_loop()`, and
   the main loop. Native builds keep this temporary cursor in a host-width
   sidecar instead of writing its pointer into the recovered 32-bit image slot.
+- the native `nox_legal_window` sidecar lifecycle: `sub_46C4E0()` clears the
+  host-width global when the corresponding recovered window record is freed;
+- the transition records used by `sub_4AA270()`/`sub_4AA490()`, which retain
+  their host pointers in sidecars, and the 32-bit transition callbacks are
+  reconstructed before invocation.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -152,16 +157,18 @@ After the latest source changes:
 - native x86_64 reaches the same milestones through
   `macro end: chatScreenServerName`, after opening `gamedata.bin` and
   `monster.bin`; no signal occurs in the verified 35-second diagnostic run;
-- a longer native run also reached `chatScreenServerName` completion and then
-  remained in the scripted UI/input sequence until its timeout. The next
-  unverified boundary is the transition into `defaultServerGame` and map
-  startup, not the earlier `sub_42FAE0(a1=0)` teardown failure.
+- an accelerated native/32-bit comparison reaches `macro end: defaultServerGame`
+  and `macro end: server` on both builds, with no native signal reported
+  before the controlled timeout;
+- the earlier `sub_42FAE0(a1=0)` teardown failure and the later freed-window
+  traversal were both fixed. The next unverified boundary is gameplay/map
+  state after the scripted server macro.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
 because a timeout does not yet prove that the native process entered a game;
-the current verified assertion is the signal-free progression through
-`chatScreenServerName`.
+the current verified assertion is signal-free progression through the complete
+scripted `server` macro, including `defaultServerGame`.
 
 ## Reproduce the native server-startup smoke test
 
@@ -188,7 +195,8 @@ timeout --signal=TERM 35s env \
 The verified result is a native x86_64 server-mode startup that reaches the
 main menu, executes the control-server `startMultiplayerNetworkHost` input
 sequence, loads `gamedata.bin` and `monster.bin`, and completes the scripted
-`chatScreenServerName` macro without a signal in the diagnostic run. Do not
+`server` macro through `defaultServerGame` without a signal in the diagnostic
+run. Do not
 treat the timeout alone as success; verify the last completed macro and the
 process exit reason.
 The important native transport boundaries are:
@@ -245,8 +253,8 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Continue the headless smoke test through `defaultServerGame`, map
-   selection, and gameplay startup.
+1. Continue the headless smoke test past `defaultServerGame` and verify map
+   selection and gameplay state.
 2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
    stable.
 3. Update `startup-compatibility.md` with the final native audio transport

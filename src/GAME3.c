@@ -11,11 +11,17 @@
 #include <unistd.h>
 #endif
 
+#if UINTPTR_MAX > UINT32_MAX
+_DWORD *nox_legal_window;
+#else
 static _DWORD *nox_legal_window;
+#endif
 #if UINTPTR_MAX > UINT32_MAX
 extern int (*nox_47d5_callback)(int);
 static _DWORD *nox_menu_button_left;
 static _DWORD *nox_menu_button_right;
+static _DWORD *nox_server_transition_left;
+static _DWORD *nox_server_transition_right;
 
 static uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
@@ -6232,6 +6238,9 @@ int sub_4AA270()
     sub_46B2C0((int)v1, sub_4AA4D0);
     result = sub_43C5B0(v1, 0, 0, 0, -240, 0, 20, 0, -40);
     *(_DWORD *)&byte_5D4594[1309708] = result;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_server_transition_left = result;
+#endif
     if ( result )
     {
       *(_DWORD *)result = 400;
@@ -6241,6 +6250,9 @@ int sub_4AA270()
       sub_46B2C0((int)v2, sub_4AA4D0);
       result = sub_43C5B0(v2, 0, 240, 0, 480, 0, -20, 0, 40);
       *(_DWORD *)&byte_5D4594[1309712] = result;
+#if UINTPTR_MAX > UINT32_MAX
+      nox_server_transition_right = result;
+#endif
       if ( result )
       {
         sub_4A19F0((char *)&byte_587000[172636]);
@@ -6290,9 +6302,21 @@ int sub_4AA490()
 {
   int (*v0)(void); // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v0 = (int (*)(void))nox_game3_pointer_from_32(
+    *(unsigned int *)((char *)nox_server_transition_left + 52));
+#else
   v0 = *(int (**)(void))(*(_DWORD *)&byte_5D4594[1309708] + 52);
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  sub_43C570(nox_server_transition_left);
+  sub_43C570(nox_server_transition_right);
+  nox_server_transition_left = 0;
+  nox_server_transition_right = 0;
+#else
   sub_43C570(*(LPVOID *)&byte_5D4594[1309708]);
   sub_43C570(*(LPVOID *)&byte_5D4594[1309712]);
+#endif
   sub_46C4E0(*(_DWORD **)&byte_5D4594[1309716]);
   v0();
   return 1;
