@@ -20,6 +20,9 @@ extern char byte_563006[26];
 extern unsigned __int8 byte_581450[23472];
 extern unsigned __int8 byte_587000[316820];
 extern unsigned __int8 byte_5D4594[3844309];
+#if UINTPTR_MAX > UINT32_MAX
+extern const char *nox_damage_type_names[18];
+#endif
 
 void init_data();
 
