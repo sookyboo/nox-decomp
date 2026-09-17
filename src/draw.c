@@ -20,6 +20,13 @@
 #include <SDL2/SDL_opengl_glext.h>
 #endif
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+extern int nox_palette_lut_low;
+void nox_palette_lut_free(void *address, size_t size);
+#endif
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
@@ -86,6 +93,39 @@ HWND dword_973FE0;
 
 DWORD dword_974868;
 DWORD dword_973C64;
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+static void *nox_display_state_a;
+static void *nox_display_state_b;
+static int nox_gamma_red_low;
+static int nox_gamma_green_low;
+static int nox_gamma_blue_low;
+
+static void *nox_legacy_low_alloc(size_t size)
+{
+    size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+    size_t mapped_size;
+    void *result;
+
+    if (!page_size)
+        return 0;
+    mapped_size = (size + page_size - 1) & ~(page_size - 1);
+    result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+    return result == MAP_FAILED ? 0 : result;
+}
+
+static void nox_legacy_low_free(void *address, size_t size)
+{
+    size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+    size_t mapped_size;
+
+    if (!address || !page_size)
+        return;
+    mapped_size = (size + page_size - 1) & ~(page_size - 1);
+    munmap(address, mapped_size);
+}
+#endif
 
 //----- (00444AC0) --------------------------------------------------------
 int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
@@ -2758,23 +2798,55 @@ void sub_433C20()
 	}
 	if (*(_DWORD *)&byte_5D4594[3804668])
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		if (nox_palette_lut_low)
+			nox_palette_lut_free(*(LPVOID *)&byte_5D4594[3804668], 0x8000u);
+		else
+#endif
 		free(*(LPVOID *)&byte_5D4594[3804668]);
 		*(_DWORD *)&byte_5D4594[3804668] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		nox_palette_lut_low = 0;
+#endif
 	}
 	if (*(_DWORD *)&byte_5D4594[3804672])
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		if (nox_gamma_red_low)
+			nox_legacy_low_free(*(LPVOID *)&byte_5D4594[3804672], 0x202u);
+		else
+#endif
 		free(*(LPVOID *)&byte_5D4594[3804672]);
 		*(_DWORD *)&byte_5D4594[3804672] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		nox_gamma_red_low = 0;
+#endif
 	}
 	if (*(_DWORD *)&byte_5D4594[3804656])
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		if (nox_gamma_green_low)
+			nox_legacy_low_free(*(LPVOID *)&byte_5D4594[3804656], 0x202u);
+		else
+#endif
 		free(*(LPVOID *)&byte_5D4594[3804656]);
 		*(_DWORD *)&byte_5D4594[3804656] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		nox_gamma_green_low = 0;
+#endif
 	}
 	if (*(_DWORD *)&byte_5D4594[3804664])
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		if (nox_gamma_blue_low)
+			nox_legacy_low_free(*(LPVOID *)&byte_5D4594[3804664], 0x202u);
+		else
+#endif
 		free(*(LPVOID *)&byte_5D4594[3804664]);
 		*(_DWORD *)&byte_5D4594[3804664] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		nox_gamma_blue_low = 0;
+#endif
 	}
 	sub_435550();
 	*(_DWORD *)&byte_5D4594[3804660] = 0;
@@ -2786,13 +2858,31 @@ int __cdecl sub_444930(HWND a1, int a2, int a3, int a4, int a5)
 	int result; // eax
 
 	*(_DWORD *)&byte_5D4594[823776] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+	if (!nox_display_state_a)
+		nox_display_state_a = nox_legacy_low_alloc(0x420u);
+	if (!nox_display_state_a)
+		return 0;
+	memcpy(nox_display_state_a, &byte_5D4594[3799660], 0x420u);
+	*(_DWORD *)&byte_5D4594[3799572] = (int)(intptr_t)nox_display_state_a;
+#else
 	*(_DWORD *)&byte_5D4594[3799572] = &byte_5D4594[3799660];
+#endif
 	result = sub_4449D0(a1, a2, a3, a4, a5);
     //printf("%s: %d\n", __FUNCTION__, result);
 	if (result)
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		if (!nox_display_state_b)
+			nox_display_state_b = nox_legacy_low_alloc(0x420u);
+		if (!nox_display_state_b)
+			return 0;
+		*(_DWORD *)&byte_5D4594[3799572] = (int)(intptr_t)nox_display_state_b;
+		memcpy(nox_display_state_b, nox_display_state_a, 0x420u);
+#else
 		*(_DWORD *)&byte_5D4594[3799572] = &byte_5D4594[3800716];
 		qmemcpy(&byte_5D4594[3800716], &byte_5D4594[3799660], 0x420u);
+#endif
 		if (byte_5D4594[3801773] & 2)
 		{
 #ifdef USE_SDL
@@ -4001,15 +4091,30 @@ int sub_434CC0()
 		v0 = dword_69A014;
 		dword_69A014 = sub_4351C0;
 	}
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+	result = (int)(intptr_t)nox_legacy_low_alloc(0x202u);
+	nox_gamma_red_low = result != 0;
+#else
 	result = (int)calloc(0x101u, 2u);
+#endif
 	*(_DWORD *)&byte_5D4594[3804672] = result;
 	if (result)
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+		result = (int)(intptr_t)nox_legacy_low_alloc(0x202u);
+		nox_gamma_green_low = result != 0;
+#else
 		result = (int)calloc(0x101u, 2u);
+#endif
 		*(_DWORD *)&byte_5D4594[3804656] = result;
 		if (result)
 		{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+			result = (int)(intptr_t)nox_legacy_low_alloc(0x202u);
+			nox_gamma_blue_low = result != 0;
+#else
 			result = (int)calloc(0x101u, 2u);
+#endif
 			*(_DWORD *)&byte_5D4594[3804664] = result;
 			if (result)
 			{
