@@ -86,6 +86,8 @@ typedef enum nox_bot_phoneme {
 
 /* Plays the Bot-Script phoneme AudioEvent at the native bot object. */
 int nox_bot_engine_play_phoneme(int object, nox_bot_phoneme phoneme);
+/* Broadcasts a native object-centered chat bubble/message. */
+int nox_bot_engine_chat(int object, const wchar_t *message);
 /* Reproduces NoxScript CastSpell(source=object, target=object). */
 int nox_bot_engine_cast_script_self(int object, const char *spell_name);
 int nox_bot_engine_cast_script_object(int object, const char *spell_name, int target);
