@@ -51295,7 +51295,13 @@ _DWORD *sub_43C540()
 {
   _DWORD *result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = nox_legacy_low_alloc(0x44u);
+  if ( result )
+    memset(result, 0, 0x44u);
+#else
   result = calloc(1u, 0x44u);
+#endif
   if ( result )
   {
     result[10] = *(_DWORD *)&byte_5D4594[815212];
@@ -51320,7 +51326,11 @@ void __cdecl sub_43C570(LPVOID lpMem)
     *(_DWORD *)(v2 + 40) = *((_DWORD *)lpMem + 10);
   else
     *(_DWORD *)&byte_5D4594[815212] = *((_DWORD *)lpMem + 10);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_legacy_low_free(lpMem, 0x44u);
+#else
   free(lpMem);
+#endif
 }
 
 //----- (0043C5B0) --------------------------------------------------------

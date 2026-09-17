@@ -91,6 +91,9 @@ The current branch contains native-width handling for:
 - startup metadata and callback inputs use host-width transports in
   `sub_4145F0()`/`sub_414B30()`, `sub_47FA80()`, and the main-loop callback
   slots. The legal-window root is also kept in a native pointer sidecar.
+- the first native render/menu path widens its 9-entry render pointer array,
+  3-entry window text pointer table, wrapping buffer, SDL row table, window
+  callbacks, menu-tree roots, and low-address button-list records.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -118,17 +121,16 @@ After the latest source changes:
 - the full post-change i386 and ARMHF/QEMU CTest suites still need to be rerun.
 
 The headless dependencies are now installed: `xvfb`, `xauth`, Mesa software
-OpenGL support, and `gdb`. The documented X11 smoke test reaches the `.wnd`
-parser on successful graphics-startup attempts. The current reproducible
-native boundary is after `MainBG.wnd` property parsing, in widget construction
-through `sub_4A1440()` → `sub_46C3E0()` → `sub_46B490()`; full gameplay startup
-is not yet verified.
+OpenGL support, and `gdb`. The documented X11 smoke test reaches main-menu
+construction and remains alive until the harness tears down Xvfb; that teardown
+reports only the expected `XIO` error. No SIGSEGV or SIGABRT was observed.
+Full gameplay startup and map selection are not yet verified.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
 verified run now completes font/text setup, legal-window rendering, executable
-metadata parsing, input dispatch, and the initial widget draw callbacks. It
-currently stops in the later texture/render table path at
-`sub_49E060()`; gameplay map selection is not yet reached.
+metadata parsing, input dispatch, initial widget draw callbacks, the
+`sub_49E060()` texture/render table path, window text wrapping, and main-menu
+construction. Gameplay map selection is not yet reached.
 
 ## Reproduce the remaining failure
 
@@ -141,12 +143,12 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-linux64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 startup run that reaches legal-window
-rendering and the first widget draw callbacks. The remaining reproducible
-failure is in the texture/render table path:
+The current result is a native x86_64 startup run that reaches main-menu
+construction and remains alive until the harness tears down Xvfb. The next
+work item is to verify map selection and gameplay startup:
 
 ```text
 sub_401070
@@ -162,6 +164,8 @@ sub_401070
   → sub_46C3E0 / sub_46B490
   → sub_46C2E0 / sub_46C370
   → sub_49D190 / sub_49E060
+  → sub_488D00 / sub_4892D0
+  → sub_4A1C00 / sub_4CC6F0
 ```
 
 The video fix uses low-address allocations for the recovered 36-byte index
@@ -189,18 +193,17 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   gdb -q -batch -ex 'set pagination off' -ex run -ex bt --args \
-  ../../../build-linux64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly Estate
 ```
 
 ## Recommended next steps
 
-1. Continue the headless smoke test from `sub_49E060()` and inspect the
-   texture/render table pointer at `byte_5D4594[3798784]`; preserve its fixed
-   recovered table layout while shadowing only the native pointer transport.
-2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
-   startup path is stable.
-3. Update `startup-compatibility.md` with the final table shape and remove or
-   revise this handoff's known-failure wording once the path is fixed.
+1. Continue the headless smoke test past main-menu construction and verify map
+   selection/gameplay startup.
+2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
+   stable.
+3. Update `startup-compatibility.md` with the final table shape and revise this
+   handoff's known-failure wording as the boundary advances.
 
 Do not treat a timeout as a successful startup by itself: verify that the
 process did not exit with SIGSEGV or SIGABRT and record the last completed

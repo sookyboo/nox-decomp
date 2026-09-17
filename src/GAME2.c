@@ -72,6 +72,13 @@ static unsigned int nox_window_text_count;
 static struct nox_window_font_entry nox_window_value_pointers[256];
 static unsigned int nox_window_value_pointer_count;
 
+static uintptr_t nox_native_pointer_from_32(unsigned int value)
+{
+  if ( !value )
+    return 0;
+  return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+}
+
 static void nox_window_callback_set(int object, int (*callback)(int, int, int, int))
 {
   unsigned int i;
@@ -291,7 +298,19 @@ static int (*nox_window_draw_callback_get(int object))(int, int)
   }
   return 0;
 }
+#if UINTPTR_MAX > UINT32_MAX
+static wchar_t *nox_window_wrap_buffer;
 #endif
+
+#endif
+static wchar_t *nox_window_wrap_buffer_get(void)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_window_wrap_buffer;
+#else
+  return *(wchar_t **)&byte_5D4594[1193360];
+#endif
+}
 
 BYTE *npc_array;
 
@@ -23015,6 +23034,9 @@ int __cdecl sub_46B2C0(int a1, int (*a2)(int,int,int,int))
 {
   if ( !a1 )
     return -2;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_callback_set(a1, a2 ? a2 : sub_46B2F0);
+#endif
   if ( a2 )
     *(_DWORD *)(a1 + 376) = a2;
   else
@@ -23128,14 +23150,26 @@ uintptr_t __cdecl sub_46B490(int a1, int a2, int a3, int a4)
   }
 #endif
   uintptr_t result; // eax
+#if UINTPTR_MAX > UINT32_MAX
+  int (*native_callback)(int, int, int, int);
+#endif
 
   result = a1;
   if ( a1 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    native_callback = (int (*)(int, int, int, int))(
+      ((uintptr_t)&sub_46B2F0 & ~(uintptr_t)UINT32_MAX) | *(unsigned int *)(a1 + 376));
+    if ( a2 == 16386 || a2 == 16413 )
+      result = ((uintptr_t (*)(int, int, int, int))native_callback)(a1, a2, a3, a4);
+    else
+      result = native_callback(a1, a2, a3, a4);
+#else
     if ( a2 == 16386 || a2 == 16413 )
       result = ((uintptr_t (__cdecl *)(int, int, int, int))(*(void **)(a1 + 376)))(a1, a2, a3, a4);
     else
       result = (*(int (__cdecl **)(int, int, int, int))(a1 + 376))(a1, a2, a3, a4);
+#endif
   }
   return result;
 }
@@ -46171,9 +46205,24 @@ int __cdecl sub_488D00(int a1, int xLeft)
   int v32; // [esp+34h] [ebp-8h]
   unsigned __int16 **v33; // [esp+38h] [ebp-4h]
   wchar_t *v34; // [esp+40h] [ebp+4h]
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned int *v35;
+  unsigned __int16 *v36[3];
+#endif
 
   v2 = xLeft;
+#if UINTPTR_MAX > UINT32_MAX
+  v35 = (unsigned int *)nox_native_pointer_from_32(*(unsigned int *)(a1 + 32));
+  if ( v35 )
+  {
+    v36[0] = (unsigned __int16 *)nox_native_pointer_from_32(v35[0]);
+    v36[1] = (unsigned __int16 *)nox_native_pointer_from_32(v35[1]);
+    v36[2] = (unsigned __int16 *)nox_native_pointer_from_32(v35[2]);
+  }
+  v3 = v35 ? v36 : 0;
+#else
   v3 = *(unsigned __int16 ***)(a1 + 32);
+#endif
   v4 = *(_DWORD *)(xLeft + 20);
   v25 = *(_DWORD *)(xLeft + 28);
   v27 = v25;
@@ -46222,7 +46271,7 @@ int __cdecl sub_488D00(int a1, int xLeft)
         v32 = xLeft;
         v11 = nox_wcslen(v22);
         sub_4892D0(2 * v11 + 2);
-        if ( *(_DWORD *)&byte_5D4594[1193360] )
+        if ( nox_window_wrap_buffer_get() )
         {
           v12 = *v3;
           v24 = *v3;
@@ -46257,9 +46306,9 @@ int __cdecl sub_488D00(int a1, int xLeft)
               }
 LABEL_32:
               v16 = v14 - v24;
-              nox_wcsncpy(*(wchar_t **)&byte_5D4594[1193360], v24, v16);
-              *(_WORD *)(*(_DWORD *)&byte_5D4594[1193360] + 2 * v16) = 0;
-              sub_43F840(*(_DWORD *)(v2 + 200), *(unsigned __int16 **)&byte_5D4594[1193360], 0, &v23, v5);
+              nox_wcsncpy(nox_window_wrap_buffer_get(), v24, v16);
+              nox_window_wrap_buffer_get()[v16] = 0;
+              sub_43F840(*(_DWORD *)(v2 + 200), (unsigned __int16 *)nox_window_wrap_buffer_get(), 0, &v23, v5);
               if ( v23 > *(int *)(*(_DWORD *)(v2 + 200) + 28) )
                 break;
               v34 = v14;
@@ -46277,25 +46326,25 @@ LABEL_32:
             v25 = 0;
 LABEL_40:
             v18 = v34 - v17;
-            nox_wcsncpy(*(wchar_t **)&byte_5D4594[1193360], v17, v18);
-            *(_WORD *)(*(_DWORD *)&byte_5D4594[1193360] + 2 * v18) = 0;
-            sub_43F840(*(_DWORD *)(v2 + 200), *(unsigned __int16 **)&byte_5D4594[1193360], &v29, &v23, v5);
+            nox_wcsncpy(nox_window_wrap_buffer_get(), v17, v18);
+            nox_window_wrap_buffer_get()[v18] = 0;
+            sub_43F840(*(_DWORD *)(v2 + 200), (unsigned __int16 *)nox_window_wrap_buffer_get(), &v29, &v23, v5);
             xLeft = v32 + (v5 - v29) / 2;
             if ( v33[2] )
             {
               sub_434390(v27);
               v19 = v26;
               v20 = v26 - 1;
-              sub_43FAF0(*(_DWORD *)(v2 + 200), *(_WORD **)&byte_5D4594[1193360], xLeft - 1, v26 - 1, v5, 0);
-              sub_43FAF0(*(_DWORD *)(v2 + 200), *(_WORD **)&byte_5D4594[1193360], xLeft + 1, v20, v5, 0);
-              sub_43FAF0(*(_DWORD *)(v2 + 200), *(_WORD **)&byte_5D4594[1193360], xLeft - 1, v19 + 1, v5, 0);
-              sub_43FAF0(*(_DWORD *)(v2 + 200), *(_WORD **)&byte_5D4594[1193360], xLeft + 1, v19 + 1, v5, 0);
+              sub_43FAF0(*(_DWORD *)(v2 + 200), (_WORD *)nox_window_wrap_buffer_get(), xLeft - 1, v26 - 1, v5, 0);
+              sub_43FAF0(*(_DWORD *)(v2 + 200), (_WORD *)nox_window_wrap_buffer_get(), xLeft + 1, v20, v5, 0);
+              sub_43FAF0(*(_DWORD *)(v2 + 200), (_WORD *)nox_window_wrap_buffer_get(), xLeft - 1, v19 + 1, v5, 0);
+              sub_43FAF0(*(_DWORD *)(v2 + 200), (_WORD *)nox_window_wrap_buffer_get(), xLeft + 1, v19 + 1, v5, 0);
               sub_434390(*(_DWORD *)(v2 + 68));
-              sub_43FAF0(*(_DWORD *)(v2 + 200), *(_WORD **)&byte_5D4594[1193360], xLeft, v19, v5, 0);
+              sub_43FAF0(*(_DWORD *)(v2 + 200), (_WORD *)nox_window_wrap_buffer_get(), xLeft, v19, v5, 0);
             }
             else
             {
-              sub_43FAF0(*(_DWORD *)(v2 + 200), *(_WORD **)&byte_5D4594[1193360], v32 + (v5 - v29) / 2, v26, v5, 0);
+              sub_43FAF0(*(_DWORD *)(v2 + 200), (_WORD *)nox_window_wrap_buffer_get(), v32 + (v5 - v29) / 2, v26, v5, 0);
               v19 = v26;
             }
             v26 = v23 + v19 + 1;
@@ -46353,8 +46402,13 @@ wchar_t *__cdecl sub_4892D0(int a1)
   if ( a1 > *(int *)&byte_5D4594[1193364] )
   {
     *(_DWORD *)&byte_5D4594[1193364] = a1;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_window_wrap_buffer = realloc(nox_window_wrap_buffer, a1);
+    result = nox_window_wrap_buffer;
+#else
     result = (wchar_t *)realloc(*(LPVOID *)&byte_5D4594[1193360], a1);
     *(_DWORD *)&byte_5D4594[1193360] = result;
+#endif
   }
   return result;
 }
@@ -46549,8 +46603,14 @@ int __cdecl sub_4896D0(int a1)
 //----- (004896E0) --------------------------------------------------------
 int sub_4896E0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  if ( nox_window_wrap_buffer )
+    free(nox_window_wrap_buffer);
+  nox_window_wrap_buffer = 0;
+#else
   if ( *(_DWORD *)&byte_5D4594[1193360] )
     free(*(LPVOID *)&byte_5D4594[1193360]);
+#endif
   return 1;
 }
 
@@ -61365,7 +61425,6 @@ int4 *__cdecl sub_49E060(__int16 a1, int a2, int a3, int a4, int a5)
   int v23; // edi
   int v24; // eax
   __int16 v25; // ax
-  int *v26; // eax
   int v27; // ecx
   int v28; // edx
   bool v29; // zf
@@ -61479,10 +61538,9 @@ int4 *__cdecl sub_49E060(__int16 a1, int a2, int a3, int a4, int a5)
             v9 = a1;
             *v38[4] = *(_WORD *)(*(_DWORD *)&byte_5D4594[3804672] + 2 * v22) | v25;
           }
-          v26 = (int *)v38;
           for (v27 = 0; v27 < 9; v27++)
           {
-            v26[v27] += 2;
+            v38[v27] = (_WORD *)((char *)v38[v27] + 2);
           }
           if ( !--v48 )
             break;
