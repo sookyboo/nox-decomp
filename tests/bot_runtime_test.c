@@ -28,6 +28,8 @@ static int spawn_engine_result;
 static int spawn_engine_calls;
 static int spawn_engine_team;
 static int spawn_engine_class;
+static int spawn_teams_enabled;
+static wchar_t spawn_engine_name[25];
 static int spawn_remove_result;
 static int spawn_remove_calls;
 static int spawn_slot_object;
@@ -43,6 +45,24 @@ static int chat_forget_calls;
 static int chat_last_object;
 static uint32_t chat_last_frame;
 
+static int wide_equals(const wchar_t *left, const wchar_t *right)
+{
+    if (!left || !right)
+        return left == right;
+    while (*left && *right) {
+        if (*left != *right)
+            return 0;
+        ++left;
+        ++right;
+    }
+    return *left == *right;
+}
+
+int nox_bot_engine_teams_enabled(void)
+{
+    return spawn_teams_enabled;
+}
+
 int nox_bot_engine_find_free_player_slot(void)
 {
     return player_slot;
@@ -51,10 +71,17 @@ int nox_bot_engine_find_free_player_slot(void)
 int nox_bot_engine_spawn_player_attempt(
     int slot, int requested_class, nox_bot_spawn_team team, const wchar_t *name)
 {
-    (void)name;
+    int i = 0;
+
     ++spawn_engine_calls;
     spawn_engine_team = (int)team;
     spawn_engine_class = requested_class;
+    while (name && name[i] &&
+           i + 1 < (int)(sizeof(spawn_engine_name) / sizeof(spawn_engine_name[0]))) {
+        spawn_engine_name[i] = name[i];
+        ++i;
+    }
+    spawn_engine_name[i] = 0;
     if (!spawn_engine_result)
         return 0;
     player_slot = slot;
@@ -217,6 +244,8 @@ static void reset_stubs(void)
     spawn_engine_calls = 0;
     spawn_engine_team = -1;
     spawn_engine_class = -1;
+    spawn_teams_enabled = 0;
+    spawn_engine_name[0] = 0;
     spawn_remove_result = 1;
     spawn_remove_calls = 0;
     spawn_slot_object = 0;
@@ -284,11 +313,13 @@ static int test_server_created_spawn_and_clear(void)
     int slot = -1;
 
     reset_stubs();
+    spawn_teams_enabled = 1;
     if (!nox_bot_runtime_spawn_attempt(
             NOX_BOT_SPAWN_TEAM_RED, 1, NOX_BOT_DIFFICULTY_HARD, &slot))
         return 13;
     if (slot != 4 || spawn_engine_calls != 1 ||
-        spawn_engine_team != NOX_BOT_SPAWN_TEAM_RED || spawn_engine_class != 1)
+        spawn_engine_team != NOX_BOT_SPAWN_TEAM_RED || spawn_engine_class != 1 ||
+        !wide_equals(spawn_engine_name, L"Wizard Bot"))
         return 14;
     if (!nox_bot_runtime_is_server_created(4) || spawn_slot_object != 123 || !native_bot)
         return 15;
@@ -301,6 +332,63 @@ static int test_server_created_spawn_and_clear(void)
     if (nox_bot_runtime_is_server_created(4) || spawn_slot_object ||
         spawn_remove_calls != 1 || native_bot || state->active)
         return 18;
+    return 0;
+}
+
+static int test_spawn_uses_reference_class_names(void)
+{
+    int slot = -1;
+
+    reset_stubs();
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 0, NOX_BOT_DIFFICULTY_NORMAL, &slot) ||
+        !wide_equals(spawn_engine_name, L"Lance"))
+        return 86;
+    if (!nox_bot_runtime_clear_server_created(slot))
+        return 87;
+
+    reset_stubs();
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 1, NOX_BOT_DIFFICULTY_NORMAL, &slot) ||
+        !wide_equals(spawn_engine_name, L"Kirik"))
+        return 88;
+    if (!nox_bot_runtime_clear_server_created(slot))
+        return 89;
+
+    reset_stubs();
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 2, NOX_BOT_DIFFICULTY_NORMAL, &slot) ||
+        !wide_equals(spawn_engine_name, L"Horst"))
+        return 90;
+    if (!nox_bot_runtime_clear_server_created(slot))
+        return 91;
+
+    reset_stubs();
+    spawn_teams_enabled = 1;
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 0, NOX_BOT_DIFFICULTY_NORMAL, &slot) ||
+        !wide_equals(spawn_engine_name, L"Warrior Bot"))
+        return 92;
+    if (!nox_bot_runtime_clear_server_created(slot))
+        return 93;
+
+    reset_stubs();
+    spawn_teams_enabled = 1;
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 1, NOX_BOT_DIFFICULTY_NORMAL, &slot) ||
+        !wide_equals(spawn_engine_name, L"Wizard Bot"))
+        return 94;
+    if (!nox_bot_runtime_clear_server_created(slot))
+        return 95;
+
+    reset_stubs();
+    spawn_teams_enabled = 1;
+    if (!nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_AUTO, 2, NOX_BOT_DIFFICULTY_NORMAL, &slot) ||
+        !wide_equals(spawn_engine_name, L"Conjurer Bot"))
+        return 96;
+    if (!nox_bot_runtime_clear_server_created(slot))
+        return 97;
     return 0;
 }
 
@@ -582,6 +670,9 @@ int main(void)
     if (result)
         return result;
     result = test_server_created_spawn_and_clear();
+    if (result)
+        return result;
+    result = test_spawn_uses_reference_class_names();
     if (result)
         return result;
     result = test_spawn_activation_failure_rolls_back_native_player();

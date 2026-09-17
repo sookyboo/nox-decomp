@@ -53,28 +53,23 @@ static int nox_bot_runtime_handle_owned_bomber_event(
 }
 
 static void nox_bot_runtime_spawn_name(
-    wchar_t *out, int out_count, nox_bot_spawn_team team, int player_class, int slot)
+    wchar_t *out, int out_count, int player_class)
 {
-    const wchar_t *team_name;
-    const wchar_t *class_name;
-    int pos = 0;
+    const wchar_t *name;
     int i;
 
     if (!out || out_count <= 0)
         return;
-    team_name = team == NOX_BOT_SPAWN_TEAM_RED ? L"Red" :
-        team == NOX_BOT_SPAWN_TEAM_BLUE ? L"Blue" : L"Bot";
-    class_name = player_class == 0 ? L"Warrior" :
-        player_class == 1 ? L"Wizard" : L"Conjurer";
-    for (i = 0; team_name[i] && pos + 1 < out_count; ++i)
-        out[pos++] = team_name[i];
-    for (i = 0; class_name[i] && pos + 1 < out_count; ++i)
-        out[pos++] = class_name[i];
-    if (pos + 3 < out_count) {
-        out[pos++] = L'0' + (wchar_t)(((slot + 1) / 10) % 10);
-        out[pos++] = L'0' + (wchar_t)((slot + 1) % 10);
+    if (nox_bot_engine_teams_enabled()) {
+        name = player_class == 0 ? L"Warrior Bot" :
+            player_class == 1 ? L"Wizard Bot" : L"Conjurer Bot";
+    } else {
+        name = player_class == 0 ? L"Lance" :
+            player_class == 1 ? L"Kirik" : L"Horst";
     }
-    out[pos] = 0;
+    for (i = 0; name[i] && i + 1 < out_count; ++i)
+        out[i] = name[i];
+    out[i] = 0;
 }
 
 int nox_bot_runtime_attach_existing_player(int object, nox_bot_difficulty difficulty)
@@ -146,7 +141,7 @@ int nox_bot_runtime_spawn_attempt(
         nox_bot_tracef("spawn", "failed", "reason=no-free-player-slot");
         return 0;
     }
-    nox_bot_runtime_spawn_name(name, 25, team, player_class, slot);
+    nox_bot_runtime_spawn_name(name, 25, player_class);
     nox_bot_tracef("spawn", "begin",
         "slot=%d class=%d team=%d difficulty=%d", slot, player_class, (int)team, (int)difficulty);
     object = nox_bot_engine_spawn_player_attempt(slot, player_class, team, name);

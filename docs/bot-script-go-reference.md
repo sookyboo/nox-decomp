@@ -102,20 +102,34 @@ not blur native engine mechanics with Bot-Script policy:
   is clear; the experimental spawner selects the first inactive remote slot
   (`0..30`, reserving slot 31 for the host/local player);
 - `bot spawn` builds the recovered 153-byte `PlayerOpts` shape, uses the native
-  host profile only as a structural appearance/loadout template, overrides bot
+  host profile as a structural profile/appearance template, overrides bot
   name/class, supplies a unique synthetic `BOT-xx` serial, leaves account-only
   identity fields empty, and calls `sub_4DD320` for the complete native player
   object/runtime/player-info/spawn initialization;
-- the created player is then assigned the requested native team when supplied
-  and handed to the existing `nox_xxx_playerBotCreate_4FA700` / `4FAB20` attach
-  path. Any constructor/team/activation failure attempts transactional rollback;
+- spawned display identity now follows Bot-Script exactly: no-team Warrior,
+  Wizard, and Conjurer use `Lance`, `Kirik`, and `Horst`; when native teams
+  exist they use `Warrior Bot`, `Wizard Bot`, and `Conjurer Bot`. Native
+  `sub_4DDA00` remains responsible for duplicate-name disambiguation;
+- explicit red/blue requests are resolved before construction. The existing
+  native team's external key is seeded into `PlayerOpts +138`, which becomes
+  player-info `+2068` and is consumed by `sub_4DF3C0`/`sub_418AE0`; the
+  post-constructor membership operation remains as verification/fallback for
+  modes that do not enter that initializer. Missing requested teams are rejected
+  before creating a player object;
+- the created player is then handed to the existing
+  `nox_xxx_playerBotCreate_4FA700` / `4FAB20` attach path. Any
+  constructor/team/activation failure attempts transactional rollback;
 - `bot clear` is restricted to slots marked server-created by this runtime. It
   restores normal player update state first and then calls the same core leave
   owner (`sub_4DE7C0`) used by the normal `0x22` leave packet;
 - hosted-game verification is still required for socketless per-slot network
-  sends, configured-capacity/game-mode admission differences, post-constructor
-  team assignment, and complete cleanup/reuse of a slot that never had a real
-  network peer. Lifecycle tracing exists specifically to resolve those points.
+  sends, game-mode-specific activation/presentation, cross-client team state,
+  and complete cleanup/reuse of a slot that never had a real network peer. The
+  recovered pre-`sub_4DD320` network admission path also performs peer-count,
+  password/account, spectator, ping, and team-creation checks; those are not a
+  safe generic gameplay-capacity primitive for socketless bots and are
+  intentionally not copied into bot code. Lifecycle tracing exists specifically
+  to resolve the remaining runtime points.
 
 ### Warrior parity
 
