@@ -79,6 +79,9 @@ The current branch contains native-width handling for:
   18-entry damage-type table used by `sub_4E0A00()`;
 - the sibling `sub_412ED0()` Modifier.bin record parser, using the same native
   dispatch and low-address record strategy as `sub_412D40()`.
+- the generic 0x90-byte Modifier.bin records parsed by `sub_412AE0()`, its
+  17-entry property-handler shadow, and the nested lookup/flag tables used by
+  the native property handlers; recovered record offsets remain fixed-width.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -95,21 +98,30 @@ Confirmed before the latest startup changes:
 After the latest source changes:
 
 - native x86_64 target `out` builds successfully;
+- native x86_64 CTest in `build-amd64`: 25/25 passed;
 - i386 target `out` builds successfully;
 - native x86_64 headless startup no longer fails in the timer, argv, CSF
   allocation, map scan, built-in string sort, startup config dispatch, or the
   initial graphics pixel/display/gamma/palette allocation boundaries, SDL
   surface layout, font dispatch, graphics row clearing, video index-table
   initialization, timer-record setup, or SoundSet parsing;
-- the full post-change CTest suites still need to be rerun.
+- the full post-change i386 and ARMHF/QEMU CTest suites still need to be rerun.
 
-The headless smoke test uses `Estate` because it is a known-working map. The
-verified GDB runs with `-serveronly Estate` complete video resource
-initialization, timer-record setup, SoundSet parsing, and the first
-Modifier.bin handlers; they reach the class and damage-type lookups and enter
-`sub_412ED0()` through the native sidecars. Resource/config/graphics/video/
-audio startup and both modifier record parsers are therefore verified to their
-current entry boundary, but gameplay map selection is not yet reached.
+The headless dependencies are now installed: `xvfb`, `xauth`, Mesa software
+OpenGL support, and `gdb`. The documented X11 smoke test reaches Modifier.bin
+on successful graphics-startup attempts. The environment still intermittently
+aborts in CSF/graphics initialization, and a clean end-to-end run after the
+generic parser changes has not yet been captured.
+
+The headless smoke test uses `Estate` because it is a known-working map. GDB
+identified the generic-parser boundary as
+`sub_415470 → sub_412930 → sub_412AE0`; the failures were fixed in the
+transient record-pointer dispatch, nested property tables, material-name list,
+and fixed-width record string slots. A verified run now leaves the generic
+Modifier.bin handlers and reaches later `sub_415470()` startup work. The
+environment still has unrelated intermittent CSF/graphics aborts, and other
+runs can fail at a later `sub_40AD10()` data boundary, so gameplay map
+selection is not yet reached.
 
 ## Reproduce the remaining failure
 
@@ -173,10 +185,10 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Rebuild `build-linux64/src/out` and repeat the headless smoke test. If the
-   intermittent `sub_43BF10()` SDL/X11 abort occurs, retain its GDB backtrace
-   separately; otherwise continue from `sub_412ED0()` and identify the next
-   Modifier.bin record/list boundary before changing the record layout.
+1. Repeat the headless smoke test with the installed X11 dependencies. If the
+   intermittent `sub_43BF10()` or CSF allocator abort occurs, retain its GDB
+   backtrace separately; otherwise verify that `sub_412AE0()` returns success
+   and continue to the next Modifier.bin record/list boundary.
 2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
 3. Update `startup-compatibility.md` with the final table shape and remove or
