@@ -411,7 +411,7 @@ int __cdecl sub_4117E0(const char *a1);
 int __cdecl sub_411850(int a1, _BYTE *a2);
 BOOL __cdecl sub_411A90(float2 *a1); // idb
 void sub_411B80();
-int __cdecl sub_411B90(int a1, char *a2, int a3);
+int __cdecl sub_411B90(uintptr_t a1, char *a2, int a3);
 BOOL __cdecl sub_411C40(const char *a1, char *a2, int a3);
 int __cdecl sub_411C80(const char *a1);
 char *__cdecl sub_411CF0(char *a1, _BYTE *a2);
