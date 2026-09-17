@@ -82,6 +82,9 @@ The current branch contains native-width handling for:
 - the generic 0x90-byte Modifier.bin records parsed by `sub_412AE0()`, its
   17-entry property-handler shadow, and the nested lookup/flag tables used by
   the native property handlers; recovered record offsets remain fixed-width.
+- the native `.wnd` property path: its 18 handlers receive host-width window
+  record pointers, the ACTIVE/type lookup tables use native-width sidecars,
+  and the temporary parent-window stack uses a native pointer cursor.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -104,14 +107,16 @@ After the latest source changes:
   allocation, map scan, built-in string sort, startup config dispatch, or the
   initial graphics pixel/display/gamma/palette allocation boundaries, SDL
   surface layout, font dispatch, graphics row clearing, video index-table
-  initialization, timer-record setup, or SoundSet parsing;
+  initialization, timer-record setup, SoundSet parsing, generic Modifier.bin
+  parsing, or initial `.wnd` property dispatch;
 - the full post-change i386 and ARMHF/QEMU CTest suites still need to be rerun.
 
 The headless dependencies are now installed: `xvfb`, `xauth`, Mesa software
-OpenGL support, and `gdb`. The documented X11 smoke test reaches Modifier.bin
-on successful graphics-startup attempts. The environment still intermittently
-aborts in CSF/graphics initialization, and a clean end-to-end run after the
-generic parser changes has not yet been captured.
+OpenGL support, and `gdb`. The documented X11 smoke test reaches the `.wnd`
+parser on successful graphics-startup attempts. The current reproducible
+native boundary is after `MainBG.wnd` property parsing, in widget construction
+through `sub_4A1440()` → `sub_46C3E0()` → `sub_46B490()`; full gameplay startup
+is not yet verified.
 
 The headless smoke test uses `Estate` because it is a known-working map. GDB
 identified the generic-parser boundary as
@@ -137,11 +142,10 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 startup run that reaches the second
-Modifier.bin record parser after SoundSet parsing. Full runs can also hit an
-intermittent SDL/X11 allocator abort in `sub_43BF10()` before Modifier.bin;
-when graphics startup completes, use the first project frame for the next
-parser boundary:
+The current result is a native x86_64 startup run that reaches and completes
+the `MainBG.wnd` property section. Full runs can also hit an intermittent
+SDL/X11 allocator abort in `sub_43BF10()` before Modifier.bin; when graphics
+startup completes, the next confirmed failure is widget construction:
 
 ```text
 sub_401070
@@ -153,6 +157,8 @@ sub_401070
   → sub_412D40
   → sub_411C80 / sub_411E60 / sub_4E0A00
   → sub_412ED0
+  → sub_4A0D80 / sub_4A1440
+  → sub_46C3E0 / sub_46B490
 ```
 
 The video fix uses low-address allocations for the recovered 36-byte index
@@ -185,10 +191,9 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Repeat the headless smoke test with the installed X11 dependencies. If the
-   intermittent `sub_43BF10()` or CSF allocator abort occurs, retain its GDB
-   backtrace separately; otherwise verify that `sub_412AE0()` returns success
-   and continue to the next Modifier.bin record/list boundary.
+1. Continue the headless smoke test from the confirmed widget-construction
+   boundary. Capture the owning pointer transport for `sub_46C3E0()` /
+   `sub_46B490()` before changing the recovered widget layout.
 2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
 3. Update `startup-compatibility.md` with the final table shape and remove or
