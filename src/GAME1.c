@@ -112,6 +112,68 @@ struct nox_cmd_localized_entry {
 static struct nox_cmd_localized_entry nox_cmd_localized_entries[256];
 static int nox_cmd_localized_count;
 
+struct nox_font_dispatch_entry {
+  const char *source_name;
+  const char *display_name;
+  _DWORD *resource;
+};
+
+static struct nox_font_dispatch_entry nox_font_dispatch_tables[2][5];
+static struct nox_font_dispatch_entry *nox_font_dispatch_table;
+static int (*nox_font_dispatch)(int, int, int, int);
+
+#if defined(__linux__)
+static void *nox_legacy_low_alloc(size_t size)
+{
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped_size;
+  void *result;
+
+  if ( !page_size )
+    return 0;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+  return result == MAP_FAILED ? 0 : result;
+}
+
+static void nox_legacy_low_free(void *address, size_t size)
+{
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped_size;
+
+  if ( !address || !page_size )
+    return;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  munmap(address, mapped_size);
+}
+#endif
+
+static void nox_font_dispatch_select(int table_index)
+{
+  static const unsigned int targets[2][5][2] = {
+    {
+      { 94236, 94244 }, { 94256, 94264 }, { 94276, 94284 },
+      { 94296, 94304 }, { 0, 0 },
+    },
+    {
+      { 94316, 94324 }, { 94336, 94344 }, { 94356, 94364 },
+      { 94376, 94384 }, { 0, 0 },
+    },
+  };
+  int i;
+
+  nox_font_dispatch_table = nox_font_dispatch_tables[table_index];
+  for ( i = 0; i < 5; ++i )
+  {
+    nox_font_dispatch_table[i].source_name = targets[table_index][i][0]
+      ? (const char *)&byte_587000[targets[table_index][i][0]] : 0;
+    nox_font_dispatch_table[i].display_name = targets[table_index][i][1]
+      ? (const char *)&byte_587000[targets[table_index][i][1]] : 0;
+    nox_font_dispatch_table[i].resource = 0;
+  }
+}
+
 static void *nox_native_legacy_pointer(const void *address)
 {
   uintptr_t value = *(const uintptr_t *)address;
@@ -173,6 +235,20 @@ static size_t nox_csf_utf16_length(const uint16_t *string)
 #define NOX_MOUSE_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #define NOX_CMD_TOKEN_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #define NOX_CONFIG_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#define NOX_FONT_ALLOC(size) nox_legacy_low_alloc(size)
+#define NOX_FONT_FREE(address, size) nox_legacy_low_free(address, size)
+#else
+#define NOX_FONT_ALLOC(size) malloc(size)
+#define NOX_FONT_FREE(address, size) free(address)
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX
+#define NOX_FONT_DISPATCH_CALL(...) nox_font_dispatch(__VA_ARGS__)
+#else
+#define NOX_FONT_DISPATCH_CALL(...) (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[816448])(__VA_ARGS__)
 #endif
 
 void map_download_start();
@@ -53162,6 +53238,54 @@ int sub_43F1A0()
 //----- (0043F1C0) --------------------------------------------------------
 int sub_43F1C0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  struct nox_font_dispatch_entry *entry;
+  int table_index;
+  int i;
+  int previous;
+
+  if ( *(_DWORD *)&byte_5D4594[3801780] )
+  {
+    if ( *(_DWORD *)&byte_5D4594[3801780] == 1 )
+      nox_font_dispatch = sub_43FE90;
+  }
+  else
+  {
+    nox_font_dispatch = sub_440360;
+  }
+  *(_DWORD *)&byte_5D4594[816456] = 64;
+  *(_DWORD *)&byte_5D4594[816484] = 1;
+  *(_DWORD *)&byte_5D4594[816440] = 1;
+  *(_DWORD *)&byte_5D4594[816460] = 0;
+  *(_DWORD *)&byte_5D4594[816452] = 0;
+  memset(&byte_5D4594[816464], 0, 20);
+
+  table_index = *(_DWORD *)&byte_587000[26048] == 8;
+  nox_font_dispatch_select(table_index);
+  for ( i = 0; i < 5; ++i )
+  {
+    entry = &nox_font_dispatch_table[i];
+    if ( entry->display_name )
+    {
+      previous = 0;
+      while ( previous < i )
+      {
+        if ( !_strcmpi(entry->display_name,
+                       nox_font_dispatch_table[previous].display_name) )
+        {
+          entry->resource = nox_font_dispatch_table[previous].resource;
+          break;
+        }
+        ++previous;
+      }
+      if ( !entry->resource )
+        entry->resource = sub_43F3B0((char *)entry->display_name);
+    }
+  }
+  *(_DWORD *)&byte_5D4594[816492] =
+    (uintptr_t)nox_font_dispatch_table[0].resource;
+  return 1;
+#else
   int v0; // esi
   unsigned __int8 *v1; // eax
   unsigned __int8 *v2; // eax
@@ -53228,6 +53352,7 @@ LABEL_18:
   while ( v0 < 60 );
   *(_DWORD *)&byte_5D4594[816492] = *((_DWORD *)v2 + 2);
   return 1;
+#endif
 }
 
 //----- (0043F2E0) --------------------------------------------------------
@@ -53286,6 +53411,19 @@ int __cdecl sub_43F340(int *a1)
 //----- (0043F360) --------------------------------------------------------
 int __cdecl sub_43F360(char *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+
+  if ( !nox_font_dispatch_table )
+    return 0;
+  for ( i = 0; i < 5; ++i )
+  {
+    if ( nox_font_dispatch_table[i].source_name
+      && !_strcmpi(nox_font_dispatch_table[i].source_name, a1) )
+      return (int)(uintptr_t)nox_font_dispatch_table[i].resource;
+  }
+  return 0;
+#else
   int v1; // edi
   int v2; // esi
   const char *v3; // eax
@@ -53308,6 +53446,7 @@ int __cdecl sub_43F360(char *a1)
       return 0;
   }
   return *(_DWORD *)(*(_DWORD *)&byte_5D4594[816488] + 12 * v1 + 8);
+#endif
 }
 
 //----- (0043F3B0) --------------------------------------------------------
@@ -53337,7 +53476,7 @@ _DWORD *__cdecl sub_43F3B0(char *a1)
   v3 = fopen(a1, "rb");
   if ( v3 )
   {
-    v1 = malloc(0x20u);
+    v1 = NOX_FONT_ALLOC(0x20u);
     if ( v1 )
     {
       memset(v1, 0, 0x20u);
@@ -53350,7 +53489,7 @@ _DWORD *__cdecl sub_43F3B0(char *a1)
         *v1 = v17[2];
         v1[5] = v17[6];
         v1[3] = v17[5];
-        v4 = (char *)malloc(8 * v17[5]);
+        v4 = (char *)NOX_FONT_ALLOC(8 * v17[5]);
         v1[4] = v4;
         if ( !v4 || sub_40ADD0(v4, 8 * v1[3], 1u, v3) != 1 )
           goto LABEL_15;
@@ -53368,7 +53507,7 @@ _DWORD *__cdecl sub_43F3B0(char *a1)
         v1[1] = v5;
         *v1 = v6;
         v1[3] = v7;
-        v8 = (unsigned __int8 *)malloc(8 * v7);
+        v8 = (unsigned __int8 *)NOX_FONT_ALLOC(8 * v7);
         v1[4] = v8;
         if ( !v8 )
           goto LABEL_15;
@@ -53376,7 +53515,7 @@ _DWORD *__cdecl sub_43F3B0(char *a1)
       }
       v1[7] = v1[2];
       v9 = v1[5] * sub_440870((int)v1);
-      v10 = (char *)malloc(v9);
+      v10 = (char *)NOX_FONT_ALLOC(v9);
       v1[6] = v10;
       if ( !v10 || sub_40ADD0(v10, v9, 1u, v3) != 1 )
       {
@@ -53480,7 +53619,7 @@ int __cdecl sub_43F690(int a1, int a2, int a3, int a4)
   if ( a1 || (result = *(_DWORD *)&byte_5D4594[816492]) != 0 )
   {
     *(_DWORD *)&byte_5D4594[816460] = a3;
-    result = (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[816448])(result, a2, a3, a4);
+    result = NOX_FONT_DISPATCH_CALL(result, a2, a3, a4);
   }
   return result;
 }
@@ -53762,7 +53901,7 @@ int __cdecl sub_43FAF0(int a1, _WORD *a2, int a3, int a4, int a5, int a6)
             goto LABEL_14;
           for ( i = a3;
                 v13 < v9;
-                i = (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[816448])(v7, v8, i, a4) )
+                i = NOX_FONT_DISPATCH_CALL(v7, v8, i, a4) )
           {
             LOWORD(v8) = *v13;
             ++v13;
@@ -53799,7 +53938,7 @@ LABEL_17:
             --v9;
           for ( j = a3;
                 v13 < v9;
-                j = (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[816448])(v7, v17, j, a4) )
+                j = NOX_FONT_DISPATCH_CALL(v7, v17, j, a4) )
           {
             LOWORD(v17) = *v13;
             ++v13;
@@ -53829,7 +53968,7 @@ LABEL_31:
             {
               LOWORD(v8) = *v13;
               ++v13;
-              v19 = (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[816448])(v7, v8, v19, a4);
+              v19 = NOX_FONT_DISPATCH_CALL(v7, v8, v19, a4);
             }
             while ( v13 < v9 );
           }
@@ -54565,7 +54704,7 @@ int __cdecl sub_4407F0(int a1, __int16 *a2, int a3, int a4)
   do
   {
     if ( v4 != 13 && v4 != 10 )
-      result = (*(int (__cdecl **)(_DWORD, _WORD, _DWORD, _DWORD))&byte_5D4594[816448])(a1, v4, result, a4);
+      result = NOX_FONT_DISPATCH_CALL(a1, v4, result, a4);
     v4 = *v5;
     ++v5;
   }
@@ -54576,11 +54715,20 @@ int __cdecl sub_4407F0(int a1, __int16 *a2, int a3, int a4)
 //----- (00440840) --------------------------------------------------------
 void __cdecl sub_440840(LPVOID lpMem)
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  if ( *((_DWORD *)lpMem + 4) )
+    NOX_FONT_FREE(*((LPVOID *)lpMem + 4), 8u * *((_DWORD *)lpMem + 3));
+  if ( *((_DWORD *)lpMem + 6) )
+    NOX_FONT_FREE(*((LPVOID *)lpMem + 6),
+                  (size_t)*((_DWORD *)lpMem + 5) * sub_440870((int)lpMem));
+  NOX_FONT_FREE(lpMem, 0x20u);
+#else
   if ( *((_DWORD *)lpMem + 4) )
     free(*((LPVOID *)lpMem + 4));
   if ( *((_DWORD *)lpMem + 6) )
     free(*((LPVOID *)lpMem + 6));
   free(lpMem);
+#endif
 }
 
 //----- (00440870) --------------------------------------------------------
@@ -54633,6 +54781,41 @@ int sub_4408E0()
 //----- (00440900) --------------------------------------------------------
 int sub_440900()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  uint32_t *rows;
+  uint32_t *pixels;
+  int width;
+  int height;
+  int result;
+  int x;
+  int y;
+
+  rows = (uint32_t *)(uintptr_t)*(_DWORD *)&byte_5D4594[3798784];
+  width = *(_DWORD *)&byte_5D4594[3801800];
+  height = *(_DWORD *)&byte_5D4594[3801788];
+  if ( !rows || !width || !height )
+    return 0;
+  result = *(_DWORD *)(*(_DWORD *)&byte_5D4594[3799572] + 232);
+  for ( y = 0; y < height; ++y )
+  {
+    pixels = (uint32_t *)(uintptr_t)rows[y];
+    if ( !pixels )
+      continue;
+    for ( x = 0; x < width; ++x )
+    {
+      pixels[0] = result;
+      pixels[1] = result;
+      pixels[2] = result;
+      pixels[3] = result;
+      pixels[4] = result;
+      pixels[5] = result;
+      pixels[6] = result;
+      pixels[7] = result;
+      pixels += 8;
+    }
+  }
+  return result;
+#else
   _DWORD **v0; // esi
   int v1; // ebx
   int v2; // edx
@@ -54668,6 +54851,7 @@ int sub_440900()
   }
   while ( !v6 );
   return result;
+#endif
 }
 
 //----- (00440950) --------------------------------------------------------
