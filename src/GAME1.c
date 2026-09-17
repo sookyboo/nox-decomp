@@ -85,6 +85,8 @@ struct nox_modifier_dispatch_entry {
 
 static struct nox_modifier_dispatch_entry nox_modifier_dispatch[19];
 static const char *nox_color_names[7];
+static const char *nox_modifier_class_names[4];
+const char *nox_damage_type_names[18];
 
 static struct nox_string_index *nox_string_index_table;
 
@@ -1034,6 +1036,24 @@ void init_data()
   }
   for ( i = 0; i < 41; ++i )
     nox_action_values[i] = *(uint32_t *)&byte_587000[75880u + 12u * (size_t)i + 4];
+  nox_damage_type_names[0] = &byte_587000[200800];
+  nox_damage_type_names[1] = &byte_587000[200816];
+  nox_damage_type_names[2] = &byte_587000[200832];
+  nox_damage_type_names[3] = &byte_587000[200848];
+  nox_damage_type_names[4] = &byte_587000[200864];
+  nox_damage_type_names[5] = &byte_587000[200880];
+  nox_damage_type_names[6] = &byte_587000[200896];
+  nox_damage_type_names[7] = &byte_587000[200920];
+  nox_damage_type_names[8] = &byte_587000[200940];
+  nox_damage_type_names[9] = &byte_587000[200952];
+  nox_damage_type_names[10] = &byte_587000[200968];
+  nox_damage_type_names[11] = &byte_587000[200980];
+  nox_damage_type_names[12] = &byte_587000[200996];
+  nox_damage_type_names[13] = &byte_587000[201008];
+  nox_damage_type_names[14] = &byte_587000[201028];
+  nox_damage_type_names[15] = &byte_587000[201044];
+  nox_damage_type_names[16] = &byte_587000[201064];
+  nox_damage_type_names[17] = &byte_587000[201080];
 #endif
 *(void **)&byte_587000[26824] = &sub_4235C0;
 *(void **)&byte_587000[26872] = &sub_4235C0;
@@ -1066,6 +1086,7 @@ void init_data()
 *(void **)&byte_587000[27272] = &sub_4235C0;
 *(void **)&byte_587000[27284] = &sub_4235C0;
 *(void **)&byte_587000[27188] = &sub_423780;
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[28620] = &sub_411C40;
 *(void **)&byte_587000[28628] = &sub_411C40;
 *(void **)&byte_587000[28636] = &sub_411C40;
@@ -1080,6 +1101,7 @@ void init_data()
 *(void **)&byte_587000[28828] = &sub_412380;
 *(void **)&byte_587000[28844] = &sub_412490;
 *(void **)&byte_587000[28860] = &sub_412580;
+#endif
 
 *(void **)&byte_587000[54732] = &byte_5D4594[2523948];
 
@@ -2676,17 +2698,21 @@ NOX_BUILTIN_PTR(9272, 25696);
   nox_color_names[4] = &byte_587000[31160];
   nox_color_names[5] = &byte_587000[31168];
   nox_color_names[6] = &byte_587000[31176];
+  nox_modifier_class_names[0] = &byte_587000[30980];
+  nox_modifier_class_names[1] = &byte_587000[30988];
+  nox_modifier_class_names[2] = &byte_587000[30996];
+  nox_modifier_class_names[3] = 0;
   nox_modifier_dispatch[0] = (struct nox_modifier_dispatch_entry){&byte_587000[29472], (nox_modifier_handler)sub_411B90};
   nox_modifier_dispatch[1] = (struct nox_modifier_dispatch_entry){&byte_587000[29480], (nox_modifier_handler)sub_411C40};
-  nox_modifier_dispatch[2] = (struct nox_modifier_dispatch_entry){&byte_587000[29488], 0};
-  nox_modifier_dispatch[3] = (struct nox_modifier_dispatch_entry){&byte_587000[29496], 0};
-  nox_modifier_dispatch[4] = (struct nox_modifier_dispatch_entry){&byte_587000[29504], 0};
-  nox_modifier_dispatch[5] = (struct nox_modifier_dispatch_entry){&byte_587000[29512], 0};
-  nox_modifier_dispatch[6] = (struct nox_modifier_dispatch_entry){&byte_587000[29520], 0};
+  nox_modifier_dispatch[2] = (struct nox_modifier_dispatch_entry){&byte_587000[29488], (nox_modifier_handler)sub_411C40};
+  nox_modifier_dispatch[3] = (struct nox_modifier_dispatch_entry){&byte_587000[29496], (nox_modifier_handler)sub_411C40};
+  nox_modifier_dispatch[4] = (struct nox_modifier_dispatch_entry){&byte_587000[29504], (nox_modifier_handler)sub_411C40};
+  nox_modifier_dispatch[5] = (struct nox_modifier_dispatch_entry){&byte_587000[29512], (nox_modifier_handler)sub_411C40};
+  nox_modifier_dispatch[6] = (struct nox_modifier_dispatch_entry){&byte_587000[29520], (nox_modifier_handler)sub_411C40};
   nox_modifier_dispatch[7] = (struct nox_modifier_dispatch_entry){&byte_587000[29528], (nox_modifier_handler)sub_411D90};
-  nox_modifier_dispatch[8] = (struct nox_modifier_dispatch_entry){&byte_587000[29544], 0};
-  nox_modifier_dispatch[9] = (struct nox_modifier_dispatch_entry){&byte_587000[29556], 0};
-  nox_modifier_dispatch[10] = (struct nox_modifier_dispatch_entry){&byte_587000[29576], 0};
+  nox_modifier_dispatch[8] = (struct nox_modifier_dispatch_entry){&byte_587000[29544], (nox_modifier_handler)sub_411D90};
+  nox_modifier_dispatch[9] = (struct nox_modifier_dispatch_entry){&byte_587000[29556], (nox_modifier_handler)sub_411D90};
+  nox_modifier_dispatch[10] = (struct nox_modifier_dispatch_entry){&byte_587000[29576], (nox_modifier_handler)sub_411D90};
   nox_modifier_dispatch[11] = (struct nox_modifier_dispatch_entry){&byte_587000[29600], (nox_modifier_handler)sub_411E60};
   nox_modifier_dispatch[12] = (struct nox_modifier_dispatch_entry){&byte_587000[29612], (nox_modifier_handler)sub_411ED0};
   nox_modifier_dispatch[13] = (struct nox_modifier_dispatch_entry){&byte_587000[29624], (nox_modifier_handler)sub_411F20};
@@ -2696,6 +2722,7 @@ NOX_BUILTIN_PTR(9272, 25696);
   nox_modifier_dispatch[17] = (struct nox_modifier_dispatch_entry){&byte_587000[29688], (nox_modifier_handler)sub_412060};
   nox_modifier_dispatch[18] = (struct nox_modifier_dispatch_entry){&byte_587000[29696], (nox_modifier_handler)sub_4120B0};
 #endif
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[28604] = &sub_411B90;
 *(void **)&byte_587000[28612] = &sub_411C40;
 *(void **)&byte_587000[28660] = &sub_411D90;
@@ -2738,6 +2765,7 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[28876] = &sub_412740;
 *(void **)&byte_587000[28884] = &sub_4128A0;
 *(void **)&byte_587000[28892] = &sub_4128C0;
+#endif
 *(void **)&byte_587000[28760] = &byte_587000[29708];
 *(void **)&byte_587000[28768] = &byte_587000[29716];
 *(void **)&byte_587000[28776] = &byte_587000[29728];
@@ -2823,9 +2851,11 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[29424] = &byte_587000[30908];
 *(void **)&byte_587000[29432] = &byte_587000[30932];
 *(void **)&byte_587000[29440] = &byte_587000[30960];
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[29456] = &byte_587000[30980];
 *(void **)&byte_587000[29460] = &byte_587000[30988];
 *(void **)&byte_587000[29464] = &byte_587000[30996];
+#endif
 *(void **)&byte_587000[31096] = &byte_587000[31128];
 *(void **)&byte_587000[31100] = &byte_587000[31136];
 *(void **)&byte_587000[31104] = &byte_587000[31144];
@@ -5484,6 +5514,7 @@ NOX_CMD_TOKEN_PTR(94496, 98460);
 *(void **)&byte_587000[200220] = &sub_4DFD80;
 *(void **)&byte_587000[200240] = &sub_4DFDE0;
 *(void **)&byte_587000[200260] = &sub_4E0140;
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[200728] = &byte_587000[200800];
 *(void **)&byte_587000[200732] = &byte_587000[200816];
 *(void **)&byte_587000[200736] = &byte_587000[200832];
@@ -5502,6 +5533,7 @@ NOX_CMD_TOKEN_PTR(94496, 98460);
 *(void **)&byte_587000[200788] = &byte_587000[201044];
 *(void **)&byte_587000[200792] = &byte_587000[201064];
 *(void **)&byte_587000[200796] = &byte_587000[201080];
+#endif
 *(void **)&byte_587000[201392] = &byte_587000[201624];
 *(void **)&byte_587000[201396] = &sub_535B80;
 *(void **)&byte_587000[201400] = &byte_587000[201640];
@@ -16616,7 +16648,11 @@ int __cdecl sub_411E60(int a1, char *a2, int a3)
   }
   else
   {
+#if UINTPTR_MAX > UINT32_MAX
+    sub_423930(&a2[v3], &v5, nox_modifier_class_names);
+#else
     sub_423930(&a2[v3], &v5, (const char **)&byte_587000[29456]);
+#endif
     result = 1;
     *(_BYTE *)(a3 + 62) = v5;
   }
@@ -17398,6 +17434,45 @@ int __cdecl sub_412ED0(int a1, FILE *a2, char *a3)
   int v7; // eax
   char v9[256]; // [esp+Ch] [ebp-100h]
 
+#if UINTPTR_MAX > UINT32_MAX
+  while ( 1 )
+  {
+    sub_409470(a2, v9);
+    if ( !strcmp(v9, (const char *)&byte_587000[31936]) )
+      return 1;
+    v3 = (char **)NOX_MOD_ALLOC(0x58u);
+    v4 = v3;
+    if ( !v3 )
+      return 0;
+    *(_DWORD *)((char *)v3 + 84) = 0;
+    *(_DWORD *)((char *)v3 + 80) = *(_DWORD *)&byte_5D4594[251608];
+    if ( *(_DWORD *)&byte_5D4594[251608] )
+      *(_DWORD *)(*(_DWORD *)&byte_5D4594[251608] + 84) = (uint32_t)(uintptr_t)v3;
+    ++*(_DWORD *)&byte_5D4594[251612];
+    *(_DWORD *)&byte_5D4594[251608] = (uint32_t)(uintptr_t)v3;
+    v5 = (char *)malloc(strlen(v9) + 1);
+    *(_DWORD *)v4 = (uint32_t)(uintptr_t)v5;
+    if ( !v5 )
+      return 0;
+    strcpy(v5, v9);
+    while ( 1 )
+    {
+      sub_409470(a2, v9);
+      if ( !strcmp(v9, (const char *)&byte_587000[31940]) )
+        break;
+      for ( v7 = 0; v7 < 19; ++v7 )
+      {
+        if ( !strcmp(nox_modifier_dispatch[v7].name, v9) )
+          break;
+      }
+      if ( v7 >= 19 || !nox_modifier_dispatch[v7].handler )
+        return 0;
+      sub_4093E0(a2, a3, 0x40000);
+      if ( !nox_modifier_dispatch[v7].handler((uintptr_t)v9, a3, (int)(uintptr_t)v4) )
+        return 0;
+    }
+  }
+#else
   while ( 1 )
   {
     sub_409470(a2, v9);
@@ -17442,6 +17517,7 @@ LABEL_13:
         return 0;
     }
   }
+#endif
 }
 
 //----- (00413060) --------------------------------------------------------

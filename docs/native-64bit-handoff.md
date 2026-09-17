@@ -15,7 +15,7 @@ Relevant commits:
 - `f355655` — architecture, sandbox, and startup compatibility documentation.
 - `fbd2731` — native graphics low-address compatibility allocations.
 - the current checkpoint fixes CSF file-stream sidecar use and the Modifier.bin
-  dispatch/record and COLOR-name sidecars.
+  dispatch/record, COLOR-name, class-name, and damage-type sidecars.
 
 The untracked file `0001-bot-native-player-bot-combined.patch` is user-owned and
 must not be modified, staged, or deleted.
@@ -75,6 +75,10 @@ The current branch contains native-width handling for:
   sidecars or low-address allocations while retaining the recovered offsets;
 - the seven-entry COLOR name table used by `sub_411C80()`, shadowed natively
   while preserving its 32-bit index result.
+- the three-entry Modifier class-name table used by `sub_411E60()` and the
+  18-entry damage-type table used by `sub_4E0A00()`;
+- the sibling `sub_412ED0()` Modifier.bin record parser, using the same native
+  dispatch and low-address record strategy as `sub_412D40()`.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -100,12 +104,12 @@ After the latest source changes:
 - the full post-change CTest suites still need to be rerun.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
-a verified GDB run with `-serveronly Estate` completes video resource
+verified GDB runs with `-serveronly Estate` complete video resource
 initialization, timer-record setup, SoundSet parsing, and the first
-Modifier.bin handler; it reaches `sub_411C80("COLOR1")` through the native
-COLOR sidecar. Resource/config/graphics/video/audio startup and the first
-modifier record are therefore verified, but gameplay map selection is not yet
-reached.
+Modifier.bin handlers; they reach the class and damage-type lookups and enter
+`sub_412ED0()` through the native sidecars. Resource/config/graphics/video/
+audio startup and both modifier record parsers are therefore verified to their
+current entry boundary, but gameplay map selection is not yet reached.
 
 ## Reproduce the remaining failure
 
@@ -121,8 +125,11 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 Modifier.bin parser failure after the
-first record handler, reached after SoundSet parsing:
+The current result is a native x86_64 startup run that reaches the second
+Modifier.bin record parser after SoundSet parsing. Full runs can also hit an
+intermittent SDL/X11 allocator abort in `sub_43BF10()` before Modifier.bin;
+when graphics startup completes, use the first project frame for the next
+parser boundary:
 
 ```text
 sub_401070
@@ -132,7 +139,8 @@ sub_401070
   → sub_4862E0
   → sub_424170
   → sub_412D40
-  → sub_411C80 (COLOR-name sidecar reached)
+  → sub_411C80 / sub_411E60 / sub_4E0A00
+  → sub_412ED0
 ```
 
 The video fix uses low-address allocations for the recovered 36-byte index
@@ -148,7 +156,9 @@ field offsets. The CSF fix routes all parser stream accesses through its native
 `FILE *` sidecar. The Modifier.bin fix keeps the recovered 0x58-byte record and
 19-entry dispatch semantics, using low-address records for legacy DWORD fields
 and a native dispatch sidecar; its COLOR lookup similarly shadows only the
-pointer table, not the returned index.
+pointer table, not the returned index. The class and damage-type lookups use
+the same sidecar rule, and `sub_412ED0()` now preserves the same record/list
+contract as `sub_412D40()`.
 
 For a backtrace:
 
@@ -163,10 +173,10 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Rebuild `build-linux64/src/out` and repeat the headless smoke test after the
-   Modifier.bin parser fix. The next boundary is the return-0 path from
-   `sub_412D40()` after the first COLOR handler; use GDB to identify the
-   failing modifier field or handler before changing the record layout.
+1. Rebuild `build-linux64/src/out` and repeat the headless smoke test. If the
+   intermittent `sub_43BF10()` SDL/X11 abort occurs, retain its GDB backtrace
+   separately; otherwise continue from `sub_412ED0()` and identify the next
+   Modifier.bin record/list boundary before changing the record layout.
 2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
 3. Update `startup-compatibility.md` with the final table shape and remove or
