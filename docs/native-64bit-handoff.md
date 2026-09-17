@@ -50,6 +50,15 @@ The current branch contains native-width handling for:
 - the 0x3ff built-in string index used by `sub_40AED0()`;
 - the six-entry startup config dispatch table used by `sub_431890()` and
   `sub_4332E0()`.
+- the 137-entry keybind table and 41-entry action table consumed by
+  `sub_42CF50()`, plus its native config-list sidecar;
+- the CSF bsearch count and command-token localization tables used during
+  startup;
+- native x86_64 graphics allocations still consumed through recovered DWORD
+  pointer slots: the pixel/row buffers in `sub_4861D0()` / `sub_486230()`,
+  the display-state descriptors, gamma tables, and palette lookup table.
+  Linux x86_64 uses `MAP_32BIT` for these temporary buffers while preserving
+  the original slots and consumers.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -68,14 +77,14 @@ After the latest source changes:
 - native x86_64 target `out` builds successfully;
 - i386 target `out` builds successfully;
 - native x86_64 headless startup no longer fails in the timer, argv, CSF
-  allocation, map scan, built-in string sort, or startup config dispatch
-  boundaries;
+  allocation, map scan, built-in string sort, startup config dispatch, or the
+  initial graphics pixel/display/gamma/palette allocation boundaries;
 - the full post-change CTest suites still need to be rerun.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
-latest run with `-serveronly Estate` still reaches the same config-parser
-SIGSEGV before gameplay map selection, so the map choice has not yet changed
-the failing boundary.
+latest verified run with `-serveronly Estate` reaches OpenGL initialization
+and then enters the SDL cursor compatibility path. Resource/config startup is
+therefore verified, but gameplay map selection is not yet reached.
 
 ## Reproduce the remaining failure
 
@@ -91,22 +100,22 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 SIGSEGV in the config-line parser:
+The current result is a native x86_64 SIGSEGV in the SDL cursor compatibility
+path after graphics initialization:
 
 ```text
 sub_401070
-  → sub_4317B0
-  → sub_4331E0
-  → sub_42CF50
+  → sub_43BF10
+  → sub_4449D0
+  → sub_48B1F0 / cursor setup
 ```
 
-The confirmed crashing operation is a `strcmp()` in `sub_42CF50()`. The parser
-uses recovered pointer tables around `byte_587000[73652]` and
-`byte_587000[73672]`; those tables are still accessed as 32-bit packed data
-after `init_data()` has installed native pointers elsewhere. The exact shadow
-record shape and all consumers must be confirmed from the i386 layout before
-changing the x64 path. This is the next owning boundary to investigate, not a
-reason to widen the surrounding configuration records globally.
+The earlier graphics failures were truncated pointers returned by
+`malloc`/`calloc` stored in recovered DWORD slots; those are now handled by
+native Linux low-address temporary allocations. The remaining cursor path
+passes SDL-owned native surface/pixel pointers through the old 32-bit callback
+table. Add a native cursor-row shadow or a native SDL callback boundary next;
+do not widen the recovered table globally.
 
 For a backtrace:
 

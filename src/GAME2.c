@@ -1,5 +1,10 @@
 #include "proto.h"
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 BYTE *npc_array;
 
 //----- (0044CCA0) --------------------------------------------------------
@@ -43049,6 +43054,49 @@ int sub_486060()
 }
 
 //----- (00486110) --------------------------------------------------------
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+static int nox_486_primary_low;
+static int nox_486_secondary_low;
+static int nox_486_primary_rows_low;
+static int nox_486_secondary_rows_low;
+
+static size_t nox_486_page_size(void)
+{
+  static size_t page_size;
+
+  if ( !page_size )
+    page_size = (size_t)sysconf(_SC_PAGESIZE);
+  return page_size;
+}
+
+static void *nox_486_low_alloc(size_t size)
+{
+  size_t page_size = nox_486_page_size();
+  size_t mapped_size;
+  void *result;
+
+  if ( !size || !page_size )
+    return 0;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+  if ( result == MAP_FAILED )
+    return 0;
+  return result;
+}
+
+static void nox_486_low_free(void *address, size_t size)
+{
+  size_t page_size = nox_486_page_size();
+  size_t mapped_size;
+
+  if ( !address || !size || !page_size )
+    return;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  munmap(address, mapped_size);
+}
+#endif
+
 LPVOID sub_486110()
 {
   LPVOID result; // eax
@@ -43057,25 +43105,63 @@ LPVOID sub_486110()
   {
     if ( *(_DWORD *)&byte_5D4594[3798780] )
     {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      if ( nox_486_primary_low )
+        nox_486_low_free(*(LPVOID *)&byte_5D4594[3798780],
+                         (size_t)*(uint32_t *)&byte_5D4594[3801808]
+                           * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+      else
+#endif
       free(*(LPVOID *)&byte_5D4594[3798780]);
       *(_DWORD *)&byte_5D4594[3798780] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      nox_486_primary_low = 0;
+#endif
     }
     if ( *(_DWORD *)&byte_5D4594[3798788] )
     {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      if ( nox_486_secondary_low )
+        nox_486_low_free(*(LPVOID *)&byte_5D4594[3798788],
+                         (size_t)*(uint32_t *)&byte_5D4594[3801808]
+                           * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+      else
+#endif
       free(*(LPVOID *)&byte_5D4594[3798788]);
       *(_DWORD *)&byte_5D4594[3798788] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      nox_486_secondary_low = 0;
+#endif
     }
   }
   if ( *(_DWORD *)&byte_5D4594[3798784] )
   {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    if ( nox_486_primary_rows_low )
+      nox_486_low_free(*(LPVOID *)&byte_5D4594[3798784],
+                       4u * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+    else
+#endif
     free(*(LPVOID *)&byte_5D4594[3798784]);
     *(_DWORD *)&byte_5D4594[3798784] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_486_primary_rows_low = 0;
+#endif
   }
   result = *(LPVOID *)&byte_5D4594[3798776];
   if ( *(_DWORD *)&byte_5D4594[3798776] )
   {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    if ( nox_486_secondary_rows_low )
+      nox_486_low_free(*(LPVOID *)&byte_5D4594[3798776],
+                       4u * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+    else
+#endif
     free(*(LPVOID *)&byte_5D4594[3798776]);
     *(_DWORD *)&byte_5D4594[3798776] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_486_secondary_rows_low = 0;
+#endif
   }
   return result;
 }
@@ -43112,6 +43198,34 @@ int sub_4861D0()
 {
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  if ( *(_DWORD *)&byte_5D4594[1193200] )
+    return 1;
+
+  result = (int)(intptr_t)nox_486_low_alloc(
+      (size_t)*(uint32_t *)&byte_5D4594[3801808]
+        * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+  nox_486_primary_low = result != 0;
+  *(_DWORD *)&byte_5D4594[3798780] = result;
+  if ( !result )
+    return 0;
+  if ( !(byte_5D4594[3801772] & 0x40) )
+    return 1;
+
+  result = (int)(intptr_t)nox_486_low_alloc(
+      (size_t)*(uint32_t *)&byte_5D4594[3801808]
+        * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+  nox_486_secondary_low = result != 0;
+  *(_DWORD *)&byte_5D4594[3798788] = result;
+  if ( result )
+    return 1;
+  nox_486_low_free(*(LPVOID *)&byte_5D4594[3798780],
+                   (size_t)*(uint32_t *)&byte_5D4594[3801808]
+                     * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+  *(_DWORD *)&byte_5D4594[3798780] = 0;
+  nox_486_primary_low = 0;
+  return 0;
+#else
   if ( *(_DWORD *)&byte_5D4594[1193200]
     || (result = (int)calloc(*(_DWORD *)&byte_5D4594[3801808] * *(_DWORD *)&byte_5D4594[3801788], 1u),
         (*(_DWORD *)&byte_5D4594[3798780] = result) != 0)
@@ -43122,6 +43236,7 @@ int sub_4861D0()
     result = 1;
   }
   return result;
+#endif
 }
 
 //----- (00486230) --------------------------------------------------------
@@ -43134,7 +43249,13 @@ int sub_486230()
   int v4; // ecx
   int v5; // edx
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = (int)(intptr_t)nox_486_low_alloc(
+      4u * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
+  nox_486_primary_rows_low = result != 0;
+#else
   result = (int)malloc(4 * *(_DWORD *)&byte_5D4594[3801788]);
+#endif
   *(_DWORD *)&byte_5D4594[3798784] = result;
   if ( result )
   {
@@ -43155,7 +43276,12 @@ int sub_486230()
     }
     if ( byte_5D4594[3801772] & 0x40 )
     {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      result = (int)(intptr_t)nox_486_low_alloc(4u * (size_t)v1);
+      nox_486_secondary_rows_low = result != 0;
+#else
       result = (int)malloc(4 * v1);
+#endif
       *(_DWORD *)&byte_5D4594[3798776] = result;
       if ( !result )
         return result;
