@@ -158,6 +158,7 @@ if (BUILD_TESTING)
     add_executable(manual_spell_input_test
         tests/manual_spell_input_test.c
         src/GAME1.c
+        src/GAME4.c
     )
     target_include_directories(manual_spell_input_test PRIVATE
         src/external/include

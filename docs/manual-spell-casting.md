@@ -52,3 +52,25 @@ time.
 
 This setting changes only the existing automatic commit delay. `SpellEnd`
 always uses the original explicit pattern-end input path.
+
+## Target preparation
+
+`sub_4FB2A0` resolves the current phoneme tree through the normal spell-cast
+validation and execution path. It consumes the target object stored at
+player-data offset `3640`, but manual phoneme input does not run the client
+spell-slot targeting setup that normally refreshes that field.
+
+The normal scheduled spell path shows the default rule used by spell slots:
+its per-cast target bit selects the caster itself when set, otherwise it uses
+the current cursor object from update-data offset `288`. The spell-slot UI
+initializes that bit from `sub_424A50(spell, 0x600)`. Manual commit therefore
+uses that same flag-derived **default** immediately before calling
+`sub_4FB2A0`: spells with either `0x600` flag target the caster by default;
+other spells use the current cursor object. Cursor position and all subsequent
+validity, mana, hostility, and spell execution checks remain unchanged.
+
+This preparation is deliberately limited to manual phoneme commits (timeout,
+`SpellEnd`, and the pending-pattern flushes before queued/recent-spell actions).
+The scheduled spell-set path already supplies a per-cast target choice and is
+left untouched, so explicit/inverted targeting selected by the normal UI is
+not overwritten.

@@ -9,6 +9,63 @@ int nox_test_sub_500F40(int action, void *out_xy);
 #define sub_500F40 nox_test_sub_500F40
 #endif
 
+static int nox_manual_spell_target_value(int caster, int cursor_target, int defaults_to_self)
+{
+  return defaults_to_self ? caster : cursor_target;
+}
+
+#ifdef NOX_MANUAL_SPELL_INPUT_TEST
+static int nox_test_manual_spell_defaults_to_self;
+
+static int nox_manual_spell_defaults_to_self(int spell)
+{
+  (void)spell;
+  return nox_test_manual_spell_defaults_to_self;
+}
+#else
+static int nox_manual_spell_defaults_to_self(int spell)
+{
+  return sub_424A50(spell, 0x600);
+}
+#endif
+
+static void nox_manual_spell_prepare_target(int caster)
+{
+  int update_data;
+  int player_data;
+  _DWORD *leaf;
+
+  if ( !caster )
+    return;
+  update_data = *(_DWORD *)(caster + 748);
+  if ( !update_data )
+    return;
+  leaf = *(_DWORD **)(update_data + 184);
+  if ( !leaf || !*leaf )
+    return;
+  player_data = *(_DWORD *)(update_data + 276);
+  if ( !player_data )
+    return;
+  *(_DWORD *)(player_data + 3640) = nox_manual_spell_target_value(
+    caster,
+    *(_DWORD *)(update_data + 288),
+    nox_manual_spell_defaults_to_self(*leaf));
+}
+
+static int nox_manual_spell_resolve(int caster)
+{
+  nox_manual_spell_prepare_target(caster);
+  return sub_4FB2A0(caster);
+}
+
+#ifdef NOX_MANUAL_SPELL_INPUT_TEST
+void nox_test_manual_spell_prepare_target(int caster, int defaults_to_self)
+{
+  nox_test_manual_spell_defaults_to_self = defaults_to_self;
+  nox_manual_spell_prepare_target(caster);
+}
+#endif
+
 //----- (004F5F30) --------------------------------------------------------
 int __cdecl sub_4F5F30(int *a1)
 {
@@ -1728,7 +1785,7 @@ char __cdecl sub_4F8100(_DWORD *a1)
         && !*(_BYTE *)(v4 + 188)
         && (unsigned int)(*(_DWORD *)&byte_5D4594[2598000] - v16) > *(int *)&byte_5D4594[2614260] )
       {
-        sub_4FB2A0((int)a1);
+        nox_manual_spell_resolve((int)a1);
         *(_DWORD *)(v4 + 216) = 0;
       }
       sub_4F8420((int)a1);
@@ -2210,7 +2267,7 @@ LABEL_247:
               {
                 if ( *(_DWORD *)(v2 + 216) )
                 {
-                  sub_4FB2A0(v1);
+                  nox_manual_spell_resolve(v1);
                   *(_DWORD *)(v2 + 216) = 0;
                 }
                 else
@@ -2226,7 +2283,7 @@ LABEL_247:
               {
                 if ( *(_DWORD *)(v2 + 216) )
                 {
-                  sub_4FB2A0(v1);
+                  nox_manual_spell_resolve(v1);
                   *(_DWORD *)(v2 + 216) = 0;
                 }
                 v62 = *(_DWORD *)(v2 + 276);
@@ -2241,7 +2298,7 @@ LABEL_247:
               {
                 if ( *(_DWORD *)(v2 + 216) )
                 {
-                  sub_4FB2A0(v1);
+                  nox_manual_spell_resolve(v1);
                   *(_DWORD *)(v2 + 216) = 0;
                 }
                 v64 = *(_DWORD *)(v2 + 276);
