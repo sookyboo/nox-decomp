@@ -73,6 +73,7 @@ void nox_palette_lut_free(void *address, size_t size)
  * address is not truncated before sub_416BB0 invokes it. */
 #if UINTPTR_MAX > UINT32_MAX
 __int64 (*nox_time_provider)(void);
+static unsigned char *nox_input_event_cursor;
 static FILE *nox_csf_file;
 static FILE *nox_map_file;
 static FILE *nox_video_file;
@@ -274,6 +275,10 @@ static const void *nox_native_pointer_from_32(unsigned int value)
     return 0;
   return (const void *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value);
 }
+
+#define NOX_INPUT_EVENT_CURSOR nox_input_event_cursor
+#else
+#define NOX_INPUT_EVENT_CURSOR (*(char **)&byte_5D4594[2618912])
 #endif
 
 static void nox_cmd_localized_add(const wchar_t *name, wchar_t *localized)
@@ -48200,7 +48205,7 @@ int sub_437060()
   if ( !sub_46A4A0() )
   {
     v0 = sub_430940();
-    *(_DWORD *)&byte_5D4594[2618912] = v0;
+    NOX_INPUT_EVENT_CURSOR = (unsigned char *)v0;
     for ( i = *v0; *v0; i = *v0 )
     {
       if ( v0[2] != 1 && v0[1] != 2 )
@@ -48220,11 +48225,11 @@ int sub_437060()
           case 0x57:
           case 0x58:
             v2 = sub_477600() == 0;
-            v0 = *(char **)&byte_5D4594[2618912];
+            v0 = (char *)NOX_INPUT_EVENT_CURSOR;
             if ( v2 )
             {
-              sub_4443B0(**(_BYTE **)&byte_5D4594[2618912]);
-              v0 = *(char **)&byte_5D4594[2618912];
+              sub_4443B0(*NOX_INPUT_EVENT_CURSOR);
+              v0 = (char *)NOX_INPUT_EVENT_CURSOR;
             }
             break;
           default:
@@ -48232,7 +48237,7 @@ int sub_437060()
         }
       }
       v0 += 8;
-      *(_DWORD *)&byte_5D4594[2618912] = v0;
+      NOX_INPUT_EVENT_CURSOR = (unsigned char *)v0;
     }
   }
   return 1;
@@ -53217,10 +53222,10 @@ int map_download_loop(int first)
     sub_40DF90();
   }
   v1 = (unsigned __int8 *)sub_430940();
-  for ( *(_DWORD *)&byte_5D4594[2618912] = v1; *v1; *(_DWORD *)&byte_5D4594[2618912] = v1 )
+  for ( NOX_INPUT_EVENT_CURSOR = v1; *v1; NOX_INPUT_EVENT_CURSOR = v1 )
   {
     sub_46B6B0(v1);
-    v1 = (unsigned __int8 *)(*(_DWORD *)&byte_5D4594[2618912] + 8);
+    v1 = NOX_INPUT_EVENT_CURSOR + 8;
   }
   sub_43CCA0();
   if (first)
@@ -53392,10 +53397,10 @@ map_loaded:
     sub_4308A0(1);
     sub_46B740();
     v0 = (unsigned __int8 *)sub_430940();
-    for ( *(_DWORD *)&byte_5D4594[2618912] = v0; *v0; *(_DWORD *)&byte_5D4594[2618912] = v0 )
+    for ( NOX_INPUT_EVENT_CURSOR = v0; *v0; NOX_INPUT_EVENT_CURSOR = v0 )
     {
       sub_46B6B0(v0);
-      v0 = (unsigned __int8 *)(*(_DWORD *)&byte_5D4594[2618912] + 8);
+      v0 = NOX_INPUT_EVENT_CURSOR + 8;
     }
 #if UINTPTR_MAX > UINT32_MAX
     if ( !nox_tick_callback() )
