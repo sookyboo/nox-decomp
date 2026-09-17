@@ -38,6 +38,10 @@ static int bomber_attack_target;
 static int bomber_follow_calls;
 static int bomber_follow_object;
 static int bomber_follow_target;
+static int chat_update_calls;
+static int chat_forget_calls;
+static int chat_last_object;
+static uint32_t chat_last_frame;
 
 int nox_bot_engine_find_free_player_slot(void)
 {
@@ -139,6 +143,19 @@ void nox_bot_engine_follow_target(int object, int target)
     bomber_follow_target = target;
 }
 
+void nox_bot_chat_update(int object, uint32_t frame)
+{
+    ++chat_update_calls;
+    chat_last_object = object;
+    chat_last_frame = frame;
+}
+
+void nox_bot_chat_forget_object(int object)
+{
+    ++chat_forget_calls;
+    chat_last_object = object;
+}
+
 void nox_bot_warrior_observe_collision(
     int object, nox_bot_policy_state *state, int other, uint32_t frame)
 {
@@ -210,6 +227,10 @@ static void reset_stubs(void)
     bomber_follow_calls = 0;
     bomber_follow_object = 0;
     bomber_follow_target = 0;
+    chat_update_calls = 0;
+    chat_forget_calls = 0;
+    chat_last_object = 0;
+    chat_last_frame = 0;
     nox_bot_policy_reset_all();
 }
 
@@ -231,6 +252,8 @@ static int test_attach_detach(void)
         return 4;
     if (native_bot || disable_calls != 1 || state->active)
         return 5;
+    if (chat_forget_calls != 1 || chat_last_object != 123)
+        return 80;
     return 0;
 }
 
@@ -332,6 +355,8 @@ static int test_external_player_removal_releases_server_ownership(void)
     nox_bot_runtime_note_player_removed(slot, 123);
     if (nox_bot_runtime_is_server_created(slot) || nox_bot_policy_get(slot)->active)
         return 79;
+    if (chat_forget_calls != 1 || chat_last_object != 123)
+        return 85;
     spawn_slot_object = 0;
     native_bot = 0;
     return 0;
@@ -489,6 +514,8 @@ static int test_runtime_clear_life_state(void)
     if (!state->active || state->native_object != 123 || state->pending_events ||
         state->warrior.chakram_attack_active || state->warrior.pending_ability)
         return 61;
+    if (chat_forget_calls != 1 || chat_last_object != 123)
+        return 81;
     return 0;
 }
 
@@ -522,12 +549,16 @@ static int test_runtime_update_dispatch(void)
     nox_bot_runtime_update(123);
     if (warrior_update_calls != 1 || warrior_update_object != 123 || warrior_update_frame != 900)
         return 70;
+    if (chat_update_calls != 1 || chat_last_object != 123 || chat_last_frame != 900)
+        return 82;
     player_class = 1;
     current_frame = 901;
     nox_bot_runtime_update(123);
     if (warrior_update_calls != 1 || wizard_update_calls != 1 ||
         wizard_update_object != 123 || wizard_update_frame != 901)
         return 71;
+    if (chat_update_calls != 2 || chat_last_frame != 901)
+        return 83;
     player_class = 2;
     current_frame = 902;
     nox_bot_runtime_update(123);
@@ -535,6 +566,8 @@ static int test_runtime_update_dispatch(void)
         conjurer_update_calls != 1 || conjurer_update_object != 123 ||
         conjurer_update_frame != 902)
         return 72;
+    if (chat_update_calls != 3 || chat_last_frame != 902)
+        return 84;
     return 0;
 }
 

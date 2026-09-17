@@ -1228,6 +1228,14 @@ int nox_bot_engine_create_owned_spell_trap3(
     return nox_bot_engine_create_spell_trap_impl(object, spells, 3, 1);
 }
 
+int nox_bot_engine_chat(int object, const wchar_t *message)
+{
+    if (!object || !message || !*message)
+        return 0;
+    sub_528AC0(object, (wchar_t *)message, 0);
+    return 1;
+}
+
 int nox_bot_engine_play_phoneme(int object, nox_bot_phoneme phoneme)
 {
     static const char *const names[] = {
