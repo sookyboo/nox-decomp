@@ -91,6 +91,14 @@ The current branch contains native-width handling for:
 - startup metadata and callback inputs use host-width transports in
   `sub_4145F0()`/`sub_414B30()`, `sub_47FA80()`, and the main-loop callback
   slots. The legal-window root is also kept in a native pointer sidecar.
+- `sub_46B740()` keeps the native input-state address wide across its legacy
+  coordinate scratch/restore paths; the window tree's packed DWORD links are
+  zero-extended before traversal, rather than being read as host-width
+  pointers.
+- The shared record-pool callers in `sub_431510()` and `sub_431540()` widen
+  their packed DWORD pool-manager slots before calling `sub_4144D0()` or
+  `sub_4142F0()`. The pool record layout and its 32-bit links remain
+  unchanged.
 - the first native render/menu path widens its 9-entry render pointer array,
   3-entry window text pointer table, wrapping buffer, SDL row table, window
   callbacks, menu-tree roots, and low-address button-list records.
@@ -126,6 +134,12 @@ After the latest source changes:
   initialization, timer-record setup, SoundSet parsing, generic Modifier.bin
   parsing, or initial `.wnd` property dispatch;
 - the full post-change i386 and ARMHF/QEMU CTest suites still need to be rerun.
+
+The latest native smoke verification also passes the main-menu input path and
+the control-server `startMultiplayerNetworkHost` macro. It terminates only
+when the documented timeout tears down Xvfb, which emits the expected `XIO`
+message; no SIGSEGV or SIGABRT was observed. Gameplay map startup remains
+outside this assertion.
 
 The headless dependencies are now installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The documented X11 smoke test reaches main-menu

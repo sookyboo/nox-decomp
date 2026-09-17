@@ -185,6 +185,10 @@ static struct nox_font_dispatch_entry nox_font_dispatch_tables[2][5];
 static struct nox_font_dispatch_entry *nox_font_dispatch_table;
 static int (*nox_font_dispatch)(int, int, int, int);
 
+#if UINTPTR_MAX > UINT32_MAX
+uintptr_t nox_native_window_pool_manager;
+#endif
+
 #if defined(__linux__)
 static void *nox_legacy_low_alloc(size_t size)
 {
@@ -18951,7 +18955,12 @@ void __cdecl sub_414130(_DWORD *a1)
       do
       {
         v2 = (_DWORD *)v1[2];
-        NOX_MOD_FREE(v1, 0);
+#if UINTPTR_MAX > UINT32_MAX
+        if ( (uintptr_t)a1 == nox_native_window_pool_manager )
+          NOX_MOD_FREE(v1, a1[22] + 16);
+        else
+#endif
+          NOX_MOD_FREE(v1, 0);
         v1 = v2;
       }
       while ( v2 );
@@ -19014,7 +19023,14 @@ int __cdecl sub_414190(_DWORD *a1)
     {
       if ( !a1[30] )
         return 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      if ( (uintptr_t)a1 == nox_native_window_pool_manager )
+        v5 = NOX_FONT_ALLOC(a1[22] + 16);
+      else
+        v5 = malloc(a1[22] + 16);
+#else
       v5 = malloc(a1[22] + 16);
+#endif
       v6 = a1[31] + 1;
       a1[26] = v5;
       a1[31] = v6;
@@ -19068,7 +19084,14 @@ int __cdecl sub_414190(_DWORD *a1)
           else
             v1[27] = v12[3];
           --v1[31];
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+          if ( (uintptr_t)a1 == nox_native_window_pool_manager )
+            NOX_FONT_FREE(v12, a1[22] + 16);
+          else
+            free(v12);
+#else
           free(v12);
+#endif
         }
         v12 = v14;
       }
@@ -44136,7 +44159,11 @@ void sub_4314D0()
 int sub_431510()
 {
   if ( *(_DWORD *)&byte_5D4594[806044] )
+#if UINTPTR_MAX > UINT32_MAX
+    sub_4144D0((_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[806044]);
+#else
     sub_4144D0(*(_DWORD **)&byte_5D4594[806044]);
+#endif
   *(_DWORD *)&byte_5D4594[806048] = 0;
   *(_DWORD *)&byte_5D4594[806052] = 0;
   return sub_4313E0();
@@ -44176,7 +44203,11 @@ _DWORD *__cdecl sub_431540(int a1, int a2, int a3, int a4, int a5, int a6, char 
     default:
       return 0;
   }
+#if UINTPTR_MAX > UINT32_MAX
+  v12 = sub_4142F0((_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[806044]);
+#else
   v12 = sub_4142F0(*(_DWORD **)&byte_5D4594[806044]);
+#endif
   if ( v12 )
     goto LABEL_11;
   v12 = *(_DWORD **)&byte_5D4594[806052];
