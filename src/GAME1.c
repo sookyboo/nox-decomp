@@ -30793,7 +30793,7 @@ char *__cdecl sub_421030(int a1)
 }
 
 //----- (00421040) --------------------------------------------------------
-void __cdecl sub_421040(int a1)
+void __cdecl sub_421040(uintptr_t a1)
 {
   int v1; // esi
   _DWORD *v2; // ebx
@@ -30848,7 +30848,7 @@ char *sub_4210A0()
 }
 
 //----- (004210E0) --------------------------------------------------------
-char *__cdecl sub_4210E0(int a1)
+char *__cdecl sub_4210E0(uintptr_t a1)
 {
   unsigned int v1; // eax
   unsigned __int8 *i; // ecx
@@ -30882,7 +30882,7 @@ int sub_421130()
 }
 
 //----- (00421160) --------------------------------------------------------
-int __cdecl sub_421160(int a1)
+int __cdecl sub_421160(uintptr_t a1)
 {
   int result; // eax
 
@@ -30898,7 +30898,7 @@ int __cdecl sub_421160(int a1)
 }
 
 //----- (004211D0) --------------------------------------------------------
-int __cdecl sub_4211D0(int a1)
+int __cdecl sub_4211D0(uintptr_t a1)
 {
   int result; // eax
 
@@ -30937,7 +30937,7 @@ unsigned __int8 *sub_421230()
   }
   *((_DWORD *)v1 + 20) = v0;
   _itoa(v0, (char *)v1 + 4, 10);
-  sub_421160((int)v1);
+  sub_421160((uintptr_t)v1);
   *((_DWORD *)v1 + 21) = 1;
   return &byte_5D4594[140 * v0 + 552228];
 }
@@ -31045,7 +31045,12 @@ LABEL_14:
   }
   if ( *(_DWORD *)(v1 + 108) )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_legacy_low_free(
+      *(LPVOID *)(v1 + 108), *(unsigned __int16 *)(v1 + 128) * sizeof(_DWORD));
+#else
     free(*(LPVOID *)(v1 + 108));
+#endif
     *(_DWORD *)(v1 + 108) = 0;
   }
   *(_WORD *)(v1 + 128) = 0;
@@ -31119,7 +31124,12 @@ void sub_4214D0()
     v0 = sub_421230();
     if ( v0 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      *((_DWORD *)v0 + 27) = nox_legacy_low_alloc(
+        *(unsigned __int16 *)&byte_5D4594[588072] * sizeof(_DWORD));
+#else
       *((_DWORD *)v0 + 27) = calloc(*(unsigned __int16 *)&byte_5D4594[588072], 4u);
+#endif
       v1 = 0;
       *((_WORD *)v0 + 64) = *(_WORD *)&byte_5D4594[588072];
       if ( *(_WORD *)&byte_5D4594[588072] )
@@ -31131,7 +31141,7 @@ void sub_4214D0()
         }
         while ( v1 < *(unsigned __int16 *)&byte_5D4594[588072] );
       }
-      v2 = &byte_5D4594[16 * **((_DWORD **)v0 + 27) + 535844];
+      v2 = &byte_5D4594[16 * *(_DWORD *)(*((_DWORD *)v0 + 27)) + 535844];
       *((_DWORD *)v0 + 22) = sub_419A70(*((float *)v2 + 1));
       *((_DWORD *)v0 + 23) = sub_419A70(*((float *)v2 + 2));
       *((_DWORD *)v0 + 24) = sub_419A70(*((float *)v2 + 1));
@@ -37555,13 +37565,17 @@ int __cdecl sub_428CD0(int a1)
         sub_426AC0(v10 + 130, 1u);
         v11 = v10 + 128;
         sub_426AC0(v10 + 128, 2u);
+#if UINTPTR_MAX > UINT32_MAX
+        v12 = nox_legacy_low_alloc(*((unsigned __int16 *)v10 + 64) * sizeof(_DWORD));
+#else
         v12 = calloc(*((unsigned __int16 *)v10 + 64), 4u);
+#endif
         *((_DWORD *)v10 + 27) = v12;
         if ( !v12 )
           return 0;
         sub_426AC0(v12, 4 * (unsigned __int16)*v11);
-        sub_421040((int)v10);
-        v13 = sub_421030(**((_DWORD **)v10 + 27));
+        sub_421040((uintptr_t)v10);
+        v13 = sub_421030(*(_DWORD *)(*((_DWORD *)v10 + 27)));
         *((_DWORD *)v10 + 22) = sub_419A70(*((float *)v13 + 1));
         *((_DWORD *)v10 + 23) = sub_419A70(*((float *)v13 + 2));
         *((_DWORD *)v10 + 24) = sub_419A70(*((float *)v13 + 1));
@@ -37640,7 +37654,7 @@ int __cdecl sub_428CD0(int a1)
   }
   v25 = 0;
   for ( k = sub_4210A0(); k; ++v25 )
-    k = sub_4210E0((int)k);
+    k = sub_4210E0((uintptr_t)k);
   sub_426AC0(&v25, 4u);
   v6 = sub_4210A0();
   v28 = 0;
@@ -37660,7 +37674,8 @@ int __cdecl sub_428CD0(int a1)
     sub_426AC0(&a1, 1u);
     sub_426AC0(v6 + 130, 1u);
     sub_426AC0(v6 + 128, 2u);
-    sub_426AC0(*((_BYTE **)v6 + 27), 4 * *((unsigned __int16 *)v6 + 64));
+    sub_426AC0((unsigned char *)(uintptr_t)*(_DWORD *)(v6 + 108),
+      4 * *((unsigned __int16 *)v6 + 64));
     sub_4F5580((int)(v6 + 112), v7);
     if ( v7 )
       v8 = v7 + 128;
@@ -37668,7 +37683,7 @@ int __cdecl sub_428CD0(int a1)
       v8 = 0;
     sub_4F5580((int)(v6 + 120), v8);
     sub_426AC0(v6 + 132, 4u);
-    v6 = sub_4210E0((int)v6);
+    v6 = sub_4210E0((uintptr_t)v6);
     ++v28;
   }
   while ( v28 < v25 );
@@ -48777,7 +48792,12 @@ int sub_4379F0()
         v8 = sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10053);
         v9 = sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10043);
         v10 = sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10044);
+ #if UINTPTR_MAX > UINT32_MAX
+        v11 = (_DWORD *)nox_native_window_field_32(
+          *(unsigned int *)&byte_5D4594[815012]);
+ #else
         v11 = *(_DWORD **)(*(_DWORD *)&byte_5D4594[815012] + 32);
+ #endif
         sub_46B280((int)v8, *(int *)&byte_5D4594[815012]);
         sub_46B280((int)v9, *(int *)&byte_5D4594[815012]);
         sub_46B280((int)v10, *(int *)&byte_5D4594[815012]);
@@ -48790,7 +48810,12 @@ int sub_4379F0()
         v12 = sub_46B0C0(*(_DWORD **)&byte_5D4594[815000], 10032);
         v13 = sub_46B0C0(*(_DWORD **)&byte_5D4594[815000], 10035);
         v14 = sub_46B0C0(*(_DWORD **)&byte_5D4594[815000], 10036);
+ #if UINTPTR_MAX > UINT32_MAX
+        v15 = (_DWORD *)nox_native_window_field_32(
+          *(unsigned int *)&byte_5D4594[815004]);
+ #else
         v15 = *(_DWORD **)(*(_DWORD *)&byte_5D4594[815004] + 32);
+ #endif
         sub_46B280((int)v12, *(int *)&byte_5D4594[815004]);
         sub_46B280((int)v13, *(int *)&byte_5D4594[815004]);
         sub_46B280((int)v14, *(int *)&byte_5D4594[815004]);
@@ -48934,83 +48959,83 @@ int sub_438480()
   sub_46B300(*(int *)&byte_5D4594[815028], sub_438EF0);
   sub_46B120(*(_DWORD **)&byte_5D4594[815032], *(int *)&byte_5D4594[815012]);
   sub_46B300(*(int *)&byte_5D4594[815032], sub_438EF0);
-  **(_DWORD **)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815004] + 32) + 28) = 10035;
-  **(_DWORD **)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815004] + 32) + 32) = 10036;
-  **(_DWORD **)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815004] + 32) + 36) = 10032;
+  *(_DWORD *)nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815004], 28) = 10035;
+  *(_DWORD *)nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815004], 32) = 10036;
+  *(_DWORD *)nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815004], 36) = 10032;
   sub_46B490(
     *(int *)&byte_5D4594[815016],
     16408,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 28),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 28),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815020],
     16408,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 28),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 28),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815024],
     16408,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 28),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 28),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815028],
     16408,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 28),
+    *(_DWORD *)(nox_native_window_field_32(*(unsigned int *)&byte_5D4594[815012]) + 28),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815032],
     16408,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 28),
+    *(_DWORD *)(nox_native_window_field_32(*(unsigned int *)&byte_5D4594[815012]) + 28),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815016],
     16409,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 32),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 32),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815020],
     16409,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 32),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 32),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815024],
     16409,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 32),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 32),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815028],
     16409,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 32),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 32),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815032],
     16409,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 32),
+    *(_DWORD *)(nox_native_window_field_32(*(unsigned int *)&byte_5D4594[815012]) + 32),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815016],
     16410,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 36),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 36),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815020],
     16410,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 36),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 36),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815024],
     16410,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 36),
+    nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 36),
     0);
   sub_46B490(
     *(int *)&byte_5D4594[815028],
     16410,
-    *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 36),
+    *(_DWORD *)(nox_native_window_field_32(*(unsigned int *)&byte_5D4594[815012]) + 36),
     0);
   return sub_46B490(
            *(int *)&byte_5D4594[815032],
            16410,
-           *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 36),
+           nox_native_window_text_field_32(*(unsigned int *)&byte_5D4594[815012], 36),
            0);
 }
 
@@ -50541,7 +50566,7 @@ int __cdecl sub_43B2A0(int a1)
   int result; // eax
 
   result = a1;
-  *(_WORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815012] + 32) + 46) = a1;
+  *(_WORD *)(nox_native_window_field_32(*(unsigned int *)&byte_5D4594[815012]) + 46) = a1;
   *(_WORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815016] + 32) + 46) = a1;
   *(_WORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815020] + 32) + 46) = a1;
   *(_WORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[815024] + 32) + 46) = a1;
@@ -53012,6 +53037,8 @@ static int (*nox_render_callback)(void);
 int __cdecl sub_43DDF0(uintptr_t a1)
 {
 #if UINTPTR_MAX > UINT32_MAX
+  if ( a1 && a1 <= UINT32_MAX )
+    a1 = ((uintptr_t)&sub_43DE10 & ~(uintptr_t)UINT32_MAX) | a1;
   nox_mainloop_callback = a1 ? (int (*)(void))a1 : sub_43DE10;
 #else
   *(_DWORD *)&byte_5D4594[816388] = a1;
@@ -53031,6 +53058,8 @@ int sub_43DE10()
 int __cdecl sub_43DE20(uintptr_t a1)
 {
 #if UINTPTR_MAX > UINT32_MAX
+  if ( a1 && a1 <= UINT32_MAX )
+    a1 = ((uintptr_t)&sub_43DE10 & ~(uintptr_t)UINT32_MAX) | a1;
   nox_tick_callback = a1 ? (int (*)(void))a1 : sub_43DE10;
 #else
   *(_DWORD *)&byte_5D4594[816396] = a1;
@@ -53044,6 +53073,8 @@ int __cdecl sub_43DE20(uintptr_t a1)
 int __cdecl sub_43DE40(uintptr_t a1)
 {
 #if UINTPTR_MAX > UINT32_MAX
+  if ( a1 && a1 <= UINT32_MAX )
+    a1 = ((uintptr_t)&sub_43DE10 & ~(uintptr_t)UINT32_MAX) | a1;
   nox_render_callback = a1 ? (int (*)(void))a1 : sub_43DE10;
 #else
   *(_DWORD *)&byte_5D4594[816392] = a1;
@@ -62402,7 +62433,13 @@ _DWORD *__cdecl sub_449A10(int a1, int a2, int a3, int a4, int (*a5)(void), int 
     *(_DWORD *)&byte_5D4594[830240] = 0;
     if ( sub_43F320(0) > 10 )
       v6 = 2;
+#if UINTPTR_MAX > UINT32_MAX
+    result = sub_4A0AD0((const char *)nox_native_pointer_from_32_value(
+                         *(unsigned int *)&byte_587000[4 * v6 + 112976]),
+                       sub_449CA0);
+#else
     result = sub_4A0AD0(*(const char **)&byte_587000[4 * v6 + 112976], sub_449CA0);
+#endif
     *(_DWORD *)&byte_5D4594[830224] = result;
     if ( result )
     {

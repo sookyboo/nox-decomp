@@ -207,7 +207,7 @@ timeout --signal=TERM 35s env \
   NOX_CONTROL_INJECT_LOG=0 NOX_CONTROL_LOG=1 \
   NOX_SERVER_NAME=NoxDecomp NOX_SERVER_SYSOP=secret \
   NOX_SERVER_LESSONS=15 NOX_SERVER_TIME=0 \
-  NOX_SERVER_DEFAULT_MAP=capflag NOX_CAPTURE_INPUT=0 \
+  NOX_SERVER_DEFAULT_MAP=Estate NOX_CAPTURE_INPUT=0 \
   NOX_LOBBY_REGISTER_ENABLE=0 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   ../../../build-amd64/src/out
@@ -274,7 +274,7 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Instrument or expose the console-command dispatch so the `load capflag`
+1. Instrument or expose the console-command dispatch so the `load Estate`
    action can be verified at `map_download_start()` on both architectures.
 2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
    stable.
