@@ -109,16 +109,16 @@ At the time of this document update, the native executable builds, loads the
 Estate test data, completes config localization, reaches OpenGL initialization,
 loads the font resources, completes the graphics row clear, completes video
 index-table initialization, initializes the timer records, parses SoundSet.bin,
-and reaches the first Modifier.bin handler. The native Modifier dispatch table
-and the seven-entry COLOR name table used by `sub_411C80()` are sidecars; the
-returned color index and the 0x58-byte modifier record offsets remain the
-recovered 32-bit contract. The remaining x86_64 headless-startup failure is a
-return-0 from `sub_412D40()` after the first COLOR handler, so the next
-investigation should identify the failing modifier field/handler rather than
-widening the record. The preceding timer boundary transports record addresses
-as `uintptr_t`, the SoundSet boundary uses a native name sidecar while
-retaining its packed 32-bit field-offset table, and the CSF parser routes its
-stream through a native `FILE *` sidecar.
+and reaches both Modifier.bin record parsers. The native Modifier dispatch
+table, seven-entry COLOR table, three-entry class-name table, and 18-entry
+damage-type table are sidecars; returned indices and the 0x58-byte modifier
+record offsets remain the recovered 32-bit contract. Full runs can also show
+an intermittent SDL/X11 allocator abort in `sub_43BF10()` before Modifier.bin;
+when graphics startup completes, the next investigation continues at
+`sub_412ED0()` rather than widening the record. The preceding timer boundary
+transports record addresses as `uintptr_t`, the SoundSet boundary uses a native
+name sidecar while retaining its packed 32-bit field-offset table, and the CSF
+parser routes its stream through a native `FILE *` sidecar.
 
 ## Compatibility rule
 

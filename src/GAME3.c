@@ -47257,6 +47257,16 @@ void sub_4E09F0()
 //----- (004E0A00) --------------------------------------------------------
 int __cdecl sub_4E0A00(const char *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+
+  for ( i = 0; i < 18; ++i )
+  {
+    if ( !strcmp(a1, nox_damage_type_names[i]) )
+      break;
+  }
+  return i;
+#else
   int v1; // ebp
   const char **v2; // edi
 
@@ -47271,6 +47281,7 @@ int __cdecl sub_4E0A00(const char *a1)
   }
   while ( (int)v2 < (int)&byte_587000[200800] );
   return v1;
+#endif
 }
 
 //----- (004E0A70) --------------------------------------------------------
