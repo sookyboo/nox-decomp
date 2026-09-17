@@ -92,6 +92,19 @@ static uintptr_t nox_native_pointer_from_32(unsigned int value)
   return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
 }
 
+static uintptr_t nox_native_fixed_pointer_from_32(unsigned int value)
+{
+  uintptr_t candidate;
+
+  if ( !value )
+    return 0;
+  candidate = ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+  if ( candidate >= (uintptr_t)&byte_5D4594[0]
+    && candidate < (uintptr_t)&byte_5D4594[3844309] )
+    return candidate;
+  return value;
+}
+
 static _DWORD *nox_window_root_get(void)
 {
   return (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1064888];
@@ -4408,12 +4421,21 @@ int sub_4521F0()
   result = *(_DWORD *)&byte_5D4594[1045432];
   if ( *(_DWORD *)&byte_5D4594[1045432] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    v1 = (unsigned __int8 *)nox_native_fixed_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+    if ( (uintptr_t)v1 != (uintptr_t)&byte_5D4594[840612] )
+#else
     v1 = *(unsigned __int8 **)&byte_5D4594[840612];
     if ( *(unsigned __int8 **)&byte_5D4594[840612] != &byte_5D4594[840612] )
+#endif
     {
       do
       {
+#if UINTPTR_MAX > UINT32_MAX
+        v2 = (unsigned __int8 *)nox_native_fixed_pointer_from_32(*(unsigned int *)v1);
+#else
         v2 = *(unsigned __int8 **)v1;
+#endif
         sub_4523D0(v1);
         result = sub_451FE0((int)v1);
         v1 = v2;
@@ -4433,12 +4455,21 @@ int *****sub_452230()
   result = *(int ******)&byte_5D4594[1045432];
   if ( *(_DWORD *)&byte_5D4594[1045432] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    result = (int *****)nox_native_fixed_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+    if ( (uintptr_t)result != (uintptr_t)&byte_5D4594[840612] )
+#else
     result = *(int ******)&byte_5D4594[840612];
     if ( *(unsigned __int8 **)&byte_5D4594[840612] != &byte_5D4594[840612] )
+#endif
     {
       do
       {
+#if UINTPTR_MAX > UINT32_MAX
+        v1 = (int ****)nox_native_fixed_pointer_from_32(*(unsigned int *)result);
+#else
         v1 = *result;
+#endif
         if ( (_BYTE)result[6] & 1 )
           sub_451FE0((int)result);
         result = (int *****)v1;
@@ -44664,14 +44695,18 @@ void *sub_486EF0()
     result = NOX_TIMER_MANAGER;
     if ( !*(_DWORD *)(NOX_TIMER_MANAGER + 24) )
     {
-      v1 = (int *)(uintptr_t)*(unsigned int *)(NOX_TIMER_MANAGER + 12);
+      v1 = (int *)nox_native_fixed_pointer_from_32(*(unsigned int *)(NOX_TIMER_MANAGER + 12));
       for ( i = (int)(intptr_t)(NOX_TIMER_MANAGER + 12);
             v1 != (int *)i;
-            v1 = (int *)(uintptr_t)*(unsigned int *)v1 )
+            v1 = (int *)nox_native_fixed_pointer_from_32(*(unsigned int *)v1) )
       {
         if ( !(v1[3] & 2) )
 #if UINTPTR_MAX > UINT32_MAX
-          result = (void *)((int (__cdecl *)(int *))nox_native_pointer_from_32(v1[54]))(v1);
+        {
+          uintptr_t callback = nox_native_pointer_from_32(v1[54]);
+          if ( callback )
+            result = (void *)((int (__cdecl *)(int *))callback)(v1);
+        }
 #else
           result = (void *)((int (__cdecl *)(int *))v1[54])(v1);
 #endif
@@ -45260,7 +45295,9 @@ int *__cdecl sub_4877D0(int a1, int *a2)
 int *__cdecl sub_4877F0(int **a1)
 {
 #if UINTPTR_MAX > UINT32_MAX
-  return (int *)(uintptr_t)*(unsigned int *)a1;
+  if ( *a1 )
+    *a1 = sub_4258A0((int *)nox_native_fixed_pointer_from_32((unsigned int)*a1));
+  return (int *)(uintptr_t)*a1;
 #else
   if ( *a1 )
     *a1 = sub_4258A0(*a1);

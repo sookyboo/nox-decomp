@@ -215,6 +215,18 @@ static void nox_legacy_low_free(void *address, size_t size)
   mapped_size = (size + page_size - 1) & ~(page_size - 1);
   munmap(address, mapped_size);
 }
+
+static void *nox_legacy_low_realloc(void *address, size_t old_size, size_t size)
+{
+  void *result = nox_legacy_low_alloc(size);
+
+  if ( result && address )
+  {
+    memcpy(result, address, old_size);
+    nox_legacy_low_free(address, old_size);
+  }
+  return result;
+}
 #endif
 
 static void nox_font_dispatch_select(int table_index)
@@ -3139,7 +3151,9 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[54668] = &byte_5D4594[2649820];
 *(void **)&byte_587000[54716] = &byte_5D4594[2650656];
 *(void **)&byte_587000[54636] = &byte_5D4594[2650684];
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[55744] = &byte_5D4594[527672];
+#endif
 *(void **)&byte_587000[55824] = &sub_41A590;
 *(void **)&byte_587000[55836] = &sub_41AA30;
 *(void **)&byte_587000[55848] = &sub_41AC30;
@@ -18926,7 +18940,11 @@ char *__cdecl sub_413F90(const char *a1)
 {
   char *result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = (char *)nox_legacy_low_alloc(strlen(a1) + 1);
+#else
   result = (char *)malloc(strlen(a1) + 1);
+#endif
   if ( result )
     strcpy(result, a1);
   return result;
@@ -24319,7 +24337,11 @@ int __cdecl sub_4199C0(int a1)
 double __cdecl sub_419A10(float a1)
 {
   *(float *)&byte_5D4594[527672] = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  *(unsigned int *)&byte_5D4594[527672] &= 0x7FFFFFFFu;
+#else
   **(_DWORD **)&byte_587000[55744] &= 0x7FFFFFFFu;
+#endif
   return *(float *)&byte_5D4594[527672];
 }
 
@@ -24393,8 +24415,13 @@ int sub_419B30()
   *(_DWORD *)&byte_5D4594[527684] = result;
   if ( result )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    v1 = sub_408CC0((char *)&byte_587000[55748], 0);
+    result = v1 != 0;
+#else
     result = sub_408CC0((char *)&byte_587000[55748], 0);
     v1 = (FILE *)result;
+#endif
     if ( result )
     {
       result = sub_408D40(result, 8);
@@ -24443,12 +24470,29 @@ LABEL_15:
                 }
                 while ( v3 );
               }
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+              v5 = nox_legacy_low_alloc(8u);
+#else
               v5 = malloc(8u);
+#endif
               v6 = v5;
               if ( !v5 )
                 goto LABEL_28;
               *((_BYTE *)v5 + 4) = v2;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+              *v5 = nox_legacy_low_alloc(4u * (size_t)v2);
+#else
               *v5 = malloc(4 * v2);
+#endif
+              if ( !*v5 )
+              {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+                nox_legacy_low_free(v5, 8u);
+#else
+                free(v5);
+#endif
+                goto LABEL_28;
+              }
               for ( i = 0; i < v2; ++i )
                 *(_DWORD *)(*v6 + 4 * i) = v10[i];
               if ( !sub_4267B0(*(int *)&byte_5D4594[527684], v8, (int)v6) )
@@ -24475,14 +24519,26 @@ LABEL_5:
 //----- (00419D40) --------------------------------------------------------
 double __cdecl sub_419D40(void *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned int value;
+#else
   float **v1; // eax
+#endif
   double result; // st7
 
+#if UINTPTR_MAX > UINT32_MAX
+  value = (unsigned int)sub_426890(*(int *)&byte_5D4594[527684], a1);
+  if ( value )
+    result = *(float *)(uintptr_t)*(unsigned int *)(uintptr_t)value;
+  else
+    result = 0.0;
+#else
   v1 = (float **)sub_426890(*(int *)&byte_5D4594[527684], a1);
   if ( v1 )
     result = **v1;
   else
     result = 0.0;
+#endif
   return result;
 }
 
@@ -24514,8 +24570,14 @@ void sub_419DB0()
 //----- (00419DE0) --------------------------------------------------------
 void __cdecl sub_419DE0(int a1, LPVOID *lpMem)
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  if ( lpMem && *lpMem )
+    nox_legacy_low_free(*lpMem, 4u * (size_t)*((unsigned __int8 *)lpMem + 4));
+  nox_legacy_low_free(lpMem, 8u);
+#else
   free(*lpMem);
   free(lpMem);
+#endif
 }
 
 //----- (00419E00) --------------------------------------------------------
@@ -35258,7 +35320,14 @@ BOOL sub_4264D0()
 //----- (00426590) --------------------------------------------------------
 void *sub_426590()
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  void *result = nox_legacy_low_alloc(0x144u);
+  if ( result )
+    memset(result, 0, 0x144u);
+  return result;
+#else
   return calloc(1u, 0x144u);
+#endif
 }
 
 //----- (004265A0) --------------------------------------------------------
@@ -35270,6 +35339,10 @@ void __cdecl sub_4265A0(LPVOID lpMem)
 
   if ( lpMem )
   {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(lpMem, 0x144u);
+    return;
+#else
     v1 = (LPVOID *)lpMem;
     v2 = 27;
     do
@@ -35285,6 +35358,7 @@ void __cdecl sub_4265A0(LPVOID lpMem)
     }
     while ( v2 );
     free(lpMem);
+#endif
   }
 }
 
@@ -35343,12 +35417,24 @@ CHAR *__cdecl sub_426680(int a1, char *a2)
   {
     if ( !*((_DWORD *)result + 2) )
     {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      void *old_table = *(void **)result;
+      size_t count = (size_t)*((unsigned __int8 *)result + 4);
+      size_t old_size = 8u * count;
+      if ( old_table )
+        *(void **)result = nox_legacy_low_realloc(old_table, old_size, 8u * (count + 5u));
+      else
+        *(void **)result = nox_legacy_low_alloc(8u * 256u);
+      *((_DWORD *)v3 + 2) = old_table ? 5 : 256;
+#else
       *(_DWORD *)result = realloc(*(LPVOID *)result, 8 * (*((_DWORD *)result + 1) + 5));
       *((_DWORD *)v3 + 2) = 5;
+#endif
     }
     for ( i = 0; i < *((_DWORD *)v3 + 1); ++i )
     {
-      if ( _strcmpi(a2, *(const char **)(*(_DWORD *)v3 + 8 * i)) < 0 )
+      if ( _strcmpi(a2, (const char *)(uintptr_t)
+        *(unsigned int *)(*(_DWORD *)v3 + 8 * i)) < 0 )
         break;
     }
     for ( j = *((_DWORD *)v3 + 1); j > i; v7[1] = *(v7 - 1) )
@@ -35431,7 +35517,11 @@ void *__cdecl sub_426800(int a1, void *a2)
   void *result; // eax
 
   if ( a2 && (v2 = sub_426740(a1, (CHAR *)a2)) != 0 && (v3 = *((_DWORD *)v2 + 1)) != 0 )
+#if UINTPTR_MAX > UINT32_MAX
+    result = bsearch(a2, (void *)(uintptr_t)*(unsigned int *)v2, v3, 8u, sub_426840);
+#else
     result = bsearch(a2, *(const void **)v2, v3, 8u, sub_426840);
+#endif
   else
     result = 0;
   return result;
@@ -35440,7 +35530,11 @@ void *__cdecl sub_426800(int a1, void *a2)
 //----- (00426840) --------------------------------------------------------
 int __cdecl sub_426840(const void *a1, const void *a2)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return _strcmpi((const char *)a1, (const char *)(uintptr_t)*(unsigned int *)a2);
+#else
   return _strcmpi((const char *)a1, *(const char **)a2);
+#endif
 }
 
 //----- (00426860) --------------------------------------------------------
@@ -51384,7 +51478,11 @@ LABEL_27:
         {
           *(_BYTE *)(v0 + 64) = 1;
           sub_43BE40(1);
+#if UINTPTR_MAX > UINT32_MAX
+          v12 = (int (*)(void))nox_native_pointer_from_32(*(unsigned int *)(v0 + 56));
+#else
           v12 = *(int (**)(void))(v0 + 56);
+#endif
           if ( v12 )
             v12();
         }

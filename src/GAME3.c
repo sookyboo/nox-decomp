@@ -19423,7 +19423,11 @@ _DWORD *__cdecl sub_4BD280(int a1, int a2)
   int v5; // edi
 
   v2 = a2 + 4;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = nox_game3_low_alloc(a1 * (a2 + 4) + 4);
+#else
   result = malloc(a1 * (a2 + 4) + 4);
+#endif
   if ( result )
   {
     v4 = result + 1;
@@ -19447,7 +19451,14 @@ _DWORD *__cdecl sub_4BD280(int a1, int a2)
 //----- (004BD2D0) --------------------------------------------------------
 void __cdecl sub_4BD2D0(LPVOID lpMem)
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  /* Pool sizes are not retained in the recovered header. These pools live
+   * until process teardown; keeping the mapping avoids passing a truncated
+   * host pointer to free while preserving the packed pool links. */
+  (void)lpMem;
+#else
   free(lpMem);
+#endif
 }
 
 //----- (004BD2E0) --------------------------------------------------------
@@ -19494,7 +19505,11 @@ _DWORD *__cdecl sub_4BD340(int a1, int a2, int a3, int a4)
 {
   _DWORD *v4; // esi
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v4 = nox_game3_low_alloc(0x1Cu);
+#else
   v4 = malloc(0x1Cu);
+#endif
   memset(v4, 0, 0x1Cu);
   *v4 = a1;
   v4[6] = a4;
@@ -19518,7 +19533,11 @@ void __cdecl sub_4BD3C0(LPVOID lpMem)
     sub_4BD2D0(*((LPVOID *)lpMem + 1));
   if ( *((_DWORD *)lpMem + 2) )
     sub_4BD2D0(*((LPVOID *)lpMem + 2));
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_game3_low_free(lpMem, 0x1Cu);
+#else
   free(lpMem);
+#endif
 }
 
 //----- (004BD420) --------------------------------------------------------
