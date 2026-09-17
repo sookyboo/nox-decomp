@@ -14,6 +14,8 @@ Relevant commits:
   fixes;
 - `f355655` — architecture, sandbox, and startup compatibility documentation.
 - `fbd2731` — native graphics low-address compatibility allocations.
+- the current checkpoint fixes CSF file-stream sidecar use and the Modifier.bin
+  dispatch/record and COLOR-name sidecars.
 
 The untracked file `0001-bot-native-player-bot-combined.patch` is user-owned and
 must not be modified, staged, or deleted.
@@ -68,6 +70,11 @@ The current branch contains native-width handling for:
   resources use low-address allocations for existing DWORD consumers;
 - `sub_440900()` indexes the graphics row table with its preserved 4-byte
   stride instead of applying native pointer arithmetic.
+- the Modifier.bin parser's 19-entry dispatch table and 0x58-byte records;
+  native builds keep handler/name pointers and record links in host-width
+  sidecars or low-address allocations while retaining the recovered offsets;
+- the seven-entry COLOR name table used by `sub_411C80()`, shadowed natively
+  while preserving its 32-bit index result.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -93,10 +100,12 @@ After the latest source changes:
 - the full post-change CTest suites still need to be rerun.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
-latest verified run with `-serveronly Estate` completes video resource
-initialization, timer-record setup, and SoundSet parsing after OpenGL
-initialization and font loading. Resource/config/graphics/video/audio startup
-is therefore verified, but gameplay map selection is not yet reached.
+a verified GDB run with `-serveronly Estate` completes video resource
+initialization, timer-record setup, SoundSet parsing, and the first
+Modifier.bin handler; it reaches `sub_411C80("COLOR1")` through the native
+COLOR sidecar. Resource/config/graphics/video/audio startup and the first
+modifier record are therefore verified, but gameplay map selection is not yet
+reached.
 
 ## Reproduce the remaining failure
 
@@ -112,8 +121,8 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 SIGSEGV in the Modifier.bin parser reached
-after SoundSet parsing:
+The current result is a native x86_64 Modifier.bin parser failure after the
+first record handler, reached after SoundSet parsing:
 
 ```text
 sub_401070
@@ -123,6 +132,7 @@ sub_401070
   → sub_4862E0
   → sub_424170
   → sub_412D40
+  → sub_411C80 (COLOR-name sidecar reached)
 ```
 
 The video fix uses low-address allocations for the recovered 36-byte index
@@ -134,7 +144,11 @@ The timer fix widened the `sub_4864A0()` to `sub_4862E0()` record address
 transport to `uintptr_t`; the timer record itself remains a fixed-width 32-bit
 layout. The SoundSet fix keeps its 19-entry name/field-offset table packed:
 native builds use a sidecar for the names while preserving the adjacent 32-bit
-field offsets.
+field offsets. The CSF fix routes all parser stream accesses through its native
+`FILE *` sidecar. The Modifier.bin fix keeps the recovered 0x58-byte record and
+19-entry dispatch semantics, using low-address records for legacy DWORD fields
+and a native dispatch sidecar; its COLOR lookup similarly shadows only the
+pointer table, not the returned index.
 
 For a backtrace:
 
@@ -150,9 +164,9 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 ## Recommended next steps
 
 1. Rebuild `build-linux64/src/out` and repeat the headless smoke test after the
-   Modifier.bin parser fix. If it
-   reaches another fault, use the first project frame in the GDB backtrace to
-   identify the next packed pointer boundary.
+   Modifier.bin parser fix. The next boundary is the return-0 path from
+   `sub_412D40()` after the first COLOR handler; use GDB to identify the
+   failing modifier field or handler before changing the record layout.
 2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
 3. Update `startup-compatibility.md` with the final table shape and remove or
