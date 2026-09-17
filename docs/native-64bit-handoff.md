@@ -72,6 +72,11 @@ After the latest source changes:
   boundaries;
 - the full post-change CTest suites still need to be rerun.
 
+The headless smoke test uses `Estate` because it is a known-working map. The
+latest run with `-serveronly Estate` still reaches the same config-parser
+SIGSEGV before gameplay map selection, so the map choice has not yet changed
+the failing boundary.
+
 ## Reproduce the remaining failure
 
 Run from the extracted game-data directory:
@@ -83,7 +88,7 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-linux64/src/out -serveronly G_Quest
+  ../../../build-linux64/src/out -serveronly Estate
 ```
 
 The current result is a native x86_64 SIGSEGV in the config-line parser:
@@ -111,7 +116,7 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   gdb -q -batch -ex 'set pagination off' -ex run -ex bt --args \
-  ../../../build-linux64/src/out -serveronly G_Quest
+  ../../../build-linux64/src/out -serveronly Estate
 ```
 
 ## Recommended next steps

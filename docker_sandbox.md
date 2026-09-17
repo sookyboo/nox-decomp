@@ -279,7 +279,8 @@ the wrong compiler or libraries.
 
 For a native x86_64 runtime smoke test, use the extracted game data directory
 as the working directory and provide a virtual X11 display. Disable optional
-network/control services so the test stays local and deterministic:
+network/control services so the test stays local and deterministic. The
+command selects `Estate`, the known-working map used for this smoke test:
 
 ```sh
 cd build-deps/gamefiles/app
@@ -288,7 +289,7 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-linux64/src/out -serveronly G_Quest
+  ../../../build-linux64/src/out -serveronly Estate
 ```
 
 If the smoke test segfaults, run the same environment through GDB and collect
@@ -300,7 +301,7 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   gdb -q -batch -ex 'set pagination off' -ex run -ex bt --args \
-  ../../../build-linux64/src/out -serveronly G_Quest
+  ../../../build-linux64/src/out -serveronly Estate
 ```
 
 The startup-specific ownership and the rule for preserving recovered 32-bit
