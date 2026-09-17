@@ -38,6 +38,22 @@ The general rationale is in
 The startup subsystem description is in
 [`startup-compatibility.md`](startup-compatibility.md).
 
+## Distribution launcher architecture override
+
+The launchers in `dist-scripts/` keep their existing i386 default on x86_64
+hosts. To select the native binary, change the hard-coded
+`NOX_FORCE_64BIT="N"` assignment to `NOX_FORCE_64BIT="Y"` in the launcher being
+used:
+
+- `start.sh` selects `noxd.x86_64` and the x86_64 dynamic loader/library roots;
+- `server.sh`, `startgen.sh`, and `portmasterstart.sh` select
+  `noxd.x86_64` through `RUN_ARCH=x86_64`.
+
+The override is only honored when the detected device architecture is
+x86_64. ARM mappings remain ARMHF, and 32-bit x86 hosts remain i386. The
+PortMaster launcher also limits its `PORT_32BIT` and `/usr/lib32` setup to the
+i386 path.
+
 ## Completed native fixes
 
 The current branch contains native-width handling for:

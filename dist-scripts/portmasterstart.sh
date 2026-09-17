@@ -14,9 +14,6 @@ fi
 
 source "$controlfolder/control.txt"
 
-# Fixes an issue with pipewire on some machines and possibly other fixes
-export PORT_32BIT="Y"
-
 # We source custom mod files from the portmaster folder example mod_jelos.txt which containts pipewire fixes
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 
@@ -25,15 +22,29 @@ get_controls
 # 1) Default: run arch follows device arch
 RUN_ARCH="${DEVICE_ARCH}"
 
+# Set to Y to run the native x86_64 binary on x86_64 hosts.
+NOX_FORCE_64BIT="N"
+
 # 2) Remap device arch -> desired run arch
-case "${RUN_ARCH}" in
-  aarch64|arm64)
-    RUN_ARCH="armhf"
-    ;;
-  amd64|x86_64)
-    RUN_ARCH="i386"   # 32-bit x86 userspace
-    ;;
-esac
+if [ "${NOX_FORCE_64BIT}" = "Y" ] && [ "${DEVICE_ARCH}" = "x86_64" ]; then
+  RUN_ARCH="x86_64"
+else
+  case "${RUN_ARCH}" in
+    aarch64|arm64)
+      RUN_ARCH="armhf"
+      ;;
+    amd64|x86_64)
+      RUN_ARCH="i386"   # 32-bit x86 userspace
+      ;;
+  esac
+fi
+
+# Fixes an issue with pipewire on some 32-bit machines and possibly other fixes.
+if [ "${RUN_ARCH}" = "i386" ]; then
+  export PORT_32BIT="Y"
+else
+  unset PORT_32BIT
+fi
 
 # ---------------------------
 # Paths
@@ -306,7 +317,9 @@ if [ -f "$ASSET_DIR/nox.cfg" ]; then
     "$ASSET_DIR/nox.cfg"
 fi
 
-export LD_LIBRARY_PATH="/usr/lib32:$LD_LIBRARY_PATH"
+if [ "${RUN_ARCH}" = "i386" ]; then
+  export LD_LIBRARY_PATH="/usr/lib32:$LD_LIBRARY_PATH"
+fi
 if [ "$LIBGL_FB" != "" ]; then
     export LD_LIBRARY_PATH="$GAMEDIR/gl4es.${RUN_ARCH}:$LD_LIBRARY_PATH"
 fi
