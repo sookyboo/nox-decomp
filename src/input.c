@@ -868,7 +868,7 @@ int sub_47FCC0()
 }
 
 // get keyboard data
-void __cdecl sub_47FA80(signed int a1)
+void __cdecl sub_47FA80(uintptr_t a1)
 {
     struct keyboard_event *ke = &keyboard_event_queue[keyboard_event_ridx];
 
@@ -1265,7 +1265,7 @@ int sub_47FCC0()
 }
 
 //----- (0047FA80) --------------------------------------------------------
-void __cdecl sub_47FA80(signed int a1)
+void __cdecl sub_47FA80(uintptr_t a1)
 {
 	HRESULT v2; // eax
 	char v3; // al
