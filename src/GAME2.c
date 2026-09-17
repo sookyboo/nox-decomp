@@ -5,6 +5,12 @@
 #include <unistd.h>
 #endif
 
+#if UINTPTR_MAX > UINT32_MAX
+#define NOX_TIMER_ADDRESS(address) ((uintptr_t)(address))
+#else
+#define NOX_TIMER_ADDRESS(address) ((int)(address))
+#endif
+
 BYTE *npc_array;
 
 //----- (0044CCA0) --------------------------------------------------------
@@ -3245,7 +3251,7 @@ int __cdecl sub_451920(_DWORD *a2)
   a2[25] = 0;
   a2[26] = 0;
   a2[16] = 600;
-  return sub_4862E0((int)(a2 + 4), 0x4000);
+  return sub_4862E0(NOX_TIMER_ADDRESS(a2 + 4), 0x4000);
 }
 
 //----- (00451970) --------------------------------------------------------
@@ -4293,7 +4299,7 @@ BOOL __cdecl sub_452890(int a1, void *a2)
         case 3:
           v27 = *v8;
           *(_DWORD *)(v2 + 8) = v8 + 1;
-          sub_4862E0((int)(v5 + 16), 163 * v27);
+          sub_4862E0(NOX_TIMER_ADDRESS(v5 + 16), 163 * v27);
           continue;
         case 4:
           v24 = *v8;
@@ -4494,7 +4500,7 @@ int __cdecl sub_452BD0(int a1, char *a2)
     v10 = *(unsigned __int8 **)(a1 + 8);
     v30 = *v10;
     *(_DWORD *)(v2 + 8) = v10 + 1;
-    sub_4862E0((int)(v7 + 16), 163 * v30);
+    sub_4862E0(NOX_TIMER_ADDRESS(v7 + 16), 163 * v30);
     v11 = *(__int16 **)(v2 + 8);
     v12 = *v11;
     *(_DWORD *)(v2 + 8) = v11 + 1;
@@ -43590,7 +43596,7 @@ int sub_486230()
 }
 
 //----- (004862E0) --------------------------------------------------------
-int __cdecl sub_4862E0(int a3, int a4)
+int __cdecl sub_4862E0(uintptr_t a3, int a4)
 {
   *(_DWORD *)a3 = 0;
   *(_QWORD *)(a3 + 24) = sub_416BB0();
@@ -43738,9 +43744,9 @@ int __cdecl sub_4863B0(unsigned int *a2)
 //----- (004864A0) --------------------------------------------------------
 _DWORD *__cdecl sub_4864A0(_DWORD *a3)
 {
-  sub_4862E0((int)a3, 0x4000);
-  sub_4862E0((int)(a3 + 8), 100);
-  sub_4862E0((int)(a3 + 16), 0x2000);
+  sub_4862E0(NOX_TIMER_ADDRESS(a3), 0x4000);
+  sub_4862E0(NOX_TIMER_ADDRESS(a3 + 8), 100);
+  sub_4862E0(NOX_TIMER_ADDRESS(a3 + 16), 0x2000);
   sub_486380(a3 + 8, 0x3E8u, 0, 10);
   sub_486380(a3, 0x3E8u, 0, 0x4000);
   sub_486380(a3 + 16, 0x3E8u, 0, 0x4000);
