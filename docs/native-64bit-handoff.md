@@ -13,6 +13,7 @@ Relevant commits:
 - `422035f` — native 64-bit startup pointer-table and map/CSF compatibility
   fixes;
 - `f355655` — architecture, sandbox, and startup compatibility documentation.
+- `fbd2731` — native graphics low-address compatibility allocations.
 
 The untracked file `0001-bot-native-player-bot-combined.patch` is user-owned and
 must not be modified, staged, or deleted.
@@ -59,6 +60,14 @@ The current branch contains native-width handling for:
   the display-state descriptors, gamma tables, and palette lookup table.
   Linux x86_64 uses `MAP_32BIT` for these temporary buffers while preserving
   the original slots and consumers.
+- SDL headers are included before the repository-wide packed-record region, so
+  `SDL_Surface` keeps its native ABI layout while recovered records remain
+  packed.
+- the font/resource dispatch table used by `sub_43F1C0()` and `sub_43F360()`;
+  native table entries and the callback are shadowed, while loaded font
+  resources use low-address allocations for existing DWORD consumers;
+- `sub_440900()` indexes the graphics row table with its preserved 4-byte
+  stride instead of applying native pointer arithmetic.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -78,12 +87,13 @@ After the latest source changes:
 - i386 target `out` builds successfully;
 - native x86_64 headless startup no longer fails in the timer, argv, CSF
   allocation, map scan, built-in string sort, startup config dispatch, or the
-  initial graphics pixel/display/gamma/palette allocation boundaries;
+  initial graphics pixel/display/gamma/palette allocation boundaries, SDL
+  surface layout, font dispatch, or graphics row clearing;
 - the full post-change CTest suites still need to be rerun.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
-latest verified run with `-serveronly Estate` reaches OpenGL initialization
-and then enters the SDL cursor compatibility path. Resource/config startup is
+latest verified run with `-serveronly Estate` reaches the video subsystem after
+OpenGL initialization and font loading. Resource/config/graphics startup is
 therefore verified, but gameplay map selection is not yet reached.
 
 ## Reproduce the remaining failure
@@ -100,22 +110,21 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 SIGSEGV in the SDL cursor compatibility
-path after graphics initialization:
+The current result is a native x86_64 SIGSEGV in the legacy video index-table
+path after graphics initialization and font loading:
 
 ```text
 sub_401070
   → sub_43BF10
   → sub_4449D0
-  → sub_48B1F0 / cursor setup
+  → sub_42EE30 / sub_42F200
 ```
 
-The earlier graphics failures were truncated pointers returned by
-`malloc`/`calloc` stored in recovered DWORD slots; those are now handled by
-native Linux low-address temporary allocations. The remaining cursor path
-passes SDL-owned native surface/pixel pointers through the old 32-bit callback
-table. Add a native cursor-row shadow or a native SDL callback boundary next;
-do not widen the recovered table globally.
+The earlier failures were truncated pointers returned by `malloc`/`calloc`
+stored in recovered DWORD slots. The remaining video path has the same shape:
+its 36-byte index records and several video buffers retain 32-bit pointer
+slots. Continue with low-address temporary allocations or native sidecars at
+that subsystem boundary; do not widen the recovered video record globally.
 
 For a backtrace:
 
@@ -130,18 +139,15 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Inspect `sub_42CF50()` completely, including every table access beginning
-   at offsets `73652` and `73672`.
-2. Run the equivalent i386 executable under GDB at `sub_42CF50()` and dump the
-   table entries, record stride, terminator, and integer/function values.
-3. Introduce the smallest x64 shadow table at the owning config-dispatch
-   boundary. Keep the i386 branch byte-for-byte in layout and semantics.
-4. Rebuild `build-linux64/src/out` and repeat the headless smoke test. If it
+1. Fix the native video index/buffer pointer transport at `sub_42EE30()` /
+   `sub_42F200()` and inspect the later video consumers before widening any
+   recovered record.
+2. Rebuild `build-linux64/src/out` and repeat the headless smoke test. If it
    reaches another fault, use the first project frame in the GDB backtrace to
    identify the next packed pointer boundary.
-5. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
+3. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
-6. Update `startup-compatibility.md` with the final table shape and remove or
+4. Update `startup-compatibility.md` with the final table shape and remove or
    revise this handoff's known-failure wording once the path is fixed.
 
 Do not treat a timeout as a successful startup by itself: verify that the

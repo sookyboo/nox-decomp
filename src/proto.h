@@ -1,3 +1,8 @@
+/* SDL owns native pointer-bearing structs; include it before the legacy
+ * record packing below so SDL_Surface and related ABI types keep their
+ * platform layout on 64-bit builds. */
+#include <SDL2/SDL.h>
+
 #if !defined(PROTO_DISABLE_PACK)
 #pragma pack(push, 1)
 #endif
