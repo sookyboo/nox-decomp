@@ -47,6 +47,8 @@ struct nox_window_callback_entry {
 };
 static struct nox_window_callback_entry nox_window_callbacks[256];
 static unsigned int nox_window_callback_count;
+static struct nox_window_callback_entry nox_window_message_callbacks[256];
+static unsigned int nox_window_message_callback_count;
 struct nox_window_draw_entry {
   int object;
   int (*callback)(int, int);
@@ -81,12 +83,18 @@ static uintptr_t nox_native_pointer_from_32(unsigned int value)
   return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
 }
 
+static _DWORD *nox_window_root_get(void)
+{
+  return (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1064888];
+}
+
 #if UINTPTR_MAX > UINT32_MAX
 static uintptr_t nox_audio_dialog_name;
 static HSTREAM nox_audio_stream_handle;
 extern uintptr_t nox_native_last_csf_narrow;
 extern HDIGDRIVER nox_mss_digital_handle;
 extern uintptr_t nox_native_audio_state;
+extern uintptr_t nox_native_window_pool_manager;
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -123,6 +131,38 @@ static int (*nox_window_callback_get(int object))(int, int, int, int)
   {
     if ( nox_window_callbacks[i].object == object )
       return nox_window_callbacks[i].callback;
+  }
+  return 0;
+}
+
+static void nox_window_message_callback_set(int object, int (*callback)(int, int, int, int))
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_message_callback_count; ++i )
+  {
+    if ( nox_window_message_callbacks[i].object == object )
+    {
+      nox_window_message_callbacks[i].callback = callback;
+      return;
+    }
+  }
+  if ( nox_window_message_callback_count < sizeof(nox_window_message_callbacks) / sizeof(nox_window_message_callbacks[0]) )
+  {
+    nox_window_message_callbacks[nox_window_message_callback_count].object = object;
+    nox_window_message_callbacks[nox_window_message_callback_count].callback = callback;
+    ++nox_window_message_callback_count;
+  }
+}
+
+static int (*nox_window_message_callback_get(int object))(int, int, int, int)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_message_callback_count; ++i )
+  {
+    if ( nox_window_message_callbacks[i].object == object )
+      return nox_window_message_callbacks[i].callback;
   }
   return 0;
 }
@@ -22771,7 +22811,11 @@ _DWORD *__cdecl sub_46B0C0(_DWORD *a1, int a2)
   v2 = a1;
   if ( !a1 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    v2 = nox_window_root_get();
+#else
     v2 = *(_DWORD **)&byte_5D4594[1064888];
+#endif
     if ( !*(_DWORD *)&byte_5D4594[1064888] )
       return 0;
   }
@@ -22954,6 +22998,9 @@ int __cdecl sub_46B300(int a1, int (*a2)(int, int, int, int))
 {
   if ( !a1 )
     return -2;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_message_callback_set(a1, a2 ? a2 : sub_46B330);
+#endif
   if ( a2 )
     *(_DWORD *)(a1 + 372) = a2;
   else
@@ -23087,10 +23134,23 @@ int __cdecl sub_46B4C0(int a1, int a2, int a3, int a4)
 //      *(void **)(a1 + 0x1D0));
 //  }
   int result; // eax
+#if UINTPTR_MAX > UINT32_MAX
+  int (*callback)(int, int, int, int);
+#endif
 
   result = a1;
   if ( a1 )
+#if UINTPTR_MAX > UINT32_MAX
+  {
+    callback = nox_window_message_callback_get(a1);
+    if ( !callback )
+      callback = (int (*)(int, int, int, int))(
+        ((uintptr_t)&sub_46B330 & ~(uintptr_t)UINT32_MAX) | *(unsigned int *)(a1 + 372));
+    result = callback(a1, a2, a3, a4);
+  }
+#else
     result = (*(int (__cdecl **)(int, int, int, int))(a1 + 372))(a1, a2, a3, a4);
+#endif
   return result;
 }
 
@@ -23202,7 +23262,14 @@ int __cdecl sub_46B630(int a1, int a2, int a3)
 LABEL_2:
     for ( i = *(_DWORD *)(result + 400); i; i = *(_DWORD *)(i + 388) )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      // Window links remain 32-bit fields in the recovered record.  Do not
+      // read an 8-byte host pointer here; the following DWORD is the next
+      // field in the packed record.
+      v5 = (_DWORD *)(uintptr_t)*(unsigned int *)(i + 396);
+#else
       v5 = *(_DWORD **)(i + 396);
+#endif
       v6 = *(_DWORD *)(i + 16);
       for ( j = *(_DWORD *)(i + 20); v5; v5 = (_DWORD *)v5[99] )
       {
@@ -23375,7 +23442,13 @@ void sub_46B740()
   v63 = 0;
   v61 = 0;
   v64 = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  // The input state is a native static address; keep it wide at this call
+  // site instead of routing it through the decompiler's legacy return path.
+  v2 = (int2 *)&byte_5D4594[805660];
+#else
   v2 = sub_4309F0();
+#endif
   v65.field_0 = (int)v2;
   v3 = v2->field_4;
   v4 = v2[3].field_0;
@@ -23493,7 +23566,11 @@ LABEL_41:
               v22[7] = *(_DWORD *)&byte_5D4594[3807120];
               v22 = *(_DWORD **)&byte_5D4594[1064916];
             }
+#if UINTPTR_MAX > UINT32_MAX
+            v2 = (int2 *)&byte_5D4594[805660];
+#else
             v2 = (int2 *)v65.field_0;
+#endif
             v22[4] = v22[6] - v22[2];
             v8 = v60;
             *(_DWORD *)(*(_DWORD *)&byte_5D4594[1064916] + 20) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1064916] + 28)
@@ -23541,7 +23618,7 @@ LABEL_51:
     goto LABEL_98;
   }
 #if UINTPTR_MAX > UINT32_MAX
-  v24 = nox_window_pool;
+  v24 = nox_window_root_get();
 #else
   v24 = *(_DWORD **)&byte_5D4594[1064888];
 #endif
@@ -23578,7 +23655,7 @@ LABEL_51:
   if ( !v1 )
   {
 LABEL_69:
-    v29 = *(_DWORD *)&byte_5D4594[1064888];
+    v29 = (uintptr_t)nox_window_root_get();
     if ( !*(_DWORD *)&byte_5D4594[1064888] )
       goto LABEL_83;
     while ( 1 )
@@ -23608,7 +23685,7 @@ LABEL_69:
     if ( !v1 )
     {
 LABEL_83:
-      v1 = *(wchar_t **)&byte_5D4594[1064888];
+      v1 = (wchar_t *)nox_window_root_get();
       if ( !*(_DWORD *)&byte_5D4594[1064888] )
         goto LABEL_113;
       while ( 1 )
@@ -23702,7 +23779,11 @@ LABEL_107:
       }
     }
     v0 = v61;
+#if UINTPTR_MAX > UINT32_MAX
+    v2 = (int2 *)&byte_5D4594[805660];
+#else
     v2 = (int2 *)v65.field_0;
+#endif
   }
 LABEL_113:
   if ( !v0 && !sub_46C2A0((int)v1) )
@@ -24103,6 +24184,9 @@ _DWORD *__cdecl sub_46C3E0(int a1, int a2, int a3, int a4, int a5, int a6, int (
         (*(_DWORD *)&byte_5D4594[1064884] = result) != 0) )
 #endif
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_window_pool_manager = (uintptr_t)nox_window_pool;
+#endif
     result = sub_4142F0(result);
     v8 = result;
     if ( result )
