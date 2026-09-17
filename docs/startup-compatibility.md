@@ -66,6 +66,20 @@ matching native cleanup, so the original consumers and 32-bit layouts remain
 unchanged. This is a compatibility boundary for temporary buffers, not a
 change to the game record schema.
 
+`proto.h` includes SDL before enabling the packed region used for the recovered
+records. This keeps native SDL structs such as `SDL_Surface` at their platform
+ABI offsets; only the recovered game records remain packed.
+
+The font/resource setup at `sub_43F1C0()` selects one of two five-entry
+dispatch tables. Each recovered entry is a fixed 12-byte record with pointer
+values in 4-byte slots. Native builds use a host-width sidecar for the two
+name pointers, the resource pointer, and the renderer callback. Loaded font
+resources and their internal buffers use Linux `MAP_32BIT` allocations because
+the remaining decompiled font consumers still receive the original DWORD
+resource pointer. `sub_440900()` likewise treats the graphics row table as an
+array of 4-byte pointer values and explicitly converts each value before
+accessing the pixel row.
+
 ## Diagnostics
 
 Build the native executable with the opt-in 64-bit configuration described in
@@ -92,11 +106,12 @@ project frame in the backtrace as the owning boundary; do not widen every
 nearby field as a workaround.
 
 At the time of this document update, the native executable builds, loads the
-Estate test data, completes config localization, and reaches OpenGL
-initialization. The remaining x86_64 headless-startup fault is in the SDL
-cursor compatibility path: the recovered cursor callback table still expects
-32-bit pixel-row pointers while SDL owns native-width surface data. That is a
-known follow-up, not a claim that the complete game startup path is fixed.
+Estate test data, completes config localization, reaches OpenGL initialization,
+loads the font resources, and completes the graphics row clear. The remaining
+x86_64 headless-startup fault is in the video index-table path at
+`sub_42EE30()`/`sub_42F200()`, where another recovered 32-bit pointer table is
+being populated. That is a known follow-up, not a claim that complete game
+startup is fixed.
 
 ## Compatibility rule
 

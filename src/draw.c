@@ -62,7 +62,7 @@ int create_surfaces(HWND a1, int width, int height);
 void __cdecl sub_48B1B0(SDL_GLContext *a1);
 void __cdecl sub_48B1D0(SDL_Surface **a1);
 SDL_Surface * __cdecl sub_48A600(int a1, int a2, int a3, int a4);
-int __cdecl sub_48A720(SDL_Surface *a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, int *a5);
+int __cdecl sub_48A720(SDL_Surface *a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, BYTE **a5);
 void __cdecl sub_48A670(SDL_Surface *a1);
 void __cdecl sub_48A6B0(SDL_Surface *a1);
 
@@ -510,6 +510,24 @@ DWORD dword_6F7BB0;
 DWORD dword_6F7BF8;
 BYTE *dword_6F7C74;
 BYTE *dword_6F7C78;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+static BYTE *nox_cursor_rows[128];
+
+static void nox_cursor_fill(BYTE *address, int value, unsigned int size)
+{
+    while (size >= 4)
+    {
+        *(uint32_t *)address = (uint32_t)value;
+        address += 4;
+        size -= 4;
+    }
+    while (size)
+    {
+        *address++ = (BYTE)value;
+        --size;
+    }
+}
+#endif
 extern DWORD dword_974854;
 int(*dword_6F7BF0)(int);
 void(*dword_6F7C10)(_DWORD, _DWORD, _DWORD);
@@ -663,7 +681,7 @@ SDL_Surface * __cdecl sub_48A600(int width, int height, int flags, int caps)
 //    return SDL_CreateRGBSurface(0, width, height, 16, 0xF800, 0x7E0, 0x1F, 0);
 }
 
-int __cdecl sub_48A720(SDL_Surface *a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, int *a5)
+int __cdecl sub_48A720(SDL_Surface *a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, BYTE **a5)
 {
     if (a2)
         *a2 = a1->w;
@@ -3479,8 +3497,13 @@ int __cdecl sub_48B3F0(int a1, int a2, int a3)
 		{
 			*(_DWORD *)&byte_5D4594[1193624] = a1;
 			sub_48A670(g_cursor_surf);
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+			for (i = 0; i < 128; ++i)
+				nox_cursor_fill(nox_cursor_rows[i], *(int *)&byte_5D4594[1193592], 128);
+#else
 			for (i = 0; i < 512; i += 4)
 				sub_49D1C0(*(_DWORD *)(i + *(_DWORD *)&byte_5D4594[1193704]), *(int *)&byte_5D4594[1193592], 128);
+#endif
 			a3 = 0;
 			a2 = 0;
 			if (sub_48C0C0(a1, &a2, &a3))
@@ -3593,6 +3616,11 @@ int sub_48C060()
 
 	if (g_cursor_surf && dword_6F7C74)
 	{
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+		for (v2 = 0; v2 < 128; ++v2)
+			nox_cursor_rows[v2] = dword_6F7C74 + v2 * dword_6F7BF8;
+		return 1;
+#else
 		result = (int)malloc(0x200u);
 		*(_DWORD *)&byte_5D4594[1193704] = result;
 		if (!result)
@@ -3608,6 +3636,7 @@ int sub_48C060()
 				break;
 			result = *(_DWORD *)&byte_5D4594[1193704];
 		}
+#endif
 	}
 	return 1;
 }
