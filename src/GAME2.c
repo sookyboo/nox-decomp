@@ -47,6 +47,7 @@ static void nox_486_low_free(void *address, size_t size);
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
+extern _DWORD *nox_legal_window;
 static int nox_window_parent_stack[10];
 static int *nox_window_parent_stack_top;
 static _DWORD *nox_window_pool;
@@ -24578,6 +24579,10 @@ int __cdecl sub_46C4E0(_DWORD *a1)
     sub_46AC60((int)a1);
     if ( *(_DWORD **)&byte_5D4594[1064904] == a1 )
       sub_46ADE0((int)a1);
+#if UINTPTR_MAX > UINT32_MAX
+    if ( nox_legal_window == a1 )
+      nox_legal_window = 0;
+#endif
     if ( *(_DWORD **)&byte_5D4594[1064908] == a1 )
       sub_46B500(0);
     if ( *(_DWORD *)&byte_5D4594[1064912] && a1 == **(_DWORD ***)&byte_5D4594[1064912] )
