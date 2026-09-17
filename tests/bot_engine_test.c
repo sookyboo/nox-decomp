@@ -120,6 +120,10 @@ static int bomber_sound_arg3;
 static int bomber_sound_arg4;
 static int bomber_mark_update_calls;
 static int bomber_mark_update_object;
+static int chat_send_calls;
+static int chat_send_object;
+static wchar_t chat_send_text[32];
+static wchar_t chat_send_arg3;
 static char *player_info_by_slot[32];
 static unsigned char spawn_profile[97];
 static unsigned char spawn_server_options[104];
@@ -572,6 +576,21 @@ _DWORD *__cdecl sub_501960(int sound, int object, int arg3, int arg4)
     bomber_sound_arg3 = arg3;
     bomber_sound_arg4 = arg4;
     return 0;
+}
+
+int __cdecl sub_528AC0(int object, wchar_t *text, wchar_t arg3)
+{
+    int i = 0;
+
+    ++chat_send_calls;
+    chat_send_object = object;
+    chat_send_arg3 = arg3;
+    while (text && text[i] && i + 1 < (int)(sizeof(chat_send_text) / sizeof(chat_send_text[0]))) {
+        chat_send_text[i] = text[i];
+        ++i;
+    }
+    chat_send_text[i] = 0;
+    return 1;
 }
 
 void __cdecl sub_4F3070(int object, int item, int flag)
@@ -1309,6 +1328,31 @@ static int test_world_loot_and_equipment_wrappers(void)
     return 0;
 }
 
+static int test_native_chat_wrapper(void)
+{
+    unsigned char object[800];
+    int object_ptr = (int)(uintptr_t)object;
+    const wchar_t *expected = L"Hello!";
+    int i;
+
+    memset(object, 0, sizeof(object));
+    chat_send_calls = 0;
+    chat_send_object = 0;
+    chat_send_text[0] = 0;
+    chat_send_arg3 = 1;
+    if (!nox_bot_engine_chat(object_ptr, expected))
+        return 132;
+    if (chat_send_calls != 1 || chat_send_object != object_ptr || chat_send_arg3 != 0)
+        return 133;
+    for (i = 0; expected[i] || chat_send_text[i]; ++i) {
+        if (expected[i] != chat_send_text[i])
+            return 134;
+    }
+    if (nox_bot_engine_chat(0, expected) || nox_bot_engine_chat(object_ptr, L""))
+        return 135;
+    return 0;
+}
+
 static int test_phoneme_audio_wrapper(void)
 {
     static const char *const expected_names[] = {
@@ -1731,6 +1775,9 @@ int main(void)
     if (result)
         return result;
     result = test_world_loot_and_equipment_wrappers();
+    if (result)
+        return result;
+    result = test_native_chat_wrapper();
     if (result)
         return result;
     result = test_phoneme_audio_wrapper();
