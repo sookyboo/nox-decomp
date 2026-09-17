@@ -31,21 +31,28 @@ fi
 # 1) Default: run arch follows device arch
 RUN_ARCH="${DEVICE_ARCH}"
 
+# Set to Y to run the native x86_64 binary on x86_64 hosts.
+NOX_FORCE_64BIT="N"
+
 # 2) Remap device arch -> desired run arch
-case "${RUN_ARCH}" in
-  aarch64|arm64|armv8*)
-    RUN_ARCH="armhf"
-    ;;
-  armhf|armv7*|arm)
-    RUN_ARCH="armhf"
-    ;;
-  amd64|x86_64)
-    RUN_ARCH="i386"
-    ;;
-  x86|i686|i386)
-    RUN_ARCH="i386"
-    ;;
-esac
+if [ "${NOX_FORCE_64BIT}" = "Y" ] && [ "${DEVICE_ARCH}" = "x86_64" ]; then
+  RUN_ARCH="x86_64"
+else
+  case "${RUN_ARCH}" in
+    aarch64|arm64|armv8*)
+      RUN_ARCH="armhf"
+      ;;
+    armhf|armv7*|arm)
+      RUN_ARCH="armhf"
+      ;;
+    amd64|x86_64)
+      RUN_ARCH="i386"
+      ;;
+    x86|i686|i386)
+      RUN_ARCH="i386"
+      ;;
+  esac
+fi
 
 # ---------------------------
 # Paths
@@ -738,7 +745,11 @@ export LD_LIBRARY_PATH="$GAMEDIR/ffmpeg.${RUN_ARCH}:$LD_LIBRARY_PATH"
 # Help debug OpenAL issues
 #export ALSOFT_LOGLEVEL=3
 
-export LD_LIBRARY_PATH="$GAMEDIR/steam/libs.i386.x11:$LD_LIBRARY_PATH" # Load libSDL2 with x11/wayland support
+if [ "${RUN_ARCH}" = "i386" ]; then
+  export LD_LIBRARY_PATH="$GAMEDIR/steam/libs.i386.x11:$LD_LIBRARY_PATH" # Load libSDL2 with x11/wayland support
+elif [ -d "$GAMEDIR/steam/libs.x86_64.x11" ]; then
+  export LD_LIBRARY_PATH="$GAMEDIR/steam/libs.x86_64.x11:$LD_LIBRARY_PATH" # Load native libSDL2 with x11/wayland support
+fi
 export # for debugging
 
 export NOX_CONTROL_SERVER=0

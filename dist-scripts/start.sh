@@ -4,7 +4,13 @@ set -euo pipefail
 APP_ID="io.github.sookyboo.nox-decomp"
 
 PKG_BASE="/app/share/nox-decomp"
-PKG_NOXD="/app/bin/noxd.i386"
+# Set to Y to run the native x86_64 Flatpak binary instead of i386.
+NOX_FORCE_64BIT="N"
+PKG_ARCH="i386"
+if [[ "${NOX_FORCE_64BIT}" == "Y" && "$(uname -m)" == "x86_64" ]]; then
+  PKG_ARCH="x86_64"
+fi
+PKG_NOXD="/app/bin/noxd.${PKG_ARCH}"
 PKG_GPTK2_INI="${PKG_BASE}/nox.gptk2.ini"
 PKG_INNOEXTRACT="/app/bin/innoextract"
 PKG_FFMPEG_X64="/usr/bin/ffmpeg"
@@ -700,6 +706,12 @@ add_path_back() {
 
 LIBPATH=""
 
+if [[ "${PKG_ARCH}" == "x86_64" ]]; then
+  add_path_front "/app/lib/x86_64-linux-gnu"
+  add_path_front "/usr/lib/x86_64-linux-gnu"
+  add_path_back "/app/lib64"
+else
+
 # --- GL32 mount paths (only add if they exist) ---
 # Newer runtimes mount GL32 under /app/lib/.../GL/default/lib
 add_path_front "/app/lib/i386-linux-gnu/GL/default/lib"
@@ -710,20 +722,31 @@ add_path_front "/usr/lib/i386-linux-gnu/GL/default/lib"
 add_path_front "/app/lib/i386-linux-gnu"
 add_path_front "/usr/lib/i386-linux-gnu"
 
-add_path_back "/app/lib32"
+  add_path_back "/app/lib32"
+fi
 
 
 # ---------------------------
-# Find an i386 loader we can actually execute
+# Find a loader we can actually execute
 # ---------------------------
 LOADER=""
-for c in \
-  /usr/lib/i386-linux-gnu/ld-linux.so.2 \
-  /app/lib/i386-linux-gnu/ld-linux.so.2 \
-  /lib/i386-linux-gnu/ld-linux.so.2 \
-  /lib/ld-linux.so.2 \
-  /usr/lib32/ld-linux.so.2
-do
+if [[ "${PKG_ARCH}" == "x86_64" ]]; then
+  loader_candidates=(
+    /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    /app/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    /lib64/ld-linux-x86-64.so.2
+    /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+  )
+else
+  loader_candidates=(
+    /usr/lib/i386-linux-gnu/ld-linux.so.2
+    /app/lib/i386-linux-gnu/ld-linux.so.2
+    /lib/i386-linux-gnu/ld-linux.so.2
+    /lib/ld-linux.so.2
+    /usr/lib32/ld-linux.so.2
+  )
+fi
+for c in "${loader_candidates[@]}"; do
   if [[ -x "$c" ]]; then
     LOADER="$c"
     break
@@ -731,9 +754,11 @@ do
 done
 
 if [[ -z "${LOADER}" ]]; then
-  echo "ERROR: i386 loader not found in sandbox." >&2
-  echo "You likely need: org.freedesktop.Platform.Compat.i386//${FLATPAK_RUNTIME_VERSION:-24.08}" >&2
-  echo "Try (user install): flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08" >&2
+  echo "ERROR: loader for ${PKG_ARCH} binary not found in sandbox." >&2
+  if [[ "${PKG_ARCH}" != "x86_64" ]]; then
+    echo "You likely need: org.freedesktop.Platform.Compat.i386//${FLATPAK_RUNTIME_VERSION:-24.08}" >&2
+    echo "Try (user install): flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08" >&2
+  fi
   echo "Sandbox /usr/lib (snippet):" >&2
   ls -la /usr/lib 2>/dev/null | head -n 80 >&2 || true
   exit 127
@@ -761,12 +786,21 @@ if [[ "${NOX_LD_TRACE}" != "0" ]]; then
   "${LOADER}" --library-path "${LIBPATH}" --list "${PKG_NOXD}" 2>&1 | sed 's/^/[list] /' >&2 || true
   echo >&2
 
-  echo "== GL32 mount probe ==" >&2
-  for p in \
-    /app/lib/i386-linux-gnu/GL/default/lib \
-    /usr/lib/i386-linux-gnu/GL/default/lib \
-    /app/lib/i386-linux-gnu \
-    /usr/lib/i386-linux-gnu
+  echo "== architecture library probe ==" >&2
+  if [[ "${PKG_ARCH}" == "x86_64" ]]; then
+    probe_paths=(
+      /app/lib/x86_64-linux-gnu
+      /usr/lib/x86_64-linux-gnu
+    )
+  else
+    probe_paths=(
+      /app/lib/i386-linux-gnu/GL/default/lib
+      /usr/lib/i386-linux-gnu/GL/default/lib
+      /app/lib/i386-linux-gnu
+      /usr/lib/i386-linux-gnu
+    )
+  fi
+  for p in "${probe_paths[@]}"
   do
     if [[ -d "$p" ]]; then
       echo "[gl] OK: $p" >&2
