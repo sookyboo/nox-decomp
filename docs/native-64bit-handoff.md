@@ -14,8 +14,8 @@ Relevant commits:
   fixes;
 - `f355655` — architecture, sandbox, and startup compatibility documentation.
 - `fbd2731` — native graphics low-address compatibility allocations.
-- the current checkpoint fixes CSF file-stream sidecar use and the Modifier.bin
-  dispatch/record, COLOR-name, class-name, and damage-type sidecars.
+- the current checkpoint fixes native window callbacks, font/text resource
+  transport, executable metadata parsing, and the startup callback tables.
 
 The untracked file `0001-bot-native-player-bot-combined.patch` is user-owned and
 must not be modified, staged, or deleted.
@@ -85,6 +85,12 @@ The current branch contains native-width handling for:
 - the native `.wnd` property path: its 18 handlers receive host-width window
   record pointers, the ACTIVE/type lookup tables use native-width sidecars,
   and the temporary parent-window stack uses a native pointer cursor.
+- native window callback, widget font, static-text value, and text-buffer
+  sidecars preserve host pointers that the recovered widget records store in
+  DWORD slots; `sub_46AF00()`/`sub_46B490()` widen pointer-returning events.
+- startup metadata and callback inputs use host-width transports in
+  `sub_4145F0()`/`sub_414B30()`, `sub_47FA80()`, and the main-loop callback
+  slots. The legal-window root is also kept in a native pointer sidecar.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -118,15 +124,11 @@ native boundary is after `MainBG.wnd` property parsing, in widget construction
 through `sub_4A1440()` → `sub_46C3E0()` → `sub_46B490()`; full gameplay startup
 is not yet verified.
 
-The headless smoke test uses `Estate` because it is a known-working map. GDB
-identified the generic-parser boundary as
-`sub_415470 → sub_412930 → sub_412AE0`; the failures were fixed in the
-transient record-pointer dispatch, nested property tables, material-name list,
-and fixed-width record string slots. A verified run now leaves the generic
-Modifier.bin handlers and reaches later `sub_415470()` startup work. The
-environment still has unrelated intermittent CSF/graphics aborts, and other
-runs can fail at a later `sub_40AD10()` data boundary, so gameplay map
-selection is not yet reached.
+The headless smoke test uses `Estate` because it is a known-working map. The
+verified run now completes font/text setup, legal-window rendering, executable
+metadata parsing, input dispatch, and the initial widget draw callbacks. It
+currently stops in the later texture/render table path at
+`sub_49E060()`; gameplay map selection is not yet reached.
 
 ## Reproduce the remaining failure
 
@@ -142,10 +144,9 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 startup run that reaches and completes
-the `MainBG.wnd` property section. Full runs can also hit an intermittent
-SDL/X11 allocator abort in `sub_43BF10()` before Modifier.bin; when graphics
-startup completes, the next confirmed failure is widget construction:
+The current result is a native x86_64 startup run that reaches legal-window
+rendering and the first widget draw callbacks. The remaining reproducible
+failure is in the texture/render table path:
 
 ```text
 sub_401070
@@ -159,6 +160,8 @@ sub_401070
   → sub_412ED0
   → sub_4A0D80 / sub_4A1440
   → sub_46C3E0 / sub_46B490
+  → sub_46C2E0 / sub_46C370
+  → sub_49D190 / sub_49E060
 ```
 
 The video fix uses low-address allocations for the recovered 36-byte index
@@ -191,9 +194,9 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Continue the headless smoke test from the confirmed widget-construction
-   boundary. Capture the owning pointer transport for `sub_46C3E0()` /
-   `sub_46B490()` before changing the recovered widget layout.
+1. Continue the headless smoke test from `sub_49E060()` and inspect the
+   texture/render table pointer at `byte_5D4594[3798784]`; preserve its fixed
+   recovered table layout while shadowing only the native pointer transport.
 2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
 3. Update `startup-compatibility.md` with the final table shape and remove or

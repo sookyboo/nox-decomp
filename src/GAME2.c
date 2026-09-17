@@ -1,5 +1,8 @@
 #include "proto.h"
 
+static void (*nox_draw_callback)(int, int, int);
+static int (*nox_texture_callback)(int, int, int, int, int);
+
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 #include <sys/mman.h>
 #include <unistd.h>
@@ -35,6 +38,259 @@
 #if UINTPTR_MAX > UINT32_MAX
 static int nox_window_parent_stack[10];
 static int *nox_window_parent_stack_top;
+static _DWORD *nox_window_pool;
+struct nox_window_callback_entry {
+  int object;
+  int (*callback)(int, int, int, int);
+};
+static struct nox_window_callback_entry nox_window_callbacks[256];
+static unsigned int nox_window_callback_count;
+struct nox_window_draw_entry {
+  int object;
+  int (*callback)(int, int);
+};
+static struct nox_window_draw_entry nox_window_draw_callbacks[256];
+static unsigned int nox_window_draw_callback_count;
+struct nox_window_value_entry {
+  int object;
+  _DWORD *value;
+};
+static struct nox_window_value_entry nox_window_values[256];
+static unsigned int nox_window_value_count;
+struct nox_window_font_entry {
+  uintptr_t object;
+  uintptr_t font;
+};
+static struct nox_window_font_entry nox_window_fonts[256];
+static unsigned int nox_window_font_count;
+struct nox_window_text_entry {
+  uintptr_t object;
+  wchar_t *text;
+};
+static struct nox_window_text_entry nox_window_texts[256];
+static unsigned int nox_window_text_count;
+static struct nox_window_font_entry nox_window_value_pointers[256];
+static unsigned int nox_window_value_pointer_count;
+
+static void nox_window_callback_set(int object, int (*callback)(int, int, int, int))
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_callback_count; ++i )
+  {
+    if ( nox_window_callbacks[i].object == object )
+    {
+      nox_window_callbacks[i].callback = callback;
+      return;
+    }
+  }
+  if ( nox_window_callback_count < sizeof(nox_window_callbacks) / sizeof(nox_window_callbacks[0]) )
+  {
+    nox_window_callbacks[nox_window_callback_count].object = object;
+    nox_window_callbacks[nox_window_callback_count].callback = callback;
+    ++nox_window_callback_count;
+  }
+}
+
+static int (*nox_window_callback_get(int object))(int, int, int, int)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_callback_count; ++i )
+  {
+    if ( nox_window_callbacks[i].object == object )
+      return nox_window_callbacks[i].callback;
+  }
+  return 0;
+}
+
+static void nox_window_value_set(int object, _DWORD *value)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_value_count; ++i )
+  {
+    if ( nox_window_values[i].object == object )
+    {
+      nox_window_values[i].value = value;
+      return;
+    }
+  }
+  if ( nox_window_value_count < sizeof(nox_window_values) / sizeof(nox_window_values[0]) )
+  {
+    nox_window_values[nox_window_value_count].object = object;
+    nox_window_values[nox_window_value_count].value = value;
+    ++nox_window_value_count;
+  }
+}
+
+static _DWORD *nox_window_value_get(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_value_count; ++i )
+  {
+    if ( nox_window_values[i].object == object )
+      return nox_window_values[i].value;
+  }
+  return 0;
+}
+
+static void nox_window_value_remove(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_value_count; ++i )
+  {
+    if ( nox_window_values[i].object == object )
+    {
+      nox_window_values[i] = nox_window_values[--nox_window_value_count];
+      return;
+    }
+  }
+}
+
+static void nox_window_font_set(uintptr_t object, uintptr_t font)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_font_count; ++i )
+  {
+    if ( nox_window_fonts[i].object == object )
+    {
+      nox_window_fonts[i].font = font;
+      return;
+    }
+  }
+  if ( nox_window_font_count < sizeof(nox_window_fonts) / sizeof(nox_window_fonts[0]) )
+  {
+    nox_window_fonts[nox_window_font_count].object = object;
+    nox_window_fonts[nox_window_font_count].font = font;
+    ++nox_window_font_count;
+  }
+}
+
+static uintptr_t nox_window_font_get(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_font_count; ++i )
+  {
+    if ( nox_window_fonts[i].object == object )
+      return nox_window_fonts[i].font;
+  }
+  return 0;
+}
+
+static void nox_window_text_set(uintptr_t object, wchar_t *text)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_text_count; ++i )
+  {
+    if ( nox_window_texts[i].object == object )
+    {
+      nox_window_texts[i].text = text;
+      return;
+    }
+  }
+  if ( nox_window_text_count < sizeof(nox_window_texts) / sizeof(nox_window_texts[0]) )
+  {
+    nox_window_texts[nox_window_text_count].object = object;
+    nox_window_texts[nox_window_text_count].text = text;
+    ++nox_window_text_count;
+  }
+}
+
+static wchar_t *nox_window_text_get(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_text_count; ++i )
+  {
+    if ( nox_window_texts[i].object == object )
+      return nox_window_texts[i].text;
+  }
+  return 0;
+}
+
+static void nox_window_text_remove(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_text_count; ++i )
+  {
+    if ( nox_window_texts[i].object == object )
+    {
+      nox_window_texts[i] = nox_window_texts[--nox_window_text_count];
+      return;
+    }
+  }
+}
+
+static void nox_window_value_pointer_set(uintptr_t object, uintptr_t value)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_value_pointer_count; ++i )
+  {
+    if ( nox_window_value_pointers[i].object == object )
+    {
+      nox_window_value_pointers[i].font = value;
+      return;
+    }
+  }
+  if ( nox_window_value_pointer_count < sizeof(nox_window_value_pointers) / sizeof(nox_window_value_pointers[0]) )
+  {
+    nox_window_value_pointers[nox_window_value_pointer_count].object = object;
+    nox_window_value_pointers[nox_window_value_pointer_count].font = value;
+    ++nox_window_value_pointer_count;
+  }
+}
+
+static uintptr_t nox_window_value_pointer_get(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_value_pointer_count; ++i )
+  {
+    if ( nox_window_value_pointers[i].object == object )
+      return nox_window_value_pointers[i].font;
+  }
+  return 0;
+}
+
+static void nox_window_draw_callback_set(int object, int (*callback)(int, int))
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_draw_callback_count; ++i )
+  {
+    if ( nox_window_draw_callbacks[i].object == object )
+    {
+      nox_window_draw_callbacks[i].callback = callback;
+      return;
+    }
+  }
+  if ( nox_window_draw_callback_count < sizeof(nox_window_draw_callbacks) / sizeof(nox_window_draw_callbacks[0]) )
+  {
+    nox_window_draw_callbacks[nox_window_draw_callback_count].object = object;
+    nox_window_draw_callbacks[nox_window_draw_callback_count].callback = callback;
+    ++nox_window_draw_callback_count;
+  }
+}
+
+static int (*nox_window_draw_callback_get(int object))(int, int)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_draw_callback_count; ++i )
+  {
+    if ( nox_window_draw_callbacks[i].object == object )
+      return nox_window_draw_callbacks[i].callback;
+  }
+  return 0;
+}
 #endif
 
 BYTE *npc_array;
@@ -22158,10 +22414,10 @@ int __cdecl sub_46AEE0(int a1, int a2)
 }
 
 //----- (0046AF00) --------------------------------------------------------
-int __cdecl sub_46AF00(int a1)
+uintptr_t __cdecl sub_46AF00(int a1)
 {
   int v1; // ecx
-  int result; // eax
+  uintptr_t result; // eax
 
   if ( !a1 )
     goto LABEL_9;
@@ -22177,13 +22433,19 @@ LABEL_9:
 }
 
 //----- (0046AF40) --------------------------------------------------------
-int __cdecl sub_46AF40(int a1)
+uintptr_t __cdecl sub_46AF40(int a1)
 {
-  int result; // eax
+  uintptr_t result; // eax
 
   result = a1;
   if ( a1 )
-    result = *(_DWORD *)(a1 + 236);
+  {
+#if UINTPTR_MAX > UINT32_MAX
+    result = nox_window_font_get((uintptr_t)a1);
+    if ( !result )
+#endif
+      result = *(_DWORD *)(a1 + 236);
+  }
   return result;
 }
 
@@ -22210,6 +22472,10 @@ int __cdecl sub_46AF80(int a1, const void *a2)
     return -3;
   result = 0;
   qmemcpy((void *)(a1 + 36), a2, 0x14Cu);
+#if UINTPTR_MAX > UINT32_MAX
+  if ( nox_window_font_get((uintptr_t)a2) )
+    nox_window_font_set((uintptr_t)a1, nox_window_font_get((uintptr_t)a2));
+#endif
   return result;
 }
 
@@ -22785,6 +23051,9 @@ int __cdecl sub_46B340(int a1, int (*a2)(int, int))
 {
   if ( !a1 )
     return -2;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_draw_callback_set(a1, a2);
+#endif
   if ( a2 )
     *(_DWORD *)(a1 + 380) = a2;
   else
@@ -22845,13 +23114,29 @@ int __cdecl sub_46B430(_DWORD *a1, int (*a2)(int, int, int, int), int (*a3)(int,
 }
 
 //----- (0046B490) --------------------------------------------------------
-int __cdecl sub_46B490(int a1, int a2, int a3, int a4)
+uintptr_t __cdecl sub_46B490(int a1, int a2, int a3, int a4)
 {
-  int result; // eax
+#if UINTPTR_MAX > UINT32_MAX
+  int (*callback)(int, int, int, int);
+
+  callback = nox_window_callback_get(a1);
+  if ( callback )
+  {
+    if ( a2 == 16386 || a2 == 16413 )
+      return ((uintptr_t (*)(int, int, int, int))callback)(a1, a2, a3, a4);
+    return callback(a1, a2, a3, a4);
+  }
+#endif
+  uintptr_t result; // eax
 
   result = a1;
   if ( a1 )
-    result = (*(int (__cdecl **)(int, int, int, int))(a1 + 376))(a1, a2, a3, a4);
+  {
+    if ( a2 == 16386 || a2 == 16413 )
+      result = ((uintptr_t (__cdecl *)(int, int, int, int))(*(void **)(a1 + 376)))(a1, a2, a3, a4);
+    else
+      result = (*(int (__cdecl **)(int, int, int, int))(a1 + 376))(a1, a2, a3, a4);
+  }
   return result;
 }
 
@@ -23322,8 +23607,12 @@ LABEL_51:
     v23 = (wchar_t *)sub_46B5B0(**(_DWORD ***)&byte_5D4594[1064912], v2->field_0, v2->field_4);
     goto LABEL_98;
   }
+#if UINTPTR_MAX > UINT32_MAX
+  v24 = nox_window_pool;
+#else
   v24 = *(_DWORD **)&byte_5D4594[1064888];
-  if ( !*(_DWORD *)&byte_5D4594[1064888] )
+#endif
+  if ( !v24 )
     goto LABEL_69;
   while ( 1 )
   {
@@ -23737,7 +24026,11 @@ void sub_46C200()
       if ( *(_DWORD *)&byte_5D4594[1064916] == v0 )
         *(_DWORD *)&byte_5D4594[1064916] = 0;
       sub_46B490(v0, 2, 0, 0);
+#if UINTPTR_MAX > UINT32_MAX
+      sub_414330((unsigned int *)nox_window_pool, (_QWORD *)v0);
+#else
       sub_414330(*(unsigned int **)&byte_5D4594[1064884], (_QWORD *)v0);
+#endif
       v0 = v2;
     }
     while ( v2 );
@@ -23773,7 +24066,7 @@ int sub_46C2E0()
   int v0; // ecx
   int v1; // eax
   int v2; // esi
-  int v3; // eax
+  uintptr_t v3; // eax
   int v4; // esi
   int result; // eax
   int v6; // esi
@@ -23834,9 +24127,23 @@ int __cdecl sub_46C370(_DWORD *a1)
     return -2;
   if ( !(a1[1] & 0x10) )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    if ( nox_window_draw_callback_get((int)(uintptr_t)a1) )
+      nox_window_draw_callback_get((int)(uintptr_t)a1)((int)(uintptr_t)a1, (int *)(a1 + 9));
+    else if ( a1[95] == ((uintptr_t)sub_46B370 & UINT32_MAX) )
+      sub_46B370((int)(uintptr_t)a1, (int *)(a1 + 9));
+    else
+    {
+    v2 = (int (__cdecl *)(_DWORD *, _DWORD *))(
+      ((uintptr_t)&sub_46C370 & ~(uintptr_t)UINT32_MAX) | a1[95]);
+    if ( v2 )
+      v2(a1, a1 + 9);
+    }
+#else
     v2 = (int (__cdecl *)(_DWORD *, _DWORD *))a1[95];
     if ( v2 )
       v2(a1, a1 + 9);
+#endif
     if ( (a1[1] & 0x1000) == 4096 )
       sub_4AA030(a1, (int)(a1 + 9));
     for ( i = (_DWORD *)a1[100]; i; i = (_DWORD *)i[97] )
@@ -23851,10 +24158,17 @@ _DWORD *__cdecl sub_46C3E0(int a1, int a2, int a3, int a4, int a5, int a6, int (
   _DWORD *result; // eax
   _DWORD *v8; // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_window_pool;
+  if ( nox_window_pool
+    || (result = sub_413FE0((const char *)&byte_587000[143304], 404, 576),
+        (nox_window_pool = result) != 0) )
+#else
   result = *(_DWORD **)&byte_5D4594[1064884];
   if ( *(_DWORD *)&byte_5D4594[1064884]
     || (result = sub_413FE0((const char *)&byte_587000[143304], 404, 576),
         (*(_DWORD *)&byte_5D4594[1064884] = result) != 0) )
+#endif
   {
     result = sub_4142F0(result);
     v8 = result;
@@ -23879,6 +24193,9 @@ _DWORD *__cdecl sub_46C3E0(int a1, int a2, int a3, int a4, int a5, int a6, int (
       if ( a7 )
       {
         v8[94] = a7;
+#if UINTPTR_MAX > UINT32_MAX
+        nox_window_callback_set((int)(uintptr_t)v8, a7);
+#endif
         sub_46B490((int)v8, 1, 0, 0);
       }
       else
@@ -23959,7 +24276,11 @@ int sub_46C5D0()
     while ( v1 );
   }
   sub_46C200();
+#if UINTPTR_MAX > UINT32_MAX
+  sub_4144D0(nox_window_pool);
+#else
   sub_4144D0(*(_DWORD **)&byte_5D4594[1064884]);
+#endif
   return 0;
 }
 
@@ -36035,14 +36356,26 @@ int sub_47D200()
     if ( *(_DWORD *)&byte_5D4594[3801780] == 1 )
     {
       if ( *(_DWORD *)&byte_5D4594[3801804] )
+#if UINTPTR_MAX > UINT32_MAX
+        nox_draw_callback = sub_4C7670;
+#else
         *(_DWORD *)&byte_5D4594[3799500] = sub_4C7670;
+#endif
       else
+#if UINTPTR_MAX > UINT32_MAX
+        nox_draw_callback = sub_4C7440;
+#else
         *(_DWORD *)&byte_5D4594[3799500] = sub_4C7440;
+#endif
     }
   }
   else
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_draw_callback = sub_4C5EB0;
+#else
     *(_DWORD *)&byte_5D4594[3799500] = sub_4C5EB0;
+#endif
   }
   *(_DWORD *)&byte_5D4594[3799484] = 0;
   *(_DWORD *)&byte_5D4594[3799480] = 0;
@@ -36077,7 +36410,11 @@ __int16 __cdecl sub_47D2C0(int a1, int a2, int a3)
     sub_49F780(*(int *)&byte_5D4594[3799480], *(int *)&byte_5D4594[3799440]);
     sub_49F6D0(1);
   }
+#if UINTPTR_MAX > UINT32_MAX
+  nox_draw_callback(a1, a2, a3);
+#else
   (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3799500])(a1, a2, a3);
+#endif
   if ( *(_DWORD *)&byte_5D4594[3799452] )
   {
     sub_49F860();
@@ -45473,6 +45810,9 @@ _DWORD *__cdecl sub_488500(int a1, int a2, int a3, int a4, int a5, int a6, int a
     v10 = (int *)malloc(0x420u);
     qmemcpy(v10, a8, 0x420u);
     v8[8] = v10;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_window_text_set((uintptr_t)v8, (wchar_t *)v10);
+#endif
     if ( *(_DWORD *)&byte_587000[26048] != 8 && *(_DWORD *)&byte_587000[26048] != 6 )
     {
       result = v8;
@@ -45510,7 +45850,7 @@ _DWORD *__cdecl sub_488500(int a1, int a2, int a3, int a4, int a5, int a6, int a
 }
 
 //----- (00488710) --------------------------------------------------------
-int __cdecl sub_488710(int a1, unsigned int a2, wchar_t *a3, int a4)
+uintptr_t __cdecl sub_488710(int a1, unsigned int a2, wchar_t *a3, int a4)
 {
   int v3; // esi
   int v4; // eax
@@ -45522,7 +45862,11 @@ int __cdecl sub_488710(int a1, unsigned int a2, wchar_t *a3, int a4)
   {
     if ( a2 == 16414 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      nox_wcsncpy(nox_window_text_get((uintptr_t)a1), a3, 0xFFu);
+#else
       nox_wcsncpy((wchar_t *)v3, a3, 0xFFu);
+#endif
       *(_WORD *)(v3 + 510) = 0;
       *(_WORD *)(v3 + 1052) = nox_wcslen((const wchar_t *)v3);
       *(_WORD *)(v3 + 512) = 0;
@@ -45531,11 +45875,22 @@ int __cdecl sub_488710(int a1, unsigned int a2, wchar_t *a3, int a4)
     return 0;
   }
   if ( a2 == 16413 )
+#if UINTPTR_MAX > UINT32_MAX
+    return (uintptr_t)nox_window_text_get((uintptr_t)a1);
+#else
     return *(_DWORD *)(a1 + 32);
+#endif
   if ( a2 == 2 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    wchar_t *text = nox_window_text_get((uintptr_t)a1);
+    sub_46C4E0(*(_DWORD **)((uintptr_t)text + 1048));
+    free(text);
+    nox_window_text_remove((uintptr_t)a1);
+#else
     sub_46C4E0(*(_DWORD **)(v3 + 1048));
     free(*(LPVOID *)(a1 + 32));
+#endif
     return 0;
   }
   if ( a2 != 23 )
@@ -46028,27 +46383,51 @@ _DWORD *__cdecl sub_489300(int a1, int a2, int a3, int a4, int a5, int a6, _DWOR
     v10[1] = a8[1];
     v10[2] = a8[2];
     v9[8] = v10;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_window_value_set((int)(uintptr_t)v9, v10);
+    nox_window_value_pointer_set(
+      (uintptr_t)v9,
+      ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | *a8);
+#endif
   }
   return v9;
 }
 
 //----- (00489390) --------------------------------------------------------
-int __cdecl sub_489390(int a1, int a2, int a3, int a4)
+uintptr_t __cdecl sub_489390(int a1, int a2, int a3, int a4)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  _DWORD *value;
+
+  value = nox_window_value_get(a1);
+#endif
   switch ( a2 )
   {
     case 2:
+#if UINTPTR_MAX > UINT32_MAX
+      free(value);
+      nox_window_value_remove(a1);
+#else
       free(*(LPVOID *)(a1 + 32));
+#endif
       break;
     case 16385:
       if ( a3 )
       {
+#if UINTPTR_MAX > UINT32_MAX
+        *value = a3;
+#else
         **(_DWORD **)(a1 + 32) = a3;
+#endif
         return 0;
       }
       break;
     case 16386:
+#if UINTPTR_MAX > UINT32_MAX
+      return nox_window_value_pointer_get((uintptr_t)a1);
+#else
       return **(_DWORD **)(a1 + 32);
+#endif
   }
   return 0;
 }
@@ -59675,7 +60054,11 @@ int sub_49CB50()
     *(_DWORD *)&byte_5D4594[1305720] = sub_49D880;
     *(_DWORD *)&byte_5D4594[1305700] = sub_49DA90;
     *(_DWORD *)&byte_5D4594[1305716] = sub_49DB20;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_texture_callback = sub_49DD60;
+#else
     *(_DWORD *)&byte_5D4594[1305696] = sub_49DD60;
+#endif
     *(_DWORD *)&byte_5D4594[1305708] = sub_49E380;
     return 1;
   }
@@ -59698,7 +60081,11 @@ int sub_49CB50()
     *(_DWORD *)&byte_5D4594[1305700] = sub_49D8E0;
     *(_DWORD *)&byte_5D4594[1305716] = sub_49DBB0;
   }
+#if UINTPTR_MAX > UINT32_MAX
+  nox_texture_callback = sub_49E060;
+#else
   *(_DWORD *)&byte_5D4594[1305696] = sub_49E060;
+#endif
   *(_DWORD *)&byte_5D4594[1305708] = sub_49E3C0;
   return 1;
 }
@@ -59889,7 +60276,11 @@ int4 *__cdecl sub_49D0F0(int xLeft, int yTop, int a3, int a4)
 //----- (0049D190) --------------------------------------------------------
 int __cdecl sub_49D190(int a1, int a2, int a3, int a4, int a5)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_texture_callback(a1, a2, a3, a4, a5);
+#else
   return (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[1305696])(a1, a2, a3, a4, a5);
+#endif
 }
 
 //----- (0049D1C0) --------------------------------------------------------
@@ -63707,12 +64098,15 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
   int v11; // eax
   _DWORD *v12; // eax
   _DWORD *v14; // [esp+10h] [ebp-1A8h]
-  float *v15; // [esp+14h] [ebp-1A4h]
+  uintptr_t v15; // [esp+14h] [ebp-1A4h]
   int v16; // [esp+18h] [ebp-1A0h]
   wchar_t *v17; // [esp+1Ch] [ebp-19Ch]
   int v18; // [esp+20h] [ebp-198h]
   int v19; // [esp+24h] [ebp-194h]
   int v20; // [esp+28h] [ebp-190h]
+#if UINTPTR_MAX > UINT32_MAX && !defined(NOX_INVENTORY_DURABILITY_TEST)
+  int window_property_handled;
+#endif
   char v21[64]; // [esp+2Ch] [ebp-18Ch]
   char v22[332]; // [esp+6Ch] [ebp-14Ch]
 
@@ -63734,7 +64128,10 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
     else
       v3 = sub_43F360((char *)&byte_587000[167944]);
   }
-  *(_DWORD *)&v22[200] = v3;
+  *(_DWORD *)&v22[200] = (uintptr_t)v3;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_font_set((uintptr_t)v22, v3);
+#endif
   sub_57BBC0(a1, (uintptr_t)a2, 256);
   //OutputDebugStringA(a2);
   //OutputDebugStringA("\n");
@@ -63780,6 +64177,7 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
             if ( !strcmp(a2, (const char *)&byte_587000[window_name_offsets[i]]) )
               break;
           }
+          window_property_handled = i < 18;
           if ( i < 18 )
           {
             fscanf(a1, (const char *)&byte_587000[168004]);
@@ -63812,7 +64210,11 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
 LABEL_11:
         ;
       }
+#if UINTPTR_MAX > UINT32_MAX && !defined(NOX_INVENTORY_DURABILITY_TEST)
+      while ( window_property_handled );
+#else
       while ( *((_DWORD *)v10 + 1) );
+#endif
       if ( strcmp(a2, (const char *)&byte_587000[168008]) )
         break;
       fscanf(a1, (const char *)&byte_587000[168016]);
@@ -63826,7 +64228,7 @@ LABEL_11:
       break;
     if ( !strcmp(a2, (const char *)&byte_587000[168024]) )
     {
-      v12 = sub_4A1440(v21, v18, *(int *)&v22[12], v17, v16, v20, v19, v22, v15, a3);
+      v12 = sub_4A1440(v21, v18, *(int *)&v22[12], v17, v16, v20, v19, v22, (float *)(uintptr_t)v15, a3);
       v14 = v12;
       if ( !v12 || !sub_4A1780((int)v12, a1, a2) )
         return 0;
@@ -63839,12 +64241,12 @@ LABEL_11:
     }
   }
   if ( !v14 )
-    v14 = sub_4A1440(v21, v18, *(int *)&v22[12], v17, v16, v20, v19, v22, v15, a3);
+    v14 = sub_4A1440(v21, v18, *(int *)&v22[12], v17, v16, v20, v19, v22, (float *)(uintptr_t)v15, a3);
   return v14;
 }
 
 //----- (004A10A0) --------------------------------------------------------
-int __cdecl sub_4A10A0(_DWORD *a1, const char *a2, char *a3)
+int __cdecl sub_4A10A0(uintptr_t *a1, const char *a2, char *a3)
 {
   char *v3; // eax
   char *v4; // eax
@@ -63987,7 +64389,7 @@ _DWORD *__cdecl sub_4A1440(const char *a1, int a2, int a3, wchar_t *a4, int a5, 
   }
   sub_46B080(v11, a2);
   if ( v10 )
-    (*(int (__cdecl **)(int, int, int, _DWORD))(v10 + 376))(v10, 22, a2, 0);
+    sub_46B490(v10, 22, a2, 0);
   return v11;
 }
 
