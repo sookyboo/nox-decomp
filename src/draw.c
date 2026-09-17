@@ -94,6 +94,10 @@ HWND dword_973FE0;
 DWORD dword_974868;
 DWORD dword_973C64;
 
+#if UINTPTR_MAX > UINT32_MAX
+static int (*nox_movie_done_callback)(void);
+#endif
+
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 static void *nox_display_state_a;
 static void *nox_display_state_b;
@@ -4385,7 +4389,11 @@ void sub_4B05D0()
 		if (*(_DWORD *)&byte_5D4594[1311924])
 		{
 			sub_440900();
+#if UINTPTR_MAX > UINT32_MAX
+			nox_movie_done_callback();
+#else
 			(*(int(**)(void))&byte_5D4594[1311924])();
+#endif
 		}
 	}
 }
@@ -4396,6 +4404,9 @@ int __cdecl sub_4B0640(int(*a1)(void))
 	int result; // eax
 
 	result = a1;
+#if UINTPTR_MAX > UINT32_MAX
+	nox_movie_done_callback = a1;
+#endif
 	*(_DWORD *)&byte_5D4594[1311924] = a1;
 	return result;
 }

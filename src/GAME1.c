@@ -19274,7 +19274,7 @@ int __cdecl sub_4145F0(_DWORD *a1)
     SetFilePointer(v2, 28, 0, 0);
     if ( !GetLastError() && ReadFile(v3, Buffer, 8u, &NumberOfBytesRead, 0) )
     {
-      sub_414B30((int)Buffer, a1);
+      sub_414B30((uintptr_t)Buffer, a1);
       v1 = 1;
     }
     CloseHandle(v3);
@@ -19456,7 +19456,7 @@ char *__cdecl sub_414B00(LPCWSTR lpWideCharStr, LPSTR lpMultiByteStr, int cbMult
 }
 
 //----- (00414B30) --------------------------------------------------------
-int __cdecl sub_414B30(int a1, _DWORD *a2)
+int __cdecl sub_414B30(uintptr_t a1, _DWORD *a2)
 {
   _DWORD *v2; // ebp
   _DWORD *v3; // ecx
@@ -19466,6 +19466,9 @@ int __cdecl sub_414B30(int a1, _DWORD *a2)
   int v7; // ecx
   int v8; // edi
   int v9; // [esp+18h] [ebp+8h]
+#if UINTPTR_MAX > UINT32_MAX
+  const unsigned char *table = *(const unsigned char **)&byte_587000[32604];
+#endif
 
   v2 = a2;
   v3 = a2;
@@ -19483,7 +19486,7 @@ int __cdecl sub_414B30(int a1, _DWORD *a2)
     v8 = 5;
     do
     {
-      if ( (unsigned __int8)result & *(_BYTE *)(v4 + a1) )
+      if ( (unsigned __int8)result & *(_BYTE *)(a1 + v4) )
         v6 |= v7;
       result >>= 1;
       v7 >>= 1;
@@ -19496,7 +19499,11 @@ int __cdecl sub_414B30(int a1, _DWORD *a2)
     }
     while ( v8 );
     v2 = (_DWORD *)((char *)v2 + 1);
+#if UINTPTR_MAX > UINT32_MAX
+    *((_BYTE *)v2 - 1) = table[v6];
+#else
     *((_BYTE *)v2 - 1) = *(_BYTE *)(*(_DWORD *)&byte_587000[32604] + v6);
+#endif
     --v9;
   }
   while ( v9 );
@@ -43241,7 +43248,7 @@ int __cdecl sub_4306A0(int a1)
     do
     {
       do
-        v4 = sub_47DB20((int)v3);
+        v4 = sub_47DB20((signed int *)v3);
       while ( v4 == -1 );
       ++v2;
       v3 += 56;
@@ -43278,7 +43285,7 @@ int sub_430710()
   {
     do
     {
-      sub_47FA80((int)v0);
+      sub_47FA80((uintptr_t)v0);
       v1 = *v0;
     }
     while ( *v0 == -1 );
@@ -52568,11 +52575,19 @@ int __cdecl sub_43DDE0(int a1)
 }
 
 //----- (0043DDF0) --------------------------------------------------------
-int __cdecl sub_43DDF0(int a1)
+static int (*nox_mainloop_callback)(void);
+static int (*nox_tick_callback)(void);
+static int (*nox_render_callback)(void);
+
+int __cdecl sub_43DDF0(uintptr_t a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_mainloop_callback = a1 ? (int (*)(void))a1 : sub_43DE10;
+#else
   *(_DWORD *)&byte_5D4594[816388] = a1;
   if ( !a1 )
     *(_DWORD *)&byte_5D4594[816388] = sub_43DE10;
+#endif
   return 1;
 }
 
@@ -52583,20 +52598,28 @@ int sub_43DE10()
 }
 
 //----- (0043DE20) --------------------------------------------------------
-int __cdecl sub_43DE20(int a1)
+int __cdecl sub_43DE20(uintptr_t a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_tick_callback = a1 ? (int (*)(void))a1 : sub_43DE10;
+#else
   *(_DWORD *)&byte_5D4594[816396] = a1;
   if ( !a1 )
     *(_DWORD *)&byte_5D4594[816396] = sub_43DE10;
+#endif
   return 1;
 }
 
 //----- (0043DE40) --------------------------------------------------------
-int __cdecl sub_43DE40(int a1)
+int __cdecl sub_43DE40(uintptr_t a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_render_callback = a1 ? (int (*)(void))a1 : sub_43DE10;
+#else
   *(_DWORD *)&byte_5D4594[816392] = a1;
   if ( !a1 )
     *(_DWORD *)&byte_5D4594[816392] = sub_43DE10;
+#endif
   return 1;
 }
 
@@ -52944,7 +52967,11 @@ map_loaded:
     sub_4453A0();
     sub_413520();
     sub_435770();
+#if UINTPTR_MAX > UINT32_MAX
+    if ( !nox_mainloop_callback() )
+#else
     if ( !(*(int (**)(void))&byte_5D4594[816388])() )
+#endif
       goto done;
     sub_435780();
     sub_435740();
@@ -52957,10 +52984,18 @@ map_loaded:
       sub_46B6B0(v0);
       v0 = (unsigned __int8 *)(*(_DWORD *)&byte_5D4594[2618912] + 8);
     }
+#if UINTPTR_MAX > UINT32_MAX
+    if ( !nox_tick_callback() )
+#else
     if ( !(*(int (**)(void))&byte_5D4594[816396])() )
+#endif
       goto done;
     sub_430880(0);
+#if UINTPTR_MAX > UINT32_MAX
+    if ( !nox_render_callback() )
+#else
     if ( !(*(int (**)(void))&byte_5D4594[816392])() )
+#endif
       goto done;
     sub_4519C0();
     sub_4312C0();
@@ -53947,7 +53982,7 @@ int __cdecl sub_43F340(int *a1)
 }
 
 //----- (0043F360) --------------------------------------------------------
-int __cdecl sub_43F360(char *a1)
+uintptr_t __cdecl sub_43F360(char *a1)
 {
 #if UINTPTR_MAX > UINT32_MAX
   int i;
@@ -53958,7 +53993,7 @@ int __cdecl sub_43F360(char *a1)
   {
     if ( nox_font_dispatch_table[i].source_name
       && !_strcmpi(nox_font_dispatch_table[i].source_name, a1) )
-      return (int)(uintptr_t)nox_font_dispatch_table[i].resource;
+      return (uintptr_t)nox_font_dispatch_table[i].resource;
   }
   return 0;
 #else
@@ -54227,7 +54262,7 @@ int __cdecl sub_43F7B0(int a1, __int16 *a2, int a3, int a4)
 }
 
 //----- (0043F840) --------------------------------------------------------
-int __cdecl sub_43F840(int a1, unsigned __int16 *a2, int *a3, _DWORD *a4, int a5)
+int __cdecl sub_43F840(uintptr_t a1, unsigned __int16 *a2, int *a3, _DWORD *a4, int a5)
 {
   unsigned __int16 v5; // cx
   unsigned __int16 v6; // bp
