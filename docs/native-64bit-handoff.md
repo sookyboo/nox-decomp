@@ -88,13 +88,15 @@ After the latest source changes:
 - native x86_64 headless startup no longer fails in the timer, argv, CSF
   allocation, map scan, built-in string sort, startup config dispatch, or the
   initial graphics pixel/display/gamma/palette allocation boundaries, SDL
-  surface layout, font dispatch, or graphics row clearing;
+  surface layout, font dispatch, graphics row clearing, or video index-table
+  initialization;
 - the full post-change CTest suites still need to be rerun.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
-latest verified run with `-serveronly Estate` reaches the video subsystem after
-OpenGL initialization and font loading. Resource/config/graphics startup is
-therefore verified, but gameplay map selection is not yet reached.
+latest verified run with `-serveronly Estate` completes video resource
+initialization after OpenGL initialization and font loading. Resource/config/
+graphics/video startup is therefore verified, but gameplay map selection is not
+yet reached.
 
 ## Reproduce the remaining failure
 
@@ -110,21 +112,26 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 SIGSEGV in the legacy video index-table
-path after graphics initialization and font loading:
+The current result is a native x86_64 SIGSEGV in the timer-record setup reached
+after video initialization:
 
 ```text
 sub_401070
   → sub_43BF10
   → sub_4449D0
   → sub_42EE30 / sub_42F200
+  → sub_4862E0
 ```
 
-The earlier failures were truncated pointers returned by `malloc`/`calloc`
-stored in recovered DWORD slots. The remaining video path has the same shape:
-its 36-byte index records and several video buffers retain 32-bit pointer
-slots. Continue with low-address temporary allocations or native sidecars at
-that subsystem boundary; do not widen the recovered video record globally.
+The video fix uses low-address allocations for the recovered 36-byte index
+records and frame buffers, a native sidecar for its `FILE *`, and explicit
+32-bit decoding when consuming the record table. This preserves the original
+record layout while allowing native x86_64 startup to complete that path.
+
+The new failure is the same class of boundary in a different subsystem:
+`sub_4864A0()` cast a timer-record address to `int` before passing it to
+`sub_4862E0()`. The helper now transports that address as `uintptr_t`; the
+timer record itself remains a fixed-width 32-bit layout.
 
 For a backtrace:
 
@@ -139,15 +146,13 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Fix the native video index/buffer pointer transport at `sub_42EE30()` /
-   `sub_42F200()` and inspect the later video consumers before widening any
-   recovered record.
-2. Rebuild `build-linux64/src/out` and repeat the headless smoke test. If it
+1. Rebuild `build-linux64/src/out` and repeat the headless smoke test after the
+   timer address transport fix. If it
    reaches another fault, use the first project frame in the GDB backtrace to
    identify the next packed pointer boundary.
-3. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
+2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the
    startup path is stable.
-4. Update `startup-compatibility.md` with the final table shape and remove or
+3. Update `startup-compatibility.md` with the final table shape and remove or
    revise this handoff's known-failure wording once the path is fixed.
 
 Do not treat a timeout as a successful startup by itself: verify that the

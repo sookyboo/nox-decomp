@@ -107,11 +107,12 @@ nearby field as a workaround.
 
 At the time of this document update, the native executable builds, loads the
 Estate test data, completes config localization, reaches OpenGL initialization,
-loads the font resources, and completes the graphics row clear. The remaining
-x86_64 headless-startup fault is in the video index-table path at
-`sub_42EE30()`/`sub_42F200()`, where another recovered 32-bit pointer table is
-being populated. That is a known follow-up, not a claim that complete game
-startup is fixed.
+loads the font resources, completes the graphics row clear, and completes
+video index-table initialization. The remaining x86_64 headless-startup fault
+is in `sub_4862E0()`, reached while initializing the timer records from
+`sub_4864A0()`. The caller was truncating the timer-record address to `int`;
+the address transport is now `uintptr_t` while the timer record remains in its
+original 32-bit layout.
 
 ## Compatibility rule
 
