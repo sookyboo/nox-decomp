@@ -92,13 +92,27 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-linux64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly Estate
 ```
 
 `Estate` is the known-working map selected for this smoke test. Startup still
 scans the complete map catalog before selecting the requested map, so a crash
 before the config path completes does not yet establish that `Estate.map` was
 opened for gameplay.
+
+The native window parser keeps recovered DWORD pointer fields decoded at the
+boundary. Window records and their legacy arrays use low-address allocations
+when existing consumers still read a 32-bit slot; callback and persistent
+window handles use native-width sidecars. The shared pointer decoder preserves
+low `MAP_32BIT` addresses and reconstructs high heap addresses from their
+32-bit slot value. This fixes the native startup crash while parsing
+`MainMenu.wnd`, `noxworld.wnd`, and `filter.wnd`.
+
+With the control-server `server` macro enabled and `NOX_SERVER_DEFAULT_MAP=Estate`,
+the native executable was verified to complete `defaultServerGame` and remain
+signal-free for a 20-second run. The macro currently does not provide an
+observable proof that the map command reached gameplay; that remains a
+separate console-dispatch investigation.
 
 If this smoke test exits with signal 11, rerun the same command with `gdb -q
 -batch`, `run`, and `bt` before the executable arguments. Keep the first
