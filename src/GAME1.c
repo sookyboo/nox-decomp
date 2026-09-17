@@ -63,6 +63,7 @@ void nox_palette_lut_free(void *address, size_t size)
 __int64 (*nox_time_provider)(void);
 static FILE *nox_csf_file;
 static FILE *nox_map_file;
+static FILE *nox_video_file;
 static char *nox_csf_records;
 static wchar_t **nox_csf_wide_strings;
 static char **nox_csf_narrow_strings;
@@ -245,10 +246,23 @@ static size_t nox_csf_utf16_length(const uint16_t *string)
 #define NOX_FONT_FREE(address, size) free(address)
 #endif
 
+#define NOX_VIDEO_ALLOC(size) NOX_FONT_ALLOC(size)
+#define NOX_VIDEO_FREE(address, size) NOX_FONT_FREE(address, size)
+
 #if UINTPTR_MAX > UINT32_MAX
 #define NOX_FONT_DISPATCH_CALL(...) nox_font_dispatch(__VA_ARGS__)
 #else
 #define NOX_FONT_DISPATCH_CALL(...) (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[816448])(__VA_ARGS__)
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX
+#define NOX_VIDEO_FILE nox_video_file
+#define NOX_VIDEO_INDEX_TABLE ((char *)(uintptr_t)*(_DWORD *)&byte_5D4594[787148])
+#define NOX_VIDEO_RECORD_PTR(address) ((LPVOID)(uintptr_t)*(_DWORD *)(address))
+#else
+#define NOX_VIDEO_FILE (*(FILE **)&byte_5D4594[787204])
+#define NOX_VIDEO_INDEX_TABLE (*(char **)&byte_5D4594[787148])
+#define NOX_VIDEO_RECORD_PTR(address) (*(LPVOID *)(address))
 #endif
 
 void map_download_start();
@@ -41400,7 +41414,7 @@ int __cdecl sub_42EE30(int a1)
   *(_DWORD *)&byte_5D4594[787144] = 0;
   v1 = sub_430100(a1);
   result = (int)fopen(v1, "rb");
-  *(_DWORD *)&byte_5D4594[787204] = result;
+  NOX_VIDEO_FILE = (FILE *)result;
   if ( result )
   {
     v3 = (int *)sub_42F0B0(a1);
@@ -41416,17 +41430,18 @@ int __cdecl sub_42EE30(int a1)
         *(_DWORD *)&byte_5D4594[787184] = *(_DWORD *)&v9[4];
         if ( *(_DWORD *)&byte_5D4594[787208] )
         {
-          free(*(LPVOID *)&byte_5D4594[787208]);
+          NOX_VIDEO_FREE(*(LPVOID *)&byte_5D4594[787208],
+                         *(size_t *)&byte_5D4594[787184]);
           *(_DWORD *)&byte_5D4594[787208] = 0;
         }
         if ( *(_DWORD *)&byte_5D4594[754144] )
-          *(_DWORD *)&byte_5D4594[787208] = malloc(*(size_t *)&byte_5D4594[787184]);
+          *(_DWORD *)&byte_5D4594[787208] = NOX_VIDEO_ALLOC(*(size_t *)&byte_5D4594[787184]);
         if ( !*(_DWORD *)&byte_5D4594[787212] )
           *(_DWORD *)&byte_5D4594[787212] = sub_578BF0();
         if ( *(_DWORD *)&byte_5D4594[2650640] == 1 )
           sub_47A270();
-        *(_DWORD *)&byte_5D4594[787148] = malloc(36 * *(_DWORD *)&byte_5D4594[787172]);
-        *(_DWORD *)&byte_5D4594[787152] = malloc(12 * *(_DWORD *)&byte_5D4594[787168]);
+        *(_DWORD *)&byte_5D4594[787148] = NOX_VIDEO_ALLOC(36 * *(_DWORD *)&byte_5D4594[787172]);
+        *(_DWORD *)&byte_5D4594[787152] = NOX_VIDEO_ALLOC(12 * *(_DWORD *)&byte_5D4594[787168]);
         sub_42F200(v6, a1);
         free(v4);
         v7 = 0x800000;
@@ -41434,7 +41449,7 @@ int __cdecl sub_42EE30(int a1)
           v7 = *(_DWORD *)&v9[4] * *(_DWORD *)&byte_5D4594[787172];
         v8 = *(_DWORD *)&v9[4] * (v7 / *(_DWORD *)&v9[4]);
         *(_DWORD *)&byte_5D4594[787192] = v8 / *(_DWORD *)&v9[4];
-        result = (int)malloc(v8);
+        result = (int)(intptr_t)NOX_VIDEO_ALLOC(v8);
         *(_DWORD *)&byte_5D4594[787200] = result;
         if ( result )
         {
@@ -41447,13 +41462,13 @@ int __cdecl sub_42EE30(int a1)
       else
       {
         free(v4);
-        fclose(*(FILE **)&byte_5D4594[787204]);
+        fclose(NOX_VIDEO_FILE);
         result = 0;
       }
     }
     else
     {
-      fclose(*(FILE **)&byte_5D4594[787204]);
+      fclose(NOX_VIDEO_FILE);
       result = 0;
     }
   }
@@ -41487,11 +41502,15 @@ char *sub_42F030()
   int v1; // edi
   int v2; // esi
 
+  #if UINTPTR_MAX > UINT32_MAX
+  result = (char *)(uintptr_t)*(_DWORD *)&byte_5D4594[787172];
+  #else
   result = *(char **)&byte_5D4594[787172];
+  #endif
   v1 = 0;
   if ( *(_DWORD *)&byte_5D4594[787172] > 0 )
   {
-    result = *(char **)&byte_5D4594[787148];
+    result = NOX_VIDEO_INDEX_TABLE;
     v2 = 0;
     do
     {
@@ -41499,11 +41518,11 @@ char *sub_42F030()
       {
         if ( *(int *)&result[v2 + 24] == -1 )
         {
-          free(*(LPVOID *)&result[v2]);
-          result = *(char **)&byte_5D4594[787148];
+          free(NOX_VIDEO_RECORD_PTR(&result[v2]));
+          result = NOX_VIDEO_INDEX_TABLE;
         }
         *(_DWORD *)&result[v2] = 0;
-        result = *(char **)&byte_5D4594[787148];
+        result = NOX_VIDEO_INDEX_TABLE;
       }
       ++v1;
       v2 += 36;
@@ -41705,7 +41724,7 @@ int __cdecl sub_42F370(int a1)
   unsigned __int8 *v6; // ebx
   char v7[20]; // [esp+8h] [ebp-14h]
 
-  if ( !*(_DWORD *)&byte_5D4594[787204] )
+  if ( !NOX_VIDEO_FILE )
     return 1;
   *(_DWORD *)&byte_5D4594[787144] = 0;
   v2 = sub_430100(a1);
@@ -41729,11 +41748,12 @@ int __cdecl sub_42F370(int a1)
       free(v4);
       if ( *(_DWORD *)&byte_5D4594[787208] )
       {
-        free(*(LPVOID *)&byte_5D4594[787208]);
+        NOX_VIDEO_FREE(*(LPVOID *)&byte_5D4594[787208],
+                       *(size_t *)&byte_5D4594[787184]);
         *(_DWORD *)&byte_5D4594[787208] = 0;
       }
       if ( *(_DWORD *)&byte_5D4594[754144] )
-        *(_DWORD *)&byte_5D4594[787208] = malloc(*(size_t *)&byte_5D4594[787184]);
+        *(_DWORD *)&byte_5D4594[787208] = NOX_VIDEO_ALLOC(*(size_t *)&byte_5D4594[787184]);
       sub_42EFF0();
       result = 1;
       *(_DWORD *)&byte_5D4594[787144] = 1;
@@ -41741,13 +41761,13 @@ int __cdecl sub_42F370(int a1)
     else
     {
       free(v4);
-      fclose(*(FILE **)&byte_5D4594[787204]);
+      fclose(NOX_VIDEO_FILE);
       result = 0;
     }
   }
   else
   {
-    fclose(*(FILE **)&byte_5D4594[787204]);
+    fclose(NOX_VIDEO_FILE);
     result = 0;
   }
   return result;
@@ -41756,10 +41776,10 @@ int __cdecl sub_42F370(int a1)
 //----- (0042F490) --------------------------------------------------------
 BOOL __cdecl sub_42F490(char *a1)
 {
-  if ( *(_DWORD *)&byte_5D4594[787204] )
-    fclose(*(FILE **)&byte_5D4594[787204]);
-  *(_DWORD *)&byte_5D4594[787204] = fopen(a1, "rb");
-  return *(_DWORD *)&byte_5D4594[787204] != 0;
+  if ( NOX_VIDEO_FILE )
+    fclose(NOX_VIDEO_FILE);
+  NOX_VIDEO_FILE = fopen(a1, "rb");
+  return NOX_VIDEO_FILE != 0;
 }
 
 //----- (0042F4D0) --------------------------------------------------------
@@ -41774,17 +41794,21 @@ LPVOID sub_42F4D0()
   sub_42F030();
   if ( *(_DWORD *)&byte_5D4594[787200] )
   {
-    free(*(LPVOID *)&byte_5D4594[787200]);
+    NOX_VIDEO_FREE(*(LPVOID *)&byte_5D4594[787200],
+                   (size_t)*(_DWORD *)&byte_5D4594[787192]
+                     * *(_DWORD *)&byte_5D4594[787184]);
     *(_DWORD *)&byte_5D4594[787200] = 0;
   }
   if ( *(_DWORD *)&byte_5D4594[787148] )
   {
-    free(*(LPVOID *)&byte_5D4594[787148]);
+    NOX_VIDEO_FREE(*(LPVOID *)&byte_5D4594[787148],
+                   36u * *(_DWORD *)&byte_5D4594[787172]);
     *(_DWORD *)&byte_5D4594[787148] = 0;
   }
   if ( *(_DWORD *)&byte_5D4594[787152] )
   {
-    free(*(LPVOID *)&byte_5D4594[787152]);
+    NOX_VIDEO_FREE(*(LPVOID *)&byte_5D4594[787152],
+                   12u * *(_DWORD *)&byte_5D4594[787168]);
     *(_DWORD *)&byte_5D4594[787152] = 0;
   }
   v0 = *(_BYTE **)&byte_5D4594[787156];
@@ -41819,8 +41843,8 @@ LPVOID sub_42F4D0()
   *(_DWORD *)&byte_5D4594[754136] = &byte_5D4594[787108];
   *(_DWORD *)&byte_5D4594[754140] = 0;
   sub_47D150();
-  fclose(*(FILE **)&byte_5D4594[787204]);
-  *(_DWORD *)&byte_5D4594[787204] = 0;
+  fclose(NOX_VIDEO_FILE);
+  NOX_VIDEO_FILE = 0;
   if ( *(_DWORD *)&byte_5D4594[787212] )
   {
     sub_578C40(*(LPVOID *)&byte_5D4594[787212]);
@@ -41829,7 +41853,8 @@ LPVOID sub_42F4D0()
   result = *(LPVOID *)&byte_5D4594[787208];
   if ( *(_DWORD *)&byte_5D4594[787208] )
   {
-    free(*(LPVOID *)&byte_5D4594[787208]);
+    NOX_VIDEO_FREE(*(LPVOID *)&byte_5D4594[787208],
+                   *(size_t *)&byte_5D4594[787184]);
     *(_DWORD *)&byte_5D4594[787208] = 0;
   }
   return result;
@@ -42215,7 +42240,7 @@ static FILE* get_bag(unsigned int offset)
     }
   }
 #else
-  fp = *(FILE **)&byte_5D4594[787204];
+  fp = NOX_VIDEO_FILE;
   fseek(fp, offset, 0);
 #endif
   return fp;
