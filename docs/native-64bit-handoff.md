@@ -88,15 +88,15 @@ After the latest source changes:
 - native x86_64 headless startup no longer fails in the timer, argv, CSF
   allocation, map scan, built-in string sort, startup config dispatch, or the
   initial graphics pixel/display/gamma/palette allocation boundaries, SDL
-  surface layout, font dispatch, graphics row clearing, or video index-table
-  initialization;
+  surface layout, font dispatch, graphics row clearing, video index-table
+  initialization, timer-record setup, or SoundSet parsing;
 - the full post-change CTest suites still need to be rerun.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
 latest verified run with `-serveronly Estate` completes video resource
-initialization after OpenGL initialization and font loading. Resource/config/
-graphics/video startup is therefore verified, but gameplay map selection is not
-yet reached.
+initialization, timer-record setup, and SoundSet parsing after OpenGL
+initialization and font loading. Resource/config/graphics/video/audio startup
+is therefore verified, but gameplay map selection is not yet reached.
 
 ## Reproduce the remaining failure
 
@@ -112,8 +112,8 @@ timeout --signal=TERM 20s env \
   ../../../build-linux64/src/out -serveronly Estate
 ```
 
-The current result is a native x86_64 SIGSEGV in the timer-record setup reached
-after video initialization:
+The current result is a native x86_64 SIGSEGV in the Modifier.bin parser reached
+after SoundSet parsing:
 
 ```text
 sub_401070
@@ -121,6 +121,8 @@ sub_401070
   → sub_4449D0
   → sub_42EE30 / sub_42F200
   → sub_4862E0
+  → sub_424170
+  → sub_412D40
 ```
 
 The video fix uses low-address allocations for the recovered 36-byte index
@@ -128,10 +130,11 @@ records and frame buffers, a native sidecar for its `FILE *`, and explicit
 32-bit decoding when consuming the record table. This preserves the original
 record layout while allowing native x86_64 startup to complete that path.
 
-The new failure is the same class of boundary in a different subsystem:
-`sub_4864A0()` cast a timer-record address to `int` before passing it to
-`sub_4862E0()`. The helper now transports that address as `uintptr_t`; the
-timer record itself remains a fixed-width 32-bit layout.
+The timer fix widened the `sub_4864A0()` to `sub_4862E0()` record address
+transport to `uintptr_t`; the timer record itself remains a fixed-width 32-bit
+layout. The SoundSet fix keeps its 19-entry name/field-offset table packed:
+native builds use a sidecar for the names while preserving the adjacent 32-bit
+field offsets.
 
 For a backtrace:
 
@@ -147,7 +150,7 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 ## Recommended next steps
 
 1. Rebuild `build-linux64/src/out` and repeat the headless smoke test after the
-   timer address transport fix. If it
+   Modifier.bin parser fix. If it
    reaches another fault, use the first project frame in the GDB backtrace to
    identify the next packed pointer boundary.
 2. Run the complete native x64, i386, and ARMHF/QEMU CTest suites after the

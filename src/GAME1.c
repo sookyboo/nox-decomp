@@ -69,6 +69,7 @@ static wchar_t **nox_csf_wide_strings;
 static char **nox_csf_narrow_strings;
 static void *nox_csf_extra_head;
 static const char *nox_builtin_strings[0x3FF];
+static const char *nox_soundset_names[18];
 
 struct nox_string_index {
   int index;
@@ -3190,6 +3191,26 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[62432] = &byte_587000[64540];
 *(void **)&byte_587000[64656] = &byte_587000[64640];
 *(void **)&byte_587000[64660] = &byte_587000[64628];
+#if UINTPTR_MAX > UINT32_MAX
+  nox_soundset_names[0] = &byte_587000[64856];
+  nox_soundset_names[1] = &byte_587000[64872];
+  nox_soundset_names[2] = &byte_587000[64884];
+  nox_soundset_names[3] = &byte_587000[64900];
+  nox_soundset_names[4] = &byte_587000[64912];
+  nox_soundset_names[5] = &byte_587000[64928];
+  nox_soundset_names[6] = &byte_587000[64952];
+  nox_soundset_names[7] = &byte_587000[64972];
+  nox_soundset_names[8] = &byte_587000[65000];
+  nox_soundset_names[9] = &byte_587000[65028];
+  nox_soundset_names[10] = &byte_587000[65056];
+  nox_soundset_names[11] = &byte_587000[65080];
+  nox_soundset_names[12] = &byte_587000[65092];
+  nox_soundset_names[13] = &byte_587000[65108];
+  nox_soundset_names[14] = &byte_587000[65128];
+  nox_soundset_names[15] = &byte_587000[65140];
+  nox_soundset_names[16] = &byte_587000[65156];
+  nox_soundset_names[17] = &byte_587000[65172];
+#else
 *(void **)&byte_587000[64704] = &byte_587000[64856];
 *(void **)&byte_587000[64712] = &byte_587000[64872];
 *(void **)&byte_587000[64720] = &byte_587000[64884];
@@ -3208,6 +3229,7 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[64824] = &byte_587000[65140];
 *(void **)&byte_587000[64832] = &byte_587000[65156];
 *(void **)&byte_587000[64840] = &byte_587000[65172];
+#endif
 *(void **)&byte_587000[65316] = &byte_587000[66124];
 *(void **)&byte_587000[65320] = &byte_587000[66144];
 *(void **)&byte_587000[65324] = &byte_587000[66164];
@@ -7943,7 +7965,7 @@ FILE *__cdecl sub_408CC0(char *a1, int a2)
 }
 
 //----- (00408D40) --------------------------------------------------------
-int __cdecl sub_408D40(int a1, int a2)
+int __cdecl sub_408D40(uintptr_t a1, int a2)
 {
   if ( sub_409A60() )
     return 0;
@@ -32445,26 +32467,34 @@ HANDLE __cdecl sub_423F80(LPCSTR lpFileName, int a2, int a3, int a4)
 // 423F80: using guessed type CHAR FileName[260];
 
 //----- (004240F0) --------------------------------------------------------
-int __cdecl sub_4240F0(int a1, const char *a2, int a3)
+int __cdecl sub_4240F0(uintptr_t a1, const char *a2, int a3)
 {
   const char *v3; // esi
   int v4; // ebp
   unsigned __int8 *v5; // edi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v3 = nox_soundset_names[0];
+#else
   v3 = *(const char **)&byte_587000[64704];
+#endif
   v4 = 0;
   if ( !*(_DWORD *)&byte_587000[64704] )
     return 0;
   v5 = &byte_587000[64704];
   while ( strcmp(a2, v3) )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    v3 = nox_soundset_names[++v4];
+#else
     v3 = (const char *)*((_DWORD *)v5 + 2);
-    v5 += 8;
     ++v4;
-    if ( !v3 )
+#endif
+    v5 += 8;
+    if ( !v3 || v4 >= 18 )
       return 0;
   }
-  *(_DWORD *)(*(_DWORD *)&byte_587000[8 * v4 + 64708] + a1) = a3;
+  *(_DWORD *)(a1 + *(_DWORD *)&byte_587000[8 * v4 + 64708]) = a3;
   return 1;
 }
 
@@ -32479,11 +32509,10 @@ int __cdecl sub_424170(char *a1)
   char v6[256]; // [esp+10h] [ebp-200h]
   char v7[256]; // [esp+110h] [ebp-100h]
 
-  result = sub_408CC0(a1, 0);
-  v2 = (FILE *)result;
-  if ( result )
+  v2 = sub_408CC0(a1, 0);
+  if ( v2 )
   {
-    result = sub_408D40(result, 5);
+    result = sub_408D40((uintptr_t)v2, 5);
     if ( result )
     {
       while ( sub_409470(v2, v6) )
@@ -32498,7 +32527,7 @@ int __cdecl sub_424170(char *a1)
         while ( sub_409470(v2, v6) && strcmp(v6, (const char *)&byte_587000[65184]) && sub_409470(v2, v7) )
         {
           v5 = sub_40AF50(v7);
-          result = sub_4240F0((int)v3, v6, v5);
+          result = sub_4240F0((uintptr_t)v3, v6, v5);
           if ( !result )
             return result;
         }
