@@ -286,7 +286,8 @@ int sub_4A1D80()
   int (*v0)(void); // esi
 
 #if UINTPTR_MAX > UINT32_MAX
-  v0 = *(int (**)(void))((char *)nox_menu_button_left + 52);
+  v0 = (int (*)(void))nox_game3_pointer_from_32(
+    *(unsigned int *)((char *)nox_menu_button_left + 52));
   sub_43C570(nox_menu_button_left);
   sub_43C570(nox_menu_button_right);
 #else
