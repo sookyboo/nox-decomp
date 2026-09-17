@@ -63,8 +63,13 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-linux64/src/out -serveronly G_Quest
+  ../../../build-linux64/src/out -serveronly Estate
 ```
+
+`Estate` is the known-working map selected for this smoke test. Startup still
+scans the complete map catalog before selecting the requested map, so a crash
+before the config path completes does not yet establish that `Estate.map` was
+opened for gameplay.
 
 If this smoke test exits with signal 11, rerun the same command with `gdb -q
 -batch`, `run`, and `bt` before the executable arguments. Keep the first
