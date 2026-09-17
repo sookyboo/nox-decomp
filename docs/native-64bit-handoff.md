@@ -161,14 +161,19 @@ After the latest source changes:
   and `macro end: server` on both builds, with no native signal reported
   before the controlled timeout;
 - the earlier `sub_42FAE0(a1=0)` teardown failure and the later freed-window
-  traversal were both fixed. The next unverified boundary is gameplay/map
-  state after the scripted server macro.
+  traversal were both fixed;
+- neither architecture reaches the production `map_download_start()` entry
+  point from the current scripted `load capflag` command. The macro completion
+  therefore verifies the control/input sequence only, not map loading or
+  gameplay state. The next investigation is the console-command path between
+  the injected text/Enter events and map dispatch.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
 because a timeout does not yet prove that the native process entered a game;
 the current verified assertion is signal-free progression through the complete
-scripted `server` macro, including `defaultServerGame`.
+scripted `server` macro, including `defaultServerGame`; it does not yet assert
+that `map_download_start()` was called.
 
 ## Reproduce the native server-startup smoke test
 
@@ -253,8 +258,8 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Continue the headless smoke test past `defaultServerGame` and verify map
-   selection and gameplay state.
+1. Instrument or expose the console-command dispatch so the `load capflag`
+   action can be verified at `map_download_start()` on both architectures.
 2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
    stable.
 3. Update `startup-compatibility.md` with the final native audio transport
