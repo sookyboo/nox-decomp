@@ -804,6 +804,7 @@ static int test_experimental_player_lifecycle_adapter(void)
     int i;
     int screen_x;
     int screen_y;
+    uint32_t team_key;
 
     memset(player_info_by_slot, 0, sizeof(player_info_by_slot));
     memset(spawn_profile, 0, sizeof(spawn_profile));
@@ -814,9 +815,13 @@ static int test_experimental_player_lifecycle_adapter(void)
     spawn_profile[67] = 1;
     team_red[56] = 1;
     team_red[57] = 11;
+    team_key = 0x11223344u;
+    memcpy(team_red + 60, &team_key, sizeof(team_key));
     team_red[64] = 1;
     team_blue[56] = 2;
     team_blue[57] = 12;
+    team_key = 0x55667788u;
+    memcpy(team_blue + 60, &team_key, sizeof(team_key));
     team_blue[64] = 1;
     spawn_join_calls = 0;
     spawn_join_result = 1;
@@ -827,10 +832,20 @@ static int test_experimental_player_lifecycle_adapter(void)
     player_info_by_slot[0] = (char *)1;
     player_info_by_slot[1] = (char *)1;
 
-    if (nox_bot_engine_find_free_player_slot() != 2)
+    if (nox_bot_engine_find_free_player_slot() != 2 || !nox_bot_engine_teams_enabled())
         return 5;
     player_info_by_slot[0] = 0;
     player_info_by_slot[1] = 0;
+
+    team_red[64] = 0;
+    team_blue[64] = 0;
+    if (nox_bot_engine_teams_enabled() ||
+        nox_bot_engine_spawn_player_attempt(2, 1, NOX_BOT_SPAWN_TEAM_RED, name) ||
+        spawn_join_calls)
+        return 16;
+    team_red[64] = 1;
+    team_blue[64] = 1;
+
     spawn_server_options[100] = 1u << 1;
     if (nox_bot_engine_spawn_player_attempt(2, 1, NOX_BOT_SPAWN_TEAM_RED, name) ||
         spawn_join_calls)
@@ -842,8 +857,9 @@ static int test_experimental_player_lifecycle_adapter(void)
     if (spawn_last_packet[66] != 1 || spawn_last_packet[67] != 1 ||
         spawn_last_packet[152] != 0x81)
         return 8;
+    memcpy(&team_key, spawn_last_packet + 138, sizeof(team_key));
     if (strcmp((const char *)&spawn_last_packet[105], "BOT-03") != 0 ||
-        spawn_last_packet[128] || spawn_last_packet[138] || spawn_last_packet[142])
+        spawn_last_packet[128] || team_key != 0x11223344u || spawn_last_packet[142])
         return 14;
     for (i = 0; name[i]; ++i) {
         uint16_t ch;
@@ -871,6 +887,9 @@ static int test_experimental_player_lifecycle_adapter(void)
     if (nox_bot_engine_spawn_player_attempt(2, 1, NOX_BOT_SPAWN_TEAM_AUTO, name) ||
         spawn_remove_calls != 1 || nox_bot_engine_player_object_by_slot(2))
         return 15;
+    memcpy(&team_key, spawn_last_packet + 138, sizeof(team_key));
+    if (team_key)
+        return 17;
     spawn_join_result = 1;
     byte_5D4594[2660684] = 0;
     game_flags = 0;
