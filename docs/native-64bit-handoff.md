@@ -118,6 +118,13 @@ The current branch contains native-width handling for:
   and music-stream handles are retained in native sidecars. CSF narrow-string
   results and the shared audio-state pointer likewise retain host-width copies
   instead of being reread from truncated DWORD slots.
+- the `sub_46AC60()` teardown fields, including the 32-bit value at `a1 + 92`,
+  which must be tested as a DWORD rather than as a native pointer;
+- the `sub_4A1D80()` menu-button callback slot, reconstructed from its stored
+  32-bit value before invocation;
+- the input-event cursor used by `sub_437060()`, `map_download_loop()`, and
+  the main loop. Native builds keep this temporary cursor in a host-width
+  sidecar instead of writing its pointer into the recovered 32-bit image slot.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -138,19 +145,23 @@ After the latest source changes:
 - the source i386 target still has unrelated pre-existing compile errors in
   `GAME1.c`; the regular-flow comparison therefore uses the existing i386
   binary in `build-i386/src/out`;
-- the 32-bit trace reaches `macro end: startMultiplayerNetworkHost` and then
-  `macro begin: newMultiNewCharacterWarrior` after opening `window/SelClass.wnd`;
-- native x86_64 reaches the same host-input sequence, opens `gamedata.bin` and
-  `monster.bin`, and then stops in later object teardown at
-  `sub_42FAE0(a1=0)` from `sub_43C380()`; map selection is not reached;
-- the native run now fails with SIGSEGV at that boundary rather than the prior
-  `UU` filename/cleanup failure. The `UU` symptom was caused by an 8-byte native
-  pointer write overwriting the adjacent recovered `gamedata.bin` string.
+- the 32-bit trace reaches `macro end: startMultiplayerNetworkHost`,
+  `macro end: newMultiNewCharacterWarrior`, `macro end: chatScreenPopUpClickOk`,
+  `macro end: chatScreenServerName`, and then continues into
+  `defaultServerGame`;
+- native x86_64 reaches the same milestones through
+  `macro end: chatScreenServerName`, after opening `gamedata.bin` and
+  `monster.bin`; no signal occurs in the verified 35-second diagnostic run;
+- a longer native run also reached `chatScreenServerName` completion and then
+  remained in the scripted UI/input sequence until its timeout. The next
+  unverified boundary is the transition into `defaultServerGame` and map
+  startup, not the earlier `sub_42FAE0(a1=0)` teardown failure.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
-OpenGL support, and `gdb`. The exact comparison command below should be
-treated as a diagnostic run until the `sub_42FAE0()` boundary is fixed; it is
-not currently a clean smoke-test assertion.
+OpenGL support, and `gdb`. The comparison command below remains diagnostic
+because a timeout does not yet prove that the native process entered a game;
+the current verified assertion is the signal-free progression through
+`chatScreenServerName`.
 
 ## Reproduce the native server-startup smoke test
 
@@ -176,8 +187,10 @@ timeout --signal=TERM 35s env \
 
 The verified result is a native x86_64 server-mode startup that reaches the
 main menu, executes the control-server `startMultiplayerNetworkHost` input
-sequence, and loads `gamedata.bin` and `monster.bin` before the current
-`sub_42FAE0()` teardown failure. Do not treat the timeout alone as success.
+sequence, loads `gamedata.bin` and `monster.bin`, and completes the scripted
+`chatScreenServerName` macro without a signal in the diagnostic run. Do not
+treat the timeout alone as success; verify the last completed macro and the
+process exit reason.
 The important native transport boundaries are:
 
 ```text
@@ -232,7 +245,8 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Continue the headless smoke test through map selection/gameplay startup.
+1. Continue the headless smoke test through `defaultServerGame`, map
+   selection, and gameplay startup.
 2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
    stable.
 3. Update `startup-compatibility.md` with the final native audio transport

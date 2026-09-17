@@ -22524,7 +22524,7 @@ void __cdecl sub_46AC60(int a1)
       sub_42FAE0(*(_DWORD *)(a1 + 84));
     if ( *(_DWORD *)(a1 + 68) )
       sub_42FAE0(*(_DWORD *)(a1 + 68));
-    if ( *(_DWORD **)(a1 + 92) )
+    if ( *(_DWORD *)(a1 + 92) )
       sub_42FAE0(*(_DWORD *)(a1 + 92));
     v2 = *(_DWORD *)(a1 + 76);
     if ( v2 )
