@@ -80,6 +80,8 @@ static char *nox_csf_records;
 static wchar_t **nox_csf_wide_strings;
 static char **nox_csf_narrow_strings;
 static void *nox_csf_extra_head;
+static void *nox_native_modifier_head;
+static void *nox_native_property_head;
 static const char *nox_builtin_strings[0x3FF];
 static const char *nox_soundset_names[18];
 
@@ -187,6 +189,8 @@ static int (*nox_font_dispatch)(int, int, int, int);
 
 #if UINTPTR_MAX > UINT32_MAX
 uintptr_t nox_native_window_pool_manager;
+_DWORD *nox_native_video_mode_state;
+static _DWORD *nox_native_video_config_states[2];
 #endif
 
 #if defined(__linux__)
@@ -4074,6 +4078,9 @@ NOX_CONFIG_PTR(81208, 81412);
 *(void **)&byte_587000[92904] = &byte_587000[93140];
 *(void **)&byte_587000[92908] = &byte_587000[93148];
 *(void **)&byte_587000[93164] = &byte_5D4594[816244];
+#if UINTPTR_MAX > UINT32_MAX
+nox_native_video_config_states[0] = (_DWORD *)&byte_5D4594[816244];
+#endif
 *(void **)&byte_587000[93956] = &sub_43EC30;
 *(void **)&byte_587000[93960] = &sub_43ECB0;
 *(void **)&byte_587000[93964] = &sub_43ED00;
@@ -5029,10 +5036,16 @@ NOX_CMD_TOKEN_PTR(94496, 98460);
 *(void **)&byte_587000[122264] = &byte_587000[122500];
 *(void **)&byte_587000[122268] = &sub_44C4E0;
 *(void **)&byte_587000[122852] = &byte_5D4594[830980];
+#if UINTPTR_MAX > UINT32_MAX
+nox_native_video_config_states[1] = (_DWORD *)&byte_5D4594[830980];
+#endif
 *(void **)&byte_587000[122944] = &byte_587000[123016];
 *(void **)&byte_587000[122948] = &byte_587000[123024];
 *(void **)&byte_587000[122952] = &byte_587000[123032];
 *(void **)&byte_587000[127004] = &byte_5D4594[1045324];
+#if UINTPTR_MAX > UINT32_MAX
+nox_native_video_mode_state = (_DWORD *)&byte_5D4594[1045324];
+#endif
 *(void **)&byte_587000[127824] = &byte_587000[127864];
 *(void **)&byte_587000[127828] = &byte_587000[127876];
 *(void **)&byte_587000[127832] = &byte_587000[127888];
@@ -17487,6 +17500,10 @@ int __cdecl sub_412930(char *a1, char *a2)
   *(_DWORD *)&byte_5D4594[251604] = 0;
   *(_DWORD *)&byte_5D4594[251608] = 0;
   *(_DWORD *)&byte_5D4594[251612] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_modifier_head = 0;
+  nox_native_property_head = 0;
+#endif
   *(_DWORD *)&byte_5D4594[251592] = 0;
   *(_DWORD *)&byte_5D4594[251596] = 0;
   v2 = sub_408CC0(a1, 0);
@@ -17679,10 +17696,11 @@ int __cdecl sub_412D40(int a1, FILE *a2, char *a3)
       return 0;
 #if UINTPTR_MAX > UINT32_MAX
     *(_DWORD *)((char *)v3 + 84) = 0;
-    *(_DWORD *)((char *)v3 + 80) = *(_DWORD *)&byte_5D4594[251600];
-    if ( *(_DWORD *)&byte_5D4594[251600] )
-      *(_DWORD *)(*(_DWORD *)&byte_5D4594[251600] + 84) = (uint32_t)(uintptr_t)v3;
+    *(_DWORD *)((char *)v3 + 80) = (uint32_t)(uintptr_t)nox_native_modifier_head;
+    if ( nox_native_modifier_head )
+      *(_DWORD *)((char *)nox_native_modifier_head + 84) = (uint32_t)(uintptr_t)v3;
     ++*(_DWORD *)&byte_5D4594[251604];
+    nox_native_modifier_head = v3;
     *(_DWORD *)&byte_5D4594[251600] = (uint32_t)(uintptr_t)v3;
 #else
     v3[21] = 0;
@@ -17769,10 +17787,11 @@ int __cdecl sub_412ED0(int a1, FILE *a2, char *a3)
     if ( !v3 )
       return 0;
     *(_DWORD *)((char *)v3 + 84) = 0;
-    *(_DWORD *)((char *)v3 + 80) = *(_DWORD *)&byte_5D4594[251608];
-    if ( *(_DWORD *)&byte_5D4594[251608] )
-      *(_DWORD *)(*(_DWORD *)&byte_5D4594[251608] + 84) = (uint32_t)(uintptr_t)v3;
+    *(_DWORD *)((char *)v3 + 80) = (uint32_t)(uintptr_t)nox_native_property_head;
+    if ( nox_native_property_head )
+      *(_DWORD *)((char *)nox_native_property_head + 84) = (uint32_t)(uintptr_t)v3;
     ++*(_DWORD *)&byte_5D4594[251612];
+    nox_native_property_head = v3;
     *(_DWORD *)&byte_5D4594[251608] = (uint32_t)(uintptr_t)v3;
     v5 = (char *)malloc(strlen(v9) + 1);
     *(_DWORD *)v4 = (uint32_t)(uintptr_t)v5;
@@ -17849,13 +17868,29 @@ void sub_413060()
 {
   LPVOID *v0; // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_modifier_head = 0;
+#else
   sub_4130C0(*(LPVOID *)&byte_5D4594[251600]);
+#endif
   *(_DWORD *)&byte_5D4594[251600] = 0;
   *(_DWORD *)&byte_5D4594[251604] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_property_head = 0;
+#else
   sub_413100(*(LPVOID *)&byte_5D4594[251608]);
+#endif
   *(_DWORD *)&byte_5D4594[251608] = 0;
   *(_DWORD *)&byte_5D4594[251612] = 0;
   v0 = (LPVOID *)&byte_5D4594[251584];
+#if UINTPTR_MAX > UINT32_MAX
+  /* These auxiliary heads and the modifier heads are still represented by
+   * adjacent 32-bit image slots. Native shutdown must not interpret their
+   * combined 64-bit values as pointers; the process is exiting and their
+   * allocations are reclaimed by the OS. */
+  v0 = 0;
+#endif
+  if ( v0 )
   do
   {
     sub_413140(*v0);
@@ -17873,6 +17908,15 @@ void __cdecl sub_4130C0(LPVOID lpMem)
   void *v2; // edi
 
   v1 = lpMem;
+#if UINTPTR_MAX > UINT32_MAX
+  while ( v1 )
+  {
+    v2 = (void *)(uintptr_t)*(unsigned int *)((char *)v1 + 80);
+    NOX_MOD_FREE(v1, 0x58u);
+    v1 = v2;
+  }
+  return;
+#endif
   if ( lpMem )
   {
     do
@@ -17896,6 +17940,15 @@ void __cdecl sub_413100(LPVOID lpMem)
   void *v2; // edi
 
   v1 = lpMem;
+#if UINTPTR_MAX > UINT32_MAX
+  while ( v1 )
+  {
+    v2 = (void *)(uintptr_t)*(unsigned int *)((char *)v1 + 80);
+    NOX_MOD_FREE(v1, 0x58u);
+    v1 = v2;
+  }
+  return;
+#endif
   if ( lpMem )
   {
     do
@@ -18101,25 +18154,41 @@ LABEL_6:
 //----- (00413370) --------------------------------------------------------
 LPVOID sub_413370()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_native_modifier_head;
+#else
   return *(LPVOID *)&byte_5D4594[251600];
+#endif
 }
 
 //----- (00413380) --------------------------------------------------------
 int __cdecl sub_413380(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return (int)(uintptr_t)*(unsigned int *)(a1 + 80);
+#else
   return *(_DWORD *)(a1 + 80);
+#endif
 }
 
 //----- (00413390) --------------------------------------------------------
 LPVOID sub_413390()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_native_property_head;
+#else
   return *(LPVOID *)&byte_5D4594[251608];
+#endif
 }
 
 //----- (004133A0) --------------------------------------------------------
 int __cdecl sub_4133A0(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return (int)(uintptr_t)*(unsigned int *)(a1 + 80);
+#else
   return *(_DWORD *)(a1 + 80);
+#endif
 }
 
 //----- (004133B0) --------------------------------------------------------
@@ -40660,7 +40729,11 @@ _DWORD *__cdecl sub_42CDF0(FILE *a1)
 
   v1 = sub_430AF0();
   v2 = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  fprintf(a1, (const char *)&byte_587000[80148], nox_mouse_names[v1]);
+#else
   fprintf(a1, (const char *)&byte_587000[80148], *(_DWORD *)&byte_587000[4 * v1 + 73652]);
+#endif
   result = *(_DWORD **)&byte_5D4594[754056];
   v4 = *(_DWORD **)&byte_5D4594[754056];
   if ( *(_DWORD *)&byte_5D4594[754056] )
@@ -43959,24 +44032,45 @@ int __cdecl sub_4310B0(int a3)
     }
   }
   sub_4864A0(&byte_5D4594[805884]);
+#if UINTPTR_MAX > UINT32_MAX
+  sub_4864A0(nox_native_video_config_states[0]);
+  sub_4864A0(nox_native_video_config_states[1]);
+#else
   sub_4864A0(*(_DWORD **)&byte_587000[93164]);
   sub_4864A0(*(_DWORD **)&byte_587000[122852]);
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  sub_4864A0(nox_native_video_mode_state);
+#else
   sub_4864A0(*(_DWORD **)&byte_587000[127004]);
+#endif
   sub_44D810();
   sub_43D8E0();
   sub_451850(*(int *)&byte_5D4594[805984], *(int *)&byte_5D4594[805980]);
   v1 = sub_4866A0(2);
   if ( !v1 )
     sub_43DC00();
+#if UINTPTR_MAX > UINT32_MAX
+  sub_486320(nox_native_video_config_states[0], v1);
+#else
   sub_486320(*(_DWORD **)&byte_587000[93164], v1);
+#endif
   v2 = sub_4866A0(1);
   if ( !v2 )
     sub_44D960();
+#if UINTPTR_MAX > UINT32_MAX
+  sub_486320(nox_native_video_config_states[1], v2);
+#else
   sub_486320(*(_DWORD **)&byte_587000[122852], v2);
+#endif
   v3 = sub_4866A0(0);
   if ( !v3 )
     sub_453050();
+#if UINTPTR_MAX > UINT32_MAX
+  sub_486320(nox_native_video_mode_state, v3);
+#else
   sub_486320(*(_DWORD **)&byte_587000[127004], v3);
+#endif
   return 1;
 }
 
@@ -44285,7 +44379,11 @@ int __cdecl sub_4316C0(int a1)
 void __cdecl sub_431700(_QWORD *a1)
 {
   sub_4316C0((int)a1);
+#if UINTPTR_MAX > UINT32_MAX
+  sub_414330((unsigned int *)(uintptr_t)*(unsigned int *)&byte_5D4594[806044], a1);
+#else
   sub_414330(*(unsigned int **)&byte_5D4594[806044], a1);
+#endif
 }
 
 //----- (00431720) --------------------------------------------------------
@@ -44293,6 +44391,9 @@ void __cdecl sub_431720(int *a1)
 {
   int v1; // eax
   int v2; // esi
+#if UINTPTR_MAX > UINT32_MAX
+  int (*callback)(uintptr_t, int);
+#endif
 
   if ( a1 )
   {
@@ -44304,7 +44405,15 @@ void __cdecl sub_431720(int *a1)
       {
         *(_DWORD *)&byte_5D4594[3799524] = 1;
         v2 = *(_DWORD *)(v1 + 44);
+#if UINTPTR_MAX > UINT32_MAX
+        // The callback occupies one recovered DWORD; the next DWORD is the
+        // pool link, so loading it as a host pointer corrupts the call target.
+        callback = (int (*)(uintptr_t, int))(
+          ((uintptr_t)&sub_489700 & ~(uintptr_t)UINT32_MAX) | *(unsigned int *)v1);
+        callback((uintptr_t)a1, v1);
+#else
         (*(int (__cdecl **)(int *, int))v1)(a1, v1);
+#endif
         v1 = v2;
       }
       while ( v2 );
@@ -44367,11 +44476,24 @@ int __cdecl sub_4317B0(char *a1, int a2)
     fclose(v7);
   }
   sub_42CD90();
+#if UINTPTR_MAX > UINT32_MAX
+  v5 = fopen("default.cfg", "r");
+  result = 0;
+#else
   result = fopen("default.cfg", "r");
   v5 = (FILE *)result;
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  if ( v5 )
+#else
   if ( result )
+#endif
   {
+#if UINTPTR_MAX > UINT32_MAX
+    if ( a2 || sub_431890(v5) )
+#else
     if ( a2 || sub_431890((FILE *)result) )
+#endif
     {
       if ( sub_4331E0(v5, a2) )
       {
@@ -45891,17 +46013,29 @@ int __cdecl sub_4332E0(FILE *a1)
   fprintf(a1, "Gamma2 = %f\n", draw_gamma);
   fprintf(a1, "InputSensitivity = %f\n", input_sensitivity);
   if ( sub_453070() == 1 )
+#if UINTPTR_MAX > UINT32_MAX
+    v3 = nox_native_video_mode_state[1] >> 16;
+#else
     v3 = *(_DWORD *)(*(_DWORD *)&byte_587000[127004] + 4) >> 16;
+#endif
   else
     v3 = 0;
   fprintf(a1, (const char *)&byte_587000[83272], v3);
   if ( sub_44D990() == 1 )
+#if UINTPTR_MAX > UINT32_MAX
+    v4 = nox_native_video_config_states[1][1] >> 16;
+#else
     v4 = *(_DWORD *)(*(_DWORD *)&byte_587000[122852] + 4) >> 16;
+#endif
   else
     v4 = 0;
   fprintf(a1, (const char *)&byte_587000[83288], v4);
   if ( sub_43DC30() == 1 )
+#if UINTPTR_MAX > UINT32_MAX
+    v5 = nox_native_video_config_states[0][1] >> 16;
+#else
     v5 = *(_DWORD *)(*(_DWORD *)&byte_587000[93164] + 4) >> 16;
+#endif
   else
     v5 = 0;
   fprintf(a1, (const char *)&byte_587000[83308], v5);
@@ -53481,7 +53615,11 @@ _DWORD *__stdcall sub_43E9D0(int a1)
 {
   sub_486EF0();
   sub_43D2D0();
+#if UINTPTR_MAX > UINT32_MAX
+  return sub_486620(nox_native_video_mode_state);
+#else
   return sub_486620(*(_DWORD **)&byte_587000[127004]);
+#endif
 }
 
 //----- (0043E9F0) --------------------------------------------------------

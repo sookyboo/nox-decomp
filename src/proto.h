@@ -3085,7 +3085,11 @@ int __cdecl sub_47D420(int a1, int a2, int a3, int a4, int a5, int a6);
 int __cdecl sub_47D480(int *a1, int a2);
 __int16 __cdecl sub_47D4E0(_DWORD *a1);
 char __cdecl sub_47D530(int *a1);
+#if UINTPTR_MAX > UINT32_MAX
+int (*__cdecl sub_47D5B0(uintptr_t a1))(int);
+#else
 int (__cdecl *__cdecl sub_47D5B0(int a1))(_DWORD);
+#endif
 int __cdecl sub_47D5C0(int a1, _DWORD *a2, _DWORD *a3, _DWORD *a4, _DWORD *a5);
 void nullsub_7(); // weak
 UINT __cdecl sub_47D660(UINT uJoyID, int a2);
@@ -3264,7 +3268,11 @@ int __cdecl sub_489550(_DWORD *a1, _DWORD *a2);
 int sub_4896C0();
 int __cdecl sub_4896D0(int a1);
 int sub_4896E0();
+#if UINTPTR_MAX > UINT32_MAX
+int __cdecl sub_489700(uintptr_t a1, int a2);
+#else
 int __cdecl sub_489700(int a1, int a2);
+#endif
 int sub_489870();
 BOOL __cdecl sub_4899C0(int a1);
 _DWORD *__cdecl sub_489B80(int a1);

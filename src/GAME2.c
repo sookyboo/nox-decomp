@@ -2,6 +2,15 @@
 
 static void (*nox_draw_callback)(int, int, int);
 static int (*nox_texture_callback)(int, int, int, int, int);
+#if UINTPTR_MAX > UINT32_MAX
+int (*nox_47d5_callback)(int);
+static int (*nox_49ef_callback)(int, int);
+static void (*nox_49cf_callback)(int, int, int, int);
+static int **nox_native_488b_state;
+#define NOX_488B_STATE nox_native_488b_state
+#else
+#define NOX_488B_STATE (*(int ***)&byte_5D4594[1193348])
+#endif
 
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 #include <sys/mman.h>
@@ -95,6 +104,7 @@ extern uintptr_t nox_native_last_csf_narrow;
 extern HDIGDRIVER nox_mss_digital_handle;
 extern uintptr_t nox_native_audio_state;
 extern uintptr_t nox_native_window_pool_manager;
+extern _DWORD *nox_native_video_mode_state;
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -3799,7 +3809,11 @@ int sub_4519C0()
     if ( !*(_DWORD *)&byte_5D4594[1045448] )
     {
       *(_DWORD *)&byte_5D4594[1045448] = 1;
+#if UINTPTR_MAX > UINT32_MAX
+      sub_486520((unsigned int *)nox_native_video_mode_state);
+#else
       sub_486520(*(unsigned int **)&byte_587000[127004]);
+#endif
 #if UINTPTR_MAX > UINT32_MAX
       v1 = nox_native_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
 #else
@@ -4744,7 +4758,11 @@ int *__cdecl sub_452810(int a1, char a2)
       if ( v3[31] & 0x15 && v3[30] > a1 )
         return 0;
       sub_4BDA80((int)v3);
+#if UINTPTR_MAX > UINT32_MAX
+      v2[29] = (uintptr_t)nox_native_video_mode_state;
+#else
       v2[29] = *(_DWORD *)&byte_587000[127004];
+#endif
       v2[30] = a1;
       if ( a2 & 1 )
         v2[32] = -1;
@@ -36696,7 +36714,11 @@ int sub_47D200()
   *(_DWORD *)&byte_5D4594[3799468] = 0;
   *(_DWORD *)&byte_5D4594[3799552] = 0;
   *(_DWORD *)&byte_5D4594[3799508] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_47d5_callback = sub_42FB30;
+#else
   *(_DWORD *)&byte_5D4594[3799492] = sub_42FB30;
+#endif
   return 1;
 }
 
@@ -36946,13 +36968,25 @@ LABEL_13:
 }
 
 //----- (0047D5B0) --------------------------------------------------------
+#if UINTPTR_MAX > UINT32_MAX
+int (*__cdecl sub_47D5B0(uintptr_t a1))(int)
+#else
 int (__cdecl *__cdecl sub_47D5B0(int a1))(_DWORD)
+#endif
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int (*result)(int); // eax
+
+  result = nox_47d5_callback;
+  nox_47d5_callback = (int (*)(int))a1;
+  return result;
+#else
   int (__cdecl *result)(_DWORD); // eax
 
   result = *(int (__cdecl **)(_DWORD))&byte_5D4594[3799492];
   *(_DWORD *)&byte_5D4594[3799492] = a1;
   return result;
+#endif
 }
 
 //----- (0047D5C0) --------------------------------------------------------
@@ -45958,12 +45992,12 @@ LABEL_17:
 LABEL_19:
           if ( !*(_DWORD *)(v4 + 1036) && !*(_DWORD *)(v4 + 1032) && !*(_DWORD *)(v4 + 1028) )
           {
-            v8 = sub_57011C(*(_DWORD ***)&byte_5D4594[1193348]);
+            v8 = sub_57011C(NOX_488B_STATE);
             nox_wcscpy((wchar_t *)(v4 + 512), (const wchar_t *)v8);
             *(_WORD *)(v4 + 1054) = nox_wcslen((const wchar_t *)(v4 + 512));
-            if ( !sub_5702B4(*(_DWORD ***)&byte_5D4594[1193348]) )
+            if ( !sub_5702B4(NOX_488B_STATE) )
               goto LABEL_41;
-            sub_570392(*(_DWORD ***)&byte_5D4594[1193348]);
+            sub_570392(NOX_488B_STATE);
             sub_46AC00(*(_DWORD *)(v4 + 1048), 1);
             return 1;
           }
@@ -46291,14 +46325,14 @@ uintptr_t __cdecl sub_488710(int a1, unsigned int a2, wchar_t *a3, int a4)
   if ( a3 )
   {
     *(_DWORD *)&byte_5D4594[1193352] = a1;
-    sub_5700CA(*(int ***)&byte_5D4594[1193348], sub_401FD0());
+    sub_5700CA(NOX_488B_STATE, sub_401FD0());
     v6 = *(_DWORD *)(a1 + 36);
     LOBYTE(v6) = v6 | 6;
     *(_DWORD *)(a1 + 36) = v6;
   }
   else
   {
-    sub_5700F6(*(int ***)&byte_5D4594[1193348]);
+    sub_5700F6(NOX_488B_STATE);
     *(_DWORD *)&byte_5D4594[1193352] = 0;
     v4 = *(_DWORD *)(a1 + 36);
     LOBYTE(v4) = v4 & 0xF9;
@@ -46447,12 +46481,21 @@ int sub_488B60()
   v0 = (int **)operator_new(4u);
   if ( v0 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_488b_state = sub_56FFE0(v0);
+    sub_570142(nox_native_488b_state, 11);
+#else
     *(_DWORD *)&byte_5D4594[1193348] = sub_56FFE0(v0);
     sub_570142(*(_DWORD ***)&byte_5D4594[1193348], 11);
+#endif
   }
   else
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_488b_state = 0;
+#else
     *(_DWORD *)&byte_5D4594[1193348] = 0;
+#endif
     sub_570142(0, 11);
   }
   return 1;
@@ -46464,13 +46507,17 @@ int sub_488BA0()
 {
   void *v0; // esi
 
-  v0 = *(void **)&byte_5D4594[1193348];
-  if ( *(_DWORD *)&byte_5D4594[1193348] )
+  v0 = NOX_488B_STATE;
+  if ( NOX_488B_STATE )
   {
-    sub_570070(*(int ****)&byte_5D4594[1193348]);
+    sub_570070((int ***)NOX_488B_STATE);
     operator_delete(v0);
   }
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_488b_state = 0;
+#else
   *(_DWORD *)&byte_5D4594[1193348] = 0;
+#endif
   return 1;
 }
 
@@ -46481,7 +46528,7 @@ void __cdecl sub_488BD0(unsigned __int16 a1)
   int v3; // eax
   unsigned __int8 *v4; // eax
 
-  if ( *(_DWORD *)&byte_5D4594[1193348] )
+  if ( NOX_488B_STATE )
   {
     if ( *(_DWORD *)&byte_5D4594[1193352] )
     {
@@ -46514,10 +46561,10 @@ void __cdecl sub_488BD0(unsigned __int16 a1)
                     *(_WORD *)(v2 + 2 * v3) = a1;
                     *(_WORD *)(v2 + 2 * (unsigned __int16)++*(_WORD *)(v2 + 1052)) = 0;
                   }
-                  v4 = sub_57011C(*(_DWORD ***)&byte_5D4594[1193348]);
+                  v4 = sub_57011C(NOX_488B_STATE);
                   nox_wcscpy((wchar_t *)(v2 + 512), (const wchar_t *)v4);
                   *(_WORD *)(v2 + 1054) = nox_wcslen((const wchar_t *)(v2 + 512));
-                  sub_570392(*(_DWORD ***)&byte_5D4594[1193348]);
+                  sub_570392(NOX_488B_STATE);
                   sub_46AC00(*(_DWORD *)(v2 + 1048), 1);
                   break;
               }
@@ -46974,7 +47021,11 @@ int sub_4896E0()
 }
 
 //----- (00489700) --------------------------------------------------------
+#if UINTPTR_MAX > UINT32_MAX
+int __cdecl sub_489700(uintptr_t a1, int a2)
+#else
 int __cdecl sub_489700(int a1, int a2)
+#endif
 {
   int v2; // ecx
   char v3; // al
@@ -60468,7 +60519,11 @@ int sub_49CB50()
 {
   if ( !*(_DWORD *)&byte_5D4594[3801780] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_49cf_callback = sub_49D1E0;
+#else
     *(_DWORD *)&byte_5D4594[1305704] = sub_49D1E0;
+#endif
     *(_DWORD *)&byte_5D4594[1305712] = sub_49D680;
     *(_DWORD *)&byte_5D4594[1305720] = sub_49D880;
     *(_DWORD *)&byte_5D4594[1305700] = sub_49DA90;
@@ -60483,7 +60538,11 @@ int sub_49CB50()
   }
   if ( *(_DWORD *)&byte_5D4594[3801780] != 1 )
     return 1;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_49cf_callback = sub_49D270;
+#else
   *(_DWORD *)&byte_5D4594[1305704] = sub_49D270;
+#endif
   if ( *(_DWORD *)&byte_5D4594[3801804] )
   {
     *(_DWORD *)&byte_5D4594[1305692] = sub_49D540;
@@ -60603,7 +60662,11 @@ void __cdecl sub_49CE30(int xLeft, int yTop, int a3, int a4)
       }
       if ( v8 || v7 || v4 != *(_DWORD *)&byte_5D4594[3801784] || v5 != *(_DWORD *)&byte_5D4594[3801788] )
       {
+#if UINTPTR_MAX > UINT32_MAX
+        nox_49cf_callback(v8, v7, v4, v5);
+#else
         (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[1305704])(v8, v7, v4, v5);
+#endif
       }
       else
       {
@@ -61981,7 +62044,11 @@ int sub_49E3F0()
   if ( !*(_DWORD *)&byte_5D4594[3801780] )
   {
     *(_DWORD *)&byte_5D4594[3798716] = sub_49E540;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_49ef_callback = sub_49EFC0;
+#else
     *(_DWORD *)&byte_5D4594[3798700] = sub_49EFC0;
+#endif
     *(_DWORD *)&byte_5D4594[3798704] = sub_49ED80;
     *(_DWORD *)&byte_5D4594[3798720] = sub_49F060;
     *(_DWORD *)&byte_5D4594[3798708] = sub_49F0F0;
@@ -61996,7 +62063,11 @@ int sub_49E3F0()
     *(_DWORD *)&byte_5D4594[3798708] = sub_49F180;
   *(_DWORD *)&byte_5D4594[3798712] = sub_49F420;
   *(_DWORD *)&byte_5D4594[3798716] = sub_49E930;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_49ef_callback = sub_49F010;
+#else
   *(_DWORD *)&byte_5D4594[3798700] = sub_49F010;
+#endif
   *(_DWORD *)&byte_5D4594[3798704] = sub_49ED80;
   return 1;
 }
@@ -62713,7 +62784,11 @@ int __cdecl sub_49ED80(unsigned __int8 a1, int a2)
 //----- (0049EFA0) --------------------------------------------------------
 int __cdecl sub_49EFA0(int a1, int a2)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_49ef_callback(a1, a2);
+#else
   return (*(int (__cdecl **)(_DWORD, _DWORD))&byte_5D4594[3798700])(a1, a2);
+#endif
 }
 
 //----- (0049EFC0) --------------------------------------------------------
