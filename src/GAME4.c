@@ -1,5 +1,24 @@
 #include "proto.h"
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+
+static void *nox_game4_low_alloc(size_t size)
+{
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped_size;
+  void *result;
+
+  if ( !page_size )
+    return 0;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+  return result == MAP_FAILED ? 0 : result;
+}
+#endif
+
 #ifdef NOX_EUD_COMPAT
 #include "eud_compat.h"
 #endif
@@ -28394,8 +28413,13 @@ int sub_517010()
   char v2[256]; // [esp+4h] [ebp-100h]
 
   *(_DWORD *)&byte_5D4594[2386924] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = sub_408CC0((char *)&byte_587000[249116], 0);
+  result = v1 != 0;
+#else
   result = sub_408CC0((char *)&byte_587000[249116], 0);
   v1 = (FILE *)result;
+#endif
   if ( result )
   {
     result = sub_408D40(result, 23);
@@ -28493,7 +28517,13 @@ int __cdecl sub_517170(FILE *a1, const char *a2)
   int v9; // [esp+10h] [ebp-104h]
   char v10[256]; // [esp+14h] [ebp-100h]
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = (int)(intptr_t)nox_game4_low_alloc(0xF8u);
+  if ( result )
+    memset((void *)(uintptr_t)(unsigned int)result, 0, 0xF8u);
+#else
   result = (int)calloc(1u, 0xF8u);
+#endif
   v3 = (_DWORD *)result;
   if ( result )
   {
@@ -28542,7 +28572,12 @@ LABEL_14:
             }
             if ( !*(_DWORD *)v4 )
             {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+              /* The parser record is stored through a recovered 32-bit pointer. */
+              munmap((void *)(uintptr_t)(unsigned int)result, 0x1000u);
+#else
               free(v3);
+#endif
               return 0;
             }
             v6 = (char *)v3 + *((_DWORD *)v4 + 2);
