@@ -11,6 +11,32 @@
 #define NOX_TIMER_ADDRESS(address) ((int)(address))
 #endif
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__GNUC__)
+#pragma weak sub_4A0A00
+#pragma weak sub_4A0A30
+#pragma weak sub_4A0A60
+#pragma weak sub_4A0650
+#pragma weak sub_4A0870
+#pragma weak sub_4A0690
+#pragma weak sub_4A08C0
+#pragma weak sub_4A06D0
+#pragma weak sub_4A0910
+#pragma weak sub_4A0710
+#pragma weak sub_4A09B0
+#pragma weak sub_4A0750
+#pragma weak sub_4A0960
+#pragma weak sub_4A0830
+#pragma weak sub_4A0790
+#pragma weak sub_4A0A90
+#pragma weak sub_4A07D0
+#pragma weak sub_4A0800
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX
+static int nox_window_parent_stack[10];
+static int *nox_window_parent_stack_top;
+#endif
+
 BYTE *npc_array;
 
 //----- (0044CCA0) --------------------------------------------------------
@@ -63015,7 +63041,7 @@ int __cdecl sub_4A05E0(int *a1, FILE *a2, char *a3)
   int result; // eax
 
   fscanf(a2, (const char *)&byte_587000[167544]);
-  sub_57BBC0(a2, (int)a3, 256);
+  sub_57BBC0(a2, (uintptr_t)a3, 256);
   if ( !strcmp(a3, (const char *)&byte_587000[167548]) )
   {
     result = 1;
@@ -63030,7 +63056,7 @@ int __cdecl sub_4A05E0(int *a1, FILE *a2, char *a3)
 }
 
 //----- (004A0650) --------------------------------------------------------
-int __cdecl sub_4A0650(int a1, char *a2)
+int __cdecl sub_4A0650(uintptr_t a1, char *a2)
 {
   if ( strcmp(a2, (const char *)&byte_587000[167560]) )
     return sub_4A0570((int *)(a1 + 20), a2);
@@ -63039,7 +63065,7 @@ int __cdecl sub_4A0650(int a1, char *a2)
 }
 
 //----- (004A0690) --------------------------------------------------------
-int __cdecl sub_4A0690(int a1, char *a2)
+int __cdecl sub_4A0690(uintptr_t a1, char *a2)
 {
   if ( strcmp(a2, (const char *)&byte_587000[167572]) )
     return sub_4A0570((int *)(a1 + 28), a2);
@@ -63048,7 +63074,7 @@ int __cdecl sub_4A0690(int a1, char *a2)
 }
 
 //----- (004A06D0) --------------------------------------------------------
-int __cdecl sub_4A06D0(int a1, char *a2)
+int __cdecl sub_4A06D0(uintptr_t a1, char *a2)
 {
   if ( strcmp(a2, (const char *)&byte_587000[167584]) )
     return sub_4A0570((int *)(a1 + 44), a2);
@@ -63057,7 +63083,7 @@ int __cdecl sub_4A06D0(int a1, char *a2)
 }
 
 //----- (004A0710) --------------------------------------------------------
-int __cdecl sub_4A0710(int a1, char *a2)
+int __cdecl sub_4A0710(uintptr_t a1, char *a2)
 {
   if ( strcmp(a2, (const char *)&byte_587000[167596]) )
     return sub_4A0570((int *)(a1 + 36), a2);
@@ -63066,7 +63092,7 @@ int __cdecl sub_4A0710(int a1, char *a2)
 }
 
 //----- (004A0750) --------------------------------------------------------
-int __cdecl sub_4A0750(int a1, char *a2)
+int __cdecl sub_4A0750(uintptr_t a1, char *a2)
 {
   if ( strcmp(a2, (const char *)&byte_587000[167608]) )
     return sub_4A0570((int *)(a1 + 52), a2);
@@ -63075,7 +63101,7 @@ int __cdecl sub_4A0750(int a1, char *a2)
 }
 
 //----- (004A0790) --------------------------------------------------------
-int __cdecl sub_4A0790(int a1, char *a2)
+int __cdecl sub_4A0790(uintptr_t a1, char *a2)
 {
   if ( strcmp(a2, (const char *)&byte_587000[167620]) )
     return sub_4A0570((int *)(a1 + 68), a2);
@@ -63084,7 +63110,7 @@ int __cdecl sub_4A0790(int a1, char *a2)
 }
 
 //----- (004A07D0) --------------------------------------------------------
-int __cdecl sub_4A07D0(int a1, char *a2)
+int __cdecl sub_4A07D0(uintptr_t a1, char *a2)
 {
   int v2; // eax
 
@@ -63096,17 +63122,17 @@ int __cdecl sub_4A07D0(int a1, char *a2)
 }
 
 //----- (004A0800) --------------------------------------------------------
-int __cdecl sub_4A0800(wchar_t *a1, char *a2)
+int __cdecl sub_4A0800(uintptr_t a1, char *a2)
 {
   wchar_t *v2; // eax
 
   v2 = sub_40F1D0(a2, 0, (const char *)&byte_587000[167632], 267);
-  sub_46B000(a1, v2);
+  sub_46B000((wchar_t *)a1, v2);
   return 1;
 }
 
 //----- (004A0830) --------------------------------------------------------
-int __cdecl sub_4A0830(int a1, char *a2)
+int __cdecl sub_4A0830(uintptr_t a1, char *a2)
 {
   char *v2; // eax
   char *v3; // eax
@@ -63119,7 +63145,7 @@ int __cdecl sub_4A0830(int a1, char *a2)
 }
 
 //----- (004A0870) --------------------------------------------------------
-int __cdecl sub_4A0870(int a1, char *a2)
+int __cdecl sub_4A0870(uintptr_t a1, char *a2)
 {
   char *v2; // eax
 
@@ -63132,7 +63158,7 @@ int __cdecl sub_4A0870(int a1, char *a2)
 }
 
 //----- (004A08C0) --------------------------------------------------------
-int __cdecl sub_4A08C0(int a1, char *a2)
+int __cdecl sub_4A08C0(uintptr_t a1, char *a2)
 {
   char *v2; // eax
 
@@ -63145,7 +63171,7 @@ int __cdecl sub_4A08C0(int a1, char *a2)
 }
 
 //----- (004A0910) --------------------------------------------------------
-int __cdecl sub_4A0910(int a1, char *a2)
+int __cdecl sub_4A0910(uintptr_t a1, char *a2)
 {
   char *v2; // eax
 
@@ -63158,7 +63184,7 @@ int __cdecl sub_4A0910(int a1, char *a2)
 }
 
 //----- (004A0960) --------------------------------------------------------
-int __cdecl sub_4A0960(int a1, char *a2)
+int __cdecl sub_4A0960(uintptr_t a1, char *a2)
 {
   char *v2; // eax
 
@@ -63171,7 +63197,7 @@ int __cdecl sub_4A0960(int a1, char *a2)
 }
 
 //----- (004A09B0) --------------------------------------------------------
-int __cdecl sub_4A09B0(int a1, char *a2)
+int __cdecl sub_4A09B0(uintptr_t a1, char *a2)
 {
   char *v2; // eax
 
@@ -63184,23 +63210,70 @@ int __cdecl sub_4A09B0(int a1, char *a2)
 }
 
 //----- (004A0A00) --------------------------------------------------------
-int __cdecl sub_4A0A00(int a1, const char *a2)
+int __cdecl sub_4A0A00(uintptr_t a1, const char *a2)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  static const char *const window_active_flags[] = {
+    (const char *)&byte_587000[166992],
+    (const char *)&byte_587000[167000],
+    (const char *)&byte_587000[167008],
+    (const char *)&byte_587000[167020],
+    (const char *)&byte_587000[167028],
+    (const char *)&byte_587000[167036],
+    (const char *)&byte_587000[167044],
+    (const char *)&byte_587000[167052],
+    (const char *)&byte_587000[167060],
+    (const char *)&byte_587000[167068],
+    (const char *)&byte_587000[167076],
+    (const char *)&byte_587000[167084],
+    (const char *)&byte_587000[167096],
+    (const char *)&byte_587000[167104],
+    (const char *)&byte_587000[167116],
+    (const char *)&byte_587000[167128],
+    0,
+  };
+#endif
   *(_DWORD *)(a1 + 12) = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  sub_423930(a2, (_DWORD *)(a1 + 12), window_active_flags);
+#else
   sub_423930(a2, (_DWORD *)(a1 + 12), (const char **)&byte_587000[166712]);
+#endif
   return 1;
 }
 
 //----- (004A0A30) --------------------------------------------------------
-int __cdecl sub_4A0A30(int a1, const char *a2)
+int __cdecl sub_4A0A30(uintptr_t a1, const char *a2)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  static const char *const window_type_names[] = {
+    (const char *)&byte_587000[167140],
+    (const char *)&byte_587000[167152],
+    (const char *)&byte_587000[167164],
+    (const char *)&byte_587000[167176],
+    (const char *)&byte_587000[167188],
+    (const char *)&byte_587000[167200],
+    (const char *)&byte_587000[167216],
+    (const char *)&byte_587000[167228],
+    (const char *)&byte_587000[167240],
+    (const char *)&byte_587000[167252],
+    (const char *)&byte_587000[167264],
+    (const char *)&byte_587000[167272],
+    (const char *)&byte_587000[167284],
+    0,
+  };
+#endif
   *(_DWORD *)(a1 + 8) = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  sub_423930(a2, (_DWORD *)(a1 + 8), window_type_names);
+#else
   sub_423930(a2, (_DWORD *)(a1 + 8), (const char **)&byte_587000[166780]);
+#endif
   return 1;
 }
 
 //----- (004A0A60) --------------------------------------------------------
-int __cdecl sub_4A0A60(int a1, char *a2)
+int __cdecl sub_4A0A60(uintptr_t a1, char *a2)
 {
   char *v2; // eax
 
@@ -63210,7 +63283,7 @@ int __cdecl sub_4A0A60(int a1, char *a2)
 }
 
 //----- (004A0A90) --------------------------------------------------------
-int __cdecl sub_4A0A90(int a1, char *a2)
+int __cdecl sub_4A0A90(uintptr_t a1, char *a2)
 {
   wchar_t *v2; // eax
 
@@ -63293,12 +63366,18 @@ LABEL_16:
 //----- (004A0CF0) --------------------------------------------------------
 int sub_4A0CF0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_parent_stack_top = nox_window_parent_stack;
+  memset(nox_window_parent_stack, 0, sizeof(nox_window_parent_stack));
+  return 0;
+#else
   int result; // eax
 
   result = 0;
   memset(&byte_5D4594[1307208], 0, 0x28u);
   *(_DWORD *)&byte_5D4594[1307204] = &byte_5D4594[1307208];
   return result;
+#endif
 }
 
 //----- (004A0D10) --------------------------------------------------------
@@ -63323,7 +63402,7 @@ BOOL __cdecl sub_4A0D40(int *a1, FILE *a2, char *a3)
   int v3; // eax
 
   fscanf(a2, (const char *)&byte_587000[167932]);
-  sub_57BBC0(a2, (int)a3, 256);
+  sub_57BBC0(a2, (uintptr_t)a3, 256);
   v3 = sub_43F360(a3);
   *a1 = v3;
   return v3 != 0;
@@ -63371,7 +63450,7 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
       v3 = sub_43F360((char *)&byte_587000[167944]);
   }
   *(_DWORD *)&v22[200] = v3;
-  sub_57BBC0(a1, (int)a2, 256);
+  sub_57BBC0(a1, (uintptr_t)a2, 256);
   //OutputDebugStringA(a2);
   //OutputDebugStringA("\n");
   v4 = strtok(a2, (const char *)&byte_587000[167952]);
@@ -63395,6 +63474,38 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
         fscanf(a1, (const char *)&byte_587000[168000], a2);
 		//OutputDebugStringA(a2);
 		//OutputDebugStringA("\n");
+#if UINTPTR_MAX > UINT32_MAX && !defined(NOX_INVENTORY_DURABILITY_TEST)
+        {
+          static const unsigned int window_name_offsets[18] = {
+            167296, 167304, 167312, 167320, 167336, 167352,
+            167368, 167384, 167400, 167416, 167428, 167440,
+            167456, 167472, 167484, 167496, 167504, 167512,
+          };
+          static int (*const window_handlers[18])(uintptr_t, char *) = {
+            sub_4A0A00, sub_4A0A30, sub_4A0A60, sub_4A0650,
+            sub_4A0870, sub_4A0690, sub_4A08C0, sub_4A06D0,
+            sub_4A0910, sub_4A0710, sub_4A09B0, sub_4A0750,
+            sub_4A0960, sub_4A0830, sub_4A0790, sub_4A0A90,
+            sub_4A07D0, sub_4A0800,
+          };
+          int i;
+
+          for ( i = 0; i < 18; ++i )
+          {
+            if ( !strcmp(a2, (const char *)&byte_587000[window_name_offsets[i]]) )
+              break;
+          }
+          if ( i < 18 )
+          {
+            fscanf(a1, (const char *)&byte_587000[168004]);
+            sub_57BBC0(a1, (uintptr_t)a2, 256);
+            if ( !window_handlers[i]((uintptr_t)v22, a2) )
+              return 0;
+          }
+          if ( i >= 18 )
+            goto LABEL_11;
+        }
+#else
         v10 = &byte_587000[166840];
         if ( *(_DWORD *)&byte_587000[166844] )
         {
@@ -63406,12 +63517,13 @@ _DWORD *__cdecl sub_4A0D80(FILE *a1, char *a2, int (*a3)(int,int,int,int))
               goto LABEL_11;
           }
           fscanf(a1, (const char *)&byte_587000[168004]);
-          sub_57BBC0(a1, (int)a2, 256);
+          sub_57BBC0(a1, (uintptr_t)a2, 256);
 		  //OutputDebugStringA(a2);
 		  //OutputDebugStringA("\n");
           if ( !(*((int (__cdecl **)(char *, char *))v10 + 1))(v22, a2) )
             return 0;
         }
+#endif
 LABEL_11:
         ;
       }
@@ -63419,7 +63531,7 @@ LABEL_11:
       if ( strcmp(a2, (const char *)&byte_587000[168008]) )
         break;
       fscanf(a1, (const char *)&byte_587000[168016]);
-      sub_57BBC0(a1, (int)a2, 256);
+          sub_57BBC0(a1, (uintptr_t)a2, 256);
 	  //OutputDebugStringA(a2);
 	  //OutputDebugStringA("\n");
       if ( !sub_4A10A0(&v15, v21, a2) )
@@ -63436,7 +63548,7 @@ LABEL_11:
     }
     else
     {
-      sub_57BBC0(a1, (int)a2, 256);
+          sub_57BBC0(a1, (uintptr_t)a2, 256);
 	  //OutputDebugStringA(a2);
 	  //OutputDebugStringA("\n");
     }
@@ -63597,6 +63709,11 @@ _DWORD *__cdecl sub_4A1440(const char *a1, int a2, int a3, wchar_t *a4, int a5, 
 //----- (004A14F0) --------------------------------------------------------
 int sub_4A14F0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  if ( nox_window_parent_stack_top == nox_window_parent_stack )
+    return 0;
+  return nox_window_parent_stack_top[-1];
+#else
   int result; // eax
 
   if ( *(unsigned __int8 **)&byte_5D4594[1307204] == &byte_5D4594[1307208] )
@@ -63604,6 +63721,7 @@ int sub_4A14F0()
   else
     result = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307204] - 4);
   return result;
+#endif
 }
 
 //----- (004A1510) --------------------------------------------------------
@@ -63726,15 +63844,30 @@ LABEL_14:
 //----- (004A18A0) --------------------------------------------------------
 int sub_4A18A0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  if ( nox_window_parent_stack_top == nox_window_parent_stack )
+    return 0;
+  --nox_window_parent_stack_top;
+  return *nox_window_parent_stack_top;
+#else
   if ( *(unsigned __int8 **)&byte_5D4594[1307204] == &byte_5D4594[1307208] )
     return 0;
   *(_DWORD *)&byte_5D4594[1307204] -= 4;
   return **(_DWORD **)&byte_5D4594[1307204];
+#endif
 }
 
 //----- (004A18C0) --------------------------------------------------------
 int __cdecl sub_4A18C0(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  if ( nox_window_parent_stack_top != nox_window_parent_stack + 9 )
+  {
+    *nox_window_parent_stack_top = a1;
+    ++nox_window_parent_stack_top;
+  }
+  return (int)(uintptr_t)nox_window_parent_stack_top;
+#else
   int result; // eax
 
   result = *(_DWORD *)&byte_5D4594[1307204];
@@ -63745,6 +63878,7 @@ int __cdecl sub_4A18C0(int a1)
     *(_DWORD *)&byte_5D4594[1307204] += 4;
   }
   return result;
+#endif
 }
 
 //----- (004A18E0) --------------------------------------------------------

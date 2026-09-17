@@ -5910,7 +5910,7 @@ __int16 __cdecl sub_4A9E90(int a1, int a2, int a3, int a4)
   int v9; // edi
   int v10; // esi
   int v11; // eax
-  int v12; // esi
+  uintptr_t v12; // esi
   //bool v13; // zf
   //bool v14; // of
   int v15; // ebp
@@ -33778,7 +33778,7 @@ int __cdecl sub_4CFFA0(int a1)
 }
 
 //----- (004CFFC0) --------------------------------------------------------
-int __cdecl sub_4CFFC0(int a1)
+int __cdecl sub_4CFFC0(uintptr_t a1)
 {
   return sub_4CFF50(*(_DWORD *)(a1 + 28));
 }
@@ -34547,7 +34547,7 @@ int sub_4D0E00()
   int v9; // ebp
   unsigned __int8 *v10; // ebx
   int v11; // edi
-  int v12; // esi
+  uintptr_t v12; // esi
   int v13; // [esp+10h] [ebp-4h]
 
   v0 = time(0);
@@ -34557,7 +34557,7 @@ int sub_4D0E00()
   {
     if ( i[6] )
     {
-      if ( sub_4CFFC0((int)i) & 0x1000 )
+      if ( sub_4CFFC0((uintptr_t)i) & 0x1000 )
       {
         if ( *(int *)&byte_5D4594[1548476] < 128 )
         {
@@ -34589,7 +34589,7 @@ int sub_4D0E00()
         v11 = v9;
         if ( v9 < result )
         {
-          v12 = (int)(v10 + 32);
+            v12 = (uintptr_t)(v10 + 32);
           do
           {
             if ( !_strnicmp((const char *)v10 + 4, (const char *)(v12 + 4), 6u) )

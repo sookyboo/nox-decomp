@@ -9889,7 +9889,7 @@ size_t *__cdecl sub_40ABF0(char *a1, int a2)
   size_t v7; // eax
 
   v2 = 0;
-  v3 = (size_t *)malloc(0x10u);
+  v3 = (size_t *)NOX_MOD_ALLOC(0x10u);
   if ( !v3 )
     goto LABEL_7;
   v4 = sub_408CC0(a1, 0);
@@ -9899,7 +9899,7 @@ size_t *__cdecl sub_40ABF0(char *a1, int a2)
     || (sub_409050(v2, 0, 2),
         v3[1] = sub_409390(),
         sub_409050(v2, 0, 0),
-        v5 = (char *)malloc(v3[1]),
+        v5 = (char *)NOX_MOD_ALLOC(v3[1]),
         (*v3 = (size_t)v5) == 0)
     || (v6 = v3[1], sub_408E40(v5, 1, v3[1], v2) != v6) )
   {
@@ -9921,8 +9921,8 @@ LABEL_9:
 void __cdecl sub_40ACA0(LPVOID lpMem)
 {
   if ( *(_DWORD *)lpMem )
-    free(*(LPVOID *)lpMem);
-  free(lpMem);
+    NOX_MOD_FREE(*(LPVOID *)lpMem, 0);
+  NOX_MOD_FREE(lpMem, 0);
 }
 
 //----- (0040ACC0) --------------------------------------------------------
@@ -10261,7 +10261,7 @@ int __cdecl sub_40B170(int a1)
     v1 = 16;
   }
   *(_DWORD *)&byte_5D4594[3624] = v1;
-  *(_DWORD *)&byte_5D4594[3620] = malloc(168 * v1);
+  *(_DWORD *)&byte_5D4594[3620] = (int)NOX_MOD_ALLOC(168 * v1);
   result = *(_DWORD *)&byte_5D4594[3624];
   LOBYTE(a1) = 0;
   if ( *(_DWORD *)&byte_5D4594[3624] > 0 )
@@ -10573,7 +10573,7 @@ void sub_40B740()
     }
     while ( (int)v2 < *(int *)&byte_5D4594[3624] );
   }
-  free(*(LPVOID *)&byte_5D4594[3620]);
+  NOX_MOD_FREE(*(LPVOID *)&byte_5D4594[3620], 0);
 }
 
 //----- (0040B790) --------------------------------------------------------
@@ -10647,7 +10647,7 @@ void *__cdecl sub_40B890(int a1)
   {
     *(_WORD *)&byte_5D4594[4660] = 16;
   }
-  result = malloc(160 * *(unsigned __int16 *)&byte_5D4594[4660]);
+  result = NOX_MOD_ALLOC(160 * *(unsigned __int16 *)&byte_5D4594[4660]);
   v2 = 0;
   *(_DWORD *)&byte_5D4594[3632] = result;
   if ( *(_WORD *)&byte_5D4594[4660] )
@@ -11115,7 +11115,7 @@ char *__cdecl sub_40C070(int a1, int a2, char a3)
 //----- (0040C0D0) --------------------------------------------------------
 void sub_40C0D0()
 {
-  free(*(LPVOID *)&byte_5D4594[3632]);
+  NOX_MOD_FREE(*(LPVOID *)&byte_5D4594[3632], 0);
 }
 
 //----- (0040C0E0) --------------------------------------------------------
@@ -15003,18 +15003,18 @@ int sub_4101D0()
   int v1; // esi
   _DWORD *v2; // eax
 
-  result = (int)calloc(0x2000u, 4u);
+  result = (int)NOX_MOD_ALLOC(0x2000u * 4u);
   *(_DWORD *)&byte_5D4594[251544] = result;
   if ( result )
   {
-    *(_DWORD *)&byte_5D4594[251556] = calloc(0x100u, 4u);
+    *(_DWORD *)&byte_5D4594[251556] = (int)NOX_MOD_ALLOC(0x100u * 4u);
     if ( *(_DWORD *)&byte_5D4594[251556] )
     {
       *(_DWORD *)&byte_5D4594[251552] = 0;
       v1 = 0;
       while ( 1 )
       {
-        v2 = malloc(0x24u);
+        v2 = NOX_MOD_ALLOC(0x24u);
         if ( !v2 )
           break;
         ++v1;
@@ -15366,7 +15366,7 @@ void sub_4106C0()
       do
       {
         v2 = (_DWORD *)v1[4];
-        free(v1);
+        NOX_MOD_FREE(v1, 0);
         v1 = v2;
       }
       while ( v2 );
@@ -15378,13 +15378,13 @@ void sub_4106C0()
     do
     {
       v4 = (_DWORD *)v3[5];
-      free(v3);
+      NOX_MOD_FREE(v3, 0);
       v3 = v4;
     }
     while ( v4 );
   }
-  free(*(LPVOID *)&byte_5D4594[251544]);
-  free(*(LPVOID *)&byte_5D4594[251556]);
+  NOX_MOD_FREE(*(LPVOID *)&byte_5D4594[251544], 0);
+  NOX_MOD_FREE(*(LPVOID *)&byte_5D4594[251556], 0);
 }
 
 //----- (00410730) --------------------------------------------------------
@@ -15827,13 +15827,14 @@ int sub_410F60()
 {
   int v1; // esi
 
-  *(_DWORD *)&byte_5D4594[2650668] = calloc(0x80u, 4u);
+  *(_DWORD *)&byte_5D4594[2650668] = (int)NOX_MOD_ALLOC(0x80u * 4u);
   if ( *(_DWORD *)&byte_5D4594[2650668] )
   {
     v1 = 0;
     while ( 1 )
     {
-      *(_DWORD *)(v1 + *(_DWORD *)&byte_5D4594[2650668]) = calloc(0x80u, 0x2Cu);
+      *(_DWORD *)(v1 + *(_DWORD *)&byte_5D4594[2650668]) =
+          (int)NOX_MOD_ALLOC(0x80u * 0x2Cu);
       if ( !*(_DWORD *)(v1 + *(_DWORD *)&byte_5D4594[2650668]) )
         break;
       v1 += 4;
@@ -15854,7 +15855,7 @@ int sub_410FC0()
   {
     result = *(_DWORD *)(i + *(_DWORD *)&byte_5D4594[2650668]);
     if ( result )
-      free(*(LPVOID *)(i + *(_DWORD *)&byte_5D4594[2650668]));
+      NOX_MOD_FREE(*(LPVOID *)(i + *(_DWORD *)&byte_5D4594[2650668]), 0);
   }
   return result;
 }
@@ -18847,9 +18848,10 @@ char *__cdecl sub_413FE0(const char *a1, int a2, int a3)
   int v7; // edi
   char v9[80]; // [esp+10h] [ebp-50h]
 
-  v3 = (char *)calloc(1u, 0x98u);
+  v3 = (char *)NOX_MOD_ALLOC(0x98u);
   if ( !v3 )
     return 0;
+  memset(v3, 0, 0x98u);
   if ( !a1 )
     return 0;
   if ( a2 <= 0 )
@@ -18858,7 +18860,9 @@ char *__cdecl sub_413FE0(const char *a1, int a2, int a3)
     return 0;
   strcpy(v3, a1);
   nox_sprintf(v9, (const char *)&byte_587000[32556], a1);
-  v4 = calloc(a3, a2 + 16);
+  v4 = NOX_MOD_ALLOC(a3 * (a2 + 16));
+  if ( v4 )
+    memset(v4, 0, a3 * (a2 + 16));
   *((_DWORD *)v3 + 29) = v4;
   if ( !v4 )
     return 0;
@@ -18902,8 +18906,8 @@ void __cdecl sub_414100(LPVOID lpMem)
   {
     if ( *((_DWORD *)lpMem + 30) )
       sub_414130(lpMem);
-    free(*((LPVOID *)lpMem + 29));
-    free(lpMem);
+    NOX_MOD_FREE(*((LPVOID *)lpMem + 29), 0);
+    NOX_MOD_FREE(lpMem, 0);
   }
 }
 
@@ -18923,7 +18927,7 @@ void __cdecl sub_414130(_DWORD *a1)
       do
       {
         v2 = (_DWORD *)v1[2];
-        free(v1);
+        NOX_MOD_FREE(v1, 0);
         v1 = v2;
       }
       while ( v2 );
@@ -18935,7 +18939,7 @@ void __cdecl sub_414130(_DWORD *a1)
       {
         v4 = (_DWORD *)v3[2];
         if ( *(_QWORD *)v3 )
-          free(v3);
+          NOX_MOD_FREE(v3, 0);
         v3 = v4;
       }
       while ( v4 );
@@ -41745,7 +41749,18 @@ unsigned int __cdecl sub_42EBB0(unsigned int a1, int a2, int a3, const char *a4)
   result = a1;
   if ( a1 == 1 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    uintptr_t old_table = *(uint32_t *)&byte_5D4594[754088];
+    v5 = (int)NOX_MOD_ALLOC(4 * (5 * *(_DWORD *)&byte_5D4594[754096] + 5));
+    if ( v5 && old_table )
+    {
+      qmemcpy((void *)(uintptr_t)v5, (const void *)old_table,
+              20 * *(_DWORD *)&byte_5D4594[754096]);
+      NOX_MOD_FREE((void *)old_table, 0);
+    }
+#else
     v5 = realloc(*(LPVOID *)&byte_5D4594[754088], 4 * (5 * *(_DWORD *)&byte_5D4594[754096] + 5));
+#endif
     *(_DWORD *)&byte_5D4594[754088] = v5;
     if ( !v5 )
     {
@@ -41760,7 +41775,18 @@ unsigned int __cdecl sub_42EBB0(unsigned int a1, int a2, int a3, const char *a4)
   }
   else if ( a1 == 2 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    uintptr_t old_table = *(uint32_t *)&byte_5D4594[754092];
+    v7 = (int)NOX_MOD_ALLOC(4 * (5 * *(_DWORD *)&byte_5D4594[754100] + 5));
+    if ( v7 && old_table )
+    {
+      qmemcpy((void *)(uintptr_t)v7, (const void *)old_table,
+              20 * *(_DWORD *)&byte_5D4594[754100]);
+      NOX_MOD_FREE((void *)old_table, 0);
+    }
+#else
     v7 = realloc(*(LPVOID *)&byte_5D4594[754092], 4 * (5 * *(_DWORD *)&byte_5D4594[754100] + 5));
+#endif
     *(_DWORD *)&byte_5D4594[754092] = v7;
     if ( !v7 )
     {
