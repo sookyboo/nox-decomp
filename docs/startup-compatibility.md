@@ -107,12 +107,13 @@ nearby field as a workaround.
 
 At the time of this document update, the native executable builds, loads the
 Estate test data, completes config localization, reaches OpenGL initialization,
-loads the font resources, completes the graphics row clear, and completes
-video index-table initialization. The remaining x86_64 headless-startup fault
-is in `sub_4862E0()`, reached while initializing the timer records from
-`sub_4864A0()`. The caller was truncating the timer-record address to `int`;
-the address transport is now `uintptr_t` while the timer record remains in its
-original 32-bit layout.
+loads the font resources, completes the graphics row clear, completes video
+index-table initialization, initializes the timer records, and parses
+SoundSet.bin. The remaining x86_64 headless-startup fault is in
+`sub_412D40()`, reached while parsing Modifier.bin. The preceding timer
+boundary now transports record addresses as `uintptr_t`, and the SoundSet
+boundary uses a native name sidecar while retaining its original packed
+32-bit field-offset table.
 
 ## Compatibility rule
 
