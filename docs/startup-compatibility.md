@@ -108,12 +108,17 @@ nearby field as a workaround.
 At the time of this document update, the native executable builds, loads the
 Estate test data, completes config localization, reaches OpenGL initialization,
 loads the font resources, completes the graphics row clear, completes video
-index-table initialization, initializes the timer records, and parses
-SoundSet.bin. The remaining x86_64 headless-startup fault is in
-`sub_412D40()`, reached while parsing Modifier.bin. The preceding timer
-boundary now transports record addresses as `uintptr_t`, and the SoundSet
-boundary uses a native name sidecar while retaining its original packed
-32-bit field-offset table.
+index-table initialization, initializes the timer records, parses SoundSet.bin,
+and reaches the first Modifier.bin handler. The native Modifier dispatch table
+and the seven-entry COLOR name table used by `sub_411C80()` are sidecars; the
+returned color index and the 0x58-byte modifier record offsets remain the
+recovered 32-bit contract. The remaining x86_64 headless-startup failure is a
+return-0 from `sub_412D40()` after the first COLOR handler, so the next
+investigation should identify the failing modifier field/handler rather than
+widening the record. The preceding timer boundary transports record addresses
+as `uintptr_t`, the SoundSet boundary uses a native name sidecar while
+retaining its packed 32-bit field-offset table, and the CSF parser routes its
+stream through a native `FILE *` sidecar.
 
 ## Compatibility rule
 
