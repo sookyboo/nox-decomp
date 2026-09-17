@@ -94,6 +94,13 @@ The current branch contains native-width handling for:
 - the first native render/menu path widens its 9-entry render pointer array,
   3-entry window text pointer table, wrapping buffer, SDL row table, window
   callbacks, menu-tree roots, and low-address button-list records.
+- the server-startup audio path: the timer-manager pointer and audio callback
+  table are reconstructed at their legacy DWORD-slot boundary; temporary audio
+  list nodes and SoundSet index buffers use low-address allocations where the
+  recovered list links still store 32-bit pointers; and MSS driver, dialog,
+  and music-stream handles are retained in native sidecars. CSF narrow-string
+  results and the shared audio-state pointer likewise retain host-width copies
+  instead of being reread from truncated DWORD slots.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -123,8 +130,11 @@ After the latest source changes:
 The headless dependencies are now installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The documented X11 smoke test reaches main-menu
 construction and remains alive until the harness tears down Xvfb; that teardown
-reports only the expected `XIO` error. No SIGSEGV or SIGABRT was observed.
-Full gameplay startup and map selection are not yet verified.
+reports only the expected `XIO` error. The server-mode run completes audio
+device/context setup, SoundSet/Modifier loading, startup step 55,
+legal-window/movie setup, the main menu, and the control-server boot macro.
+The 35-second smoke run remains alive until Xvfb is torn down; map selection
+and gameplay startup remain outside this smoke-test assertion.
 
 The headless smoke test uses `Estate` because it is a known-working map. The
 verified run now completes font/text setup, legal-window rendering, executable
@@ -132,23 +142,32 @@ metadata parsing, input dispatch, initial widget draw callbacks, the
 `sub_49E060()` texture/render table path, window text wrapping, and main-menu
 construction. Gameplay map selection is not yet reached.
 
-## Reproduce the remaining failure
+## Reproduce the native server-startup smoke test
 
 Run from the extracted game-data directory:
 
 ```sh
 cd build-deps/gamefiles/app
-timeout --signal=TERM 20s env \
+timeout --signal=TERM 35s env \
   ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
-  NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
-  NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
+  NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=0 NOX_UPNP_ENABLE=0 \
+  NOX_CONTROL_SERVER=1 NOX_CONTROL_SERVER_PASSWORD=secret \
+  NOX_CONTROL_SERVER_BIND=127.0.0.1 NOX_CONTROL_SERVER_PORT=2323 \
+  NOX_SKIP_INTRO_MOVIES=1 NOX_CONTROL_SERVER_SLEEP_SCALE=6 \
+  'NOX_CONTROL_SERVER_BOOT=sleep 5000; macro server;' \
+  NOX_CONTROL_INJECT_LOG=0 NOX_CONTROL_LOG=1 \
+  NOX_SERVER_NAME=NoxDecomp NOX_SERVER_SYSOP=secret \
+  NOX_SERVER_LESSONS=15 NOX_SERVER_TIME=0 \
+  NOX_SERVER_DEFAULT_MAP=capflag NOX_CAPTURE_INPUT=0 \
+  NOX_LOBBY_REGISTER_ENABLE=0 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-amd64/src/out -serveronly Estate
+  ../../../build-amd64/src/out
 ```
 
-The current result is a native x86_64 startup run that reaches main-menu
-construction and remains alive until the harness tears down Xvfb. The next
-work item is to verify map selection and gameplay startup:
+The verified result is a native x86_64 server-mode startup that reaches the
+main menu and executes the control-server `macro server` boot sequence without
+SIGSEGV or SIGABRT during the 35-second run. The important native transport
+boundaries are:
 
 ```text
 sub_401070
@@ -198,12 +217,11 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Continue the headless smoke test past main-menu construction and verify map
-   selection/gameplay startup.
+1. Continue the headless smoke test through map selection/gameplay startup.
 2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
    stable.
-3. Update `startup-compatibility.md` with the final table shape and revise this
-   handoff's known-failure wording as the boundary advances.
+3. Update `startup-compatibility.md` with the final native audio transport
+   boundary if the server path advances further.
 
 Do not treat a timeout as a successful startup by itself: verify that the
 process did not exit with SIGSEGV or SIGABRT and record the last completed
