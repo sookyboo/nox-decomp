@@ -12,6 +12,19 @@
 #include "proto.h"
 
 static _DWORD *nox_legal_window;
+#if UINTPTR_MAX > UINT32_MAX
+static _DWORD *nox_menu_button_left;
+static _DWORD *nox_menu_button_right;
+#endif
+
+static _DWORD *nox_menu_root_get(void)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  return (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1307292];
+#else
+  return *(_DWORD **)&byte_5D4594[1307292];
+#endif
+}
 
 extern int g_fullscreen;
 extern float draw_gamma;
@@ -54,8 +67,12 @@ int __cdecl sub_4A19F0(char *a1)
   _DWORD *v1; // esi
   wchar_t *v2; // eax
 
-  v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1307292], 152);
+  v1 = sub_46B0C0(nox_menu_root_get(), 152);
   v2 = sub_40F1D0(a1, 0, (const char *)&byte_587000[168636], 171);
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = (wchar_t *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+                   | (unsigned int)(uintptr_t)v2);
+#endif
   return sub_46B490((int)v1, 16385, (int)v2, -1);
 }
 
@@ -64,7 +81,7 @@ int __cdecl sub_4A1A40(int a1)
 {
   _DWORD *v1; // eax
 
-  v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1307292], 151);
+  v1 = sub_46B0C0(nox_menu_root_get(), 151);
   return sub_46ABB0((int)v1, a1);
 }
 
@@ -136,13 +153,13 @@ int __cdecl sub_4A1AA0(int a1, int a2, int *a3, int a4)
 //----- (004A1BD0) --------------------------------------------------------
 int sub_4A1BD0()
 {
-  return sub_46C4E0(*(_DWORD **)&byte_5D4594[1307292]);
+  return sub_46C4E0(nox_menu_root_get());
 }
 
 //----- (004A1BE0) --------------------------------------------------------
 int __cdecl sub_4A1BE0(int a1)
 {
-  return sub_46ABB0(*(int *)&byte_5D4594[1307292], a1);
+  return sub_46ABB0((int)nox_menu_root_get(), a1);
 }
 
 //----- (004A1C00) --------------------------------------------------------
@@ -161,21 +178,39 @@ int sub_4A1C00()
   if ( result )
   {
     sub_46B300(result, sub_4A18E0);
+#if UINTPTR_MAX > UINT32_MAX
+    v1 = sub_46B0C0((_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1307296], 110);
+#else
     v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1307296], 110);
+#endif
     sub_46B2C0((int)v1, sub_4A1DC0);
     result = sub_43C5B0(v1, 0, 0, 0, -270, 0, 20, 0, -40);
     *(_DWORD *)&byte_5D4594[1307308] = result;
     if ( result )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      nox_menu_button_left = (_DWORD *)(uintptr_t)(unsigned int)result;
+      nox_menu_button_left[0] = 100;
+      nox_menu_button_left[12] = (uintptr_t)sub_4A1D40;
+      nox_menu_button_left[14] = (uintptr_t)sub_4A1D80;
+#else
       *(_DWORD *)result = 100;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 48) = sub_4A1D40;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 56) = sub_4A1D80;
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+      v2 = sub_46B0C0((_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1307296], 120);
+#else
       v2 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1307296], 120);
+#endif
       sub_46B2C0((int)v2, sub_4A1DC0);
       result = sub_43C5B0(v2, 0, 270, 0, 510, 0, -20, 0, 40);
       *(_DWORD *)&byte_5D4594[1307304] = result;
       if ( result )
       {
+#if UINTPTR_MAX > UINT32_MAX
+        nox_menu_button_right = (_DWORD *)(uintptr_t)(unsigned int)result;
+#endif
         sub_4A19F0((char *)&byte_587000[169196]);
         sub_4D1650();
         sub_578CD0();
@@ -196,8 +231,13 @@ int sub_4A1C00()
 //----- (004A1D40) --------------------------------------------------------
 int sub_4A1D40()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_menu_button_left[64 / sizeof(_DWORD)] = 2;
+  nox_menu_button_right[64 / sizeof(_DWORD)] = 2;
+#else
   *(_BYTE *)(*(_DWORD *)&byte_5D4594[1307308] + 64) = 2;
   *(_BYTE *)(*(_DWORD *)&byte_5D4594[1307304] + 64) = 2;
+#endif
   sub_43BE40(2);
   sub_452D80(923, 100);
   return 1;
@@ -208,10 +248,16 @@ int sub_4A1D80()
 {
   int (*v0)(void); // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v0 = *(int (**)(void))((char *)nox_menu_button_left + 52);
+  sub_43C570(nox_menu_button_left);
+  sub_43C570(nox_menu_button_right);
+#else
   v0 = *(int (**)(void))(*(_DWORD *)&byte_5D4594[1307308] + 52);
   sub_43C570(*(LPVOID *)&byte_5D4594[1307308]);
   sub_43C570(*(LPVOID *)&byte_5D4594[1307304]);
-  sub_46C4E0(*(_DWORD **)&byte_5D4594[1307296]);
+#endif
+  sub_46C4E0(nox_menu_root_get());
   v0();
   return 1;
 }
@@ -1531,6 +1577,10 @@ LABEL_67:
   {
     if ( a2 == 16385 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      a3 = (wchar_t *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+                       | (unsigned int)(uintptr_t)a3);
+#endif
       nox_wcsncpy((wchar_t *)(a1 + 108), a3, 0x3Fu);
       *(_WORD *)(a1 + 2 * nox_wcslen(a3) + 108) = 0;
       return 0;
@@ -5474,6 +5524,10 @@ int __cdecl sub_4A9250(int a1, int a2, wchar_t *a3, int a4)
   {
     if ( a2 == 16385 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      a3 = (wchar_t *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+                       | (unsigned int)(uintptr_t)a3);
+#endif
       nox_wcsncpy((wchar_t *)(a1 + 108), a3, 0x3Fu);
       *(_WORD *)(a1 + 234) = 0;
     }
