@@ -348,13 +348,22 @@ bot clear all
 
 `bot spawn` selects an inactive player-info slot in `0..30`, constructs the
 recovered 153-byte `PlayerOpts` shape, calls the normal native player constructor,
-optionally assigns a native team, then activates the original player-monster bot
-update path. `bot clear` only removes slots created by that command and reuses the
-normal leave owner.
+and then activates the original player-monster bot update path. Explicit red/blue
+spawns now resolve that existing native team before construction and seed its
+external team key into the recovered `PlayerOpts` field; membership is verified
+after construction as a fallback. A missing requested team is rejected before a
+player object is created. `auto` leaves native mode/team selection untouched.
+
+Spawned names also follow Bot-Script: no-team bots are `Lance`, `Kirik`, and
+`Horst`; team games use `Warrior Bot`, `Wizard Bot`, and `Conjurer Bot`. Native
+duplicate-name handling remains authoritative. `bot clear` only removes slots
+created by the spawn command and reuses the normal leave owner.
 
 This is intentionally a runtime-verification attempt. It has not yet established
 that every network send made by `sub_4DD320` is harmless for a slot with no real
-peer, that every configured admission/capacity rule should apply to bots, or that
-`sub_4DE7C0` leaves no socketless slot state behind. Capture the trace from one
-real join plus one bot spawn/clear and compare phases before adding lifecycle
-writes outside those native owners.
+peer or that `sub_4DE7C0` leaves no socketless slot state behind. The recovered
+pre-constructor network admission code mixes live-peer capacity with password,
+account, spectator, ping, disabled-class, and team-creation policy, so it is not
+replayed as a generic bot-capacity check. Capture the trace from one real join
+plus one bot spawn/clear and compare phases before adding lifecycle writes outside
+those native owners.

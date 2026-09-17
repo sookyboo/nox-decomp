@@ -3168,6 +3168,15 @@ Confirmed lifecycle facts:
   `PlayerFemale`, links player runtime ↔ player-info, copies profile data,
   initializes protected gameplay fields, broadcasts player state, chooses a
   native player start, and moves the player there;
+- `sub_418B10`/`sub_418B60` enumerate active native teams. Team `+56` is the
+  color selector, `+57` is the membership ID used by object team state, and
+  `+60` is the external team key resolved by `sub_418AE0`;
+- `sub_4DF3C0(player_info)` consumes player-info `+2068` as that external team
+  key before falling back to team creation/selection. This establishes the
+  corresponding `PlayerOpts +138` field as a pre-constructor team hint rather
+  than generic account data;
+- `sub_4DDA00(player_info)` disambiguates duplicate visible player names, so
+  Bot-Script's repeated class names do not need bot-local slot suffixes;
 - `sub_4DE7C0(slot)` is the core removal owner called by the normal network
   `0x22` leave packet. It tears down runtime/player resources, deletes the player
   object, clears player-info `+2056`, and updates multiplayer state.
@@ -3181,18 +3190,28 @@ The normal connection/host preparation in `sub_435A10` builds 153 bytes:
 97..100   screen X
 101..104  screen Y
 105..127  serial
-128..137  client/account field 2096
-138..141  client/account field 2068
-142..151  client/account field 2072
+128..137  client/account field copied to player-info +2096
+138..141  external team key copied to player-info +2068
+142..151  fallback team-name field copied/formatted into player-info +2072
 152       mode/client flags; bit 7 is consumed by the quest-mode join check
 ```
 
 The experimental bot constructor mirrors that exact structural layout. It copies
-the native host profile only as a valid appearance/loadout template, replaces the
+the native host profile as a valid profile/appearance template, replaces the
 name and class, uses current screen dimensions, gives each bot a unique synthetic
-`BOT-xx` serial, and intentionally zeroes fields 2096/2068/2072 rather than
-cloning the host's account/network identity. Byte 152 follows the normal builder:
-the low value is `!sub_40ABD0()` and bit 7 follows local save flag `0x4`.
+`BOT-xx` serial, and leaves the client/account-only `+2096` field empty. For an
+explicit red/blue request it resolves the already-existing native team by color
+and writes that team's `+60` external key at `PlayerOpts +138`; `+142` stays
+empty because no new team needs to be named/created. `auto` leaves both team
+fields empty so native mode logic retains ownership. Byte 152 follows the normal
+builder: the low value is `!sub_40ABD0()` and bit 7 follows local save flag
+`0x4`.
+
+Spawn display names now preserve Bot-Script identity rather than synthesizing
+slot-number names. With no active native teams the three classes are `Lance`,
+`Kirik`, and `Horst`; when `sub_418B10()` reports teams they are `Warrior Bot`,
+`Wizard Bot`, and `Conjurer Bot`. If more than one same-class bot is present,
+`sub_4DDA00` remains the native duplicate-name disambiguation owner.
 
 This is a deliberate **working attempt**, not a claim that every pre-join network
 admission step is unnecessary. `sub_4DD320` normally runs after a real client has
@@ -3207,13 +3226,17 @@ and the lifecycle trace is designed to expose any assumptions that fail.
 ```text
 find first inactive slot 0..30 via sub_417090
     ↓
+choose Bot-Script class display name from native team presence
+    ↓
+for explicit red/blue: resolve existing team + seed its external key
+    ↓
 build synthetic 153-byte PlayerOpts
     ↓
 sub_4DD320(slot, opts)
     ↓
 verify constructor return + player-info object pointer
     ↓
-assign requested red/blue native team, or leave native choice for auto
+verify/finalize requested red/blue membership, or leave native choice for auto
     ↓
 nox_bot_runtime_attach_existing_player
     ↓
@@ -3304,14 +3327,16 @@ The following points are intentionally documented rather than hidden behind a
 
 1. `sub_4DD320` performs some sends/bookkeeping for its slot. A hosted run must
    prove those calls safely tolerate a remote slot with no socket/client.
-2. Network admission normally happens before `sub_4DD320`. The experimental
-   path checks free slot and disabled-class state but does not yet reproduce all
-   configured server-capacity/password/ban/ping admission policy; those are
-   client admission rules, not player construction, and may need a bot-specific
-   capacity policy after runtime evidence.
-3. Red/blue team assignment is applied after construction through the recovered
-   native team membership functions. Logs/gameplay must verify this ordering in
-   every team mode; `auto` leaves constructor/native mode behavior untouched.
+2. Network admission normally happens before `sub_4DD320`, but the recovered
+   handshake checks live peer capacity, password/account identity, spectator
+   admission, ping state, disabled classes, and whether a requested team may be
+   created. Those checks are not a clean gameplay-player-capacity contract and
+   are intentionally not replayed for a socketless server-owned bot. Free-slot
+   state and the constructor's disabled-class contract remain authoritative here.
+3. Explicit red/blue requests now seed the existing team's external key before
+   construction and verify/finalize object membership afterward. Logs/gameplay
+   still need to verify cross-client presentation and mode-specific side effects;
+   `auto` leaves constructor/native mode behavior untouched.
 4. Synthetic account fields are empty and serial is `BOT-xx`. This deliberately
    avoids aliasing the host identity, but persistence/ranking/quest modes may
    expect additional identity state.
@@ -3513,6 +3538,10 @@ nox_xxx_respawnPlayerBot_4FAC70
 nox_xxx_updatePlayer_4F8100
 sub_417090                         [active player-info slot lookup/free test]
 sub_417000                         [player-info slot initialization]
+sub_418B10 / sub_418B60            [active native team enumeration]
+sub_418AE0                         [team lookup by external key at team +60]
+sub_4DF3C0                         [player-info team initialization/selection]
+sub_4DDA00                         [duplicate visible player-name disambiguation]
 sub_4DD320                         [full native player constructor normally entered from join]
 sub_4DE7C0                         [core normal leave/removal owner]
 ```
@@ -3708,10 +3737,15 @@ sub_4DE7C0(slot)                    normal leave-packet core removal owner
 ```
 
 The synthetic `PlayerOpts` builder and server-local ownership/rollback layer are
-implemented behind `USE_BOT_SUPPORT`. What remains is evidence from hosted logs,
-not another speculative constructor rewrite. In particular, verify socketless
-network sends, team-mode ordering, capacity policy, cross-client visibility,
-clear/reuse, and native bot death/respawn.
+implemented behind `USE_BOT_SUPPORT`. Explicit teams are now resolved before the
+constructor and seeded through the recovered external-team-key field, while
+Bot-Script class names are used for spawned identity. What remains is evidence
+from hosted logs, not another speculative constructor rewrite. In particular,
+verify socketless network sends, game-mode-specific activation, cross-client
+team/name presentation, clear/reuse, and native bot death/respawn. The recovered
+pre-join peer-admission checks are deliberately not copied as a bot capacity
+policy because they mix socket count, authentication, spectator, ping, and team
+creation concerns.
 
 If logs show that `sub_4DD320` requires a peer-only prerequisite, recover only
 that prerequisite or extract the narrow native constructor boundary demonstrated

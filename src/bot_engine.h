@@ -18,6 +18,7 @@ int nox_bot_engine_is_native_player_bot(int object);
 int nox_bot_engine_player_slot(int object);
 int nox_bot_engine_player_class(int object);
 int nox_bot_engine_player_object_by_slot(int player_slot);
+int nox_bot_engine_teams_enabled(void);
 
 typedef enum nox_bot_spawn_team {
     NOX_BOT_SPAWN_TEAM_AUTO = 0,

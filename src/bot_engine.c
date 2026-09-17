@@ -33,13 +33,14 @@
 #define NOX_PLAYER_OPTS_SERIAL_OFFSET 105
 #define NOX_PLAYER_OPTS_SERIAL_BYTES 23
 #define NOX_PLAYER_OPTS_FIELD2096_OFFSET 128
-#define NOX_PLAYER_OPTS_FIELD2068_OFFSET 138
-#define NOX_PLAYER_OPTS_FIELD2072_OFFSET 142
+#define NOX_PLAYER_OPTS_TEAM_KEY_OFFSET 138
+#define NOX_PLAYER_OPTS_TEAM_NAME_OFFSET 142
 #define NOX_PLAYER_OPTS_MODE_OFFSET 152
 #define NOX_PLAYER_OPTS_SIZE 153
 #define NOX_LOCAL_SAVE_FLAGS_OFFSET 2660684
 #define NOX_TEAM_COLOR_RED 1u
 #define NOX_TEAM_COLOR_BLUE 2u
+#define NOX_TEAM_EXTERNAL_KEY_OFFSET 60
 #define NOX_PLAYER_BOT_AI_CURRENT_TARGET_OFFSET 1196
 #define NOX_PLAYER_BOT_AI_PLAYER_RUNTIME_OFFSET 2180
 #define NOX_MONSTER_RUNTIME_STATUS_OFFSET 1440
@@ -192,6 +193,11 @@ int nox_bot_engine_player_object_by_slot(int player_slot)
     return *(int *)(info + NOX_PLAYER_INFO_OBJECT_OFFSET);
 }
 
+int nox_bot_engine_teams_enabled(void)
+{
+    return sub_418B10() != 0;
+}
+
 int nox_bot_engine_find_free_player_slot(void)
 {
     int slot;
@@ -216,6 +222,36 @@ static char *nox_bot_engine_team_by_color(unsigned char color)
     return 0;
 }
 
+static char *nox_bot_engine_spawn_team(nox_bot_spawn_team choice)
+{
+    unsigned char color;
+
+    if (choice == NOX_BOT_SPAWN_TEAM_AUTO)
+        return 0;
+    color = choice == NOX_BOT_SPAWN_TEAM_RED ? NOX_TEAM_COLOR_RED : NOX_TEAM_COLOR_BLUE;
+    return nox_bot_engine_team_by_color(color);
+}
+
+static int nox_bot_engine_seed_spawn_team(
+    unsigned char *packet, nox_bot_spawn_team choice)
+{
+    char *team = nox_bot_engine_spawn_team(choice);
+    uint32_t key;
+
+    if (choice == NOX_BOT_SPAWN_TEAM_AUTO)
+        return 1;
+    if (!team)
+        return 0;
+
+    /* PlayerOpts +138 is copied to player-info +2068. sub_4DF3C0 resolves
+     * that value through sub_418AE0 before creating/choosing a team, so seed
+     * the already-existing requested team before sub_4DD320 runs. The +142
+     * fallback team-name field stays empty because no team creation is needed. */
+    key = *(uint32_t *)(team + NOX_TEAM_EXTERNAL_KEY_OFFSET);
+    memcpy(packet + NOX_PLAYER_OPTS_TEAM_KEY_OFFSET, &key, sizeof(key));
+    return 1;
+}
+
 static int nox_bot_engine_assign_spawn_team(int object, nox_bot_spawn_team choice)
 {
     unsigned char color;
@@ -224,7 +260,7 @@ static int nox_bot_engine_assign_spawn_team(int object, nox_bot_spawn_team choic
     if (choice == NOX_BOT_SPAWN_TEAM_AUTO)
         return 1;
     color = choice == NOX_BOT_SPAWN_TEAM_RED ? NOX_TEAM_COLOR_RED : NOX_TEAM_COLOR_BLUE;
-    team = nox_bot_engine_team_by_color(color);
+    team = nox_bot_engine_spawn_team(choice);
     if (!team) {
         nox_bot_tracef("spawn", "team-unavailable",
             "object=0x%08x requested_color=%u", object, (unsigned)color);
@@ -307,8 +343,8 @@ int nox_bot_engine_spawn_player_attempt(
 
     /* Mirror the 153-byte PlayerOpts layout assembled by sub_435A10, but keep
      * client/account-only identity fields synthetic/empty. The first 97 bytes
-     * remain the native host profile template so appearance/loadout metadata is
-     * structurally valid; name and class are then overridden for this bot. */
+     * remain the native host profile/appearance template so its recovered
+     * structural fields are valid; name and class are then overridden. */
     memset(packet, 0, sizeof(packet));
     memcpy(packet, profile, NOX_PLAYER_OPTS_INFO_SIZE);
     nox_bot_engine_copy_spawn_name(packet, name);
@@ -318,8 +354,10 @@ int nox_bot_engine_spawn_player_attempt(
     memcpy(packet + NOX_PLAYER_OPTS_SCREEN_Y_OFFSET, &screen_y, sizeof(screen_y));
     nox_bot_engine_make_spawn_serial(packet, player_slot);
     memset(packet + NOX_PLAYER_OPTS_FIELD2096_OFFSET, 0, 10);
-    memset(packet + NOX_PLAYER_OPTS_FIELD2068_OFFSET, 0, 4);
-    memset(packet + NOX_PLAYER_OPTS_FIELD2072_OFFSET, 0, 10);
+    memset(packet + NOX_PLAYER_OPTS_TEAM_KEY_OFFSET, 0, 4);
+    memset(packet + NOX_PLAYER_OPTS_TEAM_NAME_OFFSET, 0, 10);
+    if (!nox_bot_engine_seed_spawn_team(packet, team))
+        return 0;
     packet[NOX_PLAYER_OPTS_MODE_OFFSET] = sub_40ABD0() ? 0u : 1u;
     if (byte_5D4594[NOX_LOCAL_SAVE_FLAGS_OFFSET] & 4)
         packet[NOX_PLAYER_OPTS_MODE_OFFSET] |= 0x80u;
