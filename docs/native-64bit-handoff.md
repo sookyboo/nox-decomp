@@ -133,6 +133,10 @@ After the latest source changes:
   surface layout, font dispatch, graphics row clearing, video index-table
   initialization, timer-record setup, SoundSet parsing, generic Modifier.bin
   parsing, or initial `.wnd` property dispatch;
+- native callback slots used by window dispatch, rendering, video configuration,
+  and control-server startup now have host-width sidecars or reconstructed
+  targets; modifier-list and shutdown state likewise avoid reading adjacent
+  32-bit image slots as native pointers;
 - the full post-change i386 and ARMHF/QEMU CTest suites still need to be rerun.
 
 The latest native smoke verification also passes the main-menu input path and
@@ -217,6 +221,10 @@ and a native dispatch sidecar; its COLOR lookup similarly shadows only the
 pointer table, not the returned index. The class and damage-type lookups use
 the same sidecar rule, and `sub_412ED0()` now preserves the same record/list
 contract as `sub_412D40()`.
+Native shutdown keeps the modifier and property-list heads separate from the
+packed image slots and avoids walking fixed-width auxiliary teardown lists
+whose adjacent 32-bit slots cannot encode a host pointer; those allocations
+are process-lifetime state reclaimed when the headless process exits.
 
 For a backtrace:
 
