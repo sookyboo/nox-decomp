@@ -156,6 +156,7 @@ endif()
 
 if (USE_BOT_SUPPORT)
     list(APPEND NOX_RUNTIME_SOURCES
+        bot_chat.c
         bot_console.c
         bot_engine.c
         bot_conjurer.c

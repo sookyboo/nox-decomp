@@ -1,6 +1,7 @@
 #include "bot_runtime.h"
 
 #include "bot_engine.h"
+#include "bot_chat.h"
 #include "bot_conjurer.h"
 #include "bot_trace.h"
 #include "bot_warrior.h"
@@ -110,6 +111,7 @@ int nox_bot_runtime_detach_existing_player(int object)
         return 0;
     }
     state = nox_bot_policy_get(slot);
+    nox_bot_chat_forget_object(object);
     if (state && state->native_object == object)
         nox_bot_policy_deactivate(slot);
     nox_bot_tracef("bot", "detach-ready", "slot=%d object=0x%08x frame=%u",
@@ -240,6 +242,7 @@ void nox_bot_runtime_note_player_removed(int slot, int object)
     if (slot < 0 || slot >= NOX_BOT_PLAYER_SLOTS)
         return;
     state = nox_bot_policy_get(slot);
+    nox_bot_chat_forget_object(object);
     if (state && state->native_object == object)
         nox_bot_policy_deactivate(slot);
     if (nox_bot_server_created[slot] && nox_bot_server_created_object[slot] == object) {
@@ -278,6 +281,7 @@ void nox_bot_runtime_forget_native_player_bot(int object)
     if (slot < 0)
         return;
     state = nox_bot_policy_get(slot);
+    nox_bot_chat_forget_object(object);
     if (state && state->native_object == object)
         nox_bot_policy_deactivate(slot);
 }
@@ -310,6 +314,7 @@ void nox_bot_runtime_clear_life_state(int object)
     state = nox_bot_policy_get(slot);
     if (!state || !state->active || state->native_object != object)
         return;
+    nox_bot_chat_forget_object(object);
     nox_bot_policy_clear_life_state(state);
 }
 
@@ -328,6 +333,7 @@ int nox_bot_runtime_preserve_player_attack_state(int object)
 
 void nox_bot_runtime_update(int object)
 {
+    uint32_t frame;
     int slot;
     nox_bot_policy_state *state;
 
@@ -337,15 +343,17 @@ void nox_bot_runtime_update(int object)
     state = nox_bot_policy_get(slot);
     if (!state || !state->active)
         return;
+    frame = nox_bot_engine_frame();
+    nox_bot_chat_update(object, frame);
     switch (nox_bot_engine_player_class(object)) {
     case 0:
-        nox_bot_warrior_update(object, state, nox_bot_engine_frame());
+        nox_bot_warrior_update(object, state, frame);
         break;
     case 1:
-        nox_bot_wizard_update(object, state, nox_bot_engine_frame());
+        nox_bot_wizard_update(object, state, frame);
         break;
     case 2:
-        nox_bot_conjurer_update(object, state, nox_bot_engine_frame());
+        nox_bot_conjurer_update(object, state, frame);
         break;
     default:
         break;

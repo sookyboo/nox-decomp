@@ -88,6 +88,21 @@ if (BUILD_TESTING)
         endif()
         add_test(NAME bot_runtime_test COMMAND bot_runtime_test)
 
+        add_executable(bot_chat_test
+            tests/bot_chat_test.c
+            src/bot_chat.c
+            src/bot_policy.c
+        )
+        target_include_directories(bot_chat_test PRIVATE src)
+        if (NOT MSVC)
+            target_compile_options(bot_chat_test PRIVATE -fshort-wchar)
+        endif()
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+            target_compile_options(bot_chat_test PRIVATE -m32)
+            target_link_options(bot_chat_test PRIVATE -m32)
+        endif()
+        add_test(NAME bot_chat_test COMMAND bot_chat_test)
+
         add_executable(bot_console_test
             tests/bot_console_test.c
             src/bot_console.c

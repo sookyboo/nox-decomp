@@ -55,6 +55,7 @@ Implemented so far:
 - `[~]` Wizard tactical subset: Enemy Sighted Slow, visible-target Death Ray/Fireball/Burn/Ring of Fire/Slow/Energy Bolt/Magic Missile/Counterspell/Drain Mana priority, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, the owned three-spell Glyph Trap, native nearby-source Drain Mana, Shield/Lesser Heal/Haste/Shock and protection/invisibility fallback, native potion use, native mana-obelisk routing/restoration, reference reaction delays and spell-phoneme timing, per-spell cooldowns, native player mana accounting, 15-frame native loot pickup, the reference `FireStormWand → ForceWand` preference, CTF enemy-flag-carrier (`TeamTank`) awareness, and shared native-backed CTF objective steering;
 - `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state and native `BomberSummon` audio, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference spell-phoneme/summon-chant timing, reference cooldowns, 15-frame native loot/equip pickup, the literal 10-second reference weapon preference, and shared native-backed CTF objective steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets;
+- `[x]` global Bot-Script greeting/`gg` chat responses, using the native incoming text-message path, one-second simulation-time delay, nearest active bot selection, reference response strings/random choices, and native object chat broadcast;
 - `[~]` server-side lifecycle commands and opt-in lifecycle tracing, including a complete experimental `bot spawn`/`bot clear` attempt that reuses the native join/leave owners without a remote client. The code path is structurally covered but still requires hosted-game runtime verification.
 
 Still intentionally not implemented where native ownership is not completely recovered:
@@ -130,8 +131,10 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
 - basic CTF attack/defend/escort/return steering is now implemented directly
   from native flag world/inventory/carrier state. More coordinated team policy
   and teammate chat orders remain outside the Warrior class;
-- exact cosmetic/chat parity and any starting-loadout differences not already
-  supplied by native player defaults remain lower-priority fidelity work.
+- global greeting/`gg` responses are now shared across active native bots;
+  Warrior teammate-order acknowledgement lines remain tied to the deferred shared
+  order executor. Any starting-loadout differences not already supplied by native
+  player defaults remain lower-priority fidelity work.
 
 ### Wizard and Conjurer
 
@@ -214,6 +217,34 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
   reference phoneme chants. Remaining Conjurer gaps are broader team roles and
   teammate commands;
 
+### Global chat-response fidelity
+
+The reference `BotWars.go` registers one global `OnChat` handler independent of
+class-local teammate commands. The native port now handles only that independent
+cosmetic subset before the final shared command work:
+
+- accepted greeting strings are the reference `hello`, `yo`, `what's up?`, `hi`,
+  `hey`, and `sup` variants, matched case-insensitively;
+- accepted good-game strings are `gg`, `gg!`, `good game`, and `good game!`, also
+  case-insensitive;
+- the nearest living active native bot to the speaking player is selected. This
+  is the native-player equivalent of the script's nearest `NPC` lookup;
+- response selection uses native RNG and preserves the reference sets
+  `Hey!`/`Hello!`/`Sup!`/`Greetings!` and `GG!`/`Good game!`;
+- delivery occurs one simulation second later, matching `ns.NewTimer(ns.Seconds(1))`;
+- `sub_528AC0(bot, text, 0)` remains authoritative for object-centered chat
+  presentation and network broadcast.
+
+The input hook sits in the existing server `MSG_TEXT_MESSAGE` (`0xA8`) branch of
+`sub_51BAD0`, after its UTF/wide-text normalization and before normal forwarding.
+It does not rewrite, mute, or consume the player's message. Both global and team
+messages therefore retain normal Nox behavior, while recognized reference phrases
+may schedule a cosmetic response. A bounded 32-entry pending-response queue avoids
+unbounded bot-local timer allocation; pending responses are discarded when that bot
+dies, detaches, or is removed. Teammate `follow`/`attack`/`guard`/`stay`/`escort`
+messages are intentionally not parsed here because they belong to the shared team
+order system reserved for last.
+
 ### Team and game-mode strategy
 
 - native CTF pickup/drop/capture/scoring remains authoritative. The Bot-Script
@@ -234,8 +265,9 @@ reference two-second protected window. Remaining Warrior-adjacent work is:
 - human teammate orders (`follow`, `attack`, `guard`, `stay`, `escort`) need an
   order executor on top of the existing policy enum;
 - spell phoneme sequencing/timing is implemented for the current Wizard and
-  Conjurer spell/summon surface; chat responses and other presentation details
-  remain fidelity work after gameplay parity.
+  Conjurer spell/summon surface. Global greeting/`gg` responses are also native-
+  backed; teammate-order acknowledgements, command-specific mana warnings, and
+  other presentation details remain with the final shared command/fidelity work.
 
 ### Integration coverage
 

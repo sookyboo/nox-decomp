@@ -120,9 +120,10 @@ The unresolved work after the current Warrior/native-runtime foundation is:
 - **orders/commands:** spawn/clear, attach/detach, difficulty, trace control, and
   3v3 setup are implemented; teammate order execution and broader coordinated
   team commands remain pending and are intentionally last;
-- **fidelity:** spell phoneme sequencing/timing is implemented for the current
-  Wizard/Conjurer policy surface; chat responses and remaining cosmetic behavior
-  are intentionally deferred;
+- **fidelity:** spell phoneme sequencing/timing and the global Bot-Script
+  greeting/`gg` responses are implemented. Teammate-order acknowledgement chat,
+  command-specific mana warnings, and remaining cosmetic behavior stay deferred
+  with the final shared command layer;
 - **production lifecycle integration tests:** current deterministic tests cover
   adapters and policy, but end-to-end spawn/removal coverage awaits the real
   non-client lifecycle.
@@ -3372,6 +3373,40 @@ slots created by `bot spawn` are eligible.
 
 Shared teammate-order commands are intentionally not part of this lifecycle
 patch and remain last in the bot work plan.
+
+## 36.1 Global Bot-Script chat-response fidelity
+
+The independent global `OnChat` behavior from `BotWars.go` is implemented without
+adding teammate-order parsing. The original server receive owner
+`sub_51BAD0(slot, packet, length)` handles `MSG_TEXT_MESSAGE` (`0xA8`), normalizes
+the incoming text into a wide string, validates the sender, and forwards the
+original packet globally or to its resolved team. With `NOX_BOT_SUPPORT`, that
+normalized string is additionally passed to `nox_bot_chat_on_message()` before
+normal forwarding. The hook does not rewrite, mute, consume, or retarget the
+player message.
+
+The compatibility layer recognizes only the reference-global greeting and good-
+game phrases. It selects the nearest living active native bot to the sender, uses
+native `sub_415FA0` through `nox_bot_engine_random_int()` for the same response
+choice ranges, and schedules the chosen response for exactly one simulation second
+later (`current frame + game FPS`). `nox_bot_runtime_update()` releases due
+responses, so no wall-clock timer or new asynchronous subsystem is introduced. A
+bounded 32-entry pending queue allows normal bursts of reference timers while
+keeping cosmetic state finite; death/life reset, detach, and removal discard that
+bot's pending responses.
+
+The final chat presentation remains native:
+
+```text
+sub_528AC0(object, wide_text, 0)
+    -> builds MSG_TEXT_MESSAGE with object netcode/position
+    -> broadcasts it to active players
+```
+
+OpenNox exposes the same recovered function as `nox_xxx_netSendChat_528AC0`, which
+independently confirms the role. This is intentionally separate from class-local
+`follow`/`attack`/`guard`/`stay`/`escort` chat callbacks; those mutate tactical
+orders and remain part of the shared team/order work reserved for last.
 
 No command manually synthesizes CTF scoring, movement, combat, respawn, or spell
 state; those remain native systems once the player object exists.

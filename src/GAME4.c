@@ -4,6 +4,7 @@
 #include "eud_compat.h"
 #endif
 #ifdef NOX_BOT_SUPPORT
+#include "bot_chat.h"
 #include "bot_runtime.h"
 #include "bot_trace.h"
 #endif
@@ -32707,6 +32708,12 @@ LABEL_55:
           v45 = v44 * v4[8] + 11;
           if ( sub_57A190(v8) )
             goto LABEL_139;
+#ifdef NOX_BOT_SUPPORT
+          /* Bot-Script registers one global OnChat callback for greetings/GG.
+           * Observe only messages that passed the original sender filter, then
+           * leave normal global/team forwarding unchanged. */
+          nox_bot_chat_on_message(v9, v97);
+#endif
           if ( !(v4[3] & 1) )
           {
             for ( j = sub_416EA0(); j; j = sub_416EE0((int)j) )
