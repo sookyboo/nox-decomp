@@ -1404,17 +1404,17 @@ static int match_windowsish(const char *pat, const char *name) {
     return win_match_ci(pat, name);
 }
 
-HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData)
+intptr_t WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData)
 {
     if (!lpFileName || !lpFindFileData) {
         last_error = ERROR_INVALID_PARAMETER;
-        return (HANDLE)-1;
+        return (intptr_t)-1;
     }
 
     char *converted = dos_to_unix(lpFileName);
     if (!converted) {
         last_error = ERROR_INVALID_PARAMETER;
-        return (HANDLE)-1;
+        return (intptr_t)-1;
     }
 
     char dirbuf[PATH_MAX], patbuf[PATH_MAX];
@@ -1435,7 +1435,7 @@ HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileDat
     if (!d) {
         free(converted);
         last_error = ERROR_PATH_NOT_FOUND;
-        return (HANDLE)-1;
+        return (intptr_t)-1;
     }
 
     struct _FIND_FILE *ff = calloc(1, sizeof(*ff));
@@ -1443,7 +1443,7 @@ HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileDat
         closedir(d);
         free(converted);
         last_error = ERROR_INVALID_PARAMETER;
-        return (HANDLE)-1;
+        return (intptr_t)-1;
     }
 
     size_t cap = 64;
@@ -1454,7 +1454,7 @@ HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileDat
         free(converted);
         free_findfile(ff);
         last_error = ERROR_INVALID_PARAMETER;
-        return (HANDLE)-1;
+        return (intptr_t)-1;
     }
 
     struct dirent *e;
@@ -1475,7 +1475,7 @@ HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileDat
                 ff->names = nn ? nn : ff->names;
                 free_findfile(ff);
                 last_error = ERROR_INVALID_PARAMETER;
-                return (HANDLE)-1;
+                return (intptr_t)-1;
             }
             ff->paths = np;
             ff->names = nn;
@@ -1507,7 +1507,7 @@ HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileDat
         free(converted);
         free_findfile(ff);
         last_error = ERROR_FILE_NOT_FOUND;
-        return (HANDLE)-1;
+        return (intptr_t)-1;
     }
 
     ff->idx = 0;
@@ -1516,10 +1516,10 @@ HANDLE WINAPI FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileDat
 
     free(converted);
     last_error = 0;
-    return (HANDLE)ff;
+    return (intptr_t)ff;
 }
 
-BOOL WINAPI FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData)
+BOOL WINAPI FindNextFileA(intptr_t hFindFile, LPWIN32_FIND_DATAA lpFindFileData)
 {
     struct _FIND_FILE *ff = (struct _FIND_FILE *)hFindFile;
     if (!ff || !lpFindFileData) {
@@ -1538,7 +1538,7 @@ BOOL WINAPI FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData)
     return TRUE;
 }
 
-BOOL WINAPI FindClose(HANDLE hFindFile)
+BOOL WINAPI FindClose(intptr_t hFindFile)
 {
     free_findfile((struct _FIND_FILE *)hFindFile);
     last_error = 0;
