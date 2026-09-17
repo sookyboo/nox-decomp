@@ -88,6 +88,15 @@ The current branch contains native-width handling for:
 - native window callback, widget font, static-text value, and text-buffer
   sidecars preserve host pointers that the recovered widget records store in
   DWORD slots; `sub_46AF00()`/`sub_46B490()` widen pointer-returning events.
+- the fixed-width `gamedata.bin` parser path: native startup keeps the adjacent
+  `gamedata.bin` string intact, preserves parser `FILE *` handles, uses
+  low-address storage for the 32-bit category manager/table records, and
+  decodes their 32-bit name/value entries explicitly.
+- the `monster.bin` parser path: native startup keeps its parser `FILE *` and
+  recovered 0xF8-byte records below 4 GiB, matching the legacy pointer slots.
+- the timer-list walkers and timer-pool allocations used during startup and
+  shutdown; fixed-width links are decoded explicitly and native pool records
+  use low-address storage.
 - startup metadata and callback inputs use host-width transports in
   `sub_4145F0()`/`sub_414B30()`, `sub_47FA80()`, and the main-loop callback
   slots. The legal-window root is also kept in a native pointer sidecar.
@@ -126,39 +135,22 @@ After the latest source changes:
 
 - native x86_64 target `out` builds successfully;
 - native x86_64 CTest in `build-amd64`: 25/25 passed;
-- i386 target `out` builds successfully;
-- native x86_64 headless startup no longer fails in the timer, argv, CSF
-  allocation, map scan, built-in string sort, startup config dispatch, or the
-  initial graphics pixel/display/gamma/palette allocation boundaries, SDL
-  surface layout, font dispatch, graphics row clearing, video index-table
-  initialization, timer-record setup, SoundSet parsing, generic Modifier.bin
-  parsing, or initial `.wnd` property dispatch;
-- native callback slots used by window dispatch, rendering, video configuration,
-  and control-server startup now have host-width sidecars or reconstructed
-  targets; modifier-list and shutdown state likewise avoid reading adjacent
-  32-bit image slots as native pointers;
-- the full post-change i386 and ARMHF/QEMU CTest suites still need to be rerun.
+- the source i386 target still has unrelated pre-existing compile errors in
+  `GAME1.c`; the regular-flow comparison therefore uses the existing i386
+  binary in `build-i386/src/out`;
+- the 32-bit trace reaches `macro end: startMultiplayerNetworkHost` and then
+  `macro begin: newMultiNewCharacterWarrior` after opening `window/SelClass.wnd`;
+- native x86_64 reaches the same host-input sequence, opens `gamedata.bin` and
+  `monster.bin`, and then stops in later object teardown at
+  `sub_42FAE0(a1=0)` from `sub_43C380()`; map selection is not reached;
+- the native run now fails with SIGSEGV at that boundary rather than the prior
+  `UU` filename/cleanup failure. The `UU` symptom was caused by an 8-byte native
+  pointer write overwriting the adjacent recovered `gamedata.bin` string.
 
-The latest native smoke verification also passes the main-menu input path and
-the control-server `startMultiplayerNetworkHost` macro. It terminates only
-when the documented timeout tears down Xvfb, which emits the expected `XIO`
-message; no SIGSEGV or SIGABRT was observed. Gameplay map startup remains
-outside this assertion.
-
-The headless dependencies are now installed: `xvfb`, `xauth`, Mesa software
-OpenGL support, and `gdb`. The documented X11 smoke test reaches main-menu
-construction and remains alive until the harness tears down Xvfb; that teardown
-reports only the expected `XIO` error. The server-mode run completes audio
-device/context setup, SoundSet/Modifier loading, startup step 55,
-legal-window/movie setup, the main menu, and the control-server boot macro.
-The 35-second smoke run remains alive until Xvfb is torn down; map selection
-and gameplay startup remain outside this smoke-test assertion.
-
-The headless smoke test uses `Estate` because it is a known-working map. The
-verified run now completes font/text setup, legal-window rendering, executable
-metadata parsing, input dispatch, initial widget draw callbacks, the
-`sub_49E060()` texture/render table path, window text wrapping, and main-menu
-construction. Gameplay map selection is not yet reached.
+The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
+OpenGL support, and `gdb`. The exact comparison command below should be
+treated as a diagnostic run until the `sub_42FAE0()` boundary is fixed; it is
+not currently a clean smoke-test assertion.
 
 ## Reproduce the native server-startup smoke test
 
@@ -183,9 +175,10 @@ timeout --signal=TERM 35s env \
 ```
 
 The verified result is a native x86_64 server-mode startup that reaches the
-main menu and executes the control-server `macro server` boot sequence without
-SIGSEGV or SIGABRT during the 35-second run. The important native transport
-boundaries are:
+main menu, executes the control-server `startMultiplayerNetworkHost` input
+sequence, and loads `gamedata.bin` and `monster.bin` before the current
+`sub_42FAE0()` teardown failure. Do not treat the timeout alone as success.
+The important native transport boundaries are:
 
 ```text
 sub_401070
