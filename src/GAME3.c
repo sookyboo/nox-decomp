@@ -27,6 +27,8 @@ static uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
   if ( !value )
     return 0;
+  if ( value < 0x50000000u )
+    return value;
   return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
 }
 #endif
@@ -37,6 +39,15 @@ static _DWORD *nox_menu_root_get(void)
   return (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1307292];
 #else
   return *(_DWORD **)&byte_5D4594[1307292];
+#endif
+}
+
+static _DWORD *nox_server_menu_root_get(void)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  return (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1307300];
+#else
+  return *(_DWORD **)&byte_5D4594[1307300];
 #endif
 }
 
@@ -483,7 +494,7 @@ int sub_4A2210()
   result = sub_4A1A60();
   if ( result )
   {
-    v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1307300], 98);
+    v1 = sub_46B0C0(nox_server_menu_root_get(), 98);
     sub_46B300((int)v1, sub_4A18E0);
     sub_46B340((int)v1, sub_4A22A0);
     v2 = *(const char **)&byte_587000[168832];
@@ -498,7 +509,7 @@ int sub_4A2210()
       }
       while ( v2 );
     }
-    sub_46B500(*(int *)&byte_5D4594[1307300]);
+    sub_46B500((int)(uintptr_t)nox_server_menu_root_get());
     result = 1;
   }
   return result;
@@ -621,7 +632,7 @@ int __cdecl sub_4A24C0(int a1)
   _DWORD *v1; // eax
   int result; // eax
 
-  v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1307300], 99);
+  v1 = sub_46B0C0(nox_server_menu_root_get(), 99);
   result = sub_46AC00((int)v1, a1);
   if ( !a1 )
     result = sub_43E8C0(1);
@@ -631,14 +642,14 @@ int __cdecl sub_4A24C0(int a1)
 //----- (004A24F0) --------------------------------------------------------
 int sub_4A24F0()
 {
-  return sub_46B500(*(int *)&byte_5D4594[1307300]);
+  return sub_46B500((int)(uintptr_t)nox_server_menu_root_get());
 }
 
 //----- (004A2500) --------------------------------------------------------
 int sub_4A2500()
 {
   sub_43DDE0(1);
-  sub_46AC00(*(int *)&byte_5D4594[1307300], 0);
+  sub_46AC00((int)(uintptr_t)nox_server_menu_root_get(), 0);
   sub_46AC00(*(int *)&byte_5D4594[1307296], 0);
   return sub_4A24F0();
 }
@@ -647,7 +658,7 @@ int sub_4A2500()
 int sub_4A2530()
 {
   sub_43DDE0(0);
-  sub_46AC00(*(int *)&byte_5D4594[1307300], 1);
+  sub_46AC00((int)(uintptr_t)nox_server_menu_root_get(), 1);
   return sub_46AC00(*(int *)&byte_5D4594[1307296], 1);
 }
 
@@ -1260,8 +1271,17 @@ int __cdecl sub_4A30D0(int a1, unsigned int a2, wchar_t *a3, int a4)
   __int16 v45; // ax
   int v46; // edx
 
+#if UINTPTR_MAX > UINT32_MAX
+  if ( a2 == 16408 )
+    return 0;
+#endif
+
   v4 = (_DWORD *)a1;
-  v5 = *(__int16 **)(a1 + 32);
+#if UINTPTR_MAX > UINT32_MAX
+  v5 = (__int16 *)nox_native_window_field_32((unsigned int)a1);
+#else
+  v5 = *(unsigned int *)(a1 + 32);
+#endif
   if ( a2 > 0x4012 )
   {
     switch ( a2 )
@@ -1342,7 +1362,12 @@ LABEL_117:
       case 0x4016u:
         return *((_DWORD *)v5 + 6) + 524 * (_DWORD)a3 + 4;
       case 0x4017u:
+#if UINTPTR_MAX > UINT32_MAX
+        nox_wcsncpy((wchar_t *)(nox_native_pointer_from_32_value(
+          *(unsigned int *)(v5 + 24)) + 524 * a4 + 4), a3, 0xFFu);
+#else
         nox_wcsncpy((wchar_t *)(*((_DWORD *)v5 + 6) + 524 * a4 + 4), a3, 0xFFu);
+#endif
         *(_WORD *)(*((_DWORD *)v5 + 6) + 2 * (nox_wcslen(a3) + 262 * a4) + 4) = 0;
         return 0;
       case 0x4018u:
@@ -1767,7 +1792,7 @@ int __cdecl sub_4A3AC0(wchar_t *a1, int a2, _DWORD *a3)
 }
 
 //----- (004A3C00) --------------------------------------------------------
-void __cdecl sub_4A3C00(int a1, int a2)
+void __cdecl sub_4A3C00(uintptr_t a1, uintptr_t a2)
 {
   if ( a1 )
   {
@@ -1785,7 +1810,7 @@ void __cdecl sub_4A3C00(int a1, int a2)
 //----- (004A3C50) --------------------------------------------------------
 int __cdecl sub_4A3C50(_DWORD *a1, int a2)
 {
-  int v2; // ebp
+  uintptr_t v2; // ebp
   int v3; // edi
   int v4; // ebx
   int v5; // eax
@@ -1814,7 +1839,11 @@ int __cdecl sub_4A3C50(_DWORD *a1, int a2)
   int v29; // [esp+2Ch] [ebp-204h]
   __int16 v30[256]; // [esp+30h] [ebp-200h]
 
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = nox_native_pointer_from_32_value(a1[8]);
+#else
   v2 = a1[8];
+#endif
   v20 = *(_DWORD *)(a2 + 28);
   v23 = *(_DWORD *)(a2 + 20);
   sub_46AA60(a1, &xLeft, &yTop);
@@ -2101,7 +2130,7 @@ LABEL_35:
 // 4A3FC0: using guessed type wchar_t var_200[256];
 
 //----- (004A4310) --------------------------------------------------------
-_DWORD *__cdecl sub_4A4310(int a1, int a2, int a3, int a4, int a5, int a6, int a7, __int16 *a8)
+_DWORD *__cdecl sub_4A4310(int a1, int a2, int a3, int a4, int a5, int a6, uintptr_t a7, __int16 *a8)
 {
   _DWORD *v8; // ebp
   void *v9; // edi
@@ -2130,13 +2159,17 @@ _DWORD *__cdecl sub_4A4310(int a1, int a2, int a3, int a4, int a5, int a6, int a
   if ( !(*(_BYTE *)(a7 + 8) & 0x20) )
     return 0;
   v8 = sub_46C3E0(a1, a2, a3, a4, a5, a6, sub_4A30D0);
-  sub_4A3C00((int)v8, (int)a8);
+    sub_4A3C00((uintptr_t)v8, (uintptr_t)a8);
   if ( v8 )
   {
     if ( !*(_DWORD *)(a7 + 16) )
       *(_DWORD *)(a7 + 16) = v8;
     sub_46AF80((int)v8, (const void *)a7);
+#if UINTPTR_MAX > UINT32_MAX
+    v9 = nox_game3_low_alloc(524 * *a8);
+#else
     v9 = malloc(524 * *a8);
+#endif
     *((_DWORD *)a8 + 6) = v9;
     if ( !v9 )
       return 0;
@@ -2153,7 +2186,11 @@ _DWORD *__cdecl sub_4A4310(int a1, int a2, int a3, int a4, int a5, int a6, int a
     *((_DWORD *)a8 + 10) = 0;
     if ( v11 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      v12 = nox_game3_low_alloc(4 * *a8);
+#else
       v12 = malloc(4 * *a8);
+#endif
       *((_DWORD *)a8 + 12) = v12;
       if ( !v12 )
       {
@@ -5242,7 +5279,12 @@ int __cdecl sub_4A8A20(int a1, int a2)
   }
   if ( (*(_DWORD *)(a1 + 4) & 0x2000) == 0x2000 )
     sub_43F670(1);
+#if UINTPTR_MAX > UINT32_MAX
+  if ( *(unsigned int *)nox_native_pointer_from_32_value(
+        *(unsigned int *)(a1 + 32)) )
+#else
   if ( **(_DWORD **)(a1 + 32) )
+#endif
   {
     v6 = *(_DWORD *)(a1 + 8);
     v7 = *(_DWORD *)(v2 + 200);
@@ -5608,7 +5650,7 @@ int __cdecl sub_4A92C0(int a1, int a2, wchar_t *a3, int a4)
 }
 
 //----- (004A9330) --------------------------------------------------------
-int __cdecl sub_4A9330(int a1, int a2, int a3, int a4, int a5, int a6, int a7, _DWORD *a8)
+int __cdecl sub_4A9330(int a1, int a2, int a3, int a4, int a5, int a6, uintptr_t a7, _DWORD *a8)
 {
   _DWORD *v8; // eax
   int v9; // esi
@@ -13317,7 +13359,7 @@ _DWORD *__cdecl sub_4B4EE0(int a1, int a2, int a3, int a4, int a5, int a6, _DWOR
     if ( !a7[4] )
       a7[4] = v10;
     sub_46AF80((int)v10, a7);
-    sub_4B5640((int)v10, a2 | 0x100, (int)a7);
+    sub_4B5640((int)v10, a2 | 0x100, (uintptr_t)a7);
     v11 = *(_DWORD *)a8;
     if ( *((_DWORD *)a8 + 1) == *(_DWORD *)a8 )
       *((_DWORD *)a8 + 1) = v11 + 1;
@@ -13355,7 +13397,11 @@ int __cdecl sub_4B5010(int a1, unsigned int a2, int a3, int a4)
   int *v18; // [esp-4h] [ebp-Ch]
 
   v4 = a1;
-  v5 = *(_DWORD *)(a1 + 32);
+#if UINTPTR_MAX > UINT32_MAX
+  v5 = nox_native_window_field_32((unsigned int)a1);
+#else
+  v5 = *(unsigned int *)(a1 + 32);
+#endif
   if ( a2 > 0x4000 )
   {
     if ( a2 == 16394 )
@@ -13680,7 +13726,7 @@ int __cdecl sub_4B5620(_DWORD *a1, int a2)
 }
 
 //----- (004B5640) --------------------------------------------------------
-int __cdecl sub_4B5640(int a1, int a2, int a3)
+int __cdecl sub_4B5640(int a1, int a2, uintptr_t a3)
 {
   int v3; // esi
   int v4; // eax
