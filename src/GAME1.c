@@ -6,6 +6,10 @@
 #ifdef NOX_BOT_SUPPORT
 #include "bot_console.h"
 #endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 #ifdef NOX_MANUAL_SPELL_CASTING
 #include <stdlib.h>
 #endif
@@ -25,6 +29,35 @@ void (*mainloop_exit)();
 int g_v20, g_v21;
 int g_a1;
 intptr_t g_a2;
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+int nox_palette_lut_low;
+
+static void *nox_palette_lut_alloc(size_t size)
+{
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped_size;
+  void *result;
+
+  if ( !page_size )
+    return 0;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+  return result == MAP_FAILED ? 0 : result;
+}
+
+void nox_palette_lut_free(void *address, size_t size)
+{
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped_size;
+
+  if ( !address || !page_size )
+    return;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  munmap(address, mapped_size);
+}
+#endif
 
 /* The recovered timer callback lives in a four-byte game-data slot on 32-bit
  * Nox. Native 64-bit builds need a separate host-width copy so the callback
@@ -53,6 +86,63 @@ struct nox_config_entry {
 
 static struct nox_config_entry nox_config_entries[6];
 
+struct nox_keybind_entry {
+  const char *name;
+  uint32_t value;
+  const char *alias;
+  wchar_t *localized;
+};
+
+struct nox_action_entry {
+  const char *name;
+  uint32_t value;
+  wchar_t *localized;
+};
+
+static const char *nox_mouse_names[4];
+static struct nox_keybind_entry nox_keybind_entries[137];
+static uint32_t nox_keybind_values[137];
+static unsigned char nox_keybind_alias_present[137];
+static struct nox_action_entry nox_action_entries[41];
+static uint32_t nox_action_values[41];
+static const wchar_t *nox_cmd_token_names[8];
+
+struct nox_cmd_localized_entry {
+  const wchar_t *name;
+  wchar_t *localized;
+};
+
+static struct nox_cmd_localized_entry nox_cmd_localized_entries[256];
+static int nox_cmd_localized_count;
+
+static void *nox_native_legacy_pointer(const void *address)
+{
+  uintptr_t value = *(const uintptr_t *)address;
+  uintptr_t high = (uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX;
+
+  if ( !value || (value & ~(uintptr_t)UINT32_MAX) != high )
+    return 0;
+  return (void *)value;
+}
+
+static void nox_cmd_localized_add(const wchar_t *name, wchar_t *localized)
+{
+  if ( nox_cmd_localized_count < 256 )
+  {
+    nox_cmd_localized_entries[nox_cmd_localized_count].name = name;
+    nox_cmd_localized_entries[nox_cmd_localized_count].localized = localized;
+    ++nox_cmd_localized_count;
+  }
+}
+
+struct nox_config_node_native {
+  _DWORD data[18];
+  struct nox_config_node_native *prev;
+  struct nox_config_node_native *next;
+};
+
+static struct nox_config_node_native *nox_config_list_head;
+
 static size_t nox_csf_utf16_length(const uint16_t *string)
 {
   size_t length = 0;
@@ -69,6 +159,8 @@ static size_t nox_csf_utf16_length(const uint16_t *string)
 #define NOX_CSF_NARROW_STRINGS nox_csf_narrow_strings
 #define NOX_CSF_EXTRA_HEAD nox_csf_extra_head
 #define NOX_BUILTIN_PTR(slot, target) nox_builtin_strings[((slot) - 5184) / 4] = (const char *)&byte_587000[(target)]
+#define NOX_MOUSE_PTR(slot, target) nox_mouse_names[((slot) - 73652) / 4] = (const char *)&byte_587000[(target)]
+#define NOX_CMD_TOKEN_PTR(slot, target) nox_cmd_token_names[((slot) - 94468) / 4] = (const wchar_t *)&byte_587000[(target)]
 #define NOX_CONFIG_PTR(slot, target) do { \
   nox_config_entries[((slot) - 81168) / 8].name = (const char *)&byte_587000[(target)]; \
   nox_config_entries[((slot) - 81168) / 8].value = *(_DWORD *)&byte_587000[(slot) + 4]; \
@@ -81,6 +173,8 @@ static size_t nox_csf_utf16_length(const uint16_t *string)
 #define NOX_CSF_NARROW_STRINGS (*(char ***)&byte_5D4594[251508])
 #define NOX_CSF_EXTRA_HEAD (*(void **)&byte_5D4594[251520])
 #define NOX_BUILTIN_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
+#define NOX_MOUSE_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
+#define NOX_CMD_TOKEN_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #define NOX_CONFIG_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #endif
 
@@ -829,6 +923,18 @@ void nullsub_70()
 }
 void init_data()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+
+  for ( i = 0; i < 137; ++i )
+  {
+    size_t offset = 73672u + 16u * (size_t)i;
+    nox_keybind_values[i] = *(uint32_t *)&byte_587000[offset + 4];
+    nox_keybind_alias_present[i] = *(uint32_t *)&byte_587000[offset + 8] != 0;
+  }
+  for ( i = 0; i < 41; ++i )
+    nox_action_values[i] = *(uint32_t *)&byte_587000[75880u + 12u * (size_t)i + 4];
+#endif
 *(void **)&byte_587000[26824] = &sub_4235C0;
 *(void **)&byte_587000[26872] = &sub_4235C0;
 *(void **)&byte_587000[26896] = &sub_4235C0;
@@ -3319,10 +3425,10 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[72640] = &byte_587000[73612];
 *(void **)&byte_587000[72652] = &byte_587000[73624];
 *(void **)&byte_587000[72664] = &byte_587000[73636];
-*(void **)&byte_587000[73652] = &byte_587000[76384];
-*(void **)&byte_587000[73656] = &byte_587000[76392];
-*(void **)&byte_587000[73660] = &byte_587000[76400];
-*(void **)&byte_587000[73664] = &byte_587000[76408];
+NOX_MOUSE_PTR(73652, 76384);
+NOX_MOUSE_PTR(73656, 76392);
+NOX_MOUSE_PTR(73660, 76400);
+NOX_MOUSE_PTR(73664, 76408);
 *(void **)&byte_587000[73672] = &byte_587000[76416];
 *(void **)&byte_587000[73680] = &byte_587000[76420];
 *(void **)&byte_587000[73688] = &byte_587000[76432];
@@ -3732,14 +3838,14 @@ NOX_CONFIG_PTR(81208, 81412);
 *(void **)&byte_587000[94432] = &byte_587000[98316];
 *(void **)&byte_587000[94440] = &byte_587000[98336];
 *(void **)&byte_587000[94448] = &byte_587000[98360];
-*(void **)&byte_587000[94468] = &byte_587000[98372];
-*(void **)&byte_587000[94472] = &byte_587000[98380];
-*(void **)&byte_587000[94476] = &byte_587000[98388];
-*(void **)&byte_587000[94480] = &byte_587000[98400];
-*(void **)&byte_587000[94484] = &byte_587000[98408];
-*(void **)&byte_587000[94488] = &byte_587000[98420];
-*(void **)&byte_587000[94492] = &byte_587000[98444];
-*(void **)&byte_587000[94496] = &byte_587000[98460];
+NOX_CMD_TOKEN_PTR(94468, 98372);
+NOX_CMD_TOKEN_PTR(94472, 98380);
+NOX_CMD_TOKEN_PTR(94476, 98388);
+NOX_CMD_TOKEN_PTR(94480, 98400);
+NOX_CMD_TOKEN_PTR(94484, 98408);
+NOX_CMD_TOKEN_PTR(94488, 98420);
+NOX_CMD_TOKEN_PTR(94492, 98444);
+NOX_CMD_TOKEN_PTR(94496, 98460);
 *(void **)&byte_587000[94504] = &byte_587000[98468];
 *(void **)&byte_587000[94580] = &byte_587000[98476];
 *(void **)&byte_587000[94656] = &byte_587000[98484];
@@ -7693,6 +7799,25 @@ NOX_CONFIG_PTR(81208, 81412);
 *(void **)&byte_587000[316744] = &byte_581450[11564];
 *(void **)&byte_587000[316784] = &byte_581450[11564];
 *(void **)&byte_587000[316808] = (void *)0xdeadbeef;
+#if UINTPTR_MAX > UINT32_MAX
+for ( i = 0; i < 137; ++i )
+{
+  size_t offset = 73672u + 16u * (size_t)i;
+  nox_keybind_entries[i].name = *(const char **)&byte_587000[offset];
+  nox_keybind_entries[i].value = nox_keybind_values[i];
+  nox_keybind_entries[i].alias = nox_keybind_alias_present[i]
+    ? *(const char **)&byte_587000[offset + 8]
+    : 0;
+  nox_keybind_entries[i].localized = 0;
+}
+for ( i = 0; i < 41; ++i )
+{
+  size_t offset = 75880u + 12u * (size_t)i;
+  nox_action_entries[i].name = *(const char **)&byte_587000[offset];
+  nox_action_entries[i].value = nox_action_values[i];
+  nox_action_entries[i].localized = 0;
+}
+#endif
 }
 
 //----- (00408CC0) --------------------------------------------------------
@@ -13731,7 +13856,7 @@ wchar_t *__cdecl sub_40F1D0(char *a1, _DWORD *a2, const char *a3, int a4)
   v9 = bsearch(
          v5,
          NOX_CSF_RECORDS,
-         *(size_t *)&byte_5D4594[251492],
+         (size_t)*(uint32_t *)&byte_5D4594[251492],
          0x34u,
          (int (__cdecl *)(const void *, const void *))_strcmpi);
   v10 = v9;
@@ -39754,7 +39879,11 @@ char *__cdecl sub_42CD50(_BYTE *a1)
 //----- (0042CD70) --------------------------------------------------------
 LPVOID sub_42CD70()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_config_list_head ? nox_config_list_head->data : 0;
+#else
   return *(LPVOID *)&byte_5D4594[754056];
+#endif
 }
 
 //----- (0042CD80) --------------------------------------------------------
@@ -39763,13 +39892,29 @@ void *__cdecl sub_42CD80(void *a1)
   void *result; // eax
 
   result = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_config_list_head = (struct nox_config_node_native *)a1;
+#else
   *(_DWORD *)&byte_5D4594[754056] = a1;
+#endif
   return result;
 }
 
 //----- (0042CD90) --------------------------------------------------------
 _DWORD *sub_42CD90()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  _DWORD *result = 0;
+  struct nox_config_node_native *node = nox_config_list_head;
+
+  while ( node )
+  {
+    struct nox_config_node_native *next = node->next;
+    free(node);
+    node = next;
+  }
+  nox_config_list_head = 0;
+#else
   _DWORD *result; // eax
   _DWORD *v1; // esi
 
@@ -39785,6 +39930,7 @@ _DWORD *sub_42CD90()
     while ( v1 );
   }
   *(_DWORD *)&byte_5D4594[754056] = 0;
+#endif
   byte_5D4594[747848] = 0;
   byte_5D4594[750956] = 0;
   *(_DWORD *)&byte_5D4594[754036] = 0;
@@ -39970,7 +40116,11 @@ _DWORD *__cdecl sub_42CDF0(FILE *a1)
 //----- (0042CF50) --------------------------------------------------------
 int __cdecl sub_42CF50(const char *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  intptr_t result; // eax
+#else
   int result; // eax
+#endif
   const char *v2; // ebp
   _DWORD *v3; // ebx
   char *v4; // ebp
@@ -39986,18 +40136,30 @@ int __cdecl sub_42CF50(const char *a1)
   unsigned __int8 *v14; // edi
   int v15; // eax
   char *v16; // [esp+10h] [ebp-408h]
+#if UINTPTR_MAX > UINT32_MAX
+  intptr_t v17; // [esp+14h] [ebp-404h]
+#else
   int v17; // [esp+14h] [ebp-404h]
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  struct nox_config_node_native *node;
+#endif
   char v18[1024]; // [esp+18h] [ebp-400h]
 
   *(_DWORD *)&byte_5D4594[747868] = 4;
   byte_5D4594[747848] = 0;
   strcpy(v18, a1);
-  result = (int)strtok(v18, (const char *)&byte_587000[80192]);
+  result = (intptr_t)strtok(v18, (const char *)&byte_587000[80192]);
   v2 = (const char *)result;
   v16 = (char *)result;
   if ( result )
   {
-    result = (int)calloc(1u, 0x60u);
+#if UINTPTR_MAX > UINT32_MAX
+    node = (struct nox_config_node_native *)calloc(1u, sizeof(*node));
+    result = (intptr_t)(node ? node->data : 0);
+#else
+    result = (intptr_t)calloc(1u, 0x60u);
+#endif
     v3 = (_DWORD *)result;
     v17 = result;
     if ( result )
@@ -40007,6 +40169,12 @@ int __cdecl sub_42CF50(const char *a1)
         strtok(0, (const char *)&byte_587000[80212]);
         v4 = strtok(0, (const char *)&byte_587000[80220]);
         v5 = 0;
+#if UINTPTR_MAX > UINT32_MAX
+        while ( v5 < 4 && _strcmpi(v4, nox_mouse_names[v5]) )
+          ++v5;
+        if ( v5 >= 4 )
+          v5 = 0;
+#else
         v6 = (const char **)&byte_587000[73652];
         while ( _strcmpi(v4, *v6) )
         {
@@ -40015,6 +40183,7 @@ int __cdecl sub_42CF50(const char *a1)
           if ( (int)v6 >= (int)&byte_587000[73668] )
             goto LABEL_9;
         }
+#endif
         if ( v5 < 4 )
           goto LABEL_10;
 LABEL_9:
@@ -40030,6 +40199,27 @@ LABEL_10:
         {
           if ( *v2 != 43 )
           {
+#if UINTPTR_MAX > UINT32_MAX
+            v8 = 0;
+            while ( v8 < 137
+              && ( !nox_keybind_entries[v8].name || strcmp(nox_keybind_entries[v8].name, v16) ) )
+              ++v8;
+            if ( v8 < 137 )
+            {
+              v10 = v3[8];
+              if ( v10 == 8 )
+              {
+                free(v3);
+                return 0;
+              }
+              v3[v10] = nox_keybind_entries[v8].value;
+              ++v3[8];
+            }
+            else
+            {
+              return 0;
+            }
+#else
             v7 = *(const char **)&byte_587000[73672];
             v8 = 0;
             if ( *(_DWORD *)&byte_587000[73672] )
@@ -40056,6 +40246,7 @@ LABEL_38:
 LABEL_21:
             if ( !*(_DWORD *)&byte_587000[16 * v8 + 73672] )
               return 0;
+#endif
           }
           v16 = strtok(0, (const char *)&byte_587000[80228]);
           if ( !v16 )
@@ -40083,7 +40274,14 @@ LABEL_21:
                 v3 = (_DWORD *)v17;
                 v15 = *(_DWORD *)(v17 + 68);
                 if ( v15 == 8 )
+#if UINTPTR_MAX > UINT32_MAX
+                {
+                  free(v3);
+                  return 0;
+                }
+#else
                   goto LABEL_38;
+#endif
                 *(_DWORD *)(v17 + 4 * v15 + 36) = direct_spell_set_action;
 #ifdef NOX_MANUAL_SPELL_CASTING
                 if ( direct_spell_set_action < 0 )
@@ -40093,6 +40291,27 @@ LABEL_21:
               }
               else
               {
+#if UINTPTR_MAX > UINT32_MAX
+                v13 = 0;
+                while ( v13 < 41 && strcmp(nox_action_entries[v13].name, v11) )
+                  ++v13;
+                if ( v13 < 41 )
+                {
+                  v3 = (_DWORD *)v17;
+                  v15 = *(_DWORD *)(v17 + 68);
+                  if ( v15 == 8 )
+                  {
+                    free(v3);
+                    return 0;
+                  }
+                  *(_DWORD *)(v17 + 4 * v15 + 36) = nox_action_entries[v13].value;
+                  ++*(_DWORD *)(v17 + 68);
+                }
+                else
+                {
+                  return 0;
+                }
+#else
                 v12 = *(const char **)&byte_587000[75880];
                 v13 = 0;
                 if ( *(_DWORD *)&byte_587000[75880] )
@@ -40112,13 +40331,21 @@ LABEL_21:
                   v3 = (_DWORD *)v17;
                   v15 = *(_DWORD *)(v17 + 68);
                   if ( v15 == 8 )
+#if UINTPTR_MAX > UINT32_MAX
+                  {
+                    free(v3);
+                    return 0;
+                  }
+#else
                     goto LABEL_38;
+#endif
                   *(_DWORD *)(v17 + 4 * v15 + 36) = *(_DWORD *)&byte_587000[12 * v13 + 75884];
                   ++*(_DWORD *)(v17 + 68);
                 }
 LABEL_33:
                 if ( !*(_DWORD *)&byte_587000[12 * v13 + 75880] )
                   return 0;
+#endif
               }
             }
             v11 = strtok(0, (const char *)&byte_587000[80244]);
@@ -40126,11 +40353,19 @@ LABEL_33:
               break;
           }
         }
+#if UINTPTR_MAX > UINT32_MAX
+        node->prev = 0;
+        node->next = nox_config_list_head;
+        if ( nox_config_list_head )
+          nox_config_list_head->prev = node;
+        nox_config_list_head = node;
+#else
         v3[18] = 0;
         v3[19] = *(_DWORD *)&byte_5D4594[754056];
         if ( *(_DWORD *)&byte_5D4594[754056] )
           *(_DWORD *)(*(_DWORD *)&byte_5D4594[754056] + 72) = v3;
         *(_DWORD *)&byte_5D4594[754056] = v3;
+#endif
         result = 1;
       }
     }
@@ -40847,6 +41082,35 @@ char *__cdecl sub_42EA90(char *a1)
 //----- (0042EAE0) --------------------------------------------------------
 char *sub_42EAE0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+  char v4[256];
+
+  for ( i = 0; i < 137; ++i )
+  {
+    if ( nox_keybind_entries[i].name )
+      nox_keybind_entries[i].localized = sub_40F1D0(
+        (char *)nox_keybind_entries[i].name,
+        0,
+        (const char *)&byte_587000[80404],
+        2092);
+  }
+  nox_action_entries[0].localized = sub_40F1D0(
+    (char *)&byte_587000[80484],
+    0,
+    (const char *)&byte_587000[80444],
+    2095);
+  for ( i = 1; i < 41; ++i )
+  {
+    nox_sprintf(v4, (const char *)&byte_587000[80504], nox_action_entries[i].name);
+    nox_action_entries[i].localized = sub_40F1D0(
+      v4,
+      0,
+      (const char *)&byte_587000[80520],
+      2100);
+  }
+  return 0;
+#else
   unsigned __int8 *v0; // esi
   int v1; // eax
   char *result; // eax
@@ -40879,6 +41143,7 @@ char *sub_42EAE0()
     while ( result );
   }
   return result;
+#endif
 }
 
 //----- (0042EB90) --------------------------------------------------------
@@ -45607,7 +45872,12 @@ int sub_434DA0()
   v0 = 7;
   v1 = 0x7FFF;
 LABEL_6:
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = (int)(intptr_t)nox_palette_lut_alloc((size_t)v1 + 3u);
+  nox_palette_lut_low = result != 0;
+#else
   result = (int)calloc(v1 + 3, 1u);
+#endif
   *(_DWORD *)&byte_5D4594[3804668] = result;
   if ( result )
   {
@@ -57006,6 +57276,16 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
 //----- (00443E40) --------------------------------------------------------
 int __cdecl sub_443E40(wchar_t *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+
+  for ( i = 0; i < nox_cmd_localized_count; ++i )
+  {
+    if ( !_nox_wcsicmp(a1, nox_cmd_localized_entries[i].localized) )
+      return (int)(uintptr_t)nox_cmd_localized_entries[i].name;
+  }
+  return 0;
+#else
   int v1; // esi
   const wchar_t **i; // edi
 
@@ -57018,6 +57298,7 @@ int __cdecl sub_443E40(wchar_t *a1)
       return 0;
   }
   return *(_DWORD *)&byte_5D4594[8 * v1 + 816500];
+#endif
 }
 
 //----- (00443E90) --------------------------------------------------------
@@ -57238,6 +57519,24 @@ char *__cdecl sub_444410(int a1)
 //----- (00444440) --------------------------------------------------------
 void __cdecl sub_444440(int *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *record = (unsigned char *)a1;
+  int guard = 0;
+  char v5[64];
+
+  while ( record && guard++ < 256 )
+  {
+    const wchar_t *name = *(const wchar_t **)record;
+    wchar_t *localized;
+
+    if ( !name )
+      break;
+    nox_sprintf(v5, (const char *)&byte_587000[107652], name);
+    localized = sub_40F1D0(v5, 0, (const char *)&byte_587000[107668], 4441);
+    nox_cmd_localized_add(name, localized);
+    record += 24;
+  }
+#else
   int *v1; // edi
   int *v2; // ebx
   wchar_t *v3; // esi
@@ -57265,11 +57564,15 @@ void __cdecl sub_444440(int *a1)
     }
     while ( v4 );
   }
+#endif
 }
 
 //----- (004444C0) --------------------------------------------------------
 int __cdecl sub_4444C0(int a1, int a2)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_cmd_localized_count;
+#else
   int v2; // eax
   int result; // eax
 
@@ -57279,16 +57582,29 @@ int __cdecl sub_4444C0(int a1, int a2)
   result = v2 + 1;
   *(_DWORD *)&byte_5D4594[823708] = result;
   return result;
+#endif
 }
 
 //----- (004444F0) --------------------------------------------------------
 int sub_4444F0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+#else
   int *v0; // esi
+#endif
   wchar_t *v1; // eax
   char v3[80]; // [esp+4h] [ebp-50h]
 
   sub_444560();
+#if UINTPTR_MAX > UINT32_MAX
+  for ( i = 0; i < 8; ++i )
+  {
+    nox_sprintf(v3, (const char *)&byte_587000[107708], nox_cmd_token_names[i]);
+    v1 = sub_40F1D0(v3, 0, (const char *)&byte_587000[107724], 4476);
+    nox_cmd_localized_add(nox_cmd_token_names[i], v1);
+  }
+#else
   v0 = (int *)&byte_587000[94468];
   do
   {
@@ -57298,15 +57614,28 @@ int sub_4444F0()
     ++v0;
   }
   while ( (int)v0 < (int)&byte_587000[94500] );
+#endif
   *(_DWORD *)&byte_5D4594[823696] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  /* The nested command table still uses a separate legacy record shape. */
+#else
   sub_444440((int *)&byte_587000[97368]);
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  return 0;
+#else
   return sub_444570();
+#endif
 }
 
 //----- (00444560) --------------------------------------------------------
 void sub_444560()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_cmd_localized_count = 0;
+#else
   *(_DWORD *)&byte_5D4594[823708] = 0;
+#endif
 }
 
 //----- (00444570) --------------------------------------------------------

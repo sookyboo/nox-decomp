@@ -51,6 +51,21 @@ records and make `sub_40AE90()`, `sub_40AEB0()`, `sub_40AF50()`,
 avoids treating a recovered four-byte pointer slot as an eight-byte native
 pointer and consuming the next field.
 
+`sub_42CF50()` follows the same rule. The native path keeps the 16-byte
+keybind records (137 entries) and 12-byte action records (41 entries) in their
+recovered layout, while shadowing their host pointers and values. Its linked
+config list uses a native sidecar node so the `prev` and `next` links are not
+truncated. The CSF search count is decoded as a 32-bit value before passing it
+to `bsearch`; adjacent legacy fields must not be read as one native `size_t`.
+
+The initial graphics setup has another recovered DWORD-pointer boundary.
+`sub_4861D0()` / `sub_486230()` and the display/gamma/palette setup allocate
+temporary buffers whose addresses are stored in legacy slots and read by many
+existing consumers. On Linux x86_64 those allocations use `MAP_32BIT`, with
+matching native cleanup, so the original consumers and 32-bit layouts remain
+unchanged. This is a compatibility boundary for temporary buffers, not a
+change to the game record schema.
+
 ## Diagnostics
 
 Build the native executable with the opt-in 64-bit configuration described in
@@ -76,11 +91,12 @@ If this smoke test exits with signal 11, rerun the same command with `gdb -q
 project frame in the backtrace as the owning boundary; do not widen every
 nearby field as a workaround.
 
-At the time of this document update, the native executable builds and reaches
-the config-loading path. A remaining x86_64 headless-startup fault is in the
-later `sub_42CF50()` config-line parser, which has additional recovered
-pointer tables not yet given native shadows. That is a known follow-up, not a
-claim that the complete game startup path is fixed.
+At the time of this document update, the native executable builds, loads the
+Estate test data, completes config localization, and reaches OpenGL
+initialization. The remaining x86_64 headless-startup fault is in the SDL
+cursor compatibility path: the recovered cursor callback table still expects
+32-bit pixel-row pointers while SDL owns native-width surface data. That is a
+known follow-up, not a claim that the complete game startup path is fixed.
 
 ## Compatibility rule
 
