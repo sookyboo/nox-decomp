@@ -220,6 +220,36 @@ aarch64 configuration. The 32-bit-only ABI tests (`abi_cross_test` and
 build directory from `build-i386` and `build-armhf`; reusing a cache can select
 the wrong compiler or libraries.
 
+For a native x86_64 runtime smoke test, use the extracted game data directory
+as the working directory and provide a virtual X11 display. Disable optional
+network/control services so the test stays local and deterministic:
+
+```sh
+cd build-deps/gamefiles/app
+timeout --signal=TERM 20s env \
+  ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
+  NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
+  NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
+  xvfb-run -a -s '-screen 0 1280x720x24' \
+  ../../../build-linux64/src/out -serveronly G_Quest
+```
+
+If the smoke test segfaults, run the same environment through GDB and collect
+the first project frame:
+
+```sh
+env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
+  NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
+  NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
+  xvfb-run -a -s '-screen 0 1280x720x24' \
+  gdb -q -batch -ex 'set pagination off' -ex run -ex bt --args \
+  ../../../build-linux64/src/out -serveronly G_Quest
+```
+
+The startup-specific ownership and the rule for preserving recovered 32-bit
+tables are documented in
+[`docs/startup-compatibility.md`](docs/startup-compatibility.md).
+
 To run the same workflow in Docker, select a native platform rather than a
 32-bit emulation target, mount the checkout, and run the commands inside the
 container:
