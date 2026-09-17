@@ -19,6 +19,11 @@ extern float input_sensitivity;
 extern SDL_Window *g_window;
 #endif
 
+#if UINTPTR_MAX > UINT32_MAX
+HDIGDRIVER nox_mss_digital_handle;
+#endif
+HSTREAM nox_mss_music_stream;
+
 void f(int);
 void (*mainloop_enter)(void *);
 void *mainloop_enter_args;
@@ -26,6 +31,10 @@ void (*mainloop_exit)();
 int g_v20, g_v21;
 int g_a1;
 intptr_t g_a2;
+#if UINTPTR_MAX > UINT32_MAX
+uintptr_t nox_native_last_csf_narrow;
+uintptr_t nox_native_audio_state;
+#endif
 
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 int nox_palette_lut_low;
@@ -234,6 +243,15 @@ static void *nox_native_legacy_pointer(const void *address)
     return 0;
   return (void *)value;
 }
+
+#if UINTPTR_MAX > UINT32_MAX
+static const void *nox_native_pointer_from_32(unsigned int value)
+{
+  if ( !value )
+    return 0;
+  return (const void *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value);
+}
+#endif
 
 static void nox_cmd_localized_add(const wchar_t *name, wchar_t *localized)
 {
@@ -9818,7 +9836,7 @@ int __cdecl sub_40AA70(int a1)
   char *v1; // edi
   int result; // eax
   int v3; // eax
-  int v4; // esi
+  uintptr_t v4; // esi
   int v5; // ebx
   char *v6; // eax
 
@@ -13257,7 +13275,7 @@ int __stdcall sub_40E260(int (__stdcall ***a1)(_DWORD, void *, int *), int a2, i
 int __stdcall sub_40E320(int (__stdcall ***a1)(_DWORD, void *, int *), int a2, int a3)
 {
   int (__stdcall **v3)(_DWORD, void *, int *); // ecx
-  int v4; // esi
+  uintptr_t v4; // esi
   int v6; // [esp+20h] [ebp-14h]
   int v7[3]; // [esp+24h] [ebp-10h]
   int v8; // [esp+30h] [ebp-4h]
@@ -14119,6 +14137,9 @@ wchar_t *__cdecl sub_40F1D0(char *a1, _DWORD *a2, const char *a3, int a4)
       v11 = sub_415FA0(0, (unsigned __int8)v9[49] - 1);
     if ( a2 )
       *a2 = (intptr_t)NOX_CSF_NARROW_STRINGS[v11 + *((unsigned __int16 *)v10 + 25)];
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_last_csf_narrow = (uintptr_t)NOX_CSF_NARROW_STRINGS[v11 + *((unsigned __int16 *)v10 + 25)];
+#endif
     result = NOX_CSF_WIDE_STRINGS[v11 + *((unsigned __int16 *)v10 + 25)];
   }
   else
@@ -43905,6 +43926,9 @@ int __cdecl sub_4310B0(int a3)
     if ( sub_4311F0() )
     {
       *(_DWORD *)&byte_587000[81128] = *(_DWORD *)&byte_5D4594[805984] + 88;
+#if UINTPTR_MAX > UINT32_MAX
+      nox_native_audio_state = (uintptr_t)(unsigned int)*(_DWORD *)&byte_5D4594[805984] + 88;
+#endif
       *(_DWORD *)&byte_5D4594[805980] = sub_4866F0((const char *)&byte_587000[81140], (const char *)&byte_587000[81132]);
     }
   }
@@ -43941,6 +43965,9 @@ void sub_4311B0()
   if ( *(_DWORD *)&byte_5D4594[805980] )
     sub_4869C0(*(LPVOID *)&byte_5D4594[805980]);
   *(_DWORD *)&byte_587000[81128] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_audio_state = 0;
+#endif
   sub_431270();
   if ( *(_DWORD *)&byte_5D4594[1193336] )
   {
@@ -43956,7 +43983,7 @@ BOOL sub_4311F0()
   _DWORD *v0; // eax
   int v2[7]; // [esp+0h] [ebp-1Ch]
 
-  sub_486FA0(*(int *)&byte_587000[94032]);
+  sub_486FA0((uintptr_t)nox_native_legacy_pointer(&byte_587000[94032]));
   nullsub_10(v2);
   v2[2] = 22050;
   v2[1] = 0;
@@ -51955,20 +51982,48 @@ void sub_43D2D0()
 {
   int v1; // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  if ( !nox_native_audio_state )
+    return;
+#endif
   if ( *(_DWORD *)&byte_5D4594[816340] )
   {
     if ( *(_DWORD *)&byte_5D4594[816364] )
     {
       sub_486520((unsigned int *)&byte_5D4594[816244]);
       sub_486520((unsigned int *)&byte_5D4594[816148]);
-      v1 = *(_DWORD *)(*(_DWORD *)&byte_587000[81128] + 4) >> 16;
+      v1 = *(_DWORD *) (
+#if UINTPTR_MAX > UINT32_MAX
+        nox_native_audio_state
+#else
+        *(_DWORD *)&byte_587000[81128]
+#endif
+        + 4) >> 16;
       if ( v1 == *(_DWORD *)&byte_587000[93168] )
       {
         if ( (unsigned __int64)(sub_416BB0() - *(_QWORD *)&byte_5D4594[816380]) > 0x32 )
         {
-          **(_DWORD **)&byte_587000[81128] &= 0xFFFFFFFD;
-          *(_DWORD *)(*(_DWORD *)&byte_587000[81128] + 32) &= 0xFFFFFFFD;
-          *(_DWORD *)(*(_DWORD *)&byte_587000[81128] + 64) &= 0xFFFFFFFD;
+          *(
+#if UINTPTR_MAX > UINT32_MAX
+            (_DWORD *)nox_native_audio_state
+#else
+            *(_DWORD **)&byte_587000[81128]
+#endif
+            ) &= 0xFFFFFFFD;
+          *(_DWORD *)(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_native_audio_state
+#else
+            *(_DWORD *)&byte_587000[81128]
+#endif
+            + 32) &= 0xFFFFFFFD;
+          *(_DWORD *)(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_native_audio_state
+#else
+            *(_DWORD *)&byte_587000[81128]
+#endif
+            + 64) &= 0xFFFFFFFD;
         }
       }
       else
@@ -51978,15 +52033,27 @@ void sub_43D2D0()
       }
       if ( *(_DWORD *)&byte_5D4594[816364] )
       {
-        if ( **(_BYTE **)&byte_587000[81128] & 2 || byte_5D4594[816148] & 2 || byte_5D4594[816244] & 2 )
-          sub_43D3C0(*(int *)&byte_5D4594[816364], *(int *)&byte_5D4594[816096]);
+        if (
+#if UINTPTR_MAX > UINT32_MAX
+          *(unsigned char *)nox_native_audio_state & 2
+#else
+          **(_BYTE **)&byte_587000[81128] & 2
+#endif
+          || byte_5D4594[816148] & 2 || byte_5D4594[816244] & 2 )
+          sub_43D3C0(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_mss_music_stream
+#else
+            *(int *)&byte_5D4594[816364]
+#endif
+            , *(int *)&byte_5D4594[816096]);
       }
     }
   }
 }
 
 //----- (0043D3C0) --------------------------------------------------------
-void __cdecl sub_43D3C0(int a1, int a2)
+void __cdecl sub_43D3C0(uintptr_t a1, int a2)
 {
   unsigned int v2; // eax
 
@@ -51997,7 +52064,13 @@ void __cdecl sub_43D3C0(int a1, int a2)
          * ((a2 * (unsigned int)*(unsigned __int16 *)&byte_5D4594[816250]) >> 14)) >> 14);
     *(_DWORD *)&byte_5D4594[816148] &= 0xFFFFFFFD;
     *(_DWORD *)&byte_5D4594[816244] &= 0xFFFFFFFD;
-    AIL_set_stream_volume(a1, (int)(127 * (v2 >> 14)) / 100);
+    AIL_set_stream_volume(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_mss_music_stream
+#else
+      a1
+#endif
+      , (int)(127 * (v2 >> 14)) / 100);
   }
 }
 // 581430: using guessed type int __stdcall AIL_set_stream_volume(_DWORD, _DWORD);
@@ -52048,25 +52121,37 @@ int sub_43D440()
         if ( *(_DWORD *)&byte_587000[93156]
           && *v0 == *(_DWORD *)&byte_5D4594[816092]
           && *(_DWORD *)&byte_5D4594[816364]
-          && AIL_stream_status(*(_DWORD *)&byte_5D4594[816364]) != 2 )
+          && AIL_stream_status(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_mss_music_stream
+#else
+            *(_DWORD *)&byte_5D4594[816364]
+#endif
+            ) != 2 )
         {
           result = *(_DWORD *)&byte_5D4594[816356];
           if ( *(_DWORD *)&byte_5D4594[816356] )
           {
             *(_DWORD *)&byte_5D4594[816348] = 4;
-            result = sub_486350((int)&byte_5D4594[816148], 0);
+            result = sub_486350((uintptr_t)&byte_5D4594[816148], 0);
           }
         }
         else
         {
           *(_DWORD *)&byte_5D4594[816348] = 2;
-          result = sub_486350((int)&byte_5D4594[816148], 0);
+          result = sub_486350((uintptr_t)&byte_5D4594[816148], 0);
         }
         break;
       case 2:
         if ( !*(_DWORD *)&byte_5D4594[816364] )
           goto LABEL_32;
-        result = AIL_stream_status(*(_DWORD *)&byte_5D4594[816364]);
+        result = AIL_stream_status(
+#if UINTPTR_MAX > UINT32_MAX
+          nox_mss_music_stream
+#else
+          *(_DWORD *)&byte_5D4594[816364]
+#endif
+          );
         if ( result == 2 || !(*(_DWORD *)&byte_5D4594[816152] & 0xFFFF0000) )
           goto LABEL_32;
         break;
@@ -52076,18 +52161,30 @@ int sub_43D440()
           if ( !*(_DWORD *)&byte_587000[93156]
             || *v0 != *(_DWORD *)&byte_5D4594[816092]
             || !*(_DWORD *)&byte_5D4594[816364]
-            || AIL_stream_status(*(_DWORD *)&byte_5D4594[816364]) == 2 )
+            || AIL_stream_status(
+#if UINTPTR_MAX > UINT32_MAX
+              nox_mss_music_stream
+#else
+              *(_DWORD *)&byte_5D4594[816364]
+#endif
+              ) == 2 )
           {
             goto LABEL_32;
           }
-          sub_486350((int)&byte_5D4594[816148], 0x4000);
+          sub_486350((uintptr_t)&byte_5D4594[816148], 0x4000);
           result = sub_43D6A0();
           *(_DWORD *)&byte_5D4594[816348] = 1;
         }
         break;
       case 4:
         if ( *(_DWORD *)&byte_5D4594[816364]
-          && (result = AIL_stream_status(*(_DWORD *)&byte_5D4594[816364]), result != 2) )
+          && (result = AIL_stream_status(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_mss_music_stream
+#else
+            *(_DWORD *)&byte_5D4594[816364]
+#endif
+            ), result != 2) )
         {
           if ( !(*(_DWORD *)&byte_5D4594[816152] & 0xFFFF0000) )
           {
@@ -52119,7 +52216,16 @@ int sub_43D650()
   if ( *(_DWORD *)&byte_5D4594[816364] )
   {
     *(_DWORD *)&byte_5D4594[816364] = 0;
-    AIL_close_stream(result);
+    AIL_close_stream(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_mss_music_stream
+#else
+      result
+#endif
+      );
+#if UINTPTR_MAX > UINT32_MAX
+    nox_mss_music_stream = 0;
+#endif
   }
   *(_DWORD *)&byte_5D4594[816092] = 0;
   return result;
@@ -52133,7 +52239,13 @@ int sub_43D680()
 
   result = *(_DWORD *)&byte_5D4594[816364];
   if ( *(_DWORD *)&byte_5D4594[816364] )
-    AIL_pause_stream(*(_DWORD *)&byte_5D4594[816364], 1);
+    AIL_pause_stream(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_mss_music_stream
+#else
+      *(_DWORD *)&byte_5D4594[816364]
+#endif
+      , 1);
   return result;
 }
 // 581414: using guessed type int __stdcall AIL_pause_stream(_DWORD, _DWORD);
@@ -52156,12 +52268,17 @@ int __cdecl sub_43D6C0(int *a1)
   const char *v1; // edi
   unsigned __int8 v2; // dl
   char *v3; // edi
-  int v4; // esi
+  uintptr_t v4; // esi
   char *v5; // eax
   unsigned int v6; // kr08_4
   char v8[540]; // [esp+10h] [ebp-21Ch]
 
-  v1 = *(const char **)&byte_587000[4 * *a1 + 92792];
+  v1 =
+#if UINTPTR_MAX > UINT32_MAX
+    (const char *)nox_native_pointer_from_32(*(unsigned int *)&byte_587000[4 * *a1 + 92792]);
+#else
+    *(const char **)&byte_587000[4 * *a1 + 92792];
+#endif
   sub_43D650();
   *(_DWORD *)&byte_587000[93160] = 0;
   if ( !*(_DWORD *)&byte_5D4594[816376] )
@@ -52175,7 +52292,16 @@ int __cdecl sub_43D6C0(int *a1)
     *(_DWORD *)v3 = *(_DWORD *)&byte_587000[93180];
     v3[4] = v2;
   }
-  v4 = AIL_open_stream(*(_DWORD *)&byte_5D4594[816376], v8, 204800);
+  nox_mss_music_stream = AIL_open_stream(
+#if UINTPTR_MAX > UINT32_MAX
+    nox_mss_digital_handle,
+#else
+    *(_DWORD *)&byte_5D4594[816376],
+#endif
+    v8, 204800);
+#if UINTPTR_MAX > UINT32_MAX
+  v4 = (uintptr_t)nox_mss_music_stream;
+#endif
   if ( !v4 )
   {
     if ( *(_DWORD *)&byte_587000[122856] && sub_44D930() )
@@ -52190,15 +52316,25 @@ int __cdecl sub_43D6C0(int *a1)
     if ( v6 != 1 && v8[v6 + 38] != 92 )
       *(_WORD *)&v8[strlen(&v8[40]) + 40] = *(_WORD *)&byte_587000[93188];
     strcat(&v8[40], v8);
-    v4 = AIL_open_stream(*(_DWORD *)&byte_5D4594[816376], &v8[40], 204800);
+    nox_mss_music_stream = AIL_open_stream(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_mss_digital_handle,
+#else
+      *(_DWORD *)&byte_5D4594[816376],
+#endif
+      &v8[40], 204800);
+#if UINTPTR_MAX > UINT32_MAX
+    v4 = (uintptr_t)nox_mss_music_stream;
+#endif
     if ( !v4 )
       return 0;
   }
-  AIL_set_stream_position(v4, a1[2]);
+  nox_mss_music_stream = (HSTREAM)v4;
+  AIL_set_stream_position(nox_mss_music_stream, a1[2]);
   sub_486320(&byte_5D4594[816148], 0);
-  sub_486350((int)&byte_5D4594[816148], 0x4000);
-  sub_43D3C0(v4, a1[1]);
-  AIL_start_stream(v4);
+  sub_486350((uintptr_t)&byte_5D4594[816148], 0x4000);
+  sub_43D3C0((int)v4, a1[1]);
+  AIL_start_stream(nox_mss_music_stream);
   *(_DWORD *)&byte_5D4594[816092] = *a1;
   *(_DWORD *)&byte_5D4594[816096] = a1[1];
   *(_DWORD *)&byte_5D4594[816100] = a1[2];
@@ -53271,19 +53407,19 @@ int sub_43E910()
 // 5813FC: using guessed type int __stdcall AIL_digital_handle_reacquire(_DWORD);
 
 //----- (0043E940) --------------------------------------------------------
-int __cdecl sub_43E940(int a1)
+int __cdecl sub_43E940(uintptr_t a1)
 {
-  int v1; // eax
+  HTIMER v1; // eax
   int result; // eax
 
   _onexit(sub_43E9C0);
   AIL_startup();
   v1 = AIL_register_timer(sub_43E9D0);
-  *(_DWORD *)&byte_587000[93944] = v1;
-  if ( v1 == -1 )
+  *(_DWORD *)&byte_587000[93944] = (uintptr_t)v1;
+  if ( v1 == (HTIMER)-1 )
     return -2147221504;
   AIL_set_timer_frequency(v1, 30);
-  AIL_start_timer(*(_DWORD *)&byte_587000[93944]);
+  AIL_start_timer(v1);
   sub_42EBB0(1u, sub_43E910, 0, (const char *)&byte_587000[94056]);
   sub_42EBB0(2u, sub_43E8E0, 0, (const char *)&byte_587000[94064]);
   result = 0;
@@ -53326,13 +53462,19 @@ void sub_43E9F0()
 // 5813F4: using guessed type _DWORD __stdcall AIL_shutdown();
 
 //----- (0043EA20) --------------------------------------------------------
-int __cdecl sub_43EA20(int a1)
+int __cdecl sub_43EA20(uintptr_t a1)
 {
   char v2[16]; // [esp+4h] [ebp-10h]
 
-  sub_43EA90((int)v2, a1 + 60);
+  sub_43EA90((uintptr_t)v2, a1 + 60);
   AIL_set_preference(35, 125);
-  *(_DWORD *)&byte_5D4594[816432] = sub_43EAD0((int)v2);
+  {
+    uintptr_t digital_handle = sub_43EAD0((uintptr_t)v2);
+#if UINTPTR_MAX > UINT32_MAX
+    nox_mss_digital_handle = (HDIGDRIVER)digital_handle;
+#endif
+    *(_DWORD *)&byte_5D4594[816432] = digital_handle;
+  }
   if ( !*(_DWORD *)&byte_5D4594[816432] )
     return -2147221504;
   *(_DWORD *)&byte_587000[93948] = AIL_get_preference(42);
@@ -53343,7 +53485,7 @@ int __cdecl sub_43EA20(int a1)
 // 5813C0: using guessed type int __stdcall AIL_set_preference(_DWORD, _DWORD);
 
 //----- (0043EA90) --------------------------------------------------------
-int __cdecl sub_43EA90(int a1, int a2)
+int __cdecl sub_43EA90(uintptr_t a1, uintptr_t a2)
 {
   int result; // eax
 
@@ -53358,12 +53500,12 @@ int __cdecl sub_43EA90(int a1, int a2)
 }
 
 //----- (0043EAD0) --------------------------------------------------------
-int __cdecl sub_43EAD0(int a1)
+uintptr_t __cdecl sub_43EAD0(uintptr_t a1)
 {
   int v1; // eax
   unsigned int v2; // eax
   int v3; // ecx
-  int v5; // [esp+10h] [ebp-88h]
+  HDIGDRIVER v5; // [esp+10h] [ebp-88h]
   int v6; // [esp+14h] [ebp-84h]
   char v7[128]; // [esp+18h] [ebp-80h]
 
@@ -53433,19 +53575,38 @@ int sub_43EC10()
 // 581390: using guessed type int __stdcall AIL_waveOutClose(_DWORD);
 
 //----- (0043EC30) --------------------------------------------------------
-int __cdecl sub_43EC30(int a1)
+int __cdecl sub_43EC30(uintptr_t a1)
 {
   _DWORD *v1; // esi
-  int v2; // eax
+  HSAMPLE v2; // eax
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v1 = nox_legacy_low_alloc(0x20u);
+#else
   v1 = malloc(0x20u);
+#endif
   memset(v1, 0, 0x20u);
   *(_DWORD *)(a1 + 272) = v1;
   v1[1] = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  *v1 = (uintptr_t)nox_mss_digital_handle;
+#else
   *v1 = *(_DWORD *)&byte_5D4594[816432];
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v1[5] = nox_legacy_low_alloc(0x4000u);
+  v1[6] = nox_legacy_low_alloc(0x4000u);
+#else
   v1[5] = malloc(0x4000u);
   v1[6] = malloc(0x4000u);
-  v2 = AIL_allocate_sample_handle(*(_DWORD *)&byte_5D4594[816432]);
+#endif
+  v2 = AIL_allocate_sample_handle(
+#if UINTPTR_MAX > UINT32_MAX
+    nox_mss_digital_handle
+#else
+    *(_DWORD *)&byte_5D4594[816432]
+#endif
+  );
   v1[2] = v2;
   if ( !v2 || !v1[5] || !v1[6] )
     return -2147221504;
@@ -53456,7 +53617,7 @@ int __cdecl sub_43EC30(int a1)
 // 5813A0: using guessed type int __stdcall AIL_allocate_sample_handle(_DWORD);
 
 //----- (0043ECB0) --------------------------------------------------------
-int __cdecl sub_43ECB0(int a1)
+int __cdecl sub_43ECB0(uintptr_t a1)
 {
   int v1; // esi
 
@@ -53464,10 +53625,22 @@ int __cdecl sub_43ECB0(int a1)
   //if ( *(_DWORD *)(v1 + 8) )
   //  AIL_release_sample_handle(*(_DWORD *)(v1 + 8));
   if ( *(_DWORD *)(v1 + 20) )
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(*(LPVOID *)(v1 + 20), 0x4000u);
+#else
     free(*(LPVOID *)(v1 + 20));
+#endif
   if ( *(_DWORD *)(v1 + 24) )
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(*(LPVOID *)(v1 + 24), 0x4000u);
+#else
     free(*(LPVOID *)(v1 + 24));
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_legacy_low_free((LPVOID)v1, 0x20u);
+#else
   free((LPVOID)v1);
+#endif
   return 0;
 }
 // 581438: using guessed type int __stdcall AIL_release_sample_handle(_DWORD);
@@ -58321,7 +58494,7 @@ int __cdecl sub_4444C0(int a1, int a2)
 #if UINTPTR_MAX > UINT32_MAX
   return nox_cmd_localized_count;
 #else
-  int v2; // eax
+  HSAMPLE v2; // eax
   int result; // eax
 
   v2 = *(_DWORD *)&byte_5D4594[823708];
