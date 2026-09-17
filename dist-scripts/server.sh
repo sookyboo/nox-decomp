@@ -30,15 +30,22 @@ fi
 # 1) Default: run arch follows device arch
 RUN_ARCH="${DEVICE_ARCH}"
 
+# Set to Y to run the native x86_64 binary on x86_64 hosts.
+NOX_FORCE_64BIT="N"
+
 # 2) Remap device arch -> desired run arch
-case "${RUN_ARCH}" in
-  aarch64|arm64)
-    RUN_ARCH="armhf"
-    ;;
-  amd64|x86_64)
-    RUN_ARCH="i386"   # 32-bit x86 userspace
-    ;;
-esac
+if [ "${NOX_FORCE_64BIT}" = "Y" ] && [ "${DEVICE_ARCH}" = "x86_64" ]; then
+  RUN_ARCH="x86_64"
+else
+  case "${RUN_ARCH}" in
+    aarch64|arm64)
+      RUN_ARCH="armhf"
+      ;;
+    amd64|x86_64)
+      RUN_ARCH="i386"   # 32-bit x86 userspace
+      ;;
+  esac
+fi
 
 # ---------------------------
 # Paths
@@ -361,7 +368,9 @@ readelf -h "$GAMEDIR/$BINARY.${RUN_ARCH}" | sed -n '1,25p'
 readelf -l "$GAMEDIR/$BINARY.${RUN_ARCH}" | grep -i interpreter || true
 
 echo "which libs"
-/lib/ld-linux.so.2 --list /opt/nox-decomp/noxd.i386
+if [ "${RUN_ARCH}" = "i386" ]; then
+  /lib/ld-linux.so.2 --list "$GAMEDIR/$BINARY.${RUN_ARCH}"
+fi
 
 # Defaults, overridable via `docker run -e ...`
 : "${ALSOFT_DRIVERS:=null}"
