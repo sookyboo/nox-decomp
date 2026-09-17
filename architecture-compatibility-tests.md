@@ -52,6 +52,23 @@ builds keep that function pointer outside the recovered four-byte global slot.
 walk the native pointer array by element size; their argument count and the
 legacy engine globals remain 32-bit values.
 
+The startup compatibility work applies the same rule to packed tables and
+global slots. `sub_40F300` keeps the CSF record size and count fields at their
+recovered widths, but uses native shadow arrays for the host pointers allocated
+by `sub_40F830`. `sub_4D07F0` preserves the 32-bit map-entry layout while its
+native path keeps the map-directory links in a host-width side table. The
+enumeration handle APIs use `intptr_t` at their host boundary; the Win32
+`HANDLE` typedef and recovered data slots remain 32-bit.
+
+`sub_40AED0` and the config parser contain tables whose records combine a
+32-bit value with a pointer at an 8-byte stride. Native builds populate shadow
+tables for the built-in string index and startup config dispatch instead of
+reading an eight-byte pointer over adjacent legacy fields. CSF UTF-16 input is
+also converted into host-width `wchar_t` strings before callers consume it;
+the original 32-bit loader remains unchanged. These details and the current
+headless startup boundary are documented in
+[`docs/startup-compatibility.md`](docs/startup-compatibility.md).
+
 ## General approach for 64-bit pointer truncation
 
 When a native 64-bit build exposes a pointer truncation failure in code that
