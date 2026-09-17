@@ -6,6 +6,8 @@ static int (*nox_texture_callback)(int, int, int, int, int);
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 #include <sys/mman.h>
 #include <unistd.h>
+static void *nox_486_low_alloc(size_t size);
+static void nox_486_low_free(void *address, size_t size);
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -78,6 +80,20 @@ static uintptr_t nox_native_pointer_from_32(unsigned int value)
     return 0;
   return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
 }
+
+#if UINTPTR_MAX > UINT32_MAX
+static uintptr_t nox_audio_dialog_name;
+static HSTREAM nox_audio_stream_handle;
+extern uintptr_t nox_native_last_csf_narrow;
+extern HDIGDRIVER nox_mss_digital_handle;
+extern uintptr_t nox_native_audio_state;
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX
+#define NOX_TIMER_MANAGER ((_DWORD *)nox_native_pointer_from_32(*(unsigned int *)&byte_587000[155144]))
+#else
+#define NOX_TIMER_MANAGER (*(_DWORD **)&byte_587000[155144])
+#endif
 
 static void nox_window_callback_set(int object, int (*callback)(int, int, int, int))
 {
@@ -266,6 +282,72 @@ static uintptr_t nox_window_value_pointer_get(uintptr_t object)
   }
   return 0;
 }
+
+#if UINTPTR_MAX > UINT32_MAX
+struct nox_audio_parent_entry {
+  uintptr_t object;
+  uintptr_t parent;
+  int low;
+};
+static struct nox_audio_parent_entry nox_audio_parents[256];
+static unsigned int nox_audio_parent_count;
+
+static void nox_audio_parent_set(uintptr_t object, uintptr_t parent, int low)
+{
+  if ( nox_audio_parent_count < sizeof(nox_audio_parents) / sizeof(nox_audio_parents[0]) )
+  {
+    nox_audio_parents[nox_audio_parent_count].object = object;
+    nox_audio_parents[nox_audio_parent_count].parent = parent;
+    nox_audio_parents[nox_audio_parent_count].low = low;
+    ++nox_audio_parent_count;
+  }
+}
+
+static uintptr_t nox_audio_parent_get(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_audio_parent_count; ++i )
+  {
+    if ( nox_audio_parents[i].object == object )
+      return nox_audio_parents[i].parent;
+  }
+  return 0;
+}
+
+static int nox_audio_parent_is_low(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_audio_parent_count; ++i )
+    if ( nox_audio_parents[i].object == object )
+      return nox_audio_parents[i].low;
+  return 0;
+}
+
+static void nox_audio_parent_remove(uintptr_t object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_audio_parent_count; ++i )
+  {
+    if ( nox_audio_parents[i].object == object )
+    {
+      nox_audio_parents[i] = nox_audio_parents[--nox_audio_parent_count];
+      return;
+    }
+  }
+}
+#endif
+
+#if UINTPTR_MAX <= UINT32_MAX
+static uintptr_t nox_native_pointer_from_32(unsigned int value)
+{
+  return value;
+}
+
+#define NOX_TIMER_MANAGER (*(_DWORD **)&byte_587000[155144])
+#endif
 
 static void nox_window_draw_callback_set(int object, int (*callback)(int, int))
 {
@@ -762,7 +844,13 @@ void sub_44D3A0()
       case 0:
         if ( *(_DWORD *)&byte_5D4594[830872] && *(_DWORD *)&byte_587000[122848] )
         {
-          if ( !sub_44D660(*(const char **)&byte_5D4594[830872]) )
+          if ( !sub_44D660(
+#if UINTPTR_MAX > UINT32_MAX
+                (const char *)nox_audio_dialog_name
+#else
+                *(const char **)&byte_5D4594[830872]
+#endif
+                ) )
             goto LABEL_29;
           if ( !*(_DWORD *)&byte_587000[122856] || !*(_DWORD *)&byte_587000[93160] || *(_DWORD *)&byte_5D4594[831084] )
             goto LABEL_16;
@@ -797,15 +885,27 @@ LABEL_16:
           || !*(_DWORD *)&byte_5D4594[830972]
           || *(_DWORD *)&byte_5D4594[830872] != *(_DWORD *)&byte_5D4594[830972]
           || !*(_DWORD *)&byte_5D4594[831088]
-          || AIL_stream_status(*(_DWORD *)&byte_5D4594[831088]) == 2 )
+          || AIL_stream_status(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_audio_stream_handle
+#else
+            *(_DWORD *)&byte_5D4594[831088]
+#endif
+            ) == 2 )
         {
           *(_DWORD *)&byte_5D4594[830864] = 4;
-          sub_486350((int)&byte_5D4594[830876], 0);
+          sub_486350((uintptr_t)&byte_5D4594[830876], 0);
         }
         break;
       case 4:
         if ( !*(_DWORD *)&byte_5D4594[831088]
-          || AIL_stream_status(*(_DWORD *)&byte_5D4594[831088]) == 2
+          || AIL_stream_status(
+#if UINTPTR_MAX > UINT32_MAX
+            nox_audio_stream_handle
+#else
+            *(_DWORD *)&byte_5D4594[831088]
+#endif
+            ) == 2
           || !(*(_DWORD *)&byte_5D4594[830880] & 0xFFFF0000) )
         {
           sub_44D640();
@@ -826,7 +926,13 @@ LABEL_29:
     sub_486520((unsigned int *)&byte_5D4594[830980]);
     sub_486520((unsigned int *)&byte_5D4594[830876]);
     if ( *(_DWORD *)&byte_5D4594[831088]
-      && (**(_BYTE **)&byte_587000[81128] & 2 || byte_5D4594[830876] & 2 || byte_5D4594[830980] & 2) )
+      && (
+#if UINTPTR_MAX > UINT32_MAX
+        (*(unsigned char *)nox_native_audio_state & 2)
+#else
+        (**(_BYTE **)&byte_587000[81128] & 2)
+#endif
+        || byte_5D4594[830876] & 2 || byte_5D4594[830980] & 2) )
     {
       sub_44D5C0(*(int *)&byte_5D4594[831088], *(int *)&byte_5D4594[830860]);
     }
@@ -841,12 +947,30 @@ void __cdecl sub_44D5C0(int a1, int a2)
 
   if ( a1 )
   {
-    v2 = (*(_DWORD *)(*(_DWORD *)&byte_587000[81128] + 4) >> 16)
+    v2 = (*(_DWORD *)(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_native_audio_state
+#else
+      *(_DWORD *)&byte_587000[81128]
+#endif
+      + 4) >> 16)
        * ((*(unsigned __int16 *)&byte_5D4594[830882]
          * ((a2 * (unsigned int)*(unsigned __int16 *)&byte_5D4594[830986]) >> 14)) >> 14);
     *(_DWORD *)&byte_5D4594[830876] &= 0xFFFFFFFD;
-    **(_DWORD **)&byte_587000[122852] &= 0xFFFFFFFD;
-    AIL_set_stream_volume(a1, (int)(127 * (v2 >> 14)) / 100);
+    *(
+#if UINTPTR_MAX > UINT32_MAX
+      (_DWORD *)&byte_5D4594[830980]
+#else
+      *(_DWORD **)&byte_587000[122852]
+#endif
+      ) &= 0xFFFFFFFD;
+    AIL_set_stream_volume(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_audio_stream_handle
+#else
+      a1
+#endif
+      , (int)(127 * (v2 >> 14)) / 100);
   }
 }
 // 581430: using guessed type int __stdcall AIL_set_stream_volume(_DWORD, _DWORD);
@@ -859,8 +983,17 @@ int sub_44D640()
   result = *(_DWORD *)&byte_5D4594[831088];
   if ( *(_DWORD *)&byte_5D4594[831088] )
   {
-    AIL_close_stream(*(_DWORD *)&byte_5D4594[831088]);
+    AIL_close_stream(
+#if UINTPTR_MAX > UINT32_MAX
+      nox_audio_stream_handle
+#else
+      *(_DWORD *)&byte_5D4594[831088]
+#endif
+      );
     *(_DWORD *)&byte_5D4594[831088] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_audio_stream_handle = 0;
+#endif
   }
   return result;
 }
@@ -871,7 +1004,7 @@ BOOL __cdecl sub_44D660(const char *a1)
 {
   unsigned __int8 v1; // dl
   char *v2; // edi
-  int v3; // eax
+  uintptr_t v3; // eax
   char *v4; // eax
   unsigned int v5; // kr08_4
   char v7[540]; // [esp+Ch] [ebp-21Ch]
@@ -887,8 +1020,17 @@ BOOL __cdecl sub_44D660(const char *a1)
     *(_DWORD *)v2 = *(_DWORD *)&byte_587000[122868];
     v2[4] = v1;
   }
-  v3 = AIL_open_stream(*(_DWORD *)&byte_5D4594[831092], v7, 51200);
+  v3 = AIL_open_stream(
+#if UINTPTR_MAX > UINT32_MAX
+    nox_mss_digital_handle,
+#else
+    *(_DWORD *)&byte_5D4594[831092],
+#endif
+    v7, 51200);
   *(_DWORD *)&byte_5D4594[831088] = v3;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_audio_stream_handle = (HSTREAM)v3;
+#endif
   if ( v3 )
     return v3 != 0;
   v4 = sub_413890();
@@ -904,7 +1046,12 @@ BOOL __cdecl sub_44D660(const char *a1)
   if ( v5 != 1 && v7[v5 + 38] != 92 )
     *(_WORD *)&v7[strlen(&v7[40]) + 40] = *(_WORD *)&byte_587000[122876];
   strcat(&v7[40], v7);
+#if UINTPTR_MAX > UINT32_MAX
+  nox_audio_stream_handle = AIL_open_stream(nox_mss_digital_handle, &v7[40], 51200);
+  *(_DWORD *)&byte_5D4594[831088] = (uintptr_t)nox_audio_stream_handle;
+ #else
   *(_DWORD *)&byte_5D4594[831088] = AIL_open_stream(*(_DWORD *)&byte_5D4594[831092], &v7[40], 51200);
+ #endif
   return *(_DWORD *)&byte_5D4594[831088] != 0;
 }
 // 581408: using guessed type int __stdcall AIL_open_stream(_DWORD, _DWORD, _DWORD);
@@ -915,7 +1062,13 @@ int __cdecl sub_44D7E0(int a1)
   if ( !*(_DWORD *)&byte_5D4594[831088] )
     return 0;
   sub_44D5C0(*(int *)&byte_5D4594[831088], a1);
-  AIL_start_stream(*(_DWORD *)&byte_5D4594[831088]);
+  AIL_start_stream(
+#if UINTPTR_MAX > UINT32_MAX
+    nox_audio_stream_handle
+#else
+    *(_DWORD *)&byte_5D4594[831088]
+#endif
+    );
   return 1;
 }
 // 581410: using guessed type int __stdcall AIL_start_stream(_DWORD);
@@ -938,6 +1091,11 @@ int sub_44D810()
     *(_DWORD *)&byte_5D4594[831084] = 0;
     *(_DWORD *)&byte_5D4594[831076] = 1;
     sub_40F1D0((char *)&byte_587000[122920], &v1, (const char *)&byte_587000[122880], 279);
+#if UINTPTR_MAX > UINT32_MAX
+    if ( nox_native_last_csf_narrow )
+      sub_44D900(nox_native_last_csf_narrow, 0);
+    else
+#endif
     if ( v1 )
       sub_44D900(v1, 0);
   }
@@ -964,11 +1122,14 @@ int sub_44D8F0()
   result = 0;
   *(_DWORD *)&byte_5D4594[830872] = 0;
   *(_DWORD *)&byte_5D4594[830972] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_audio_dialog_name = 0;
+#endif
   return result;
 }
 
 //----- (0044D900) --------------------------------------------------------
-int __cdecl sub_44D900(int a1, int a2)
+int __cdecl sub_44D900(uintptr_t a1, int a2)
 {
   int v2; // eax
 
@@ -978,6 +1139,9 @@ int __cdecl sub_44D900(int a1, int a2)
     if ( a2 > 100 )
       v2 = 100;
     *(_DWORD *)&byte_5D4594[830872] = a1;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_audio_dialog_name = a1;
+#endif
     *(_DWORD *)&byte_5D4594[830868] = v2;
   }
   return 1;
@@ -1060,7 +1224,7 @@ int (*__cdecl sub_44D9F0(int a1))(void)
 {
   int v1; // ebx
   unsigned __int8 *v2; // edi
-  int v3; // ebp
+  uintptr_t v3; // ebp
   unsigned __int8 *v4; // esi
   int (*result)(void); // eax
 
@@ -3577,13 +3741,13 @@ void sub_451970()
 int sub_4519C0()
 {
   int result; // eax
-  int v1; // esi
-  int v2; // eax
+  uintptr_t v1; // esi
+  uintptr_t v2; // eax
   int v3; // ebp
   int v4; // eax
   unsigned __int8 *v5; // edi
-  unsigned __int8 *v6; // esi
-  unsigned __int8 *v7; // edi
+  uintptr_t v6; // esi
+  uintptr_t v7; // edi
   int v8; // eax
   int v9; // eax
   int v10; // eax
@@ -3596,32 +3760,43 @@ int sub_4519C0()
     {
       *(_DWORD *)&byte_5D4594[1045448] = 1;
       sub_486520(*(unsigned int **)&byte_587000[127004]);
+#if UINTPTR_MAX > UINT32_MAX
+      v1 = nox_native_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+#else
       v1 = *(_DWORD *)&byte_5D4594[840612];
+#endif
       ++*(_DWORD *)&byte_5D4594[1045440];
-      if ( *(unsigned __int8 **)&byte_5D4594[840612] != &byte_5D4594[840612] )
+      if ( v1 != (uintptr_t)&byte_5D4594[840612] )
       {
         do
         {
-          v2 = *(_DWORD *)(v1 + 36);
+          v2 = (uintptr_t)(unsigned int)*(_DWORD *)(v1 + 36);
+#if UINTPTR_MAX > UINT32_MAX
+          v2 = nox_native_pointer_from_32((unsigned int)v2);
+#endif
           if ( *(_DWORD *)(v2 + 100) != *(_DWORD *)&byte_5D4594[1045440] )
           {
             sub_425760((_DWORD *)(v2 + 88));
-            *(_DWORD *)(*(_DWORD *)(v1 + 36) + 52) = 0;
-            *(_DWORD *)(*(_DWORD *)(v1 + 36) + 100) = *(_DWORD *)&byte_5D4594[1045440];
+            *(_DWORD *)(v2 + 52) = 0;
+            *(_DWORD *)(v2 + 100) = *(_DWORD *)&byte_5D4594[1045440];
           }
           sub_486520((unsigned int *)(v1 + 184));
           if ( *(_DWORD *)(v1 + 28) != 4 )
-            sub_451BE0(v1);
-          v1 = *(_DWORD *)v1;
+          sub_451BE0(v1);
+          v1 = nox_native_pointer_from_32(*(unsigned int *)v1);
         }
         while ( (unsigned __int8 *)v1 != &byte_5D4594[840612] );
+#if UINTPTR_MAX > UINT32_MAX
+        v1 = nox_native_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+#else
         v1 = *(_DWORD *)&byte_5D4594[840612];
-        if ( *(unsigned __int8 **)&byte_5D4594[840612] != &byte_5D4594[840612] )
+#endif
+        if ( v1 != (uintptr_t)&byte_5D4594[840612] )
         {
           do
           {
             sub_452510(v1);
-            v1 = *(_DWORD *)v1;
+            v1 = nox_native_pointer_from_32(*(unsigned int *)v1);
           }
           while ( (unsigned __int8 *)v1 != &byte_5D4594[840612] );
           v1 = *(_DWORD *)&byte_5D4594[840612];
@@ -3651,16 +3826,20 @@ int sub_4519C0()
       while ( v5 != &byte_5D4594[840612] );
       if ( v3 <= 100 )
 LABEL_35:
-        sub_486350((int)&byte_5D4594[1045228], 0x4000);
+        sub_486350((uintptr_t)&byte_5D4594[1045228], 0x4000);
       else
-        sub_486350((int)&byte_5D4594[1045228], 0x190000u / v3);
+        sub_486350((uintptr_t)&byte_5D4594[1045228], 0x190000u / v3);
       result = sub_486520((unsigned int *)&byte_5D4594[1045228]);
+#if UINTPTR_MAX > UINT32_MAX
+      v6 = nox_native_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+#else
       v6 = *(unsigned __int8 **)&byte_5D4594[840612];
-      if ( *(unsigned __int8 **)&byte_5D4594[840612] != &byte_5D4594[840612] )
+#endif
+      if ( v6 != (uintptr_t)&byte_5D4594[840612] )
       {
         do
         {
-          v7 = *(unsigned __int8 **)v6;
+          v7 = nox_native_pointer_from_32(*(unsigned int *)v6);
           result = *((_DWORD *)v6 + 7);
           if ( result == 1 )
           {
@@ -3673,7 +3852,7 @@ LABEL_35:
               {
                 if ( !sub_452120((int)v6) )
                   break;
-                v7 = *(unsigned __int8 **)v6;
+                v7 = nox_native_pointer_from_32(*(unsigned int *)v6);
                 sub_451DC0((int)v6);
                 v9 = sub_451CA0(v6);
                 *((_DWORD *)v6 + 74) = v9;
@@ -3690,7 +3869,7 @@ LABEL_35:
           }
           v6 = v7;
         }
-        while ( v7 != &byte_5D4594[840612] );
+        while ( v7 != (uintptr_t)&byte_5D4594[840612] );
       }
       *(_DWORD *)&byte_5D4594[1045448] = 0;
     }
@@ -3699,9 +3878,9 @@ LABEL_35:
 }
 
 //----- (00451BE0) --------------------------------------------------------
-int __cdecl sub_451BE0(int a1)
+int __cdecl sub_451BE0(uintptr_t a1)
 {
-  int v1; // eax
+  uintptr_t v1; // eax
   int v2; // edi
   unsigned int v3; // ebx
   _DWORD *v4; // esi
@@ -3714,6 +3893,10 @@ int __cdecl sub_451BE0(int a1)
 
   v1 = a1;
   v2 = *(_DWORD *)(a1 + 36);
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = nox_native_pointer_from_32((unsigned int)v2);
+  v2 = (int)v1;
+#endif
   v3 = *(_DWORD *)(a1 + 188) >> 16;
   v4 = *(_DWORD **)(v2 + 88);
   if ( v4 != (_DWORD *)(v2 + 88) )
@@ -4359,7 +4542,7 @@ int __cdecl sub_452490(_DWORD *a1)
 }
 
 //----- (00452510) --------------------------------------------------------
-int __cdecl sub_452510(int a3)
+int __cdecl sub_452510(uintptr_t a3)
 {
   int v1; // eax
   int v2; // eax
@@ -44024,7 +44207,7 @@ _DWORD *__cdecl sub_486340(_DWORD *a1)
 }
 
 //----- (00486350) --------------------------------------------------------
-int __cdecl sub_486350(int a1, int a2)
+int __cdecl sub_486350(uintptr_t a1, int a2)
 {
   __int64 v2; // rax
   int v3; // ecx
@@ -44280,7 +44463,11 @@ char *__cdecl sub_4866F0(const char *a1, const char *a2)
   char v20[260]; // [esp+1Ch] [ebp-244h]
   struct _WIN32_FIND_DATAA FindFileData; // [esp+120h] [ebp-140h]
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v2 = (char *)nox_486_low_alloc(0x120u);
+#else
   v2 = (char *)malloc(0x120u);
+#endif
   memset(v2, 0, 0x120u);
   strcpy(v20, a1);
   v3 = strrchr(v20, 46);
@@ -44307,13 +44494,18 @@ char *__cdecl sub_4866F0(const char *a1, const char *a2)
   *((_DWORD *)v2 + 1) = *(_DWORD *)&v17[8];
   if ( *(int *)&v17[8] <= 0 )
     goto LABEL_14;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v11 = nox_486_low_alloc(36 * *(_DWORD *)&v17[8]);
+#else
   v11 = malloc(36 * *(_DWORD *)&v17[8]);
+#endif
   v12 = *((_DWORD *)v2 + 1);
   *(_DWORD *)v2 = v11;
   memset(v11, 0, 4 * ((unsigned int)(36 * v12) >> 2));
   if ( *(_DWORD *)&v17[4] != 1 )
   {
-    if ( sub_40ADD0(*(char **)v2, 36 * *((_DWORD *)v2 + 1), 1u, v6) == 1 )
+    if ( sub_40ADD0((char *)(uintptr_t)*(unsigned int *)v2,
+                   36 * *((_DWORD *)v2 + 1), 1u, v6) == 1 )
       goto LABEL_14;
 LABEL_27:
     if ( v2 )
@@ -44338,7 +44530,8 @@ LABEL_27:
   }
 LABEL_14:
   fclose(v6);
-  qsort(*(void **)v2, *((_DWORD *)v2 + 1), 0x24u, (int (__cdecl *)(const void *, const void *))_strcmpi);
+  qsort((void *)(uintptr_t)*(unsigned int *)v2, *((_DWORD *)v2 + 1),
+        0x24u, (int (__cdecl *)(const void *, const void *))_strcmpi);
   *((_DWORD *)v2 + 69) = 0;
   if ( a2 )
   {
@@ -44378,8 +44571,16 @@ void __cdecl sub_4869C0(LPVOID lpMem)
   if ( *((_DWORD *)lpMem + 68) )
     fclose(*((FILE **)lpMem + 68));
   if ( *(_DWORD *)lpMem )
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_486_low_free(*(LPVOID *)lpMem, 36u * (size_t)*((_DWORD *)lpMem + 1));
+#else
     free(*(LPVOID *)lpMem);
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_486_low_free(lpMem, 0x120u);
+#else
   free(lpMem);
+#endif
 }
 
 //----- (00486A10) --------------------------------------------------------
@@ -44627,14 +44828,20 @@ void *sub_486EF0()
   result = *(void **)&byte_5D4594[1193336];
   if ( *(_DWORD *)&byte_5D4594[1193336] )
   {
-    result = *(void **)&byte_587000[155144];
-    if ( !*(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) )
+    result = NOX_TIMER_MANAGER;
+    if ( !*(_DWORD *)(NOX_TIMER_MANAGER + 24) )
     {
-      v1 = *(int **)(*(_DWORD *)&byte_587000[155144] + 12);
-      for ( i = *(_DWORD *)&byte_587000[155144] + 12; v1 != (int *)i; v1 = (int *)*v1 )
+      v1 = (int *)(uintptr_t)*(unsigned int *)(NOX_TIMER_MANAGER + 12);
+      for ( i = (int)(intptr_t)(NOX_TIMER_MANAGER + 12);
+            v1 != (int *)i;
+            v1 = (int *)(uintptr_t)*(unsigned int *)v1 )
       {
         if ( !(v1[3] & 2) )
+#if UINTPTR_MAX > UINT32_MAX
+          result = (void *)((int (__cdecl *)(int *))nox_native_pointer_from_32(v1[54]))(v1);
+#else
           result = (void *)((int (__cdecl *)(int *))v1[54])(v1);
+#endif
       }
     }
   }
@@ -44644,17 +44851,17 @@ void *sub_486EF0()
 //----- (00486F30) --------------------------------------------------------
 int sub_486F30()
 {
-  sub_425760(*(_DWORD **)&byte_587000[155144]);
-  sub_425760((_DWORD *)(*(_DWORD *)&byte_587000[155144] + 12));
-  *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = 0;
-  *(_DWORD *)&byte_5D4594[1193340] = *(_DWORD *)&byte_587000[155144] + 32;
-  sub_4864A0((_DWORD *)(*(_DWORD *)&byte_587000[155144] + 32));
+  sub_425760(NOX_TIMER_MANAGER);
+  sub_425760(NOX_TIMER_MANAGER + 12);
+  *(_DWORD *)(NOX_TIMER_MANAGER + 24) = 0;
+  *(_DWORD *)&byte_5D4594[1193340] = (uintptr_t)(NOX_TIMER_MANAGER + 32);
+  sub_4864A0(NOX_TIMER_MANAGER + 32);
   *(_DWORD *)&byte_5D4594[1193336] = 1;
   return 0;
 }
 
 //----- (00486FA0) --------------------------------------------------------
-_DWORD *__cdecl sub_486FA0(int a1)
+_DWORD *__cdecl sub_486FA0(uintptr_t a1)
 {
   _DWORD *result; // eax
   _DWORD *v2; // edi
@@ -44676,16 +44883,23 @@ _DWORD *__cdecl sub_486FA0(int a1)
 }
 
 //----- (00486FE0) --------------------------------------------------------
-_DWORD *__cdecl sub_486FE0(int a1)
+_DWORD *__cdecl sub_486FE0(uintptr_t a1)
 {
   _DWORD *v1; // esi
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v1 = nox_486_low_alloc(0x58u);
+#else
   v1 = malloc(0x58u);
+#endif
   memset(v1, 0, 0x58u);
   sub_425770(v1);
   v1[4] = 0;
   v1[3] = a1;
-  if ( !(*(int (__cdecl **)(_DWORD *))(a1 + 20))(v1) )
+#if UINTPTR_MAX > UINT32_MAX
+  nox_audio_parent_set((uintptr_t)v1, a1, 1);
+#endif
+  if ( !((int (__cdecl *)(_DWORD *))nox_native_pointer_from_32(*(unsigned int *)(a1 + 20)))(v1) )
     return v1;
   if ( v1 )
     sub_487030(v1);
@@ -44695,15 +44909,37 @@ _DWORD *__cdecl sub_486FE0(int a1)
 //----- (00487030) --------------------------------------------------------
 void __cdecl sub_487030(LPVOID lpMem)
 {
-  (*(void (__cdecl **)(LPVOID))(*((_DWORD *)lpMem + 3) + 24))(lpMem);
-  *(_DWORD *)(*((_DWORD *)lpMem + 3) + 12) &= 0xFFFFFFFE;
+  uintptr_t parent = (uintptr_t)*((_DWORD *)lpMem + 3);
+#if UINTPTR_MAX > UINT32_MAX
+  parent = nox_audio_parent_get((uintptr_t)lpMem);
+#endif
+  ((void (__cdecl *)(LPVOID))nox_native_pointer_from_32(*(unsigned int *)(parent + 24)))(lpMem);
+  *(_DWORD *)(parent + 12) &= 0xFFFFFFFE;
+#if UINTPTR_MAX > UINT32_MAX
+  if ( nox_audio_parent_is_low((uintptr_t)lpMem) )
+    nox_486_low_free(lpMem, 0x58u);
+  else
+    free(lpMem);
+  nox_audio_parent_remove((uintptr_t)lpMem);
+#else
   free(lpMem);
+#endif
 }
 
 //----- (00487050) --------------------------------------------------------
 _DWORD *__cdecl sub_487050(_DWORD *a1)
 {
-  return sub_4258E0(*(int *)&byte_587000[155144], a1);
+#if UINTPTR_MAX > UINT32_MAX
+  _DWORD *manager = NOX_TIMER_MANAGER;
+  uintptr_t previous = nox_native_pointer_from_32(manager[1]);
+  *a1 = (uintptr_t)manager;
+  a1[1] = previous;
+  manager[1] = (uintptr_t)a1;
+  *(_DWORD *)previous = (uintptr_t)a1;
+  return a1;
+#else
+  return sub_4258E0((int)(intptr_t)NOX_TIMER_MANAGER, a1);
+#endif
 }
 
 //----- (00487070) --------------------------------------------------------
@@ -44746,7 +44982,7 @@ int *__cdecl sub_4870E0(int *a1)
 {
   int *result; // eax
 
-  result = sub_425890(*(int **)&byte_587000[155144]);
+  result = sub_425890((int *)NOX_TIMER_MANAGER);
   *a1 = (int)result;
   return result;
 }
@@ -44803,11 +45039,19 @@ _DWORD *__cdecl sub_487150(int a1, const void *a2)
 //----- (004871C0) --------------------------------------------------------
 _DWORD *__cdecl sub_4871C0(int a1, int a2, const void *a3)
 {
-  int v3; // ebp
+  uintptr_t v3; // ebp
   _DWORD *v4; // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v3 = nox_audio_parent_get((uintptr_t)a1);
+#else
   v3 = *(_DWORD *)(a1 + 12);
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v4 = nox_486_low_alloc(0x108u);
+#else
   v4 = malloc(0x108u);
+#endif
   memset(v4, 0, 0x108u);
   sub_425770(v4);
   v4[6] = a2;
@@ -44815,7 +45059,11 @@ _DWORD *__cdecl sub_4871C0(int a1, int a2, const void *a3)
   v4[4] = 0;
   ++*(_DWORD *)(a1 + 16);
   *(_DWORD *)(a1 + 4 * a2 + 24) = v4;
+#if UINTPTR_MAX > UINT32_MAX
+  v4[64] = (uintptr_t)&byte_587000[93952];
+#else
   v4[64] = *(_DWORD *)(v3 + 36);
+#endif
   sub_425760(v4 + 50);
   sub_4864A0(v4 + 22);
   v4[53] = 0;
@@ -44831,8 +45079,8 @@ _DWORD *__cdecl sub_4871C0(int a1, int a2, const void *a3)
   nullsub_10(v4 + 15);
   nullsub_10(v4 + 8);
   if ( a3 )
-    sub_487590((int)v4, a3);
-  if ( !(*(int (__cdecl **)(_DWORD *))(v3 + 28))(v4) )
+    sub_487590((uintptr_t)v4, a3);
+  if ( !((int (__cdecl *)(_DWORD *))nox_native_pointer_from_32(*(unsigned int *)(v3 + 28)))(v4) )
     return v4;
   if ( v4 )
     sub_4872C0(v4);
@@ -44854,7 +45102,11 @@ void __cdecl sub_4872C0(LPVOID lpMem)
   *(_DWORD *)(v1 + 16) = v2;
   if ( v2 < 0 )
     *(_DWORD *)(*((_DWORD *)lpMem + 5) + 16) = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_486_low_free(lpMem, 0x108u);
+#else
   free(lpMem);
+#endif
 }
 
 //----- (00487310) --------------------------------------------------------
@@ -44862,12 +45114,23 @@ int __cdecl sub_487310(_DWORD *a1)
 {
   int result; // eax
 
-  ++*(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24);
-  sub_4258E0(*(_DWORD *)&byte_587000[155144] + 12, a1);
-  result = *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) - 1;
-  *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = result;
+  ++*(_DWORD *)(NOX_TIMER_MANAGER + 24);
+#if UINTPTR_MAX > UINT32_MAX
+  {
+    _DWORD *list = NOX_TIMER_MANAGER + 12;
+    uintptr_t previous = nox_native_pointer_from_32(list[1]);
+    *a1 = (uintptr_t)list;
+    a1[1] = previous;
+    list[1] = (uintptr_t)a1;
+    *(_DWORD *)previous = (uintptr_t)a1;
+  }
+#else
+  sub_4258E0((int)(intptr_t)(NOX_TIMER_MANAGER + 12), a1);
+#endif
+  result = *(_DWORD *)(NOX_TIMER_MANAGER + 24) - 1;
+  *(_DWORD *)(NOX_TIMER_MANAGER + 24) = result;
   if ( result < 0 )
-    *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = 0;
+    *(_DWORD *)(NOX_TIMER_MANAGER + 24) = 0;
   return result;
 }
 
@@ -44901,7 +45164,7 @@ int *__cdecl sub_487360(int a1, int **a2, int *a3)
 }
 
 //----- (004873C0) --------------------------------------------------------
-int __cdecl sub_4873C0(int a3)
+int __cdecl sub_4873C0(uintptr_t a3)
 {
   int v1; // esi
   __int64 v3; // rax
@@ -44949,10 +45212,14 @@ int __cdecl sub_4873C0(int a3)
     v11 = (_DWORD *)(a3 + 88);
     v15 = a3 + 88;
     sub_486520((unsigned int *)(a3 + 88));
+#if UINTPTR_MAX > UINT32_MAX
+    v17 = sub_486550((_BYTE *)(v1 + 88));
+#else
     if ( *(_DWORD *)(a3 + 184) )
       sub_486520(*(unsigned int **)(a3 + 184));
     if ( !*(_DWORD *)(a3 + 184) || !(v17 = sub_486550(*(_BYTE **)(a3 + 184))) )
       v17 = sub_486550((_BYTE *)(v1 + 88));
+#endif
     *(_DWORD *)(v1 + 248) = v5;
     *(_DWORD *)(v1 + 252) = v16;
     v12 = *(_DWORD *)(v1 + 200);
@@ -44977,7 +45244,11 @@ int __cdecl sub_4873C0(int a3)
       while ( v13 != v1 + 200 );
       v11 = (_DWORD *)v15;
     }
+#if UINTPTR_MAX > UINT32_MAX
+    v14 = 0;
+#else
     v14 = *(_DWORD **)(v1 + 184);
+#endif
     if ( v14 )
       sub_486620(v14);
     sub_486620(v11);
@@ -44986,7 +45257,7 @@ int __cdecl sub_4873C0(int a3)
 }
 
 //----- (00487590) --------------------------------------------------------
-int __cdecl sub_487590(int a1, const void *a2)
+int __cdecl sub_487590(uintptr_t a1, const void *a2)
 {
   int result; // eax
 
@@ -45000,7 +45271,7 @@ int *__cdecl sub_4875B0(int *a1)
 {
   int *result; // eax
 
-  result = sub_425890((int *)(*(_DWORD *)&byte_587000[155144] + 12));
+  result = sub_425890((int *)(NOX_TIMER_MANAGER + 12));
   *a1 = (int)result;
   return result;
 }
@@ -45021,7 +45292,7 @@ int sub_4875F0()
   int result; // eax
   int *v3; // [esp+4h] [ebp-4h]
 
-  ++*(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24);
+  ++*(_DWORD *)(NOX_TIMER_MANAGER + 24);
   v0 = sub_4875B0((int *)&v3);
   if ( v0 )
   {
@@ -45033,10 +45304,10 @@ int sub_4875F0()
     }
     while ( v1 );
   }
-  result = *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) - 1;
-  *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = result;
+  result = *(_DWORD *)(NOX_TIMER_MANAGER + 24) - 1;
+  *(_DWORD *)(NOX_TIMER_MANAGER + 24) = result;
   if ( result < 0 )
-    *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = 0;
+    *(_DWORD *)(NOX_TIMER_MANAGER + 24) = 0;
   return result;
 }
 
@@ -45064,14 +45335,14 @@ void *__cdecl sub_4876A0(_DWORD **a1)
 {
   void *result; // eax
 
-  ++*(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24);
+  ++*(_DWORD *)(NOX_TIMER_MANAGER + 24);
   sub_425920(a1);
-  result = (void *)(*(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) - 1);
-  *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = result;
+  result = (void *)(*(_DWORD *)(NOX_TIMER_MANAGER + 24) - 1);
+  *(_DWORD *)(NOX_TIMER_MANAGER + 24) = (uintptr_t)result;
   if ( (int)result < 0 )
   {
-    result = *(void **)&byte_587000[155144];
-    *(_DWORD *)(*(_DWORD *)&byte_587000[155144] + 24) = 0;
+    result = NOX_TIMER_MANAGER;
+    *(_DWORD *)(NOX_TIMER_MANAGER + 24) = 0;
   }
   return result;
 }
@@ -45155,9 +45426,13 @@ int *__cdecl sub_4877D0(int a1, int *a2)
 //----- (004877F0) --------------------------------------------------------
 int *__cdecl sub_4877F0(int **a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return (int *)(uintptr_t)*(unsigned int *)a1;
+#else
   if ( *a1 )
     *a1 = sub_4258A0(*a1);
   return *a1;
+#endif
 }
 
 //----- (00487810) --------------------------------------------------------

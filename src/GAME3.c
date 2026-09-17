@@ -10,11 +10,22 @@
 #include "bot_trace.h"
 #endif
 #include "proto.h"
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 static _DWORD *nox_legal_window;
 #if UINTPTR_MAX > UINT32_MAX
 static _DWORD *nox_menu_button_left;
 static _DWORD *nox_menu_button_right;
+
+static uintptr_t nox_game3_pointer_from_32(unsigned int value)
+{
+  if ( !value )
+    return 0;
+  return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+}
 #endif
 
 static _DWORD *nox_menu_root_get(void)
@@ -25,6 +36,24 @@ static _DWORD *nox_menu_root_get(void)
   return *(_DWORD **)&byte_5D4594[1307292];
 #endif
 }
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+static void *nox_game3_low_alloc(size_t size)
+{
+  size_t page = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped = (size + page - 1) & ~(page - 1);
+  return mmap(0, mapped, PROT_READ | PROT_WRITE,
+              MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+}
+
+static void nox_game3_low_free(void *address, size_t size)
+{
+  size_t page = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped = (size + page - 1) & ~(page - 1);
+  if ( address )
+    munmap(address, mapped);
+}
+#endif
 
 extern int g_fullscreen;
 extern float draw_gamma;
@@ -19700,15 +19729,20 @@ _DWORD *__cdecl sub_4BD720(int a1)
 {
   _DWORD *v1; // esi
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v1 = nox_game3_low_alloc(0x138u);
+#else
   v1 = malloc(0x138u);
+#endif
   memset(v1, 0, 0x138u);
   sub_425770(v1);
-  sub_4BDC00((int)(v1 + 30));
+  sub_4BDC00((uintptr_t)(v1 + 30));
   sub_4864A0(v1 + 44);
   sub_4BD7C0(v1);
   v1[33] = a1;
   v1[43] = *(_DWORD *)(a1 + 256);
-  if ( !(*(int (__cdecl **)(_DWORD *))(*(_DWORD *)(a1 + 256) + 4))(v1) )
+  if ( !((int (__cdecl *)(_DWORD *))nox_game3_pointer_from_32(
+      *(unsigned int *)(nox_game3_pointer_from_32(*(unsigned int *)(a1 + 256)) + 4)))(v1) )
     return v1;
   if ( v1 )
     sub_4BD7A0(v1);
@@ -19719,7 +19753,11 @@ _DWORD *__cdecl sub_4BD720(int a1)
 void __cdecl sub_4BD7A0(LPVOID lpMem)
 {
   (*(void (__cdecl **)(LPVOID))(*((_DWORD *)lpMem + 43) + 8))(lpMem);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_game3_low_free(lpMem, 0x138u);
+#else
   free(lpMem);
+#endif
 }
 
 //----- (004BD7C0) --------------------------------------------------------
@@ -19735,7 +19773,7 @@ _DWORD *__cdecl sub_4BD7C0(_DWORD *a1)
   a1[36] = 0;
   a1[38] = 0;
   a1[3] = 1;
-  sub_4BDC00((int)(a1 + 30));
+  sub_4BDC00((uintptr_t)(a1 + 30));
   a1[30] = 0;
   a1[29] = *(_DWORD *)&byte_5D4594[1193340];
   a1[28] = 0;
@@ -20003,7 +20041,7 @@ void __cdecl sub_4BDB90(_DWORD *a1, _DWORD *a2)
 }
 
 //----- (004BDC00) --------------------------------------------------------
-int __cdecl sub_4BDC00(int a1)
+int __cdecl sub_4BDC00(uintptr_t a1)
 {
   int result; // eax
 
