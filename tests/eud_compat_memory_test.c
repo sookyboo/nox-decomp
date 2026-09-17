@@ -16,6 +16,10 @@ const char *progname = "eud_compat_memory_test";
 #define NOX_EUD_SPELLDB_DESCRIPTION_FIELD (NOX_EUD_SPELLDB_NAME_FIELD + 4u)
 #define NOX_EUD_ABILITYDB_NAME_FIELD 0x00666A24u
 #define NOX_EUD_ABILITYDB_DESCRIPTION_FIELD (NOX_EUD_ABILITYDB_NAME_FIELD + 4u)
+#define NOX_EUD_SCRIPT_TABLE_POINTER 0x0075AE28u
+#define NOX_EUD_SCRIPT_VALUE_STACK 0x00979740u
+
+int sub_508B70(int a1, int a2);
 
 extern unsigned char byte_5D4594[3844309];
 
@@ -211,6 +215,61 @@ int main(void)
         return 10;
     if (!test_wide_string_field(NOX_EUD_ABILITYDB_DESCRIPTION_FIELD))
         return 11;
+
+    /* Panic deliberately indexes the builtin table out of bounds so the
+     * effective legacy address lands on VM/EUD memory such as 0x979740. */
+    {
+        int native_slot = -1;
+
+        if (!nox_eud_write_u32(NOX_EUD_SCRIPT_VALUE_STACK, 0x12345678u)
+            || !nox_eud_resolve_builtin_target(973229, &dword, &native_slot)
+            || dword != 0x12345678u || native_slot)
+            return 12;
+    }
+
+    /* x86 scale-4 addressing wraps at 32 bits. INT32_MAX therefore selects
+     * the dword immediately before the real builtin table, not an invalid
+     * 64-bit address. */
+    {
+        int native_slot = -1;
+
+        if (!nox_eud_write_u32(0x005C3088u, 0x89ABCDEFu)
+            || !nox_eud_resolve_builtin_target(INT32_MAX, &dword, &native_slot)
+            || dword != 0x89ABCDEFu || native_slot)
+            return 13;
+    }
+
+    {
+        int native_slot = 0;
+
+        if (!nox_eud_resolve_builtin_target(0, &dword, &native_slot) || !native_slot)
+            return 14;
+        if (!nox_eud_resolve_builtin_target(210, &dword, &native_slot) || !native_slot)
+            return 15;
+        if (!nox_eud_resolve_builtin_target(211, &dword, &native_slot) || native_slot)
+            return 16;
+    }
+
+#if UINTPTR_MAX <= UINT32_MAX
+    /* Exercise the actual opcode-69 dispatch path as well as the resolver.
+     * A non-empty script context forces sub_508C30/sub_508C70 through the same
+     * synthetic lookup before sub_508B70 rejects the non-native NULL target. */
+    {
+        static unsigned char script_record[48];
+        static const char script_context[] = "eud-test";
+        uint32_t original_script_table = raw_mapped_u32(NOX_EUD_SCRIPT_TABLE_POINTER);
+        uint32_t context = (uint32_t)(uintptr_t)script_context;
+
+        memset(script_record, 0, sizeof(script_record));
+        memcpy(script_record + 36, &context, sizeof(context));
+        if (!nox_eud_write_u32(NOX_EUD_SCRIPT_TABLE_POINTER,
+                               (uint32_t)(uintptr_t)script_record)
+            || !nox_eud_write_u32(NOX_EUD_SCRIPT_VALUE_STACK, 0u)
+            || sub_508B70(0, 973229) != 0
+            || !nox_eud_write_u32(NOX_EUD_SCRIPT_TABLE_POINTER, original_script_table))
+            return 17;
+    }
+#endif
 
     nox_eud_reset();
     return 0;

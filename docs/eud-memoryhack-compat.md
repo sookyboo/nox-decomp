@@ -74,6 +74,12 @@ This gives the first compatibility patch a high-confidence path for ordinary leg
 
 It does **not** make it safe to execute values stored in those arrays as host function pointers. Historical function pointers and injected machine code still require semantic replacement.
 
+Panic also deliberately abuses the native builtin table as an address calculation. NoxScript opcode `69` reaches `sub_508B70`, which treats the encoded builtin id as a scale-4 index from the original table base `0x5C308C`. Panic-generated code can therefore use synthetic ids far outside the real `0..210` builtin range to read an indirect call target from other legacy VM/EUD memory. The arithmetic is x86 32-bit effective-address arithmetic and wraps modulo `2^32`; it must not be widened to a checked 64-bit array index.
+
+For example, builtin id `973229` resolves to legacy address `0x979740`. That address is also the base of the NoxScript value stack used by `sub_507230`/`script_pop` (`byte_5D4594[3821996]`), so this is a real indirect-call technique rather than malformed bytecode. In the decomp, directly evaluating `byte_587000[245900 + 4 * id]` crosses the C object boundary and is undefined/out-of-bounds even though the corresponding original 32-bit address is valid. EUD-enabled builtin lookup must instead resolve the wrapped legacy address through the compatibility memory layer.
+
+`sub_508C30` and `sub_508C70` classify the selected builtin target against two native-target lists before `sub_508B70` saves/restores the current script string/caller context. They must use the same mapped lookup for synthetic ids; otherwise those classification checks reintroduce the out-of-bounds table access. After lookup, known Panic helpers are handled by semantic dispatch. The normal host-function fallback is permitted only when the wrapped effective address is one of the real 211 builtin-table slots; synthetic indirect slots are never executed as arbitrary host code.
+
 ### Original player/object offset chains also survive
 
 Panic EUD obtains player-related state through an object-relative chain equivalent to:
@@ -642,7 +648,7 @@ The compatibility layer still does not execute arbitrary allocations as code, ca
 
 ### Validation checklist for the caller
 
-Build with `-DUSE_EUD_COMPAT=ON` and run `eud_compat_memory_test` for mapped-memory boundaries, little-endian unaligned access, rejection of out-of-range operations, Panic recovery-list reset behavior, and heap-backed SpellDB/AbilityDB string-pointer restoration. Further validation should exercise semantic `Bind` from a real compiled Panic script; MemAlloc/SetMemory/GetMemory/MemFree including stale-token rejection; SmartMemory allocation followed by map/script reset; DwordCopy across two EUD allocations and between allocation/mapped data; ThingDB/GameData reads used by a real Panic map; pointer-field replacement followed by MemFree/reset; MagicMissile creation/update; normal Tier-4 callbacks; and DiscardBypass chaining over both an original native discard handler and an existing Tier-4 EUD discard handler.
+Build with `-DUSE_EUD_COMPAT=ON` and run `eud_compat_memory_test` for mapped-memory boundaries, little-endian unaligned access, rejection of out-of-range operations, wrapped synthetic builtin lookup/dispatch, Panic recovery-list reset behavior, and heap-backed SpellDB/AbilityDB string-pointer restoration. Further validation should exercise semantic `Bind` from a real compiled Panic script; MemAlloc/SetMemory/GetMemory/MemFree including stale-token rejection; SmartMemory allocation followed by map/script reset; DwordCopy across two EUD allocations and between allocation/mapped data; ThingDB/GameData reads used by a real Panic map; pointer-field replacement followed by MemFree/reset; MagicMissile creation/update; normal Tier-4 callbacks; and DiscardBypass chaining over both an original native discard handler and an existing Tier-4 EUD discard handler.
 
 ## Implementation progress: semantic Bind, recovery replay and wide-string database fields
 
@@ -672,7 +678,7 @@ The decompiled database accessors corroborate these layouts. `sub_424930` accept
 
 ### Regression coverage added for this step
 
-The focused opt-in `eud_compat_memory_test` now constructs the exact allocation-backed recovery helper/list shape through the production memory API and covers: guarded normal restoration, normal-helper skip when the `0x852980` guard is zero, unconditional map-changed restoration, SmartMemory-style `+8` allocation offsets, SpellDB heap-backed name/description pointer round-trip/reset, and AbilityDB heap-backed name/description pointer round-trip/reset. A narrow test-only allocator entry point is compiled only into the opt-in test runtime so the regression uses the production EUD allocation/token implementation rather than duplicating it.
+The focused opt-in `eud_compat_memory_test` now constructs the exact allocation-backed recovery helper/list shape through the production memory API and covers: guarded normal restoration, normal-helper skip when the `0x852980` guard is zero, unconditional map-changed restoration, SmartMemory-style `+8` allocation offsets, SpellDB heap-backed name/description pointer round-trip/reset, AbilityDB heap-backed name/description pointer round-trip/reset, and wrapped synthetic builtin lookup. On 32-bit test builds it also drives the real `sub_508B70` path with a non-empty script context so `sub_508C30`/`sub_508C70` exercise the same synthetic lookup before a non-native null target is safely rejected. A narrow test-only allocator entry point is compiled only into the opt-in test runtime so the regression uses the production EUD allocation/token implementation rather than duplicating it.
 
 Per repository workflow, these tests are added but were not compiled or executed while preparing the patch because the maintainer explicitly requested no local compile/test run.
 

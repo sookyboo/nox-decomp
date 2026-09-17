@@ -10,6 +10,8 @@
 #define NOX_EUD_DATA_SPLIT_1 0x00587000u
 #define NOX_EUD_DATA_SPLIT_2 0x005D4594u
 #define NOX_EUD_DATA_END_EXCLUSIVE 0x0097EE69u
+#define NOX_EUD_BUILTIN_TABLE 0x005C308Cu
+#define NOX_EUD_BUILTIN_COUNT 211u
 
 /*
  * Reloaded/Panic EUD scripts also use unused NoxScript builtins as the
@@ -3386,6 +3388,21 @@ int nox_eud_write_u32(uint32_t address, uint32_t value)
   bytes[2] = (unsigned char)(value >> 16);
   bytes[3] = (unsigned char)(value >> 24);
   return nox_eud_dynamic_write_bytes(address, bytes, 4);
+}
+
+int nox_eud_resolve_builtin_target(int builtin_id, uint32_t *target, int *native_slot)
+{
+  uint32_t address;
+
+  if (!target)
+    return 0;
+
+  /* Match the original x86 scale-4 effective-address arithmetic exactly. */
+  address = NOX_EUD_BUILTIN_TABLE + (uint32_t)builtin_id * 4u;
+  if (native_slot)
+    *native_slot = address >= NOX_EUD_BUILTIN_TABLE &&
+                   address < NOX_EUD_BUILTIN_TABLE + NOX_EUD_BUILTIN_COUNT * 4u;
+  return nox_eud_read_u32(address, target);
 }
 
 int nox_eud_dispatch_builtin(int builtin_id, uint32_t target, int *result)

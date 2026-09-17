@@ -15177,15 +15177,27 @@ int __cdecl sub_508B70(int a1, int a2)
 {
   int v2; // ebx
   int result; // eax
+#ifdef NOX_EUD_COMPAT
+  uint32_t builtin_target;
+  int native_slot;
+#endif
 
   v2 = 48 * a1;
+#ifdef NOX_EUD_COMPAT
+  if ( !nox_eud_resolve_builtin_target(a2, &builtin_target, &native_slot) )
+    return 0;
+#endif
   if ( !*(_DWORD *)(48 * a1 + *(_DWORD *)&byte_5D4594[1599636] + 36) )
   {
 #ifdef NOX_EUD_COMPAT
-    if ( nox_eud_dispatch_builtin(a2, *(_DWORD *)&byte_587000[4 * a2 + 245900], &result) )
+    if ( nox_eud_dispatch_builtin(a2, builtin_target, &result) )
       return result;
-#endif
+    if ( !native_slot || !builtin_target )
+      return 0;
+    return ((int (__cdecl *)())(uintptr_t)builtin_target)();
+#else
     return (*(int (__cdecl **)())&byte_587000[4 * a2 + 245900])();
+#endif
   }
   if ( sub_508C30(a2) )
     strcpy((char *)&byte_5D4594[3821644], *(const char **)(v2 + *(_DWORD *)&byte_5D4594[1599636] + 36));
@@ -15195,9 +15207,16 @@ int __cdecl sub_508B70(int a1, int a2)
     *(_DWORD *)&byte_5D4594[3821640] = *(_DWORD *)(v2 + *(_DWORD *)&byte_5D4594[1599636] + 44);
   }
 #ifdef NOX_EUD_COMPAT
-  if ( !nox_eud_dispatch_builtin(a2, *(_DWORD *)&byte_587000[4 * a2 + 245900], &result) )
+  if ( !nox_eud_dispatch_builtin(a2, builtin_target, &result) )
+  {
+    if ( native_slot && builtin_target )
+      result = ((int (__cdecl *)())(uintptr_t)builtin_target)();
+    else
+      result = 0;
+  }
+#else
+  result = (*(int (__cdecl **)())&byte_587000[4 * a2 + 245900])();
 #endif
-    result = (*(int (__cdecl **)())&byte_587000[4 * a2 + 245900])();
   byte_5D4594[3821644] = byte_5D4594[1599672];
   *(_DWORD *)&byte_5D4594[3821640] = 0;
   *(_DWORD *)&byte_5D4594[3821636] = 0;
@@ -15209,11 +15228,21 @@ int __cdecl sub_508C30(int a1)
 {
   int v1; // eax
   unsigned __int8 *i; // ecx
+#ifdef NOX_EUD_COMPAT
+  uint32_t builtin_target;
+
+  if ( !nox_eud_resolve_builtin_target(a1, &builtin_target, 0) )
+    return 0;
+#endif
 
   v1 = 0;
   if ( *(int *)&byte_587000[246800] <= 0 )
     return 0;
+#ifdef NOX_EUD_COMPAT
+  for ( i = &byte_587000[246748]; builtin_target != *(_DWORD *)i; i += 4 )
+#else
   for ( i = &byte_587000[246748]; *(_DWORD *)&byte_587000[4 * a1 + 245900] != *(_DWORD *)i; i += 4 )
+#endif
   {
     if ( ++v1 >= *(int *)&byte_587000[246800] )
       return 0;
@@ -15226,11 +15255,21 @@ int __cdecl sub_508C70(int a1)
 {
   int v1; // eax
   unsigned __int8 *i; // ecx
+#ifdef NOX_EUD_COMPAT
+  uint32_t builtin_target;
+
+  if ( !nox_eud_resolve_builtin_target(a1, &builtin_target, 0) )
+    return 0;
+#endif
 
   v1 = 0;
   if ( *(int *)&byte_587000[246768] <= 0 )
     return 0;
+#ifdef NOX_EUD_COMPAT
+  for ( i = &byte_587000[246772]; builtin_target != *(_DWORD *)i; i += 4 )
+#else
   for ( i = &byte_587000[246772]; *(_DWORD *)&byte_587000[4 * a1 + 245900] != *(_DWORD *)i; i += 4 )
+#endif
   {
     if ( ++v1 >= *(int *)&byte_587000[246768] )
       return 0;

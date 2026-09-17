@@ -34,11 +34,19 @@ void nox_eud_object_extension_released(int object, uint32_t extension);
 void nox_eud_reset(void);
 
 /*
+ * Resolve the dword selected by the original scale-4 builtin-table addressing.
+ * Panic deliberately uses synthetic builtin ids to address other legacy VM
+ * memory. native_slot reports whether the wrapped effective address still lies
+ * inside the real 211-entry builtin table and is therefore eligible for the
+ * normal native-call fallback.
+ */
+int nox_eud_resolve_builtin_target(int builtin_id, uint32_t *target, int *native_slot);
+
+/*
  * Executes a known Panic EUD memory/native helper semantically. Returns
  * non-zero when the builtin id plus patched helper signature is recognized and
- * handled.
- * result receives the value the original builtin/helper would return to the
- * NoxScript VM.
+ * handled. result receives the value the original builtin/helper would return
+ * to the NoxScript VM.
  */
 int nox_eud_dispatch_builtin(int builtin_id, uint32_t target, int *result);
 
