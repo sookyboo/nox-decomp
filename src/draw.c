@@ -3122,6 +3122,9 @@ void sub_4AD1E0()
     _WORD **v3;      // ebp
     _WORD *v4;       // esi
     int v5;          // ecx;
+#if UINTPTR_MAX > UINT32_MAX
+    _DWORD *v3_native;
+#endif
 
     if (dword_973C70)
         return;
@@ -3147,11 +3150,19 @@ void sub_4AD1E0()
     if (!result)
     {
         v2 = *(_DWORD *)&byte_5D4594[3801788];          // height
+#if UINTPTR_MAX > UINT32_MAX
+        v3_native = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798784];
+#else
         v3 = *(_WORD ***)&byte_5D4594[3798784];         // source row pointers
+#endif
 
         while (v2 > 0)
         {
+#if UINTPTR_MAX > UINT32_MAX
+            v4 = (_WORD *)(uintptr_t)*v3_native;        // src row pointer
+#else
             v4 = *v3;                                   // src row
+#endif
             v5 = *(_DWORD *)&byte_5D4594[3801800];      // blocks per row (width / 16)
 
             const WORD A = 1;
@@ -3181,7 +3192,11 @@ void sub_4AD1E0()
             }
 
             v1 = (_WORD *)((char *)v1 + dword_974868);
+#if UINTPTR_MAX > UINT32_MAX
+            ++v3_native;
+#else
             ++v3;
+#endif
             v2--;
         }
 
@@ -3211,6 +3226,9 @@ void sub_4AD2A0()
 	int v8; // ebx
 	int v9; // ebx
 	bool v10; // cc
+#if UINTPTR_MAX > UINT32_MAX
+	_DWORD *v3_native;
+#endif
 
     // FIXME unlocked surfaces
 
@@ -3218,10 +3236,18 @@ void sub_4AD2A0()
 	{
 		v1 = *(_DWORD **)&byte_5D4594[3798752];
 		v2 = *(_DWORD *)&byte_5D4594[3801788];
+		#if UINTPTR_MAX > UINT32_MAX
+		v3_native = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798784];
+		#else
 		v3 = *(_DWORD ***)&byte_5D4594[3798784];
+		#endif
 		do
 		{
+			#if UINTPTR_MAX > UINT32_MAX
+			v4 = (_DWORD *)(uintptr_t)*v3_native;
+			#else
 			v4 = *v3;
+			#endif
 			v5 = *(_DWORD *)&byte_5D4594[3801800];
 			do
 			{
@@ -3242,7 +3268,11 @@ void sub_4AD2A0()
 				v1 += 8;
 				v10 = v5-- <= 1;
 			} while (!v10);
+			#if UINTPTR_MAX > UINT32_MAX
+			++v3_native;
+			#else
 			++v3;
+			#endif
 			v1 = (_DWORD *)((char *)v1 + dword_974868);
 			v10 = v2-- <= 1;
 		} while (!v10);
