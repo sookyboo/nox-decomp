@@ -96,6 +96,27 @@ void nox_control_ui_root_clear_if_matches(_DWORD *root)
     *(_DWORD *)&byte_5D4594[1046492] = 0;
 }
 
+#if UINTPTR_MAX > UINT32_MAX
+struct nox_map_link {
+  int *entry;
+  struct nox_map_link *next;
+};
+
+static struct nox_map_link *nox_map_links;
+
+static struct nox_map_link *nox_map_link_for(int *entry)
+{
+  struct nox_map_link *link;
+
+  for ( link = nox_map_links; link; link = link->next )
+  {
+    if ( link->entry == entry )
+      return link;
+  }
+  return 0;
+}
+#endif
+
 //----- (004A19D0) --------------------------------------------------------
 int sub_4A19D0()
 {
@@ -34207,8 +34228,25 @@ int __cdecl sub_4D0670(char *a1)
 }
 
 //----- (004D0760) --------------------------------------------------------
-_DWORD *__cdecl sub_4D0760(int a1)
+_DWORD *__cdecl sub_4D0760(intptr_t a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int *entry;
+  struct nox_map_link *link;
+  struct nox_map_link **slot;
+
+  entry = (int *)a1;
+  link = malloc(sizeof(*link));
+  if ( !link )
+    return 0;
+  link->entry = entry;
+  slot = &nox_map_links;
+  while ( *slot && strcmp((const char *)entry + 12, (const char *)(*slot)->entry + 12) > 0 )
+    slot = &(*slot)->next;
+  link->next = *slot;
+  *slot = link;
+  return (_DWORD *)entry;
+#else
   int *v1; // edi
 
   v1 = sub_425890((int *)&byte_5D4594[1523060]);
@@ -34221,23 +34259,28 @@ _DWORD *__cdecl sub_4D0760(int a1)
       return sub_4258E0((int)&byte_5D4594[1523060], (_DWORD *)a1);
   }
   return sub_4258E0((int)v1, (_DWORD *)a1);
+#endif
 }
 
 //----- (004D07F0) --------------------------------------------------------
 HANDLE sub_4D07F0()
 {
-  HANDLE result; // eax
-  HANDLE v1; // ebp
+  intptr_t result; // eax
+  intptr_t v1; // ebp
   char *v2; // ebp
-  HANDLE v3; // [esp+4h] [ebp-150h]
+  intptr_t v3; // [esp+4h] [ebp-150h]
   char v4[12]; // [esp+8h] [ebp-14Ch]
   struct _WIN32_FIND_DATAA FindFileData; // [esp+14h] [ebp-140h]
 
+#if UINTPTR_MAX > UINT32_MAX
+  nox_map_links = 0;
+#else
   sub_425760(&byte_5D4594[1523060]);
+#endif
   result = FindFirstFileA((LPCSTR)&byte_587000[191796], &FindFileData);
   v1 = result;
   v3 = result;
-  if ( result != (HANDLE)-1 )
+  if ( result != (intptr_t)-1 )
   {
     do
     {
@@ -34255,19 +34298,23 @@ HANDLE sub_4D07F0()
         if ( sub_4CFE10(v4) )
         {
           v2 = (char *)malloc(0x24u);
+#if UINTPTR_MAX <= UINT32_MAX
           sub_425770(v2);
+#else
+          memset(v2, 0, 12u);
+#endif
           strcpy(v2 + 12, v4);
           *((_DWORD *)v2 + 6) = 1;
           *((_DWORD *)v2 + 7) = *(_DWORD *)&byte_5D4594[3803228];
           v2[33] = byte_5D4594[3803233];
           v2[32] = byte_5D4594[3803232];
-          sub_4D0760((int)v2);
+          sub_4D0760((intptr_t)v2);
           v1 = v3;
         }
       }
     }
     while ( FindNextFileA(v1, &FindFileData) );
-    result = (HANDLE)FindClose(v1);
+    result = FindClose(v1);
   }
   return result;
 }
@@ -34275,6 +34322,21 @@ HANDLE sub_4D07F0()
 //----- (004D0970) --------------------------------------------------------
 int *sub_4D0970()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  int *result;
+  struct nox_map_link *link;
+  struct nox_map_link *next;
+
+  result = nox_map_links ? nox_map_links->entry : 0;
+  for ( link = nox_map_links; link; link = next )
+  {
+    next = link->next;
+    free(link->entry);
+    free(link);
+  }
+  nox_map_links = 0;
+  return result;
+#else
   int *result; // eax
   int *v1; // esi
   int *v2; // edi
@@ -34293,18 +34355,30 @@ int *sub_4D0970()
     while ( v2 );
   }
   return result;
+#endif
 }
 
 //----- (004D09B0) --------------------------------------------------------
 int *sub_4D09B0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_map_links ? nox_map_links->entry : 0;
+#else
   return sub_425890((int *)&byte_5D4594[1523060]);
+#endif
 }
 
 //----- (004D09C0) --------------------------------------------------------
 int *__cdecl sub_4D09C0(int *a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  struct nox_map_link *link;
+
+  link = nox_map_link_for(a1);
+  return link && link->next ? link->next->entry : 0;
+#else
   return sub_4258A0(a1);
+#endif
 }
 
 //----- (004D09D0) --------------------------------------------------------
