@@ -51,6 +51,11 @@ addresses from low 32-bit values belonging to the PE image. They recognize the
 image's text/data/BSS ranges explicitly; a fixed numeric threshold is not
 portable because the image and low allocations can overlap that threshold.
 
+On Windows x86_64, the low-address allocator advances a dense page-aligned
+cursor and accepts only exact `VirtualAlloc` hints. Wine may otherwise return
+the next free 16 MiB region for a tiny allocation, quickly exhausting the
+signed 32-bit address window while parsing `SoundSet.bin`.
+
 The general rationale is in
 [`architecture-compatibility-tests.md`](../architecture-compatibility-tests.md).
 The startup subsystem description is in
@@ -127,6 +132,9 @@ The current branch contains native-width handling for:
 - native window callback, widget font, static-text value, and text-buffer
   sidecars preserve host pointers that the recovered widget records store in
   DWORD slots; `sub_46AF00()`/`sub_46B490()` widen pointer-returning events.
+  Value-control string pointers use the shared 32-bit pointer mapper rather
+  than blindly adding the PE image high word, since some valid heap pointers
+  are already below 4 GiB.
 - the fixed-width `gamedata.bin` parser path: native startup keeps the adjacent
   `gamedata.bin` string intact, preserves parser `FILE *` handles, uses
   low-address storage for the 32-bit category manager/table records, and

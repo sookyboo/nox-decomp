@@ -21,6 +21,7 @@ static _DWORD *nox_legal_window;
 #endif
 #if UINTPTR_MAX > UINT32_MAX
 extern int (*nox_47d5_callback)(int);
+extern uintptr_t nox_native_last_csf_wide;
 static _DWORD *nox_menu_button_left;
 static _DWORD *nox_menu_button_right;
 static _DWORD *nox_server_transition_left;
@@ -146,8 +147,7 @@ int __cdecl sub_4A19F0(char *a1)
   v1 = sub_46B0C0(nox_menu_root_get(), 152);
   v2 = sub_40F1D0(a1, 0, (const char *)&byte_587000[168636], 171);
 #if UINTPTR_MAX > UINT32_MAX
-  v2 = (wchar_t *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
-                   | (unsigned int)(uintptr_t)v2);
+  v2 = (wchar_t *)nox_native_last_csf_wide;
 #endif
   return sub_46B490((int)v1, 16385, (int)v2, -1);
 }

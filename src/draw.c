@@ -95,6 +95,7 @@ DWORD dword_973C64;
 
 #if UINTPTR_MAX > UINT32_MAX
 static int (*nox_movie_done_callback)(void);
+static unsigned char *nox_native_present_pixels;
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -606,6 +607,7 @@ char sub_48A190()
     g_present_is_movie = 0;
 
     dword_6F7B9C = 1;
+    nox_native_present_pixels = (unsigned char *)g_backbuffer1->pixels;
     *(_DWORD *)&byte_5D4594[1193492] = g_backbuffer1->pixels;
     *(_DWORD *)&byte_5D4594[3798752] = *(_DWORD *)&byte_5D4594[1193492];
 #else
@@ -3218,7 +3220,13 @@ void sub_4AD2A0()
 
 	if (!dword_973C70)
 	{
+		#if UINTPTR_MAX > UINT32_MAX
+		v1 = (_DWORD *)(nox_native_present_pixels
+			? nox_native_present_pixels
+			: (uintptr_t)*(unsigned int *)&byte_5D4594[3798752]);
+		#else
 		v1 = *(_DWORD **)&byte_5D4594[3798752];
+		#endif
 		v2 = *(_DWORD *)&byte_5D4594[3801788];
 		#if UINTPTR_MAX > UINT32_MAX
 		v3_native = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798784];

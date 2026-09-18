@@ -37,6 +37,40 @@ intptr_t g_a2;
 static void *nox_native_legacy_pointer(const void *address);
 #if UINTPTR_MAX > UINT32_MAX
 uintptr_t nox_native_last_csf_narrow;
+uintptr_t nox_native_last_csf_wide;
+struct nox_csf_wide_pointer_entry {
+  unsigned int low;
+  uintptr_t value;
+};
+static struct nox_csf_wide_pointer_entry nox_csf_wide_pointer_entries[512];
+static unsigned int nox_csf_wide_pointer_count;
+
+uintptr_t nox_native_csf_wide_from_32(unsigned int low)
+{
+  unsigned int i;
+  for ( i = 0; i < nox_csf_wide_pointer_count; ++i )
+    if ( nox_csf_wide_pointer_entries[i].low == low )
+      return nox_csf_wide_pointer_entries[i].value;
+  return 0;
+}
+
+static void nox_native_csf_wide_register(uintptr_t value)
+{
+  unsigned int i;
+  unsigned int low = (unsigned int)value;
+  for ( i = 0; i < nox_csf_wide_pointer_count; ++i )
+    if ( nox_csf_wide_pointer_entries[i].low == low )
+    {
+      nox_csf_wide_pointer_entries[i].value = value;
+      return;
+    }
+  if ( nox_csf_wide_pointer_count < sizeof(nox_csf_wide_pointer_entries) / sizeof(nox_csf_wide_pointer_entries[0]) )
+  {
+    nox_csf_wide_pointer_entries[nox_csf_wide_pointer_count].low = low;
+    nox_csf_wide_pointer_entries[nox_csf_wide_pointer_count].value = value;
+    ++nox_csf_wide_pointer_count;
+  }
+}
 uintptr_t nox_native_audio_state;
 #endif
 
@@ -14162,6 +14196,10 @@ wchar_t *__cdecl sub_40F1D0(char *a1, _DWORD *a2, const char *a3, int a4)
     nox_native_last_csf_narrow = (uintptr_t)NOX_CSF_NARROW_STRINGS[v11 + *((unsigned __int16 *)v10 + 25)];
 #endif
     result = NOX_CSF_WIDE_STRINGS[v11 + *((unsigned __int16 *)v10 + 25)];
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_last_csf_wide = (uintptr_t)result;
+    nox_native_csf_wide_register((uintptr_t)result);
+#endif
   }
   else
   {
@@ -14170,6 +14208,10 @@ wchar_t *__cdecl sub_40F1D0(char *a1, _DWORD *a2, const char *a3, int a4)
     *(_DWORD *)v12 = (uint32_t)(uintptr_t)NOX_CSF_EXTRA_HEAD;
     NOX_CSF_EXTRA_HEAD = v12;
     result = v12 + 2;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_last_csf_wide = (uintptr_t)result;
+    nox_native_csf_wide_register((uintptr_t)result);
+#endif
   }
   return result;
 }
@@ -19097,7 +19139,7 @@ int __cdecl sub_414190(_DWORD *a1)
     {
       if ( !a1[30] )
         return 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
       if ( (uintptr_t)a1 == nox_native_window_pool_manager )
         v5 = NOX_FONT_ALLOC(a1[22] + 16);
       else
@@ -19158,7 +19200,7 @@ int __cdecl sub_414190(_DWORD *a1)
           else
             v1[27] = v12[3];
           --v1[31];
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
           if ( (uintptr_t)a1 == nox_native_window_pool_manager )
             NOX_FONT_FREE(v12, a1[22] + 16);
           else
@@ -24460,7 +24502,7 @@ LABEL_15:
                 }
                 while ( v3 );
               }
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
               v5 = nox_legacy_low_alloc(8u);
 #else
               v5 = malloc(8u);
@@ -24469,7 +24511,7 @@ LABEL_15:
               if ( !v5 )
                 goto LABEL_28;
               *((_BYTE *)v5 + 4) = v2;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
               *v5 = nox_legacy_low_alloc(4u * (size_t)v2);
 #else
               *v5 = malloc(4 * v2);
@@ -33120,7 +33162,11 @@ int __cdecl sub_4240F0(uintptr_t a1, const char *a2, int a3)
   v3 = *(const char **)&byte_587000[64704];
 #endif
   v4 = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  if ( !nox_soundset_names[0] )
+#else
   if ( !*(_DWORD *)&byte_587000[64704] )
+#endif
     return 0;
   v5 = &byte_587000[64704];
   while ( strcmp(a2, v3) )
@@ -33158,11 +33204,27 @@ int __cdecl sub_424170(char *a1)
     {
       while ( sub_409470(v2, v6) )
       {
-        v3 = calloc(1u, 0x54u);
+        v3 =
+#if UINTPTR_MAX > UINT32_MAX
+          nox_legacy_low_alloc(0x54u);
+#else
+          calloc(1u, 0x54u);
+#endif
+        if ( !v3 )
+          return 0;
+        if ( v3 )
+          memset(v3, 0, 0x54u);
         v3[19] = *(_DWORD *)&byte_5D4594[588120];
         v3[20] = 0;
         *(_DWORD *)&byte_5D4594[588120] = v3;
-        v4 = (char *)malloc(strlen(v6) + 1);
+        v4 =
+#if UINTPTR_MAX > UINT32_MAX
+          (char *)nox_legacy_low_alloc(strlen(v6) + 1);
+#else
+          (char *)malloc(strlen(v6) + 1);
+#endif
+        if ( !v4 )
+          return 0;
         *v3 = v4;
         strcpy(v4, v6);
         while ( sub_409470(v2, v6) && strcmp(v6, (const char *)&byte_587000[65184]) && sub_409470(v2, v7) )
@@ -33192,8 +33254,13 @@ void sub_4242C0()
     do
     {
       v1 = *(_DWORD *)(v0 + 76);
+#if UINTPTR_MAX > UINT32_MAX
+      nox_legacy_low_free(*(LPVOID *)v0, strlen(*(char **)v0) + 1);
+      nox_legacy_low_free((LPVOID)v0, 0x54u);
+#else
       free(*(LPVOID *)v0);
       free((LPVOID)v0);
+#endif
       v0 = v1;
     }
     while ( v1 );
@@ -51613,7 +51680,7 @@ _DWORD *sub_43C540()
 {
   _DWORD *result; // eax
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   result = nox_legacy_low_alloc(0x44u);
   if ( result )
     memset(result, 0, 0x44u);
@@ -51644,7 +51711,7 @@ void __cdecl sub_43C570(LPVOID lpMem)
     *(_DWORD *)(v2 + 40) = *((_DWORD *)lpMem + 10);
   else
     *(_DWORD *)&byte_5D4594[815212] = *((_DWORD *)lpMem + 10);
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   nox_legacy_low_free(lpMem, 0x44u);
 #else
   free(lpMem);

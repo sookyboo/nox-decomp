@@ -112,6 +112,12 @@ static struct nox_window_text_entry nox_window_texts[256];
 static unsigned int nox_window_text_count;
 static struct nox_window_font_entry nox_window_value_pointers[256];
 static unsigned int nox_window_value_pointer_count;
+struct nox_window_value_strings_entry {
+  uintptr_t object;
+  uintptr_t values[3];
+};
+static struct nox_window_value_strings_entry nox_window_value_strings[256];
+static unsigned int nox_window_value_strings_count;
 
 static uintptr_t nox_native_pointer_from_32(unsigned int value)
 {
@@ -157,6 +163,8 @@ static _DWORD *nox_window_root_get(void)
 static uintptr_t nox_audio_dialog_name;
 static HSTREAM nox_audio_stream_handle;
 extern uintptr_t nox_native_last_csf_narrow;
+extern uintptr_t nox_native_last_csf_wide;
+extern uintptr_t nox_native_csf_wide_from_32(unsigned int low);
 extern HDIGDRIVER nox_mss_digital_handle;
 extern uintptr_t nox_native_audio_state;
 extern uintptr_t nox_native_window_pool_manager;
@@ -419,6 +427,37 @@ static uintptr_t nox_window_value_pointer_get(uintptr_t object)
   {
     if ( nox_window_value_pointers[i].object == object )
       return nox_window_value_pointers[i].font;
+  }
+  return 0;
+}
+
+static void nox_window_value_strings_set(uintptr_t object, const uintptr_t values[3])
+{
+  unsigned int i;
+  for ( i = 0; i < nox_window_value_strings_count; ++i )
+  {
+    if ( nox_window_value_strings[i].object == object )
+    {
+      memcpy(nox_window_value_strings[i].values, values, sizeof(nox_window_value_strings[i].values));
+      return;
+    }
+  }
+  if ( nox_window_value_strings_count < sizeof(nox_window_value_strings) / sizeof(nox_window_value_strings[0]) )
+  {
+    nox_window_value_strings[nox_window_value_strings_count].object = object;
+    memcpy(nox_window_value_strings[nox_window_value_strings_count].values, values,
+           sizeof(nox_window_value_strings[0].values));
+    ++nox_window_value_strings_count;
+  }
+}
+
+static uintptr_t nox_window_value_string_get(uintptr_t object, unsigned int index)
+{
+  unsigned int i;
+  for ( i = 0; i < nox_window_value_strings_count; ++i )
+  {
+    if ( nox_window_value_strings[i].object == object && index < 3 )
+      return nox_window_value_strings[i].values[index];
   }
   return 0;
 }
@@ -46477,12 +46516,12 @@ int __cdecl sub_488D00(int a1, int xLeft)
 
   v2 = xLeft;
 #if UINTPTR_MAX > UINT32_MAX
-  v35 = (unsigned int *)nox_native_pointer_from_32(*(unsigned int *)(a1 + 32));
+  v35 = nox_window_value_get(a1);
   if ( v35 )
   {
-    v36[0] = (unsigned __int16 *)nox_native_pointer_from_32(v35[0]);
-    v36[1] = (unsigned __int16 *)nox_native_pointer_from_32(v35[1]);
-    v36[2] = (unsigned __int16 *)nox_native_pointer_from_32(v35[2]);
+    v36[0] = (unsigned __int16 *)nox_window_value_string_get((uintptr_t)a1, 0);
+    v36[1] = (unsigned __int16 *)nox_window_value_string_get((uintptr_t)a1, 1);
+    v36[2] = (unsigned __int16 *)nox_window_value_string_get((uintptr_t)a1, 2);
   }
   v3 = v35 ? v36 : 0;
 #else
@@ -46703,10 +46742,28 @@ _DWORD *__cdecl sub_489300(int a1, int a2, int a3, int a4, int a5, int a6, _DWOR
     v10[2] = a8[2];
     v9[8] = v10;
 #if UINTPTR_MAX > UINT32_MAX
+    uintptr_t value_pointer = nox_native_pointer_from_32(*a8);
+    uintptr_t csf_pointer = nox_native_csf_wide_from_32(*a8);
+    if ( csf_pointer )
+      value_pointer = csf_pointer;
+    else if ( nox_native_last_csf_wide )
+      value_pointer = nox_native_last_csf_wide;
+    uintptr_t value_strings[3] = {
+      value_pointer,
+      nox_native_pointer_from_32(a8[1]),
+      nox_native_pointer_from_32(a8[2])
+    };
+    if ( nox_native_last_csf_wide
+      && (unsigned int)nox_native_last_csf_wide == *a8 )
+      value_pointer = nox_native_last_csf_wide;
+    if ( nox_native_last_csf_narrow
+      && (unsigned int)nox_native_last_csf_narrow == *a8 )
+      value_pointer = nox_native_last_csf_narrow;
     nox_window_value_set((int)(uintptr_t)v9, v10);
     nox_window_value_pointer_set(
       (uintptr_t)v9,
-      ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | *a8);
+      value_pointer);
+    nox_window_value_strings_set((uintptr_t)v9, value_strings);
 #endif
   }
   return v9;
