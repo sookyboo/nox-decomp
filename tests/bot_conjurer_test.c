@@ -1,5 +1,5 @@
-#include "bot_conjurer.h"
-#include "bot_engine.h"
+#include "../src/bot_conjurer.h"
+#include "../src/bot_engine.h"
 
 #include <stdint.h>
 #include <string.h>

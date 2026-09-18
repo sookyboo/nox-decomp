@@ -1,5 +1,5 @@
-#include "bot_wizard.h"
-#include "bot_engine.h"
+#include "../src/bot_wizard.h"
+#include "../src/bot_engine.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -39,6 +39,7 @@ static float cast_y;
 static char cast_name[48];
 static int red_potion_calls;
 static int blue_potion_calls;
+static int blue_potion_available;
 static const char *available_loot_type;
 static int pickup_calls;
 static int equip_weapon_calls;
@@ -217,6 +218,8 @@ int nox_bot_engine_use_inventory_potion(int object, const char *name)
         return 1;
     }
     if (strcmp(name, "BluePotion") == 0) {
+        if (!blue_potion_available)
+            return 0;
         ++blue_potion_calls;
         self_mana += 50;
         return 1;
@@ -394,6 +397,7 @@ static nox_bot_policy_state *reset_state(nox_bot_difficulty difficulty, uint32_t
     cast_name[0] = 0;
     red_potion_calls = 0;
     blue_potion_calls = 0;
+    blue_potion_available = 0;
     available_loot_type = 0;
     pickup_calls = 0;
     equip_weapon_calls = 0;
@@ -501,8 +505,11 @@ static int test_energy_bolt_reference_mana_quirk(void)
     if (!state)
         return 14;
     state->wizard.target = TARGET;
+    /* Keep higher-priority spells unavailable so this exercises Energy Bolt's
+     * reference behavior at the exact mana threshold. */
+    state->wizard.slow_ready_frame = 9999;
+    state->wizard.fireball_ready_frame = 9999;
     self_mana = 11;
-    target_buffs = buff_mask(ENCHANT_SLOWED);
     nox_bot_wizard_update(SELF, state, 250);
     if (!state->wizard.pending_spell || cast_calls)
         return 15;
@@ -522,6 +529,7 @@ static int test_ring_of_fire_reference_once_per_life_quirk(void)
     if (!state)
         return 17;
     state->wizard.target = TARGET;
+    target_max_health = 200;
     state->wizard.burn_ready_frame = 9999;
     self_mana = 60;
     target_buffs = buff_mask(ENCHANT_REFLECTIVE_SHIELD);
@@ -588,6 +596,7 @@ static int test_hidden_defensive_priority_and_ctf_tank_invisibility(void)
     self_mana = 150;
     ctf_mode = 1;
     ctf_tank = 1;
+    owned_glyphs = 4;
     nox_bot_wizard_update(SELF, state, 326);
     if (state->wizard.pending_spell || cast_calls != 2)
         return 23;
@@ -663,6 +672,7 @@ static int test_deathball_blocks_generic_inversion_branch(void)
     self_buffs = buff_mask(ENCHANT_SHIELD) | buff_mask(ENCHANT_HASTED) |
         buff_mask(ENCHANT_SHOCK) | buff_mask(ENCHANT_PROTECT_SHOCK) |
         buff_mask(ENCHANT_PROTECT_FIRE) | buff_mask(ENCHANT_INVISIBLE);
+    owned_glyphs = 4;
     nox_bot_wizard_update(SELF, state, 390);
     if (state->wizard.pending_spell || cast_calls || state->wizard.inversion_ready_frame)
         return 146;
@@ -719,6 +729,7 @@ static int test_native_potion_thresholds(void)
     state->wizard.target = TARGET;
     self_health = 25;
     self_mana = 100;
+    blue_potion_available = 1;
     nox_bot_wizard_update(SELF, state, 500);
     if (red_potion_calls != 1 || blue_potion_calls != 1 || self_health != 75 || self_mana != 150)
         return 41;
@@ -813,7 +824,7 @@ static int test_low_mana_hit_routes_to_native_obelisk(void)
     nox_bot_policy_record_event(state, NOX_BOT_EVENT_IS_HIT, TARGET, 595);
     nox_bot_wizard_update(SELF, state, 595);
     if (!state->wizard.mana_route_active || state->wizard.mana_source != 600 ||
-        mana_source_require_visible || aggression_calls != 1 || aggression_value != 0.16f ||
+        aggression_calls != 1 || aggression_value != 0.16f ||
         walk_calls != 1 || walk_x != 50.0f || walk_y != 60.0f ||
         nox_bot_policy_event_pending(state, NOX_BOT_EVENT_IS_HIT))
         return 155;

@@ -93,7 +93,6 @@ if (BUILD_TESTING)
             src/bot_chat.c
             src/bot_policy.c
         )
-        target_include_directories(bot_chat_test PRIVATE src)
         if (NOT MSVC)
             target_compile_options(bot_chat_test PRIVATE -fshort-wchar)
         endif()
@@ -109,6 +108,10 @@ if (BUILD_TESTING)
             src/bot_trace.c
         )
         if (NOT MSVC)
+            target_compile_options(bot_console_test PRIVATE -ffunction-sections)
+            target_link_options(bot_console_test PRIVATE -Wl,--gc-sections)
+        endif()
+        if (NOT MSVC)
             target_compile_options(bot_console_test PRIVATE -fshort-wchar)
         endif()
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
@@ -121,7 +124,6 @@ if (BUILD_TESTING)
             tests/bot_team_test.c
             src/bot_team.c
         )
-        target_include_directories(bot_team_test PRIVATE src)
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
             target_compile_options(bot_team_test PRIVATE -m32)
             target_link_options(bot_team_test PRIVATE -m32)
@@ -145,7 +147,6 @@ if (BUILD_TESTING)
             src/bot_wizard.c
             src/bot_policy.c
         )
-        target_include_directories(bot_wizard_test PRIVATE src)
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
             target_compile_options(bot_wizard_test PRIVATE -m32)
             target_link_options(bot_wizard_test PRIVATE -m32)
@@ -157,7 +158,6 @@ if (BUILD_TESTING)
             src/bot_conjurer.c
             src/bot_policy.c
         )
-        target_include_directories(bot_conjurer_test PRIVATE src)
         if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
             target_compile_options(bot_conjurer_test PRIVATE -m32)
             target_link_options(bot_conjurer_test PRIVATE -m32)
