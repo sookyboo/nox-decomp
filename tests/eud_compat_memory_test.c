@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <string.h>
 
 #include "../src/eud_compat.h"
 
@@ -40,10 +39,14 @@ static int write_blob(uint32_t address, const unsigned char *data, uint32_t size
 static uint32_t raw_mapped_u32(uint32_t address)
 {
     uint32_t value = 0;
+    const unsigned char *raw;
+    unsigned int i;
 
     if (address < NOX_EUD_DATA_SPLIT_2 || address + 4u > NOX_EUD_DATA_END_EXCLUSIVE)
         return 0;
-    memcpy(&value, byte_5D4594 + (address - NOX_EUD_DATA_SPLIT_2), sizeof(value));
+    raw = byte_5D4594 + (address - NOX_EUD_DATA_SPLIT_2);
+    for (i = 0; i < sizeof(value); ++i)
+        value |= (uint32_t)raw[i] << (i * 8u);
     return value;
 }
 
