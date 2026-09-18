@@ -19,6 +19,36 @@ static void *nox_486_low_alloc(size_t size);
 static void nox_486_low_free(void *address, size_t size);
 #endif
 
+#if UINTPTR_MAX <= UINT32_MAX
+static uintptr_t nox_native_pointer_from_32(unsigned int value);
+
+wchar_t *nox_native_window_text_get_32(unsigned int object)
+{
+  return *(wchar_t **)(uintptr_t)object;
+}
+
+uintptr_t nox_native_pointer_from_32_value(unsigned int value)
+{
+  return value;
+}
+
+uintptr_t nox_native_window_field_32(unsigned int object)
+{
+  return nox_native_pointer_from_32(*(unsigned int *)((uintptr_t)object + 32));
+}
+
+uintptr_t nox_native_window_text_field_32(unsigned int object, unsigned int offset)
+{
+  uintptr_t text = nox_native_window_field_32(object);
+  return text ? nox_native_pointer_from_32(*(unsigned int *)(text + offset)) : 0;
+}
+
+uintptr_t nox_native_indirect_pointer_slot_32(const void *slot)
+{
+  return nox_native_pointer_from_32(*(const unsigned int *)slot);
+}
+#endif
+
 #if UINTPTR_MAX > UINT32_MAX
 #define NOX_TIMER_ADDRESS(address) ((uintptr_t)(address))
 #else
@@ -44,6 +74,25 @@ static void nox_486_low_free(void *address, size_t size);
 #pragma weak sub_4A0A90
 #pragma weak sub_4A07D0
 #pragma weak sub_4A0800
+#endif
+
+#if UINTPTR_MAX <= UINT32_MAX
+static uintptr_t nox_native_pointer_from_32(unsigned int value)
+{
+  return value;
+}
+
+static uintptr_t nox_native_fixed_pointer_from_32(unsigned int value)
+{
+  return value;
+}
+
+static _DWORD *nox_window_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1064888];
+}
+
+#define NOX_TIMER_MANAGER (*(_DWORD **)&byte_587000[155144])
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -438,15 +487,6 @@ static void nox_audio_parent_remove(uintptr_t object)
     }
   }
 }
-#endif
-
-#if UINTPTR_MAX <= UINT32_MAX
-static uintptr_t nox_native_pointer_from_32(unsigned int value)
-{
-  return value;
-}
-
-#define NOX_TIMER_MANAGER (*(_DWORD **)&byte_587000[155144])
 #endif
 
 static void nox_window_draw_callback_set(int object, int (*callback)(int, int))

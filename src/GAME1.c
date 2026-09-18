@@ -34,9 +34,22 @@ void (*mainloop_exit)();
 int g_v20, g_v21;
 int g_a1;
 intptr_t g_a2;
+
+static void *nox_native_legacy_pointer(const void *address);
 #if UINTPTR_MAX > UINT32_MAX
 uintptr_t nox_native_last_csf_narrow;
 uintptr_t nox_native_audio_state;
+#endif
+
+#if UINTPTR_MAX <= UINT32_MAX
+#ifndef NOX_INPUT_EVENT_CURSOR
+#define NOX_INPUT_EVENT_CURSOR (*(char **)&byte_5D4594[2618912])
+#endif
+
+static void *nox_native_legacy_pointer(const void *address)
+{
+  return *(void *const *)address;
+}
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
@@ -58825,7 +58838,7 @@ int __cdecl sub_4444C0(int a1, int a2)
 #if UINTPTR_MAX > UINT32_MAX
   return nox_cmd_localized_count;
 #else
-  HSAMPLE v2; // eax
+  int v2; // eax
   int result; // eax
 
   v2 = *(_DWORD *)&byte_5D4594[823708];
