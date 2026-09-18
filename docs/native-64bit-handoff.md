@@ -51,8 +51,8 @@ addresses from low 32-bit values belonging to the PE image. They recognize the
 image's text/data/BSS ranges explicitly; a fixed numeric threshold is not
 portable because the image and low allocations can overlap that threshold.
 
-On Windows x86_64, the low-address allocator advances a dense page-aligned
-cursor and accepts only exact `VirtualAlloc` hints. Wine may otherwise return
+On Windows x86_64, the low-address allocator advances an allocation-granularity
+aligned cursor and accepts only exact `VirtualAlloc` hints. Wine may otherwise return
 the next free 16 MiB region for a tiny allocation, quickly exhausting the
 signed 32-bit address window while parsing `SoundSet.bin`.
 
@@ -187,6 +187,12 @@ The current branch contains native-width handling for:
   display-state, palette, timer-callback, and audio-object faults. The direct
   test currently reaches audio initialization and exits cleanly when Wine has
   no audio device; OpenAL reports `0xa004` in that environment.
+- Native Windows reserves virtual memory at the allocation granularity
+  reported by `SYSTEM_INFO.dwAllocationGranularity` (normally 64 KiB), not at
+  the page size. The low-address allocator advances aligned `VirtualAlloc`
+  hints by that granularity; using 4 KiB steps makes every exact-address check
+  fail and leaves the first x64 audio record null. The audio-record
+  constructors also reject allocation failure before touching the record.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to

@@ -22,13 +22,20 @@ static inline void *nox_low_alloc(size_t size)
     SYSTEM_INFO system_info;
     GetSystemInfo(&system_info);
     size_t page_size = (size_t)system_info.dwPageSize;
+    size_t allocation_granularity = (size_t)system_info.dwAllocationGranularity;
     size_t mapped_size = (size + page_size - 1) & ~(page_size - 1);
     static uintptr_t next_hint = 0x10000000u;
+
+    if (!allocation_granularity)
+        return 0;
+    next_hint = (next_hint + allocation_granularity - 1) &
+                ~(allocation_granularity - 1);
 
     /* Several recovered consumers cast the legacy slot through signed int
      * before widening it again. Keep allocations below 2 GiB, not merely
      * below the 4 GiB DWORD boundary, so those casts cannot sign-extend. */
-    for (uintptr_t hint = next_hint; hint < 0x70000000u; hint += page_size) {
+    for (uintptr_t hint = next_hint; hint < 0x70000000u;
+         hint += allocation_granularity) {
         void *result = VirtualAlloc((void *)hint, mapped_size,
                                      MEM_RESERVE | MEM_COMMIT,
                                      PAGE_READWRITE);

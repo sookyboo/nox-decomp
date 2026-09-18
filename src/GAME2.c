@@ -44896,6 +44896,8 @@ _DWORD *__cdecl sub_486FE0(uintptr_t a1)
 #else
   v1 = malloc(0x58u);
 #endif
+  if ( !v1 )
+    return 0;
   memset(v1, 0, 0x58u);
   sub_425770(v1);
   v1[4] = 0;
@@ -45056,6 +45058,8 @@ _DWORD *__cdecl sub_4871C0(int a1, int a2, const void *a3)
 #else
   v4 = malloc(0x108u);
 #endif
+  if ( !v4 )
+    return 0;
   memset(v4, 0, 0x108u);
   sub_425770(v4);
   v4[6] = a2;
