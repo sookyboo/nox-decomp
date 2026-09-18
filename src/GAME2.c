@@ -115,11 +115,24 @@ static unsigned int nox_window_value_pointer_count;
 
 static uintptr_t nox_native_pointer_from_32(unsigned int value)
 {
+  uintptr_t candidate;
+
   if ( !value )
     return 0;
-  if ( value < 0x50000000u )
-    return value;
-  return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+  candidate = ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+  /* Static game state is addressed through recovered 32-bit slots too.  Its
+   * low 32 bits are below 0x50000000 in the PE image used by Wine, so the
+   * old threshold incorrectly treated those values as native low pointers. */
+  if ((candidate >= ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+       + 0x40000000u
+       && candidate < ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+                    + 0x41000000u)
+      || (candidate >= (uintptr_t)&byte_587000[0]
+       && candidate < (uintptr_t)&byte_587000[316820])
+      || (candidate >= (uintptr_t)&byte_5D4594[0]
+          && candidate < (uintptr_t)&byte_5D4594[3844309]))
+    return candidate;
+  return value;
 }
 
 static uintptr_t nox_native_fixed_pointer_from_32(unsigned int value)
@@ -43929,7 +43942,7 @@ LPVOID sub_486110()
   {
     if ( *(_DWORD *)&byte_5D4594[3798780] )
     {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
       if ( nox_486_primary_low )
         nox_486_low_free(*(LPVOID *)&byte_5D4594[3798780],
                          (size_t)*(uint32_t *)&byte_5D4594[3801808]
@@ -43938,13 +43951,13 @@ LPVOID sub_486110()
 #endif
       free(*(LPVOID *)&byte_5D4594[3798780]);
       *(_DWORD *)&byte_5D4594[3798780] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
       nox_486_primary_low = 0;
 #endif
     }
     if ( *(_DWORD *)&byte_5D4594[3798788] )
     {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
       if ( nox_486_secondary_low )
         nox_486_low_free(*(LPVOID *)&byte_5D4594[3798788],
                          (size_t)*(uint32_t *)&byte_5D4594[3801808]
@@ -43953,14 +43966,14 @@ LPVOID sub_486110()
 #endif
       free(*(LPVOID *)&byte_5D4594[3798788]);
       *(_DWORD *)&byte_5D4594[3798788] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
       nox_486_secondary_low = 0;
 #endif
     }
   }
   if ( *(_DWORD *)&byte_5D4594[3798784] )
   {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     if ( nox_486_primary_rows_low )
       nox_486_low_free(*(LPVOID *)&byte_5D4594[3798784],
                        4u * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
@@ -43968,14 +43981,14 @@ LPVOID sub_486110()
 #endif
     free(*(LPVOID *)&byte_5D4594[3798784]);
     *(_DWORD *)&byte_5D4594[3798784] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     nox_486_primary_rows_low = 0;
 #endif
   }
   result = *(LPVOID *)&byte_5D4594[3798776];
   if ( *(_DWORD *)&byte_5D4594[3798776] )
   {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     if ( nox_486_secondary_rows_low )
       nox_486_low_free(*(LPVOID *)&byte_5D4594[3798776],
                        4u * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
@@ -43983,7 +43996,7 @@ LPVOID sub_486110()
 #endif
     free(*(LPVOID *)&byte_5D4594[3798776]);
     *(_DWORD *)&byte_5D4594[3798776] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     nox_486_secondary_rows_low = 0;
 #endif
   }
@@ -44022,7 +44035,7 @@ int sub_4861D0()
 {
   int result; // eax
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   if ( *(_DWORD *)&byte_5D4594[1193200] )
     return 1;
 
@@ -44073,7 +44086,7 @@ int sub_486230()
   int v4; // ecx
   int v5; // edx
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   result = (int)(intptr_t)nox_486_low_alloc(
       4u * (size_t)*(uint32_t *)&byte_5D4594[3801788]);
   nox_486_primary_rows_low = result != 0;
@@ -44100,7 +44113,7 @@ int sub_486230()
     }
     if ( byte_5D4594[3801772] & 0x40 )
     {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
       result = (int)(intptr_t)nox_486_low_alloc(4u * (size_t)v1);
       nox_486_secondary_rows_low = result != 0;
 #else
@@ -44416,7 +44429,7 @@ char *__cdecl sub_4866F0(const char *a1, const char *a2)
   char v20[260]; // [esp+1Ch] [ebp-244h]
   struct _WIN32_FIND_DATAA FindFileData; // [esp+120h] [ebp-140h]
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   v2 = (char *)nox_486_low_alloc(0x120u);
 #else
   v2 = (char *)malloc(0x120u);
@@ -44447,7 +44460,7 @@ char *__cdecl sub_4866F0(const char *a1, const char *a2)
   *((_DWORD *)v2 + 1) = *(_DWORD *)&v17[8];
   if ( *(int *)&v17[8] <= 0 )
     goto LABEL_14;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   v11 = nox_486_low_alloc(36 * *(_DWORD *)&v17[8]);
 #else
   v11 = malloc(36 * *(_DWORD *)&v17[8]);
@@ -44524,12 +44537,12 @@ void __cdecl sub_4869C0(LPVOID lpMem)
   if ( *((_DWORD *)lpMem + 68) )
     fclose(*((FILE **)lpMem + 68));
   if ( *(_DWORD *)lpMem )
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     nox_486_low_free(*(LPVOID *)lpMem, 36u * (size_t)*((_DWORD *)lpMem + 1));
 #else
     free(*(LPVOID *)lpMem);
 #endif
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   nox_486_low_free(lpMem, 0x120u);
 #else
   free(lpMem);
@@ -44844,7 +44857,7 @@ _DWORD *__cdecl sub_486FE0(uintptr_t a1)
 {
   _DWORD *v1; // esi
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   v1 = nox_486_low_alloc(0x58u);
 #else
   v1 = malloc(0x58u);
@@ -45004,7 +45017,7 @@ _DWORD *__cdecl sub_4871C0(int a1, int a2, const void *a3)
 #else
   v3 = *(_DWORD *)(a1 + 12);
 #endif
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   v4 = nox_486_low_alloc(0x108u);
 #else
   v4 = malloc(0x108u);
@@ -45059,7 +45072,7 @@ void __cdecl sub_4872C0(LPVOID lpMem)
   *(_DWORD *)(v1 + 16) = v2;
   if ( v2 < 0 )
     *(_DWORD *)(*((_DWORD *)lpMem + 5) + 16) = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   nox_486_low_free(lpMem, 0x108u);
 #else
   free(lpMem);

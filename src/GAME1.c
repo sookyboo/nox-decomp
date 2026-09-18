@@ -51,32 +51,17 @@ static void *nox_native_legacy_pointer(const void *address)
 }
 #endif
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 int nox_palette_lut_low;
 
 static void *nox_palette_lut_alloc(size_t size)
 {
-  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
-  size_t mapped_size;
-  void *result;
-
-  if ( !page_size )
-    return 0;
-  mapped_size = (size + page_size - 1) & ~(page_size - 1);
-  result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
-                MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
-  return result == MAP_FAILED ? 0 : result;
+  return nox_low_alloc(size);
 }
 
 void nox_palette_lut_free(void *address, size_t size)
 {
-  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
-  size_t mapped_size;
-
-  if ( !address || !page_size )
-    return;
-  mapped_size = (size + page_size - 1) & ~(page_size - 1);
-  munmap(address, mapped_size);
+  nox_low_free(address, size);
 }
 #endif
 
@@ -331,7 +316,7 @@ static size_t nox_csf_utf16_length(const uint16_t *string)
 #define NOX_CONFIG_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #endif
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 #define NOX_FONT_ALLOC(size) nox_legacy_low_alloc(size)
 #define NOX_FONT_FREE(address, size) nox_legacy_low_free(address, size)
 #else
@@ -18945,7 +18930,7 @@ char *__cdecl sub_413F90(const char *a1)
 {
   char *result; // eax
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   result = (char *)nox_legacy_low_alloc(strlen(a1) + 1);
 #else
   result = (char *)malloc(strlen(a1) + 1);
@@ -46793,7 +46778,7 @@ int sub_434DA0()
   v0 = 7;
   v1 = 0x7FFF;
 LABEL_6:
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   result = (int)(intptr_t)nox_palette_lut_alloc((size_t)v1 + 3u);
   nox_palette_lut_low = result != 0;
 #else

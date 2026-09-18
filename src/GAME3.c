@@ -28,11 +28,21 @@ static _DWORD *nox_server_transition_right;
 
 static uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
+  uintptr_t candidate;
+
   if ( !value )
     return 0;
-  if ( value < 0x50000000u )
-    return value;
-  return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+  candidate = ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
+  if ((candidate >= ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+       + 0x40000000u
+       && candidate < ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
+                    + 0x41000000u)
+      || (candidate >= (uintptr_t)&byte_587000[0]
+          && candidate < (uintptr_t)&byte_587000[316820])
+      || (candidate >= (uintptr_t)&byte_5D4594[0]
+          && candidate < (uintptr_t)&byte_5D4594[3844309]))
+    return candidate;
+  return value;
 }
 #else
 static uintptr_t nox_game3_pointer_from_32(unsigned int value)
@@ -11217,7 +11227,7 @@ int *__cdecl sub_4B0680(unsigned __int8 a1, unsigned __int8 a2)
       result = (int *)result[18];
       if ( !result )
       {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
         v5 = (int *)nox_game3_low_alloc(0x50u);
         if ( v5 != (int *)-1 )
           memset(v5, 0, 0x50u);
@@ -11235,7 +11245,7 @@ int *__cdecl sub_4B0680(unsigned __int8 a1, unsigned __int8 a2)
   }
   else
   {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     v5 = (int *)nox_game3_low_alloc(0x50u);
     if ( v5 != (int *)-1 )
       memset(v5, 0, 0x50u);
@@ -11257,7 +11267,7 @@ LABEL_11:
     v5[12] = *(_DWORD *)(*(_DWORD *)&byte_5D4594[3799572] + 216);
     v5[13] = *(_DWORD *)(*(_DWORD *)&byte_5D4594[3799572] + 220);
     v5[14] = *(_DWORD *)(*(_DWORD *)&byte_5D4594[3799572] + 224);
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     v5[16] = (int)nox_game3_low_alloc(v6);
     if ( v5[16] != (int)-1 )
       memset((void *)(uintptr_t)(unsigned int)v5[16], 0, v6);
@@ -11294,7 +11304,7 @@ int __cdecl sub_4B07D0(LPVOID lpMem)
     if ( lpMem == *(LPVOID *)&byte_5D4594[1312460] )
 #endif
       *(_DWORD *)&byte_5D4594[1312460] = *((_DWORD *)lpMem + 18);
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
     nox_game3_low_free((void *)(uintptr_t)(unsigned int)*((unsigned int *)lpMem + 16), *((unsigned int *)lpMem + 3));
     nox_game3_low_free(lpMem, 0x50u);
 #else
@@ -11309,13 +11319,13 @@ int __cdecl sub_4B07D0(LPVOID lpMem)
 int (__cdecl *__cdecl sub_4B0820(int a1, int a2, int a3))(_DWORD)
 {
   int (__cdecl *v3)(_DWORD); // esi
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   char *v5 = (char *)nox_game3_low_alloc(12u);
 #else
   char v5[12]; // [esp+4h] [ebp-Ch]
 #endif
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   if ( v5 == (char *)-1 )
     return 0;
   memset(v5, 0, 12u);
@@ -11328,7 +11338,7 @@ int (__cdecl *__cdecl sub_4B0820(int a1, int a2, int a3))(_DWORD)
   v3 = sub_47D5B0(sub_4B0B20);
 #endif
   sub_47D2C0((int)v5, a2, a3);
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   nox_game3_low_free(v5, 12u);
 #endif
 #if UINTPTR_MAX > UINT32_MAX
@@ -19510,7 +19520,7 @@ _DWORD *__cdecl sub_4BD280(int a1, int a2)
   int v5; // edi
 
   v2 = a2 + 4;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   result = nox_game3_low_alloc(a1 * (a2 + 4) + 4);
 #else
   result = malloc(a1 * (a2 + 4) + 4);
@@ -19538,7 +19548,7 @@ _DWORD *__cdecl sub_4BD280(int a1, int a2)
 //----- (004BD2D0) --------------------------------------------------------
 void __cdecl sub_4BD2D0(LPVOID lpMem)
 {
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   /* Pool sizes are not retained in the recovered header. These pools live
    * until process teardown; keeping the mapping avoids passing a truncated
    * host pointer to free while preserving the packed pool links. */
@@ -19592,7 +19602,7 @@ _DWORD *__cdecl sub_4BD340(int a1, int a2, int a3, int a4)
 {
   _DWORD *v4; // esi
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   v4 = nox_game3_low_alloc(0x1Cu);
 #else
   v4 = malloc(0x1Cu);
@@ -19620,7 +19630,7 @@ void __cdecl sub_4BD3C0(LPVOID lpMem)
     sub_4BD2D0(*((LPVOID *)lpMem + 1));
   if ( *((_DWORD *)lpMem + 2) )
     sub_4BD2D0(*((LPVOID *)lpMem + 2));
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   nox_game3_low_free(lpMem, 0x1Cu);
 #else
   free(lpMem);
@@ -19818,7 +19828,7 @@ _DWORD *__cdecl sub_4BD720(int a1)
 {
   _DWORD *v1; // esi
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   v1 = nox_game3_low_alloc(0x138u);
 #else
   v1 = malloc(0x138u);
@@ -19842,7 +19852,7 @@ _DWORD *__cdecl sub_4BD720(int a1)
 void __cdecl sub_4BD7A0(LPVOID lpMem)
 {
   (*(void (__cdecl **)(LPVOID))(*((_DWORD *)lpMem + 43) + 8))(lpMem);
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
   nox_game3_low_free(lpMem, 0x138u);
 #else
   free(lpMem);

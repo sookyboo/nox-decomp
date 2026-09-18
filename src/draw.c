@@ -97,7 +97,7 @@ DWORD dword_973C64;
 static int (*nox_movie_done_callback)(void);
 #endif
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 static void *nox_display_state_a;
 static void *nox_display_state_b;
 static int nox_gamma_red_low;
@@ -2804,53 +2804,53 @@ void sub_433C20()
 	}
 	if (*(_DWORD *)&byte_5D4594[3804668])
 	{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		if (nox_palette_lut_low)
 			nox_palette_lut_free(*(LPVOID *)&byte_5D4594[3804668], 0x8000u);
 		else
 #endif
 		free(*(LPVOID *)&byte_5D4594[3804668]);
 		*(_DWORD *)&byte_5D4594[3804668] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		nox_palette_lut_low = 0;
 #endif
 	}
 	if (*(_DWORD *)&byte_5D4594[3804672])
 	{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		if (nox_gamma_red_low)
 			nox_legacy_low_free(*(LPVOID *)&byte_5D4594[3804672], 0x202u);
 		else
 #endif
 		free(*(LPVOID *)&byte_5D4594[3804672]);
 		*(_DWORD *)&byte_5D4594[3804672] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		nox_gamma_red_low = 0;
 #endif
 	}
 	if (*(_DWORD *)&byte_5D4594[3804656])
 	{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		if (nox_gamma_green_low)
 			nox_legacy_low_free(*(LPVOID *)&byte_5D4594[3804656], 0x202u);
 		else
 #endif
 		free(*(LPVOID *)&byte_5D4594[3804656]);
 		*(_DWORD *)&byte_5D4594[3804656] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		nox_gamma_green_low = 0;
 #endif
 	}
 	if (*(_DWORD *)&byte_5D4594[3804664])
 	{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		if (nox_gamma_blue_low)
 			nox_legacy_low_free(*(LPVOID *)&byte_5D4594[3804664], 0x202u);
 		else
 #endif
 		free(*(LPVOID *)&byte_5D4594[3804664]);
 		*(_DWORD *)&byte_5D4594[3804664] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		nox_gamma_blue_low = 0;
 #endif
 	}
@@ -2864,7 +2864,7 @@ int __cdecl sub_444930(HWND a1, int a2, int a3, int a4, int a5)
 	int result; // eax
 
 	*(_DWORD *)&byte_5D4594[823776] = 0;
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 	if (!nox_display_state_a)
 		nox_display_state_a = nox_legacy_low_alloc(0x420u);
 	if (!nox_display_state_a)
@@ -2878,7 +2878,7 @@ int __cdecl sub_444930(HWND a1, int a2, int a3, int a4, int a5)
     //printf("%s: %d\n", __FUNCTION__, result);
 	if (result)
 	{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		if (!nox_display_state_b)
 			nox_display_state_b = nox_legacy_low_alloc(0x420u);
 		if (!nox_display_state_b)
@@ -4138,7 +4138,7 @@ int sub_434CC0()
 		v0 = dword_69A014;
 		dword_69A014 = sub_4351C0;
 	}
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 	result = (int)(intptr_t)nox_legacy_low_alloc(0x202u);
 	nox_gamma_red_low = result != 0;
 #else
@@ -4147,7 +4147,7 @@ int sub_434CC0()
 	*(_DWORD *)&byte_5D4594[3804672] = result;
 	if (result)
 	{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 		result = (int)(intptr_t)nox_legacy_low_alloc(0x202u);
 		nox_gamma_green_low = result != 0;
 #else
@@ -4156,7 +4156,7 @@ int sub_434CC0()
 		*(_DWORD *)&byte_5D4594[3804656] = result;
 		if (result)
 		{
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 			result = (int)(intptr_t)nox_legacy_low_alloc(0x202u);
 			nox_gamma_blue_low = result != 0;
 #else

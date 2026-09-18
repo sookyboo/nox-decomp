@@ -38,10 +38,18 @@ recovered record/global/file/wire layout      → preserve fixed-width fields
 The temporary records whose recovered layouts retain 32-bit pointer slots are
 allocated by the low-address helpers in `GAME1.c`, `GAME2.c`, `GAME3.c`,
 `GAME4.c`, and `draw.c`. Linux uses `mmap(... MAP_32BIT ...)`; Windows x86_64
-uses `VirtualAlloc` hints below the 4 GiB boundary. The shared implementation
-is `src/nox_low_memory.h`, and callers continue to free mappings through the
+uses `VirtualAlloc` hints below 2 GiB. The stricter Windows limit matters
+because some recovered consumers cast a pointer through a signed `int` before
+widening it again; merely staying below 4 GiB can therefore sign-extend an
+address into the invalid `0xFFFFFFFF...` range. The shared implementation is
+`src/nox_low_memory.h`, and callers continue to free mappings through the
 matching helper. The Windows-focused legacy-memory test fixture follows the
 same contract instead of depending on POSIX `sys/mman.h`.
+
+The x86_64 pointer reconstruction helpers must also distinguish low heap
+addresses from low 32-bit values belonging to the PE image. They recognize the
+image's text/data/BSS ranges explicitly; a fixed numeric threshold is not
+portable because the image and low allocations can overlap that threshold.
 
 The general rationale is in
 [`architecture-compatibility-tests.md`](../architecture-compatibility-tests.md).
@@ -161,6 +169,12 @@ The current branch contains native-width handling for:
 - the transition records used by `sub_4AA270()`/`sub_4AA490()`, which retain
   their host pointers in sidecars, and the 32-bit transition callbacks are
   reconstructed before invocation.
+- Windows x86_64 startup now uses the same low-address paths as Linux for the
+  graphics, audio, timer, and game-object records that retain DWORD links.
+  This fixes the direct Wine smoke test's sequential row-buffer,
+  display-state, palette, timer-callback, and audio-object faults. The direct
+  test currently reaches audio initialization and exits cleanly when Wine has
+  no audio device; OpenAL reports `0xa004` in that environment.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
