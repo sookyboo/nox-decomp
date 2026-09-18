@@ -58,6 +58,11 @@ used:
 - `start.sh` selects `noxd.x86_64` and the x86_64 dynamic loader/library roots;
 - `server.sh`, `startgen.sh`, and `portmasterstart.sh` select
   `noxd.x86_64` through `RUN_ARCH=x86_64`.
+- `Noxd.bat` selects `noxd.x86_64.exe` when its `NOX_FORCE_64BIT` setting is
+  changed to `Y` on x86_64 Windows.
+- The GUI launcher reads `force_64bit = 1` in `[launcher]` from
+  `winlaunch/launch-nox-decomp.ini`. Its `[env]` `NOX_FORCE_64BIT=1` setting is
+  exposed in the launcher UI and is also honored when selecting the executable.
 
 The override is only honored when the detected device architecture is
 x86_64. ARM mappings remain ARMHF, and 32-bit x86 hosts remain i386. The

@@ -28,10 +28,20 @@ set "DEVICE_ARCH=x86"
 if /i "%PROCESSOR_ARCHITECTURE%"=="AMD64" set "DEVICE_ARCH=x86_64"
 if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "DEVICE_ARCH=aarch64"
 
+REM Set to Y to run the native x86_64 binary on x86_64 Windows.
+set "NOX_FORCE_64BIT=N"
+
 set "RUN_ARCH=%DEVICE_ARCH%"
+if /i "%NOX_FORCE_64BIT%"=="Y" if /i "%DEVICE_ARCH%"=="x86_64" goto :force_64bit_arch
 if /i "%RUN_ARCH%"=="x86_64" set "RUN_ARCH=i386"
 if /i "%RUN_ARCH%"=="amd64"  set "RUN_ARCH=i386"
 if /i "%RUN_ARCH%"=="aarch64" set "RUN_ARCH=armhf"
+goto :arch_selected
+
+:force_64bit_arch
+set "RUN_ARCH=x86_64"
+
+:arch_selected
 
 REM ---------------------------
 REM Paths

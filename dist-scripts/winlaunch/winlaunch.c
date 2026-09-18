@@ -955,6 +955,7 @@ typedef struct LauncherCfg {
     wchar_t log_file[MAX_PATH * 4];
     int fullscreen;
     int bits;
+    bool force_64bit;
     wchar_t system_resolution[32];
 } LauncherCfg;
 
@@ -969,6 +970,7 @@ static void cfg_defaults(LauncherCfg* c) {
     wcscpy_s(c->log_file, ARRAYSIZE(c->log_file), L"log.txt");
     c->fullscreen = 1;
     c->bits = 16;
+    c->force_64bit = false;
     wcscpy_s(c->system_resolution, ARRAYSIZE(c->system_resolution), L"native");
 }
 
@@ -1014,6 +1016,9 @@ static void load_launcher_cfg(const IniDoc* doc, LauncherCfg* c) {
 
     v = ini_get_launcher_value(doc, L"bits");
     if (v) { if (parse_int32(v, &iv) && iv > 0) c->bits = iv; free(v); }
+
+    v = ini_get_launcher_value(doc, L"force_64bit");
+    if (v) { if (parse_bool01(v, &b)) c->force_64bit = b; free(v); }
 
     v = ini_get_launcher_value(doc, L"system_resolution");
     if (v) { wcsncpy(c->system_resolution, v, ARRAYSIZE(c->system_resolution)-1); c->system_resolution[ARRAYSIZE(c->system_resolution)-1]=0; free(v); }
@@ -2481,7 +2486,17 @@ static Metrics metrics_get(HWND hwnd) {
 // -------------------------
 // Arch detection + tool paths
 // -------------------------
-static void detect_arch(AppState* a) {
+static bool ini_force_64bit(const IniDoc* doc) {
+    wchar_t* value = ini_get_env_value(doc, L"NOX_FORCE_64BIT");
+    bool enabled = false;
+    if (value) {
+        parse_bool01(value, &enabled);
+        free(value);
+    }
+    return enabled;
+}
+
+static void detect_arch(AppState* a, bool force_64bit) {
     // Detect native OS arch (not the current process arch)
     SYSTEM_INFO si;
     ZeroMemory(&si, sizeof(si));
@@ -2503,12 +2518,12 @@ static void detect_arch(AppState* a) {
             break;
     }
 
-    // RUN_ARCH mapping (your existing policy)
-    // - x86_64 host runs i386 build
+    // RUN_ARCH mapping (the native x86_64 build is opt-in).
+    // - x86_64 host runs i386 by default, or x86_64 when force_64bit is set
     // - arm64 host runs armhf build
     wcscpy_s(a->runArch, ARRAYSIZE(a->runArch), a->deviceArch);
 
-    if (_wcsicmp(a->runArch, L"x86_64") == 0) wcscpy_s(a->runArch, ARRAYSIZE(a->runArch), L"i386");
+    if (_wcsicmp(a->runArch, L"x86_64") == 0 && !force_64bit) wcscpy_s(a->runArch, ARRAYSIZE(a->runArch), L"i386");
     if (_wcsicmp(a->runArch, L"amd64")  == 0) wcscpy_s(a->runArch, ARRAYSIZE(a->runArch), L"i386");
     if (_wcsicmp(a->runArch, L"aarch64")== 0) wcscpy_s(a->runArch, ARRAYSIZE(a->runArch), L"armhf");
 }
@@ -3496,7 +3511,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, PWSTR lpCmdLine, int nShow
 
     // Load launcher cfg + schema
     load_launcher_cfg(&g_app.ini, &g_app.cfg);
-    detect_arch(&g_app);
+    detect_arch(&g_app, g_app.cfg.force_64bit || ini_force_64bit(&g_app.ini));
 
     // default to launcher-local game root until a source is chosen
     wcsncpy(g_app.gamedir, g_app.launcherDir, ARRAYSIZE(g_app.gamedir) - 1);
