@@ -651,10 +651,23 @@ link. The allocator used by recovered 32-bit pointer records uses
 `VirtualAlloc` below the 4 GiB boundary on Windows; the focused legacy-memory
 fixture uses the same strategy instead of requiring POSIX `sys/mman.h`.
 
-Runtime CTest execution still requires a 64-bit-capable Wine installation. The
-sandbox used for the build did not have `wine64`, so use the command below in
-an image that includes Wine before treating the runtime test result as
-validated.
+Runtime CTest execution requires a 64-bit-capable Wine installation. Install
+Wine together with the virtual X11 display packages used by SDL for headless
+GUI startup:
+
+```sh
+sudo apt-get install -y --no-install-recommends \
+  wine64 \
+  xvfb xauth \
+  libgl1-mesa-dri libglx-mesa0 libegl1-mesa libegl-mesa0
+```
+
+Verify that the native Wine executable is selected:
+
+```sh
+command -v wine64
+wine64 --version
+```
 
 For runtime testing, install a 64-bit-capable Wine package and pass its
 executable as CMake's cross-compiling emulator. Make the dependency DLLs
@@ -670,6 +683,40 @@ cmake -S . -B build-win64 \
 WINEPATH='Z:\\opt\\sdl2-win64\\bin;Z:\\opt\\ffmpeg-win64\\bin;Z:\\opt\\openal-win64\\bin;Z:\\opt\\glew-win64\\bin' \
   ctest --test-dir build-win64 --output-on-failure
 ```
+
+When the DLLs are copied beside the test executables, the bundle directory
+can be used as the Wine search path instead. In this checkout the runnable
+64-bit bundle is:
+
+```text
+build-win64/src/noxd.x86_64/
+├── noxd.exe
+├── SDL2.dll, OpenAL32.dll, glew32.dll
+├── avcodec-61.dll, avdevice-61.dll, avfilter-10.dll
+├── avformat-61.dll, avutil-59.dll, swresample-5.dll, swscale-8.dll
+├── libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll
+└── gamefiles/app/
+```
+
+Run the game executable directly from `gamefiles/app`, which is the working
+directory expected by the game's asset loaders. `xvfb-run` supplies the X11
+display; `LIBGL_ALWAYS_SOFTWARE=1` avoids requiring a host GPU, and
+`NOX_GAMEPAD=0` avoids probing unavailable input devices:
+
+```sh
+cd build-win64/src/noxd.x86_64/gamefiles/app
+timeout --signal=TERM 30s env -u DISPLAY \
+  WINEDEBUG=-all WINEPATH="$PWD/.." \
+  LIBGL_ALWAYS_SOFTWARE=1 NOX_GAMEPAD=0 \
+  xvfb-run -a -s '-screen 0 1280x1024x24' \
+  wine64 ../../noxd.exe
+```
+
+This verifies DLL loading, SDL initialization, virtual-window creation, and
+startup against the bundled `gamefiles/app` data without using the Windows
+launcher. A non-zero exit after those stages is an executable startup failure,
+not evidence that Xvfb is unavailable. For a minimal display-only check,
+remove the game executable and run `xvfb-run -a xdpyinfo` instead.
 
 Inspect the final PE imports when assembling a runnable bundle:
 
