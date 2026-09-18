@@ -1,4 +1,4 @@
-#include "bot_team.h"
+#include "../src/bot_team.h"
 
 #define SELF 100
 #define OWN_FLAG 200
