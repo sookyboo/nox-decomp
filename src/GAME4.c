@@ -1,11 +1,13 @@
 #include "proto.h"
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-#include <sys/mman.h>
-#include <unistd.h>
+#if UINTPTR_MAX > UINT32_MAX
+#include "nox_low_memory.h"
 
 static void *nox_game4_low_alloc(size_t size)
 {
+#if defined(_WIN32)
+  return nox_low_alloc(size);
+#else
   size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
   size_t mapped_size;
   void *result;
@@ -16,6 +18,7 @@ static void *nox_game4_low_alloc(size_t size)
   result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
   return result == MAP_FAILED ? 0 : result;
+#endif
 }
 #endif
 

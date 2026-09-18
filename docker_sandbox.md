@@ -645,12 +645,16 @@ cmake --build build-win64 -j"$(nproc)"
 x86_64 MinGW compiler. Do not mix `/opt/*-win32` and `/opt/*-win64` paths in
 one configure or `PKG_CONFIG_LIBDIR` value.
 
-The dependency-aware configure step has been validated in the development
-sandbox. The full repository build is not yet a clean x86_64 build: current
-failures are in project code and test portability, including unresolved
-64-bit runtime symbols and the POSIX-only `tests/legacy_memory.h` dependency
-on `sys/mman.h`. These failures are not fixed by installing additional MinGW
-or third-party library packages.
+The dependency-aware configure and full repository build have been validated
+in the development sandbox. All 21 Windows x86_64 test executables compile and
+link. The allocator used by recovered 32-bit pointer records uses
+`VirtualAlloc` below the 4 GiB boundary on Windows; the focused legacy-memory
+fixture uses the same strategy instead of requiring POSIX `sys/mman.h`.
+
+Runtime CTest execution still requires a 64-bit-capable Wine installation. The
+sandbox used for the build did not have `wine64`, so use the command below in
+an image that includes Wine before treating the runtime test result as
+validated.
 
 For runtime testing, install a 64-bit-capable Wine package and pass its
 executable as CMake's cross-compiling emulator. Make the dependency DLLs

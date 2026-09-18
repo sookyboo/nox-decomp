@@ -10,9 +10,8 @@
 #include "bot_trace.h"
 #endif
 #include "proto.h"
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-#include <sys/mman.h>
-#include <unistd.h>
+#if UINTPTR_MAX > UINT32_MAX
+#include "nox_low_memory.h"
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -60,21 +59,29 @@ static _DWORD *nox_server_menu_root_get(void)
 #endif
 }
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 static void *nox_game3_low_alloc(size_t size)
 {
+#if defined(_WIN32)
+  return nox_low_alloc(size);
+#else
   size_t page = (size_t)sysconf(_SC_PAGESIZE);
   size_t mapped = (size + page - 1) & ~(page - 1);
   return mmap(0, mapped, PROT_READ | PROT_WRITE,
               MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+#endif
 }
 
 static void nox_game3_low_free(void *address, size_t size)
 {
+#if defined(_WIN32)
+  nox_low_free(address, size);
+#else
   size_t page = (size_t)sysconf(_SC_PAGESIZE);
   size_t mapped = (size + page - 1) & ~(page - 1);
   if ( address )
     munmap(address, mapped);
+#endif
 }
 #endif
 

@@ -889,6 +889,7 @@ if (BUILD_TESTING)
             inventory_hit_chain_test
             inventory_durability_test
             cheat_spell_test
+            manual_spell_input_test
             gamepad_radial_test
             gamepad_wordset_test
             gamepad_mouse_scaling_test

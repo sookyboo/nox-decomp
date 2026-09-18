@@ -4,8 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 
 /* Focused fixtures model records from the original 32-bit game. Their
  * pointer slots remain four bytes wide in the recovered record layout. */
@@ -14,7 +18,28 @@ static inline void *nox_test_legacy_alloc_aligned(size_t size, size_t alignment)
     if (!size || alignment == 0 || (alignment & (alignment - 1)) != 0)
         return NULL;
 
-#if defined(__x86_64__)
+#if defined(_WIN32)
+    SYSTEM_INFO system_info;
+    GetSystemInfo(&system_info);
+    size_t page_size = (size_t)system_info.dwPageSize;
+    size_t mapped_size = (size + alignment - 1) & ~(alignment - 1);
+    mapped_size = (mapped_size + page_size - 1) & ~(page_size - 1);
+    for (uintptr_t hint = 0x10000000u; hint < 0xf0000000u; hint += 0x01000000u) {
+        void *mapping = VirtualAlloc((void *)hint, mapped_size,
+                                     MEM_RESERVE | MEM_COMMIT,
+                                     PAGE_READWRITE);
+        if (!mapping)
+            continue;
+        uintptr_t address = ((uintptr_t)mapping + alignment - 1) & ~(alignment - 1);
+        if (address <= UINT32_MAX - size) {
+            void *memory = (void *)address;
+            memset(memory, 0, size);
+            return memory;
+        }
+        VirtualFree(mapping, 0, MEM_RELEASE);
+    }
+    return NULL;
+#elif defined(__x86_64__)
     long page_size = sysconf(_SC_PAGESIZE);
     if (page_size <= 0)
         return NULL;

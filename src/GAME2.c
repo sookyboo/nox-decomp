@@ -12,9 +12,8 @@ static int **nox_native_488b_state;
 #define NOX_488B_STATE (*(int ***)&byte_5D4594[1193348])
 #endif
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-#include <sys/mman.h>
-#include <unistd.h>
+#if UINTPTR_MAX > UINT32_MAX
+#include "nox_low_memory.h"
 static void *nox_486_low_alloc(size_t size);
 static void nox_486_low_free(void *address, size_t size);
 #endif
@@ -53,27 +52,6 @@ uintptr_t nox_native_indirect_pointer_slot_32(const void *slot)
 #define NOX_TIMER_ADDRESS(address) ((uintptr_t)(address))
 #else
 #define NOX_TIMER_ADDRESS(address) ((int)(address))
-#endif
-
-#if UINTPTR_MAX > UINT32_MAX && defined(__GNUC__)
-#pragma weak sub_4A0A00
-#pragma weak sub_4A0A30
-#pragma weak sub_4A0A60
-#pragma weak sub_4A0650
-#pragma weak sub_4A0870
-#pragma weak sub_4A0690
-#pragma weak sub_4A08C0
-#pragma weak sub_4A06D0
-#pragma weak sub_4A0910
-#pragma weak sub_4A0710
-#pragma weak sub_4A09B0
-#pragma weak sub_4A0750
-#pragma weak sub_4A0960
-#pragma weak sub_4A0830
-#pragma weak sub_4A0790
-#pragma weak sub_4A0A90
-#pragma weak sub_4A07D0
-#pragma weak sub_4A0800
 #endif
 
 #if UINTPTR_MAX <= UINT32_MAX
@@ -43888,7 +43866,7 @@ int sub_486060()
 }
 
 //----- (00486110) --------------------------------------------------------
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#if UINTPTR_MAX > UINT32_MAX
 static int nox_486_primary_low;
 static int nox_486_secondary_low;
 static int nox_486_primary_rows_low;
@@ -43896,15 +43874,22 @@ static int nox_486_secondary_rows_low;
 
 static size_t nox_486_page_size(void)
 {
+#if defined(__linux__)
   static size_t page_size;
 
   if ( !page_size )
     page_size = (size_t)sysconf(_SC_PAGESIZE);
   return page_size;
+#else
+  return 0;
+#endif
 }
 
 static void *nox_486_low_alloc(size_t size)
 {
+#if defined(_WIN32)
+  return nox_low_alloc(size);
+#else
   size_t page_size = nox_486_page_size();
   size_t mapped_size;
   void *result;
@@ -43917,10 +43902,14 @@ static void *nox_486_low_alloc(size_t size)
   if ( result == MAP_FAILED )
     return 0;
   return result;
+#endif
 }
 
 static void nox_486_low_free(void *address, size_t size)
 {
+#if defined(_WIN32)
+  nox_low_free(address, size);
+#else
   size_t page_size = nox_486_page_size();
   size_t mapped_size;
 
@@ -43928,6 +43917,7 @@ static void nox_486_low_free(void *address, size_t size)
     return;
   mapped_size = (size + page_size - 1) & ~(page_size - 1);
   munmap(address, mapped_size);
+#endif
 }
 #endif
 

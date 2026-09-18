@@ -20,9 +20,8 @@
 #include <SDL2/SDL_opengl_glext.h>
 #endif
 
-#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-#include <sys/mman.h>
-#include <unistd.h>
+#if UINTPTR_MAX > UINT32_MAX
+#include "nox_low_memory.h"
 extern int nox_palette_lut_low;
 void nox_palette_lut_free(void *address, size_t size);
 #endif
@@ -107,27 +106,12 @@ static int nox_gamma_blue_low;
 
 static void *nox_legacy_low_alloc(size_t size)
 {
-    size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
-    size_t mapped_size;
-    void *result;
-
-    if (!page_size)
-        return 0;
-    mapped_size = (size + page_size - 1) & ~(page_size - 1);
-    result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
-                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
-    return result == MAP_FAILED ? 0 : result;
+    return nox_low_alloc(size);
 }
 
 static void nox_legacy_low_free(void *address, size_t size)
 {
-    size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
-    size_t mapped_size;
-
-    if (!address || !page_size)
-        return;
-    mapped_size = (size + page_size - 1) & ~(page_size - 1);
-    munmap(address, mapped_size);
+    nox_low_free(address, size);
 }
 #endif
 

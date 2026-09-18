@@ -33,6 +33,16 @@ host API/callback/temporary pointer transport → widen or shadow it
 recovered record/global/file/wire layout      → preserve fixed-width fields
 ```
 
+## Low-address allocation ownership
+
+The temporary records whose recovered layouts retain 32-bit pointer slots are
+allocated by the low-address helpers in `GAME1.c`, `GAME2.c`, `GAME3.c`,
+`GAME4.c`, and `draw.c`. Linux uses `mmap(... MAP_32BIT ...)`; Windows x86_64
+uses `VirtualAlloc` hints below the 4 GiB boundary. The shared implementation
+is `src/nox_low_memory.h`, and callers continue to free mappings through the
+matching helper. The Windows-focused legacy-memory test fixture follows the
+same contract instead of depending on POSIX `sys/mman.h`.
+
 The general rationale is in
 [`architecture-compatibility-tests.md`](../architecture-compatibility-tests.md).
 The startup subsystem description is in
