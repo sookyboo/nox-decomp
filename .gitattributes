@@ -1,0 +1,6 @@
+# Keep committed text deterministic across Windows and Linux checkouts.
+* text=auto eol=lf
+
+# Windows launcher scripts retain native CRLF when checked out on Windows.
+*.bat text eol=crlf
+*.cmd text eol=crlf
