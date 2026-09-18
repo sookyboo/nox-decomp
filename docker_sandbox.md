@@ -6,6 +6,7 @@ Decomp in an Ubuntu/Debian sandbox for:
 - Linux i386 (`i686-linux-gnu`)
 - Linux ARM hard-float (`arm-linux-gnueabihf`, normally ARMv7/armhf)
 - Windows i386 (`i686-w64-mingw32`)
+- Windows x86_64 (`x86_64-w64-mingw32`)
 
 Windows ARM is not in scope. Use a separate CMake build directory and
 `pkg-config` search path for each target.
@@ -34,11 +35,13 @@ the documented builds:
 | `security.ubuntu.com` | Ubuntu security package indexes and packages |
 | `ports.ubuntu.com` | Ubuntu ARMHF package indexes and packages |
 | `git.ffmpeg.org` | Official FFmpeg source repository |
+| `github.com/FFmpeg/FFmpeg` | Official FFmpeg source mirror |
 | `github.com/libsdl-org/SDL` | Official SDL2 source repository |
 | `github.com/ptitSeb/gl4es` | Upstream gl4es source repository |
 | `github.com/nigels-com/glew` | Upstream GLEW source repository/release fallback |
 | `sourceforge.net/projects/glew` | Official GLEW project release download |
 | `openal-soft.org/openal-binaries` | Official OpenAL Soft Windows archive |
+| `github.com/kcat/openal-soft` | Official OpenAL Soft source and release mirror |
 
 The Dockerfiles also use the Ubuntu keyring for APT signature verification.
 Keep the normal APT sources restricted to the required architectures and do
@@ -581,6 +584,94 @@ The Windows build intentionally omits the POSIX-only case-sensitive path,
 public-lobby, map-download, and raw ABI harness targets. Those remain covered
 by the native Linux i386/ARMHF builds. The Windows CTest count is therefore
 lower than the Linux count.
+
+## Windows x86_64 packages
+
+Install the 64-bit MinGW compiler and Windows development sysroot:
+
+```sh
+sudo apt-get install -y --no-install-recommends \
+  gcc-mingw-w64-x86-64 \
+  g++-mingw-w64-x86-64 \
+  binutils-mingw-w64-x86-64 \
+  mingw-w64-x86-64-dev \
+  mingw-w64-tools
+```
+
+The third-party Windows libraries must be separate from the i386 prefixes.
+The development sandbox has these pinned versions installed:
+
+| Library | Prefix | Required contents |
+| --- | --- | --- |
+| FFmpeg 7.1.1 | `/opt/ffmpeg-win64` | Headers, `.pc` files, import libraries, DLLs |
+| SDL2 2.30.11 | `/opt/sdl2-win64` | Headers, import libraries, `sdl2.pc`, `SDL2.dll` |
+| OpenAL Soft 1.22.2 | `/opt/openal-win64` | Headers, import library, `OpenAL32.dll` |
+| GLEW 2.1.0 | `/opt/glew-win64` | `GL/glew.h`, import library, `glew32.dll` |
+
+Build or unpack those libraries from their official upstream releases using
+the same versions as the i386 build. In this sandbox, the FFmpeg source was
+downloaded from the official GitHub mirror because `git.ffmpeg.org` was blocked
+by the network policy, and OpenAL Soft was downloaded from its official GitHub
+release because the project archive endpoint was blocked. Record the exact
+source URL, tag, and SHA-256 in a release build log.
+
+Configure and build the project as follows:
+
+```sh
+export PKG_CONFIG_LIBDIR=/opt/ffmpeg-win64/lib/pkgconfig:/opt/sdl2-win64/lib/pkgconfig:/opt/glew-win64/lib/pkgconfig
+unset PKG_CONFIG_PATH PKG_CONFIG_SYSROOT_DIR
+
+cmake -S . -B build-win64 -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_SYSTEM_NAME=Windows \
+  -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+  -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+  -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
+  -DCMAKE_PREFIX_PATH="/opt/sdl2-win64;/opt/openal-win64;/opt/glew-win64;/opt/ffmpeg-win64" \
+  -DFFMPEG_PREFIX=/opt/ffmpeg-win64 \
+  -DOPENAL_INCLUDE_DIR=/opt/openal-win64/include \
+  -DOPENAL_LIBRARY=/opt/openal-win64/lib/libOpenAL32.dll.a \
+  -DCMAKE_C_FLAGS="-I/opt/sdl2-win64/include -I/opt/openal-win64/include -I/opt/glew-win64/include" \
+  -DCMAKE_CXX_FLAGS="-I/opt/sdl2-win64/include -I/opt/openal-win64/include -I/opt/glew-win64/include" \
+  -DCMAKE_EXE_LINKER_FLAGS="-L/opt/sdl2-win64/lib -L/opt/openal-win64/lib -L/opt/glew-win64/lib -L/opt/ffmpeg-win64/lib" \
+  -DUSE_SDL=ON \
+  -DUSE_DIRECTX=OFF \
+  -DNOX_ALLOW_64BIT=ON
+cmake --build build-win64 -j"$(nproc)"
+```
+
+`NOX_ALLOW_64BIT=ON` is required. Without it, this project's CMake logic adds
+`-m32` for x86-family processors even when the selected compiler is the
+x86_64 MinGW compiler. Do not mix `/opt/*-win32` and `/opt/*-win64` paths in
+one configure or `PKG_CONFIG_LIBDIR` value.
+
+The dependency-aware configure step has been validated in the development
+sandbox. The full repository build is not yet a clean x86_64 build: current
+failures are in project code and test portability, including unresolved
+64-bit runtime symbols and the POSIX-only `tests/legacy_memory.h` dependency
+on `sys/mman.h`. These failures are not fixed by installing additional MinGW
+or third-party library packages.
+
+For runtime testing, install a 64-bit-capable Wine package and pass its
+executable as CMake's cross-compiling emulator. Make the dependency DLLs
+visible through `WINEPATH`:
+
+```sh
+cmake -S . -B build-win64 \
+  -DCMAKE_SYSTEM_NAME=Windows \
+  -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+  -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+  -DCMAKE_CROSSCOMPILING_EMULATOR=wine64
+
+WINEPATH='Z:\\opt\\sdl2-win64\\bin;Z:\\opt\\ffmpeg-win64\\bin;Z:\\opt\\openal-win64\\bin;Z:\\opt\\glew-win64\\bin' \
+  ctest --test-dir build-win64 --output-on-failure
+```
+
+Inspect the final PE imports when assembling a runnable bundle:
+
+```sh
+x86_64-w64-mingw32-objdump -p build-win64/src/out.exe | grep 'DLL Name'
+```
 
 The first configure/build command above is the full dependency-aware command
 for this repository. The shorter command is useful only after the dependency
