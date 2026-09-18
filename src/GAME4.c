@@ -56,7 +56,7 @@ static int nox_manual_spell_defaults_to_self(int spell)
 }
 #endif
 
-static void nox_manual_spell_prepare_target(int caster)
+static void nox_manual_spell_prepare_target(uintptr_t caster)
 {
   int update_data;
   int player_data;
@@ -74,7 +74,7 @@ static void nox_manual_spell_prepare_target(int caster)
   if ( !player_data )
     return;
   *(_DWORD *)(player_data + 3640) = nox_manual_spell_target_value(
-    caster,
+    (int)caster,
     *(_DWORD *)(update_data + 288),
     nox_manual_spell_defaults_to_self(*leaf));
 }
@@ -86,7 +86,7 @@ static int nox_manual_spell_resolve(int caster)
 }
 
 #ifdef NOX_MANUAL_SPELL_INPUT_TEST
-void nox_test_manual_spell_prepare_target(int caster, int defaults_to_self)
+void nox_test_manual_spell_prepare_target(uintptr_t caster, int defaults_to_self)
 {
   nox_test_manual_spell_defaults_to_self = defaults_to_self;
   nox_manual_spell_prepare_target(caster);

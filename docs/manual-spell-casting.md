@@ -74,3 +74,8 @@ This preparation is deliberately limited to manual phoneme commits (timeout,
 The scheduled spell-set path already supplies a per-cast target choice and is
 left untouched, so explicit/inverted targeting selected by the normal UI is
 not overwritten.
+
+On native 64-bit builds, `nox_test_manual_spell_prepare_target` accepts a
+host-width pointer while the recovered record offsets and pointer slots remain
+32-bit. Its regression fixture allocates those records below 4 GiB so the test
+exercises the same layout contract as the runtime.
