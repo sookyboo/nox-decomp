@@ -1,5 +1,44 @@
 The network flow for nox-decomp is something like this
 
+## Client host-loss lifecycle
+
+`sub_43CCA0()` is the client-side network pump used while joined to a multiplayer
+game. It records the last host packet time, shows the connection-wait state after
+roughly two seconds without host traffic, and treats the connection as terminal
+after the existing 20-second timeout.
+
+A graceful host disconnect reaches `sub_43C860()` as callback message `33`; that
+path calls `sub_446380()`, which performs the joined-game teardown/state
+transition. A vanished host cannot deliver that callback. The terminal timeout in
+`sub_43CCA0()` therefore must also call `sub_446380()` after `sub_43CF70()` marks
+the connection-lost state. `sub_43CF70()` is not itself the teardown owner because
+it is also used by the quit-menu connection-state path.
+
+The observable contract is that a client must leave the active in-game state
+whether the host disconnect notification arrives normally or the host simply
+stops responding. Live host-process loss remains an integration/manual check
+because the existing focused network tests do not construct the full client game
+lifecycle.
+
+## Multiplayer score signedness
+
+The multiplayer score stored at player-info offset `2136` and the corresponding
+team score are signed values. Arena suicide and team-kill penalties intentionally
+subtract points through `sub_4D8EC0()`, so a score can legitimately become
+negative (for example, `0 -> -1`). Packet `0x4E` transports the 32-bit bit pattern
+and the player-info join packet restores the compact score as a signed 16-bit
+value on the client.
+
+`sub_509A60()` is the server victory check. Outside Elimination/Coop-Team it reads
+the configured point limit, scans teams first and then individual players, sets
+the game-over flag, and sends the matching winner notification when a score has
+reached the limit. Those comparisons must remain signed: reading `-1` through
+`_DWORD` turns it into `0xFFFFFFFF`, which falsely satisfies any normal positive
+point limit and can make a suicide appear to award the maximum score and end the
+match immediately. `tests/multiplayer_score_test.c` drives the production
+`sub_509A60()` path for both team and player scores and covers negative and
+limit-reaching values.
+
 ## Join handshake prerequisite
 
 `sub_438A90()` is the client-side join entry point. Before sending the join

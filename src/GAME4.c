@@ -15989,10 +15989,11 @@ char sub_509A60()
       v2 = (unsigned __int16)v0;
       if ( (_WORD)v0 )
       {
+        /* Arena suicide/team-kill penalties can make these scores negative. */
         v3 = sub_418B10();
         if ( v3 )
         {
-          while ( *((_DWORD *)v3 + 13) < v2 )
+          while ( *((int *)v3 + 13) < v2 )
           {
             v3 = sub_418B60((int)v3);
             if ( !v3 )
@@ -16011,7 +16012,7 @@ LABEL_7:
             while ( 1 )
             {
               v5 = *(_DWORD *)(*(_DWORD *)(v4 + 748) + 276);
-              if ( !(*(_BYTE *)(v5 + 3680) & 1) && *(_DWORD *)(v5 + 2136) >= v2 )
+              if ( !(*(_BYTE *)(v5 + 3680) & 1) && *(int *)(v5 + 2136) >= v2 )
                 break;
               v0 = (char *)sub_4DA7F0(v4);
               v4 = (int)v0;
