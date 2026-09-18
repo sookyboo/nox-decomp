@@ -16810,7 +16810,7 @@ LABEL_30:
 }
 
 //----- (0057BBC0) --------------------------------------------------------
-int __cdecl sub_57BBC0(FILE *a1, int a2, int a3)
+int __cdecl sub_57BBC0(FILE *a1, uintptr_t a2, int a3)
 {
   int v3; // esi
   int v4; // ebx

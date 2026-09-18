@@ -35,6 +35,11 @@ static uintptr_t nox_game3_pointer_from_32(unsigned int value)
     return value;
   return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
 }
+#else
+static uintptr_t nox_game3_pointer_from_32(unsigned int value)
+{
+  return value;
+}
 #endif
 
 static _DWORD *nox_menu_root_get(void)
