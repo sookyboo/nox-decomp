@@ -135,6 +135,10 @@ The current branch contains native-width handling for:
   Value-control string pointers use the shared 32-bit pointer mapper rather
   than blindly adding the PE image high word, since some valid heap pointers
   are already below 4 GiB.
+- Native window callbacks are invoked with a host-width message argument so
+  pointer-bearing message `16385` does not truncate CSF UTF-16 strings before
+  menu widgets copy them. The CSF wide-string sidecar maps the remaining
+  legacy low values back to their host pointers.
 - the fixed-width `gamedata.bin` parser path: native startup keeps the adjacent
   `gamedata.bin` string intact, preserves parser `FILE *` handles, uses
   low-address storage for the 32-bit category manager/table records, and

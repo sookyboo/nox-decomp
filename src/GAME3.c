@@ -22,6 +22,7 @@ static _DWORD *nox_legal_window;
 #if UINTPTR_MAX > UINT32_MAX
 extern int (*nox_47d5_callback)(int);
 extern uintptr_t nox_native_last_csf_wide;
+extern uintptr_t nox_native_csf_wide_from_32(unsigned int low);
 static _DWORD *nox_menu_button_left;
 static _DWORD *nox_menu_button_right;
 static _DWORD *nox_server_transition_left;
@@ -44,6 +45,15 @@ static uintptr_t nox_game3_pointer_from_32(unsigned int value)
           && candidate < (uintptr_t)&byte_5D4594[3844309]))
     return candidate;
   return value;
+}
+
+static uintptr_t nox_game3_wide_pointer_from_32(unsigned int value)
+{
+  uintptr_t result = nox_native_csf_wide_from_32(value);
+  if ( !result && nox_native_last_csf_wide
+    && (unsigned int)nox_native_last_csf_wide == value )
+    result = nox_native_last_csf_wide;
+  return result ? result : nox_game3_pointer_from_32(value);
 }
 #else
 static uintptr_t nox_game3_pointer_from_32(unsigned int value)
@@ -149,7 +159,7 @@ int __cdecl sub_4A19F0(char *a1)
 #if UINTPTR_MAX > UINT32_MAX
   v2 = (wchar_t *)nox_native_last_csf_wide;
 #endif
-  return sub_46B490((int)v1, 16385, (int)v2, -1);
+  return sub_46B490((int)v1, 16385, (uintptr_t)v2, -1);
 }
 
 //----- (004A1A40) --------------------------------------------------------
@@ -1669,8 +1679,7 @@ LABEL_67:
     if ( a2 == 16385 )
     {
 #if UINTPTR_MAX > UINT32_MAX
-      a3 = (wchar_t *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
-                       | (unsigned int)(uintptr_t)a3);
+      a3 = (wchar_t *)nox_game3_wide_pointer_from_32((unsigned int)(uintptr_t)a3);
 #endif
       nox_wcsncpy((wchar_t *)(a1 + 108), a3, 0x3Fu);
       *(_WORD *)(a1 + 2 * nox_wcslen(a3) + 108) = 0;
@@ -5633,8 +5642,7 @@ int __cdecl sub_4A9250(int a1, int a2, wchar_t *a3, int a4)
     if ( a2 == 16385 )
     {
 #if UINTPTR_MAX > UINT32_MAX
-      a3 = (wchar_t *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX)
-                       | (unsigned int)(uintptr_t)a3);
+      a3 = (wchar_t *)nox_game3_wide_pointer_from_32((unsigned int)(uintptr_t)a3);
 #endif
       nox_wcsncpy((wchar_t *)(a1 + 108), a3, 0x3Fu);
       *(_WORD *)(a1 + 234) = 0;
