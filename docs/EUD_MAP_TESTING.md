@@ -243,11 +243,11 @@ cmake --build build-i386 --target eud_gquest_map_test
 ctest --test-dir build-i386 -R '^eud_gquest_map_test$' --output-on-failure
 ```
 
-This temporary test verifies that the cloned `G_Quest.map` and `g_quest.c`
+This temporary test verifies that the selected `G_Quest.map` and `g_quest.c`
 are present, contain the expected first-tier EUD operations, and are paired
-with the Nox gamefiles. It does not claim gameplay compatibility: the current
-checkout lacks the complete compiled `G_Quest.nxz` package, and automated
-launch is also display/OpenGL dependent.
+with the Nox gamefiles. It does not claim gameplay compatibility: a complete
+compiled `G_Quest.nxz` package is available in `build-deps/NoxMaps`, while
+automated launch is also display/OpenGL dependent.
 
 The next-map package smoke test checks `G_Graves.map`, `g_graves.c`, the Nox
 gamefiles, and the three custom GRP resources listed by the map's resource
@@ -299,6 +299,62 @@ inputs are available; the exact Panic `Bind` helper and recovery/string database
 paths are now handled semantically, while copied melee/potion/pickup implementations
 and other advanced native patches remain intentionally unsupported until separately
 ported.
+
+## Observed local i386 run
+
+The local Linux run used the existing 32-bit executable (`file` reports an ELF
+i386 binary), the game data in `build-deps/gamefiles/app`, and the complete
+custom-map packages in `build-deps/NoxMaps`. The `G_Quest` package was installed
+as:
+
+```text
+build-deps/gamefiles/app/maps/G_Quest/G_Quest.map
+build-deps/gamefiles/app/maps/G_Quest/G_Quest.nxz
+```
+
+The five package checks passed when run as 32-bit binaries. On filesystems whose
+inode values do not fit the default 32-bit `stat` layout, configure the temporary
+validation build with large-file support:
+
+```sh
+cmake -S . -B build-i386-eud2 -G Ninja \
+  -DCMAKE_C_COMPILER=i686-linux-gnu-gcc \
+  -DCMAKE_CXX_COMPILER=i686-linux-gnu-g++ \
+  -DCMAKE_C_FLAGS='-D_FILE_OFFSET_BITS=64' \
+  -DUSE_EUD_COMPAT=ON \
+  -DUSE_EUD_MAP_TESTS=ON \
+  -DEUD_MAP_PROJECT_DIR="$PWD/build-deps/eud-maps-project" \
+  -DEUD_GAMEFILES_DIR="$PWD/build-deps/gamefiles/app"
+cmake --build build-i386-eud2 --target \
+  eud_gquest_map_test eud_ggraves_map_test eud_bangtest_map_test \
+  eud_monster_map_test eud_dim_map_test
+```
+
+The checks used `G_Quest`, `G_Graves`, `Monster`, and `Dim` from their matching
+`NoxMaps` packages. `!test` was taken from the cloned EUD maps project because
+no matching package was present in `NoxMaps`. The checks validate package inputs
+only; they do not prove runtime gameplay compatibility.
+
+For the runtime smoke test, run from `build-deps/gamefiles/app` with Mesa's
+software renderer:
+
+```sh
+ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
+NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
+NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
+xvfb-run -a -s '-screen 0 1280x720x24' \
+  ../../../build-i386/src/out -serveronly G_Quest
+```
+
+The executable initialized SDL and Mesa `llvmpipe`, loaded the game data, and
+reached the window/main-menu initialization path. The server-mode smoke test
+used `NOX_CONTROL_SERVER_BOOT='sleep 5000; macro server;'` and
+`NOX_SERVER_DEFAULT_MAP=G_Quest`; the complete `server` and
+`defaultServerGame` macros finished without a crash. The log showed the
+multiplayer setup loading `So_Druid`, but did not provide an independent
+observable `G_Quest.map` load line before the bounded timeout. These runtime
+results confirm startup stability and package availability, not yet successful
+scripted gameplay on `G_Quest`.
 
 ## Linux headless OpenGL
 
