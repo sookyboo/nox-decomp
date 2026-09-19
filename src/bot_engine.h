@@ -67,6 +67,7 @@ void nox_bot_engine_face_target(int object, int target);
 
 int nox_bot_engine_spell_allowed_for_class(int player_class, int spell);
 
+int nox_bot_engine_unit_reference_valid(int object);
 int nox_bot_engine_is_enemy(int self, int other);
 int nox_bot_engine_same_team(int self, int other);
 int nox_bot_engine_has_buff(int object, int buff);

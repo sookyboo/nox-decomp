@@ -3173,6 +3173,17 @@ Those already belong to Nox.
 
 Bot policy can cache a pointer/reference for short-lived decision purposes, but authoritative state remains in the engine.
 
+Reaction-delayed event object references require an additional lifetime check. Native
+Enemy Sighted/Change Focus callbacks pass live world-object pointers, but Bot-Script
+difficulty delays can retain those raw pointers for up to 60 simulation frames. The
+target may be removed before the delayed Warrior action runs. `sub_5330C0()` assumes
+its arguments are still valid units and dereferences their buff/runtime state; it is
+not a stale-handle validator. `nox_bot_engine_unit_reference_valid()` therefore checks
+a delayed target by pointer identity against `sub_4DA790()`/`sub_4DA7A0()`, rejects
+removed objects, and only then allows Warrior Harpoon/Charge/War Cry/Chakram or
+related target reads to continue. Do not probe fields on a cached event pointer before
+this world-list validation.
+
 ---
 
 # 35. Player creation/activation trace

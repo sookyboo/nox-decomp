@@ -139,7 +139,7 @@ static void nox_bot_warrior_start_teleport_wake_pursuit(
      */
     if (!nox_bot_warrior_in_range(
             self_x, self_y, wake_x, wake_y, NOX_BOT_WARRIOR_TELEPORT_WAKE_RANGE)) {
-        if (target)
+        if (target && nox_bot_engine_unit_reference_valid(target))
             nox_bot_engine_attack_target(object, target);
     } else {
         state->warrior.teleport_wake_tracking = 1;
@@ -264,7 +264,8 @@ static int nox_bot_warrior_try_chakram_target(
     int item;
     int previous_weapon;
 
-    if (!target || nox_bot_engine_health(target) <= 0 ||
+    if (!target || !nox_bot_engine_unit_reference_valid(target) ||
+        nox_bot_engine_health(target) <= 0 ||
         state->warrior.chakram_attack_active ||
         !nox_bot_warrior_chakram_ready(state, frame) ||
         nox_bot_engine_ability_active(object, NOX_BOT_ABILITY_BERSERKER_CHARGE) ||
@@ -338,7 +339,8 @@ static void nox_bot_warrior_try_eye(int object, nox_bot_policy_state *state, nox
 
 static int nox_bot_warrior_valid_harpoon_target(int object, int target)
 {
-    if (!target || !nox_bot_engine_is_enemy(object, target))
+    if (!target || !nox_bot_engine_unit_reference_valid(target) ||
+        !nox_bot_engine_is_enemy(object, target))
         return 0;
     if (!nox_bot_engine_can_interact(object, target))
         return 0;
@@ -378,7 +380,8 @@ static int nox_bot_warrior_valid_charge_target(int object, int target)
 {
     int harpoon_target;
 
-    if (!target || !nox_bot_engine_is_enemy(object, target))
+    if (!target || !nox_bot_engine_unit_reference_valid(target) ||
+        !nox_bot_engine_is_enemy(object, target))
         return 0;
     if (!nox_bot_engine_can_interact(object, target))
         return 0;
@@ -454,7 +457,8 @@ static void nox_bot_warrior_use_potion(int object)
 
 static int nox_bot_warrior_valid_warcry_target(int object, int target)
 {
-    if (!target || !nox_bot_engine_is_enemy(object, target))
+    if (!target || !nox_bot_engine_unit_reference_valid(target) ||
+        !nox_bot_engine_is_enemy(object, target))
         return 0;
     if (!nox_bot_engine_can_interact(object, target))
         return 0;
@@ -497,7 +501,8 @@ static int nox_bot_warrior_target_in_scan_range(int object, int target)
     float dx;
     float dy;
 
-    if (!target || nox_bot_engine_health(target) <= 0)
+    if (!target || !nox_bot_engine_unit_reference_valid(target) ||
+        nox_bot_engine_health(target) <= 0)
         return 0;
     nox_bot_engine_position(object, &self_x, &self_y);
     nox_bot_engine_position(target, &target_x, &target_y);
@@ -519,7 +524,8 @@ static void nox_bot_warrior_start_potion_seek(
         nox_bot_engine_health(object) >= NOX_BOT_WARRIOR_POTION_HEALTH)
         return;
     target = nox_bot_engine_current_target(object);
-    if (!target || nox_bot_engine_health(target) <= 10)
+    if (!target || !nox_bot_engine_unit_reference_valid(target) ||
+        nox_bot_engine_health(target) <= 10)
         return;
     potion = nox_bot_engine_find_nearest_type(
         object, NOX_BOT_WARRIOR_HEALTH_POTION, 0.0f);
@@ -728,7 +734,8 @@ void nox_bot_warrior_update(int object, nox_bot_policy_state *state, uint32_t fr
 
     if (nox_bot_warrior_event_due(state, NOX_BOT_EVENT_ENEMY_HEARD, frame, 0)) {
         heard = nox_bot_policy_event_object(state, NOX_BOT_EVENT_ENEMY_HEARD);
-        if (heard && nox_bot_engine_has_buff(heard, NOX_BOT_BUFF_INVISIBLE))
+        if (heard && nox_bot_engine_unit_reference_valid(heard) &&
+            nox_bot_engine_has_buff(heard, NOX_BOT_BUFF_INVISIBLE))
             nox_bot_warrior_try_eye(object, state, NOX_BOT_EVENT_ENEMY_HEARD);
         else
             nox_bot_policy_clear_event(state, NOX_BOT_EVENT_ENEMY_HEARD);

@@ -7,6 +7,8 @@ static int ready_ability;
 static int executed_ability;
 static int execute_calls;
 static int enemy_result;
+static int enemy_calls;
+static int unit_reference_valid;
 static int interact_result;
 static int target_max_health;
 static int invisible_target;
@@ -99,10 +101,17 @@ int nox_bot_engine_execute_ability(int object, int ability)
     return 1;
 }
 
+int nox_bot_engine_unit_reference_valid(int object)
+{
+    (void)object;
+    return unit_reference_valid;
+}
+
 int nox_bot_engine_is_enemy(int self, int other)
 {
     (void)self;
     (void)other;
+    ++enemy_calls;
     return enemy_result;
 }
 
@@ -395,6 +404,8 @@ static void reset_case(nox_bot_policy_state *state)
     executed_ability = 0;
     execute_calls = 0;
     enemy_result = 1;
+    enemy_calls = 0;
+    unit_reference_valid = 1;
     interact_result = 1;
     target_max_health = 100;
     invisible_target = 0;
@@ -635,6 +646,23 @@ static int test_berserker_charge_event_priority(void)
     nox_bot_warrior_update(1, &state, 1130);
     if (execute_calls)
         return 55;
+    return 0;
+}
+
+
+static int test_stale_enemy_sighted_target_is_discarded(void)
+{
+    nox_bot_policy_state state;
+
+    reset_case(&state);
+    ready_ability = NOX_BOT_ABILITY_BERSERKER_CHARGE;
+    unit_reference_valid = 0;
+    nox_bot_policy_record_event(&state, NOX_BOT_EVENT_ENEMY_SIGHTED, 44, 800);
+    nox_bot_warrior_update(1, &state, 830);
+    if (execute_calls || face_calls || enemy_calls)
+        return 180;
+    if (nox_bot_policy_event_pending(&state, NOX_BOT_EVENT_ENEMY_SIGHTED))
+        return 181;
     return 0;
 }
 
@@ -1237,6 +1265,9 @@ int main(void)
     if (result)
         return result;
     result = test_berserker_charge_event_priority();
+    if (result)
+        return result;
+    result = test_stale_enemy_sighted_target_is_discarded();
     if (result)
         return result;
     result = test_berserker_charge_collision_delay();

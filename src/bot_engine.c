@@ -631,6 +631,28 @@ int nox_bot_engine_spell_allowed_for_class(int player_class, int spell)
     return sub_57AEA0(player_class, spell) == 0;
 }
 
+int nox_bot_engine_unit_reference_valid(int object)
+{
+    int item;
+
+    if (!object)
+        return 0;
+    /* Bot-Script reaction delays can retain native object pointers after the
+     * event callback returns. Validate the pointer by identity against the
+     * authoritative world list before dereferencing any object fields. */
+    for (item = sub_4DA790(); item; item = sub_4DA7A0(item)) {
+        unsigned int category;
+
+        if (item != object)
+            continue;
+        if (*(unsigned char *)(item + NOX_OBJECT_STATE_FLAGS_OFFSET) & NOX_OBJECT_STATE_REMOVED)
+            return 0;
+        category = *(unsigned char *)(item + NOX_OBJECT_CATEGORY_OFFSET);
+        return (category & (NOX_OBJECT_PLAYER_CATEGORY | NOX_OBJECT_MONSTER_CATEGORY)) != 0;
+    }
+    return 0;
+}
+
 int nox_bot_engine_is_enemy(int self, int other)
 {
     if (!self || !other)
