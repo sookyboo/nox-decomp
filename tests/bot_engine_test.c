@@ -1072,6 +1072,27 @@ static int test_existing_player_activation(void)
     return 0;
 }
 
+
+static int test_unit_reference_validation(void)
+{
+    unsigned char unit[800];
+    int unit_ptr;
+
+    memset(unit, 0, sizeof(unit));
+    unit_ptr = (int)(uintptr_t)unit;
+    *(uint32_t *)(unit + 8) = 4;
+    world_head = unit_ptr;
+    if (!nox_bot_engine_unit_reference_valid(unit_ptr))
+        return 48;
+    if (nox_bot_engine_unit_reference_valid(0x12345678))
+        return 49;
+    *(uint32_t *)(unit + 16) = 0x20;
+    if (nox_bot_engine_unit_reference_valid(unit_ptr))
+        return 50;
+    world_head = 0;
+    return 0;
+}
+
 static int test_spell_and_relationship_wrappers(void)
 {
     spell_lookup_calls = 0;
@@ -1814,6 +1835,9 @@ int main(void)
     int result;
 
     result = test_timing();
+    if (result)
+        return result;
+    result = test_unit_reference_validation();
     if (result)
         return result;
     result = test_experimental_player_lifecycle_adapter();
