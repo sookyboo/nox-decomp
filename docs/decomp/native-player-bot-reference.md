@@ -1407,7 +1407,18 @@ records the semantic name above.
 ### Confirmed role
 
 Normalizes a spell name to the engine's expected uppercase spell lookup form
-and resolves it through the authoritative spell table.
+and resolves it through the authoritative spell table. The recovered stack frame
+contains two consecutive 60-byte character buffers: one for the uppercased input
+and one for the generated `SPELL_<NAME>` key. The decompiled C previously typed
+the second buffer as a single `char`; `nox_sprintf()` therefore wrote beyond the
+C object and could overlap the source buffer and saved stack state. A bot lookup
+such as `SLOW` exposed this as an unbounded `SPELL_____...` format result followed
+by a corrupted return address. Keep both recovered locals as arrays; the second
+is not a scalar temporary.
+
+`tests/spell_lookup_test.c` drives the production `sub_51E1D0()` entry point with
+upper-, lower-, and mixed-case `SLOW` and asserts that the authoritative lookup
+receives exactly `SPELL_SLOW`.
 
 ### Bot-port use
 
