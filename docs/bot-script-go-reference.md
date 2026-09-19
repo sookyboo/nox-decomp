@@ -1178,10 +1178,14 @@ Again, preserve behaviour first and refactor later.
 
 The optional native runtime now dispatches class `1` players to `bot_wizard.c`.
 This first slice deliberately uses the NoxScript-style direct spell dispatcher
-rather than player keyboard spell entry. The adapter enters the native player-bot
-monster view so spell power comes from the AI configuration created by `4FA700`,
-then supplies the engine's ordinary `{target object, target position}` spell
-argument. Nox remains authoritative for the spell effect itself.
+rather than player keyboard spell entry. Spell power still comes from the native
+player-bot AI configuration created by `4FA700`, but the caster remains in normal
+player representation during dispatch. The adapter temporarily copies that AI
+power into the selected learned-spell lookup entry, calls the unchanged native
+`sub_4FDD20` path with the ordinary `{target object, target position}` argument,
+and restores the learned level immediately afterward. This avoids exposing a
+monster-AI runtime to player-list/network effect code reached by spells such as
+Death Ray. Nox remains authoritative for the spell effect itself.
 
 The current policy ports these high-confidence reference decisions:
 
