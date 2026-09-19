@@ -74,6 +74,7 @@ static float script_cast_x;
 static float script_cast_y;
 static int script_cast_category;
 static int script_cast_runtime;
+static int script_cast_power;
 static int buff_remove_calls;
 static int last_removed_buff;
 static int mana_add_calls;
@@ -303,6 +304,8 @@ int __cdecl sub_51E1D0(const char *name)
         return 44;
     if (strcmp(name, "SLOW") == 0)
         return 55;
+    if (strcmp(name, "DEATH_RAY") == 0)
+        return 16;
     if (strcmp(name, "SUMMON_WASP") == 0)
         return 75;
     if (strcmp(name, "BLINK") == 0)
@@ -331,6 +334,9 @@ int __cdecl sub_424D80(const char *name)
 
 int __cdecl sub_4FDD20(int spell, _DWORD *object, int *arg)
 {
+    unsigned char *info = 0;
+    unsigned char *runtime = 0;
+
     ++script_cast_calls;
     script_cast_spell = spell;
     script_cast_object = (int)(uintptr_t)object;
@@ -339,6 +345,10 @@ int __cdecl sub_4FDD20(int spell, _DWORD *object, int *arg)
     script_cast_y = arg ? ((float *)arg)[2] : 0.0f;
     script_cast_category = object ? object[2] : 0;
     script_cast_runtime = object ? object[187] : 0;
+    runtime = (unsigned char *)(uintptr_t)script_cast_runtime;
+    if (runtime)
+        info = (unsigned char *)(uintptr_t)*(uint32_t *)(runtime + 276);
+    script_cast_power = info ? *(int *)(info + 3696 + 4 * spell) : 0;
     return 1;
 }
 
@@ -1097,9 +1107,11 @@ static int test_script_cast_buff_and_type_wrappers(void)
 {
     unsigned char object[800];
     unsigned char runtime[400];
-    unsigned char info[2300];
+    unsigned char info[4300];
     unsigned char ai[0x898];
     int object_ptr;
+    int *death_ray_level;
+    int *slow_level;
 
     make_native_bot(object, runtime, info, ai, 9, 0);
     object_ptr = (int)(uintptr_t)object;
@@ -1107,6 +1119,10 @@ static int test_script_cast_buff_and_type_wrappers(void)
     *(float *)(object + 56) = 3.0f;
     *(float *)(object + 60) = 4.0f;
     *(int *)(ai + 2040) = 3;
+    slow_level = (int *)(info + 3696 + 4 * 55);
+    death_ray_level = (int *)(info + 3696 + 4 * 16);
+    *slow_level = 1;
+    *death_ray_level = 2;
     script_cast_calls = 0;
     buff_remove_calls = 0;
     morph_from_calls = 0;
@@ -1119,13 +1135,14 @@ static int test_script_cast_buff_and_type_wrappers(void)
         return 62;
     if (script_cast_calls != 1 || script_cast_spell != 55 ||
         script_cast_object != object_ptr || script_cast_target != object_ptr ||
-        script_cast_x != 3.0f || script_cast_y != 4.0f)
+        script_cast_x != 3.0f || script_cast_y != 4.0f || script_cast_power != 3)
         return 63;
-    if (!(script_cast_category & 2) || script_cast_runtime != (int)(uintptr_t)ai ||
-        morph_from_calls != 1 || morph_to_calls != 1)
+    if (!(script_cast_category & 4) || (script_cast_category & 2) ||
+        script_cast_runtime != (int)(uintptr_t)runtime ||
+        morph_from_calls != 0 || morph_to_calls != 0)
         return 64;
     if (*(uint32_t *)(object + 8) != 4 ||
-        *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime)
+        *(uint32_t *)(object + 748) != (uint32_t)(uintptr_t)runtime || *slow_level != 1)
         return 65;
     {
         unsigned char target[800];
@@ -1136,12 +1153,20 @@ static int test_script_cast_buff_and_type_wrappers(void)
         *(float *)(target + 56) = 8.0f;
         *(float *)(target + 60) = 10.0f;
         if (!nox_bot_engine_cast_script_object(object_ptr, "SLOW", target_ptr) ||
-            script_cast_target != target_ptr || script_cast_x != 8.0f || script_cast_y != 10.0f)
+            script_cast_target != target_ptr || script_cast_x != 8.0f || script_cast_y != 10.0f ||
+            script_cast_power != 3 || *slow_level != 1)
             return 68;
         if (!nox_bot_engine_cast_script_position(object_ptr, "SLOW", 12.0f, 14.0f) ||
-            script_cast_target != 0 || script_cast_x != 12.0f || script_cast_y != 14.0f)
+            script_cast_target != 0 || script_cast_x != 12.0f || script_cast_y != 14.0f ||
+            script_cast_power != 3 || *slow_level != 1)
             return 69;
-        if (last_face_x != 9.0f || last_face_y != 10.0f)
+        if (!nox_bot_engine_cast_script_position(object_ptr, "DEATH_RAY", 18.0f, 22.0f) ||
+            script_cast_spell != 16 || script_cast_target != 0 ||
+            script_cast_x != 18.0f || script_cast_y != 22.0f || script_cast_power != 3 ||
+            script_cast_category != 4 || script_cast_runtime != (int)(uintptr_t)runtime ||
+            *death_ray_level != 2)
+            return 70;
+        if (last_face_x != 15.0f || last_face_y != 18.0f)
             return 60;
     }
     if (!nox_bot_engine_remove_buff(object_ptr, 5))

@@ -23,6 +23,8 @@
 #define NOX_PLAYER_RUNTIME_EQUIPPED_WEAPON_OFFSET 104
 #define NOX_PLAYER_INFO_SLOT_OFFSET 2064
 #define NOX_PLAYER_INFO_CLASS_OFFSET 2251
+#define NOX_PLAYER_INFO_SPELL_LEVELS_OFFSET 3696
+#define NOX_PLAYER_BOT_AI_SPELL_POWER_OFFSET 2040
 
 #define NOX_PLAYER_INFO_OBJECT_OFFSET 2056
 #define NOX_PLAYER_OPTS_INFO_SIZE 97
@@ -714,28 +716,48 @@ static int nox_bot_engine_cast_script_arg(
         float x;
         float y;
     } arg;
-    int morphed;
+    int *spell_level;
+    int saved_spell_level;
+    int bot_ai;
+    int info;
+    int power;
     int result;
+    int runtime;
     int spell;
 
-    if (!object || !spell_name || !*spell_name)
+    if (!object || !spell_name || !*spell_name ||
+        !(*(unsigned char *)(object + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_PLAYER_CATEGORY))
         return 0;
     spell = nox_bot_engine_spell_id(spell_name);
-    if (spell <= 0 || !nox_bot_engine_begin_monster_view(object, &morphed))
+    runtime = nox_bot_engine_player_runtime(object);
+    if (spell <= 0 || !runtime)
+        return 0;
+    info = *(int *)(runtime + NOX_PLAYER_RUNTIME_INFO_OFFSET);
+    bot_ai = *(int *)(runtime + NOX_PLAYER_RUNTIME_BOT_AI_OFFSET);
+    if (!info || !bot_ai)
+        return 0;
+    power = *(int *)(bot_ai + NOX_PLAYER_BOT_AI_SPELL_POWER_OFFSET);
+    if (power <= 0)
         return 0;
 
     /*
      * OpenNox/NoxScript SpellAcceptArg is {Object *Obj; Pointf Pos}. CastSpell
-     * faces Pos, then calls the direct spell dispatcher. Entering the native
-     * player-bot monster view makes sub_4FE7B0 read AI spell power 3, matching
-     * NPC/script semantics instead of player learned-spell state.
+     * faces Pos, then calls the direct spell dispatcher. Keep the bot in normal
+     * player representation for the whole dispatch: spell effects may broadcast
+     * through the global player list, whose consumers assume object+748 is a
+     * player runtime for every listed player. sub_4FE7B0 normally reads the
+     * learned-spell table for a player, so temporarily expose the bot AI's native
+     * spell power through that one authoritative lookup slot, then restore it.
      */
+    spell_level = (int *)(info + NOX_PLAYER_INFO_SPELL_LEVELS_OFFSET + 4 * spell);
+    saved_spell_level = *spell_level;
+    *spell_level = power;
     nox_bot_engine_face_position(object, x, y);
     arg.object = target;
     arg.x = x;
     arg.y = y;
     result = sub_4FDD20(spell, (_DWORD *)object, (int *)&arg);
-    nox_bot_engine_end_monster_view(object, morphed);
+    *spell_level = saved_spell_level;
     return result != 0;
 }
 

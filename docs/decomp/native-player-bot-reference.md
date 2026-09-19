@@ -1478,16 +1478,31 @@ On the 32-bit native ABI this is one object pointer/handle followed by two
 object-target cast `Obj` is the target and `Pos` is its current position; for a
 position cast `Obj` is null and `Pos` carries the requested cursor point.
 
-For a normal native player object, `sub_4FE7B0` would derive spell power from
-the player's learned-spell array. That is not equivalent to the reference NPC.
-The recovered player-bot AI initialization in `nox_xxx_playerBotCreate_4FA700`
-sets AI DWORD `510`, byte offset `+2040`, to `3`; while the player is in the
-existing monster view, `sub_4FE7B0` reads that value as monster spell power.
-`nox_bot_engine_cast_script_self()` therefore enters the same temporary monster
-view already used by other bot adapters, builds the ordinary target/position
-argument, calls `sub_4FDD20`, and restores player form. This reproduces the
-script/NPC casting semantics without granting Slow to the player's learned
-spell table.
+For a normal native player object, `sub_4FE7B0` derives spell power from the
+player-info learned-spell table at `+3696 + 4*spell`. That is not equivalent to
+the reference NPC. The recovered player-bot AI initialization in
+`nox_xxx_playerBotCreate_4FA700` sets AI DWORD `510`, byte offset `+2040`, to
+`3`.
+
+The first native bot adapter tried to obtain that AI power by holding the player
+in the temporary monster view across the whole `sub_4FDD20` dispatch. Runtime
+traces showed that this is unsafe. Spell effects such as Death Ray can emit
+network/facing effects through `sub_523030`, which iterates the global player
+list and assumes every listed player still has a player runtime at `object+748`.
+A bot left in monster view instead exposes its monster-AI block there, so the
+broadcaster interprets monster-AI data as player runtime and can crash while
+reading `runtime+276`. Native `sub_4FAB20` itself avoids this: it uses
+`sub_4FAAC0`/`sub_4FAAF0` only around the monster-AI update and restores player
+representation before bot policy/direct spell work runs.
+
+`nox_bot_engine_cast_script_self/object/position()` now keeps the object in normal
+player representation for the entire spell dispatch. Immediately before calling
+`sub_4FDD20`, it temporarily places the bot AI spell power into only the selected
+player learned-spell entry, allowing the unchanged native `sub_4FE7B0` lookup and
+all `sub_4FDD20` class-specific handling to run normally. The original learned
+spell value is restored synchronously after dispatch. This preserves NoxScript/NPC
+power semantics without exposing a monster runtime to player-list consumers and
+without permanently granting the player a learned spell.
 
 Native enchant `HELD` is ID `5`. `sub_4FF5B0(object, 5)` is the authoritative
 enchant removal path. Warrior policy performs the direct Slow self-cast first
@@ -1515,10 +1530,11 @@ remain engine-owned.
 The same direct-script contract is now exposed for self, object, and position
 targets. `nox_bot_engine_cast_script_object()` and
 `nox_bot_engine_cast_script_position()` build the exact `SpellAcceptArg` shape,
-face the target position, enter the existing player-bot monster view, call
-`sub_4FDD20`, and restore normal player form. This is intentionally separate
-from `nox_xxx_monsterCast_540A30`, which queues a monster cast action rather than
-reproducing NoxScript's direct `CastSpell` semantics.
+face the target position, temporarily expose the bot-AI spell power through the
+selected player learned-spell entry, call `sub_4FDD20` while the caster remains a
+normal player object, and restore the original learned level. This is
+intentionally separate from `nox_xxx_monsterCast_540A30`, which queues a monster
+cast action rather than reproducing NoxScript's direct `CastSpell` semantics.
 
 Wizard policy uses authoritative player mana rather than recreating the Go
 script's `wiz.mana` value. `nox_xxx_playerManaSub_4EEBF0` (`sub_4EEBF0`) is the
