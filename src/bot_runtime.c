@@ -149,6 +149,12 @@ int nox_bot_runtime_spawn_attempt(
         nox_bot_tracef("spawn", "failed", "slot=%d reason=native-constructor", slot);
         return 0;
     }
+    if (!nox_bot_engine_finish_spawn_transition(object)) {
+        nox_bot_tracef("spawn", "rollback",
+            "slot=%d object=0x%08x reason=spawn-transition", slot, object);
+        nox_bot_engine_remove_player_attempt(slot, object);
+        return 0;
+    }
     if (!nox_bot_runtime_attach_existing_player(object, difficulty)) {
         nox_bot_tracef("spawn", "rollback",
             "slot=%d object=0x%08x reason=bot-activation", slot, object);

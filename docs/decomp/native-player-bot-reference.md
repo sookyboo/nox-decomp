@@ -3238,6 +3238,8 @@ verify constructor return + player-info object pointer
     ↓
 verify/finalize requested red/blue membership, or leave native choice for auto
     ↓
+if update == sub_4E62F0: sub_4E6AA0(player_info) → sub_4F8100
+    ↓
 nox_bot_runtime_attach_existing_player
     ↓
 sub_4FA700 + object update = sub_4FAB20
@@ -3245,9 +3247,20 @@ sub_4FA700 + object update = sub_4FAB20
 mark slot BOT_SLOT_SERVER_CREATED in server-local lifecycle state
 ```
 
-If constructor result, team assignment, or bot activation fails, the path attempts
-to roll the created player back through `sub_4DE7C0`. `bot spawn 3v3` is six calls
-to the same primitive and clears already-created members if a later member fails.
+If constructor result, team assignment, native spawn-state completion, or bot
+activation fails, the path attempts to roll the created player back through
+`sub_4DE7C0`. `bot spawn 3v3` is six calls to the same primitive and clears
+already-created members if a later member fails.
+
+The first hosted lifecycle capture established one previously unverified state
+transition: `sub_4DD320` can return a fully linked/positioned player while its
+object updater is still `sub_4E62F0`. Source recovery shows that `sub_4E6860`
+installs this pre-active join/respawn updater and that normal gameplay later
+re-enters `sub_4E6AA0(player_info)`, which restores `sub_4F8100`. A socketless
+bot has no client input stream to drive `sub_4E62F0`, so the experimental spawn
+path now explicitly completes that same native transition before calling
+`nox_xxx_playerBotCreate_4FA700`. It does not bypass the transition by simply
+overwriting the update function.
 
 `bot clear` acts only on slots created by this runtime. It never removes an
 arbitrary connected human or a player temporarily controlled through `bot
@@ -3343,9 +3356,11 @@ The following points are intentionally documented rather than hidden behind a
 5. `sub_4DE7C0` is confirmed as the core used by a normal explicit leave packet,
    but a socketless slot never had all peer/network state. A create → clear →
    reuse-the-same-slot run must confirm complete cleanup.
-6. Cross-client visibility, scoreboards, team presentation, CTF interaction,
-   death/native bot respawn, and late-join visibility require integration
-   observation; standalone adapter tests cannot prove them.
+6. The initial pre-active updater transition is now understood and handled through
+   native `sub_4E6AA0`; cross-client visibility, scoreboards, team presentation,
+   CTF interaction, death/native bot respawn, and late-join visibility still
+   require integration observation because standalone adapter tests cannot prove
+   them.
 
 Recommended first capture:
 

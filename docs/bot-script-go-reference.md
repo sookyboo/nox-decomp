@@ -116,9 +116,12 @@ not blur native engine mechanics with Bot-Script policy:
   post-constructor membership operation remains as verification/fallback for
   modes that do not enter that initializer. Missing requested teams are rejected
   before creating a player object;
-- the created player is then handed to the existing
-  `nox_xxx_playerBotCreate_4FA700` / `4FAB20` attach path. Any
-  constructor/team/activation failure attempts transactional rollback;
+- `sub_4DD320` may leave the new player in native pre-active updater
+  `sub_4E62F0`; the first hosted trace confirmed that state. The socketless
+  path now completes the native transition through `sub_4E6AA0(player_info)`,
+  verifies `sub_4F8100`, and only then hands the object to the existing
+  `nox_xxx_playerBotCreate_4FA700` / `4FAB20` attach path. Any constructor,
+  team, transition, or activation failure attempts transactional rollback;
 - `bot clear` is restricted to slots marked server-created by this runtime. It
   restores normal player update state first and then calls the same core leave
   owner (`sub_4DE7C0`) used by the normal `0x22` leave packet;
