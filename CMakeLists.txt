@@ -595,6 +595,34 @@ if (BUILD_TESTING)
         target_link_options(summon_limit_test PRIVATE -m32)
     endif()
     add_test(NAME summon_limit_test COMMAND summon_limit_test)
+    add_executable(multiplayer_score_test
+        tests/multiplayer_score_test.c
+        src/GAME4.c
+    )
+    target_include_directories(multiplayer_score_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(multiplayer_score_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(multiplayer_score_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(multiplayer_score_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(multiplayer_score_test PRIVATE -m32)
+        target_link_options(multiplayer_score_test PRIVATE -m32)
+    endif()
+    add_test(NAME multiplayer_score_test COMMAND multiplayer_score_test)
     add_executable(summon_behavior_test
         tests/summon_behavior_test.c
         src/GAME4.c
@@ -764,6 +792,7 @@ if (BUILD_TESTING)
             gamepad_overlay_release_test
             summon_update_test
             summon_limit_test
+            multiplayer_score_test
             summon_behavior_test
             cutscene_chunk_test
             audio_compat_test

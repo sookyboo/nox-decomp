@@ -50695,7 +50695,11 @@ int sub_43CCA0()
           v4 = sub_416BB0() - *(_QWORD *)&byte_5D4594[815732];
           *(_DWORD *)&v7[4] = HIDWORD(v4);
           if ( v4 > 0x4E20 )
+          {
+            /* A timed-out host cannot send the normal disconnect callback. */
             LODWORD(v4) = sub_43CF70();
+            sub_446380();
+          }
         }
       }
     }
