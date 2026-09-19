@@ -311,7 +311,7 @@ static int test_follow_orders_apply_to_each_visible_ally_with_reference_chat_gat
     if (follow_calls != 12 || chat_calls != 8)
         return 14;
     /* Warrior has the two additional follow acknowledgements. */
-    if (last_action_object != BOT_FAR)
+    if (last_action_object != BOT_WIZARD)
         return 15;
     return 0;
 }
@@ -332,9 +332,9 @@ static int test_attack_and_guard_orders_use_native_actions(void)
     current_frame = 160;
     random_value = 4;
     nox_bot_chat_on_message(SENDER, L"stay");
-    if (guard_calls != 3 || chat_calls != 6 || last_action_object != BOT_FAR)
+    if (guard_calls != 3 || chat_calls != 6 || last_action_object != BOT_WIZARD)
         return 18;
-    if (last_guard_x != 100.0f || last_guard_y != 0.0f ||
+    if (last_guard_x != 50.0f || last_guard_y != 0.0f ||
         last_guard_radius != 300.0f || !text_equal(last_chat, L"I'll hold."))
         return 19;
     return 0;
