@@ -5,9 +5,9 @@
 #include <wchar.h>
 
 /*
- * Cosmetic Bot-Script chat compatibility that is independent of teammate
- * orders. Incoming human chat may schedule a delayed response from the nearest
- * active native bot; the bot update path releases it on simulation time.
+ * Bot-Script chat compatibility. Global greetings/good-game messages schedule
+ * a delayed response from the nearest active bot; allied visible teammate
+ * movement orders are applied immediately through native monster actions.
  */
 void nox_bot_chat_on_message(int sender_object, const wchar_t *message);
 void nox_bot_chat_update(int object, uint32_t frame);

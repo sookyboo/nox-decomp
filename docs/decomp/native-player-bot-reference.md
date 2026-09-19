@@ -118,12 +118,13 @@ The unresolved work after the current Warrior/native-runtime foundation is:
   the literal reference 10-second weapon preference, Bot-Script spell/summon
   phoneme sequencing, and shared CTF steering. Team roles and commands remain;
 - **orders/commands:** spawn/clear, attach/detach, difficulty, trace control, and
-  3v3 setup are implemented; teammate order execution and broader coordinated
-  team commands remain pending and are intentionally last;
-- **fidelity:** spell phoneme sequencing/timing and the global Bot-Script
-  greeting/`gg` responses are implemented. Teammate-order acknowledgement chat,
-  command-specific mana warnings, and remaining cosmetic behavior stay deferred
-  with the final shared command layer;
+  3v3 setup are implemented. Visible allied teammate movement chat orders now
+  dispatch through native Follow/Hunt/Guard; class-specific ally spell commands
+  and broader coordinated team strategy remain;
+- **fidelity:** spell phoneme sequencing/timing, global Bot-Script greeting/`gg`
+  responses, and the reference movement-order acknowledgement sets are
+  implemented. Command-specific ally-spell mana warnings and remaining cosmetic
+  behavior stay with the shared command layer;
 - **production lifecycle integration tests:** current deterministic tests cover
   adapters and policy, but end-to-end spawn/removal coverage awaits the real
   non-client lifecycle.
@@ -3411,8 +3412,9 @@ are the high-confidence lifecycle subset. `spawn`/`clear` are the runtime-
 unverified non-client attempt described above. `clear` is ownership-safe: only
 slots created by `bot spawn` are eligible.
 
-Shared teammate-order commands are intentionally not part of this lifecycle
-patch and remain last in the bot work plan.
+Shared teammate movement orders are handled separately by the native chat
+compatibility layer below; the lifecycle console remains concerned only with
+server construction/configuration.
 
 ## 36.1 Global Bot-Script chat-response fidelity
 
@@ -3443,10 +3445,33 @@ sub_528AC0(object, wide_text, 0)
     -> broadcasts it to active players
 ```
 
-OpenNox exposes the same recovered function as `nox_xxx_netSendChat_528AC0`, which
-independently confirms the role. This is intentionally separate from class-local
-`follow`/`attack`/`guard`/`stay`/`escort` chat callbacks; those mutate tactical
-orders and remain part of the shared team/order work reserved for last.
+OpenNox exposes the same recovered function as `nox_xxx_netSendChat_528AC0`,
+which independently confirms the role. The same normalized incoming message now
+also reproduces the reference's class-local teammate movement callbacks. For
+every active bot, the command is
+applied only when the sender is visible through `sub_5370E0(..., 0)` and is on
+the same native team through `sub_4EC520`:
+
+```text
+help / follow / escort / come -> sub_5158C0(bot, sender)   (Follow)
+attack / go                   -> sub_5157A0(bot)           (Hunt)
+guard / stay                  -> sub_515680(...)           (Guard radius 300)
+```
+
+The movement action is immediate, exactly as in the Go callbacks. Warrior and
+Wizard preserve the reference two-second `Chatting` gate for acknowledgement
+messages; the Conjurer intentionally acknowledges every accepted command because
+its reference callback has no such gate. Warrior additionally ignores movement
+commands while dead, matching `onWarCommand`. The Go callbacks also assign
+`Escorting`/`Guarding` bookkeeping fields, but those fields are not read by any
+other current reference path; duplicating them in native policy would create a
+second source of truth with no observable behavior, so the native action stack
+remains authoritative.
+
+Class-specific ally Shield/Haste/Invisibility/Vampirism chat commands are not
+part of this movement-order slice because they alter the existing reaction/
+phoneme spell scheduler and mana-warning feedback; they remain separate shared
+command work.
 
 No command manually synthesizes CTF scoring, movement, combat, respawn, or spell
 state; those remain native systems once the player object exists.
