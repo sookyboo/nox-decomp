@@ -406,6 +406,33 @@ int nox_bot_engine_spawn_player_attempt(
     return object;
 }
 
+int nox_bot_engine_finish_spawn_transition(int object)
+{
+    int info;
+    int (__cdecl *update)(_DWORD *);
+
+    if (!object ||
+        !(*(unsigned char *)(object + NOX_OBJECT_CATEGORY_OFFSET) & NOX_OBJECT_PLAYER_CATEGORY))
+        return 0;
+    info = nox_bot_engine_player_info(object);
+    if (!info)
+        return 0;
+    update = *(int (__cdecl **)(_DWORD *))(object + NOX_OBJECT_UPDATE_OFFSET);
+    if (update == (int (__cdecl *)(_DWORD *))sub_4F8100 || update == sub_4FAB20)
+        return 1;
+    if (update != (int (__cdecl *)(_DWORD *))sub_4E62F0)
+        return 0;
+
+    /* sub_4DD320 may leave a newly joined player in sub_4E62F0, the native
+     * pre-active join/respawn updater installed by sub_4E6860. A real client
+     * drives that state until sub_4E6AA0 restores sub_4F8100. Socketless bots
+     * have no client input, so complete that same server-owned transition
+     * explicitly before attaching native bot AI. */
+    sub_4E6AA0(info);
+    update = *(int (__cdecl **)(_DWORD *))(object + NOX_OBJECT_UPDATE_OFFSET);
+    return update == (int (__cdecl *)(_DWORD *))sub_4F8100 || update == sub_4FAB20;
+}
+
 int nox_bot_engine_remove_player_attempt(int player_slot, int expected_object)
 {
     char *info;

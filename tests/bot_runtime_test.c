@@ -31,6 +31,8 @@ static int spawn_engine_class;
 static int spawn_teams_enabled;
 static wchar_t spawn_engine_name[25];
 static int spawn_remove_result;
+static int spawn_transition_result;
+static int spawn_transition_calls;
 static int spawn_remove_calls;
 static int spawn_slot_object;
 static int bomber_owned;
@@ -93,6 +95,12 @@ int nox_bot_engine_spawn_player_attempt(
 int nox_bot_engine_player_object_by_slot(int slot)
 {
     return slot == player_slot ? spawn_slot_object : 0;
+}
+
+int nox_bot_engine_finish_spawn_transition(int object)
+{
+    ++spawn_transition_calls;
+    return object == spawn_slot_object && spawn_transition_result;
 }
 
 int nox_bot_engine_remove_player_attempt(int slot, int expected_object)
@@ -248,6 +256,8 @@ static void reset_stubs(void)
     spawn_engine_name[0] = 0;
     spawn_remove_result = 1;
     spawn_remove_calls = 0;
+    spawn_transition_result = 1;
+    spawn_transition_calls = 0;
     spawn_slot_object = 0;
     bomber_owned = 0;
     bomber_attack_calls = 0;
@@ -317,7 +327,7 @@ static int test_server_created_spawn_and_clear(void)
     if (!nox_bot_runtime_spawn_attempt(
             NOX_BOT_SPAWN_TEAM_RED, 1, NOX_BOT_DIFFICULTY_HARD, &slot))
         return 13;
-    if (slot != 4 || spawn_engine_calls != 1 ||
+    if (slot != 4 || spawn_engine_calls != 1 || spawn_transition_calls != 1 ||
         spawn_engine_team != NOX_BOT_SPAWN_TEAM_RED || spawn_engine_class != 1 ||
         !wide_equals(spawn_engine_name, L"Wizard Bot"))
         return 14;
@@ -389,6 +399,21 @@ static int test_spawn_uses_reference_class_names(void)
         return 96;
     if (!nox_bot_runtime_clear_server_created(slot))
         return 97;
+    return 0;
+}
+
+static int test_spawn_transition_failure_rolls_back_native_player(void)
+{
+    int slot = -1;
+
+    reset_stubs();
+    spawn_transition_result = 0;
+    if (nox_bot_runtime_spawn_attempt(
+            NOX_BOT_SPAWN_TEAM_BLUE, 2, NOX_BOT_DIFFICULTY_NORMAL, &slot))
+        return 98;
+    if (spawn_engine_calls != 1 || spawn_transition_calls != 1 || enable_calls ||
+        spawn_remove_calls != 1 || spawn_slot_object || nox_bot_runtime_is_server_created(4))
+        return 99;
     return 0;
 }
 
@@ -673,6 +698,9 @@ int main(void)
     if (result)
         return result;
     result = test_spawn_uses_reference_class_names();
+    if (result)
+        return result;
+    result = test_spawn_transition_failure_rolls_back_native_player();
     if (result)
         return result;
     result = test_spawn_activation_failure_rolls_back_native_player();

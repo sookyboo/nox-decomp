@@ -35,6 +35,8 @@ typedef enum nox_bot_spawn_team {
 int nox_bot_engine_find_free_player_slot(void);
 int nox_bot_engine_spawn_player_attempt(
     int player_slot, int player_class, nox_bot_spawn_team team, const wchar_t *name);
+/* Completes the native pre-active join/respawn updater before bot attachment. */
+int nox_bot_engine_finish_spawn_transition(int object);
 int nox_bot_engine_remove_player_attempt(int player_slot, int expected_object);
 
 /*

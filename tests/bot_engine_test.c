@@ -20,6 +20,7 @@ static int last_cast_target;
 static int morph_from_calls;
 static int morph_to_calls;
 static int player_bot_create_calls;
+static int finish_spawn_transition_calls;
 static int spell_lookup_calls;
 static const char *spell_lookup_name;
 static int ability_lookup_calls;
@@ -236,6 +237,21 @@ char __cdecl sub_4F8100(_DWORD *object)
 {
     (void)object;
     return 0;
+}
+
+unsigned __int8 *__cdecl sub_4E62F0(int object)
+{
+    (void)object;
+    return 0;
+}
+
+void __cdecl sub_4E6AA0(int info)
+{
+    int object = info ? *(int *)(info + 2056) : 0;
+
+    ++finish_spawn_transition_calls;
+    if (object)
+        *(char (__cdecl **)(_DWORD *))(object + 744) = sub_4F8100;
 }
 
 int __cdecl sub_4FAB20(_DWORD *object)
@@ -1014,9 +1030,18 @@ static int test_existing_player_activation(void)
     *(uint32_t *)(object + 748) = (uint32_t)(uintptr_t)runtime;
     *(uint32_t *)(runtime + 276) = (uint32_t)(uintptr_t)info;
     info[2064] = 5;
-    *(char (__cdecl **)(_DWORD *))(object + 744) = sub_4F8100;
+    *(char (__cdecl **)(_DWORD *))(object + 744) = sub_4E62F0;
+    *(uint32_t *)(info + 2056) = (uint32_t)(uintptr_t)object;
     object_ptr = (int)(uintptr_t)object;
     player_bot_create_calls = 0;
+    finish_spawn_transition_calls = 0;
+
+    if (!nox_bot_engine_finish_spawn_transition(object_ptr) ||
+        finish_spawn_transition_calls != 1 ||
+        *(char (__cdecl **)(_DWORD *))(object + 744) != sub_4F8100)
+        return 39;
+    if (!nox_bot_engine_finish_spawn_transition(object_ptr) || finish_spawn_transition_calls != 1)
+        return 48;
 
     if (!nox_bot_engine_enable_existing_player_bot(object_ptr))
         return 40;

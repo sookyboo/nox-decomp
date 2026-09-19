@@ -386,8 +386,12 @@ bot clear all
 ```
 
 `bot spawn` selects an inactive player-info slot in `0..30`, constructs the
-recovered 153-byte `PlayerOpts` shape, calls the normal native player constructor,
-and then activates the original player-monster bot update path. Explicit red/blue
+recovered 153-byte `PlayerOpts` shape, and calls the normal native player
+constructor. The first hosted trace showed that construction can finish with the
+player still in native pre-active updater `sub_4E62F0`; the socketless path now
+completes that normal server-owned transition through `sub_4E6AA0(player_info)`
+to `sub_4F8100` before activating the original player-monster bot updater.
+Explicit red/blue
 spawns now resolve that existing native team before construction and seed its
 external team key into the recovered `PlayerOpts` field; membership is verified
 after construction as a fallback. A missing requested team is rejected before a
