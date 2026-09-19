@@ -56,16 +56,17 @@ Implemented so far:
 - `[~]` Conjurer tactical subset: Enemy Sighted Force of Nature, Looking/Lost Sight Infravision, Pixie Swarm gated by authoritative owned-Pixie state, hostile DeathBall Counterspell and generic target-owned missile Inversion reactions, reaction-timed Blink escape, native random summon spells plus the custom owned Bomber/Glyph path gated by authoritative creature-cage state and native `BomberSummon` audio, held/slowed-target Meteor/Toxic Cloud/Burn/Counterspell priority, non-CTF Stun versus CTF Slow, Lesser Heal, Vampirism/protection fallback, native potions, native mana-obelisk routing/restoration, passive mana regeneration, reaction delays, reference spell-phoneme/summon-chant timing, reference cooldowns, 15-frame native loot/equip pickup, the literal 10-second reference weapon preference, and shared native-backed CTF objective steering;
 - `[x]` focused deterministic regression coverage for the adapter, runtime glue, policy state, event capture, Warrior decisions, and the current Wizard/Conjurer spell-priority subsets;
 - `[x]` global Bot-Script greeting/`gg` chat responses, using the native incoming text-message path, one-second simulation-time delay, nearest active bot selection, reference response strings/random choices, and native object chat broadcast;
+- `[x]` visible allied teammate movement chat orders (`help`/`follow`/`escort`/`come`, `attack`/`go`, and `guard`/`stay`) using native Follow/Hunt/Guard actions plus the class-specific reference acknowledgement sets and Warrior/Wizard two-second Chatting gate;
 - `[~]` server-side lifecycle commands and opt-in lifecycle tracing, including a complete experimental `bot spawn`/`bot clear` attempt that reuses the native join/leave owners without a remote client. The code path is structurally covered but still requires hosted-game runtime verification.
 
 Still intentionally not implemented where native ownership is not completely recovered:
 
 - `[~]` non-client player creation now has an experimental socketless path using the normal native player constructor; runtime logs still need to verify its network-slot assumptions and mode-specific side effects;
 - `[~]` server-created bot cleanup now uses the normal native leave owner and bot-local ownership tracking; runtime logs still need to verify complete reuse/cleanup of a slot that never had a real peer;
-- `[~]` remaining Warrior policy (additional teammate/team coordination beyond the current native-backed CTF objective steering);
+- `[~]` remaining Warrior policy (teammate movement chat orders are implemented; additional coordinated team strategy beyond the current native-backed CTF objective steering remains);
 - `[~]` Wizard Bot-Script tactical policy (core direct-cast priority including Energy Bolt, Ring of Fire, and native Drain Mana, hidden Enemy-Heard Invisibility, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, the owned three-spell Glyph Trap, native mana-obelisk routing, nearby loot, wand preference, reference phoneme sequencing/timing, CTF carrier-role-aware Invisibility, and shared CTF steering are implemented; broader coordinated team roles remain);
-- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks, `BomberSummon` audio, Alert status, and Enemy Sighted/Enemy Heard/Lost Enemy action choreography, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, reference phoneme/summon-chant sequencing, and shared CTF steering; broader team roles and commands remain);
-- `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; broader coordinated multi-bot strategy and teammate orders remain pending;
+- `[~]` Conjurer Bot-Script tactical policy (the direct-cast priority slice now includes Pixie Swarm with native ownership counting, hostile DeathBall Counterspell, target-owned missile Inversion, Blink escape, native random summon spells and the custom Bomber/Glyph path with authoritative creature-cage checks, `BomberSummon` audio, Alert status, and Enemy Sighted/Enemy Heard/Lost Enemy action choreography, native mana-obelisk routing, nearby loot/equip pickup, the literal 10-second reference weapon preference, reference phoneme/summon-chant sequencing, shared CTF steering, and teammate movement chat orders; ally Vampirism command and broader coordinated roles remain);
+- `[~]` shared native-backed CTF destination steering now covers Warrior, Wizard, and Conjurer, and the active enemy-flag carrier is recognized as the Bot-Script `TeamTank` for carrier-specific combat/buff choices; immediate teammate movement chat orders are implemented, while broader coordinated multi-bot strategy and class-specific ally spell commands remain pending;
 - `[x]` spell-phoneme sequencing/timing for the implemented Wizard/Conjurer spells and Conjurer summon chants, including compound Trap/Bomber concentration pauses.
 
 The optional bot build now exposes a traced server-side lifecycle surface:
@@ -279,12 +280,18 @@ order system reserved for last.
 - spawn/clear, existing-player attach/detach, per-bot difficulty, trace control,
   and a convenience `bot spawn 3v3` command are now wired through the server
   console; the new non-client spawn/clear subset remains runtime-unverified;
-- human teammate orders (`follow`, `attack`, `guard`, `stay`, `escort`) need an
-  order executor on top of the existing policy enum;
+- human teammate movement orders (`help`/`follow`/`escort`/`come`,
+  `attack`/`go`, and `guard`/`stay`) now execute the reference's immediate native
+  Follow/Hunt/Guard actions for every visible allied bot. Warrior/Wizard preserve
+  the two-second `Chatting` acknowledgement gate; Conjurer intentionally does not
+  gate acknowledgements, matching the reference. The Go `Escorting`/`Guarding`
+  booleans written by these callbacks are not read elsewhere in the current
+  reference, so the native port does not invent duplicate persistent order state;
 - spell phoneme sequencing/timing is implemented for the current Wizard and
-  Conjurer spell/summon surface. Global greeting/`gg` responses are also native-
-  backed; teammate-order acknowledgements, command-specific mana warnings, and
-  other presentation details remain with the final shared command/fidelity work.
+  Conjurer spell/summon surface. Global greeting/`gg` responses and teammate
+  movement acknowledgements are native-backed; Wizard ally Shield/Haste/
+  Invisibility, Conjurer ally Vampirism, their command-specific mana warnings,
+  and broader coordinated strategy remain shared-command work.
 
 ### Integration coverage
 
@@ -1565,7 +1572,9 @@ Port shared team strategy and only the CTF behaviour not already handled by Nox.
 
 ## Tier 9 — commands and teammate control
 
-Add server commands and friendly bot orders.
+Server lifecycle commands and immediate friendly movement chat orders are now
+implemented. Class-specific ally spell commands and broader coordinated strategy
+remain.
 
 ## Later fidelity work
 
