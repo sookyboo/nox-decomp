@@ -34311,15 +34311,14 @@ int __cdecl sub_51E1D0(const char *a1)
 {
   unsigned int i; // esi
   char v3[60]; // [esp+8h] [ebp-78h]
-  char v4; // [esp+44h] [ebp-3Ch]
+  char v4[60]; // [esp+44h] [ebp-3Ch]
 
   strcpy(v3, a1);
   for ( i = 0; i < strlen(v3); ++i )
     v3[i] = toupper(v3[i]);
-  nox_sprintf(&v4, (const char *)&byte_587000[253508], v3);
-  return sub_4243F0(&v4);
+  nox_sprintf(v4, (const char *)&byte_587000[253508], v3);
+  return sub_4243F0(v4);
 }
-// 51E1D0: using guessed type char var_78[60];
 
 //----- (0051E260) --------------------------------------------------------
 int __cdecl sub_51E260(int *a1, int a2)

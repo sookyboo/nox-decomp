@@ -750,6 +750,38 @@ if (BUILD_TESTING)
         target_link_options(multiplayer_score_test PRIVATE -m32)
     endif()
     add_test(NAME multiplayer_score_test COMMAND multiplayer_score_test)
+    add_executable(spell_lookup_test
+        tests/spell_lookup_test.c
+        src/GAME4.c
+        src/string.c
+    )
+    target_include_directories(spell_lookup_test PRIVATE
+        src/external/include
+    )
+    if (MSVC)
+        target_compile_options(spell_lookup_test PRIVATE -ffunction-sections)
+    else()
+        target_compile_options(spell_lookup_test PRIVATE
+            -g
+            -fno-strict-aliasing
+            -fno-strict-overflow
+            -fshort-wchar
+            -O0
+            -fcommon
+            -Wno-error=int-conversion
+            -Wno-error=incompatible-pointer-types
+            -ffunction-sections
+        )
+    endif()
+    target_link_options(spell_lookup_test PRIVATE -Wl,--gc-sections)
+    if (NOT MSVC)
+        target_link_libraries(spell_lookup_test PRIVATE m)
+    endif()
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+        target_compile_options(spell_lookup_test PRIVATE -m32)
+        target_link_options(spell_lookup_test PRIVATE -m32)
+    endif()
+    add_test(NAME spell_lookup_test COMMAND spell_lookup_test)
     add_executable(summon_behavior_test
         tests/summon_behavior_test.c
         src/GAME4.c
