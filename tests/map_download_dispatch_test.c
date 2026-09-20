@@ -4,6 +4,9 @@
 #include "legacy_memory.h"
 
 #include <arpa/inet.h>
+#include <limits.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #undef socket
 #undef bind
@@ -25,6 +28,48 @@ static void __cdecl receive_callback(unsigned int channel,
     ++callback_count;
 }
 
+static int map_file_transfer_test(void)
+{
+    char original[PATH_MAX];
+    char temporary[] = "/tmp/nox-map-download-XXXXXX";
+    char transfer_name[] = "maps\\Fixture\\Fixture.nxz";
+    unsigned char first[] = {'A', 'B'};
+    unsigned char second[] = {'C', 'D'};
+    unsigned char third[] = {'E', 'F'};
+    unsigned char output[6];
+    FILE *file;
+    int success = 0;
+
+    if (!getcwd(original, sizeof(original)) || !mkdtemp(temporary) ||
+        chdir(temporary) != 0)
+        return 0;
+    if (!sub_4ABAD0(transfer_name, sizeof(output)))
+        goto cleanup;
+
+    /* Keep completion/UI callbacks out of this focused file fixture. */
+    *(uint32_t *)&byte_5D4594[1309764] = 0;
+    sub_4AB7C0(3, third, sizeof(third));
+    sub_4AB7C0(1, first, sizeof(first));
+    sub_4AB7C0(2, second, sizeof(second));
+    sub_4AB580();
+
+    file = fopen("maps/Fixture/Fixture.nxz", "rb");
+    if (!file || fread(output, 1, sizeof(output), file) != sizeof(output))
+        goto cleanup;
+    fclose(file);
+    success = memcmp(output, "ABCDEF", sizeof(output)) == 0;
+    remove("maps/Fixture/Fixture.nxz");
+
+cleanup:
+    if (!success)
+        sub_4AB720();
+    rmdir("maps/Fixture");
+    rmdir("maps");
+    chdir(original);
+    rmdir(temporary);
+    return success;
+}
+
 int main(void)
 {
     size_t network_record_args[10] = {0};
@@ -40,6 +85,9 @@ int main(void)
     int sender_socket;
     int receiver_socket;
     int sent;
+
+    if (!map_file_transfer_test())
+        return 1;
 
     /* A real transfer creates this production connection record before the
      * packet dispatcher runs.  Its recovered pointer slots must remain valid

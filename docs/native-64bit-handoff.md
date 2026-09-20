@@ -204,6 +204,9 @@ After the latest source changes:
   recovered four-byte pointer slots valid through low-address allocation, and
   the map-download regression covers constructor/destructor cleanup before
   dispatching a high-bit transfer packet;
+- the map-file consumer now keeps native `FILE *`/path state in sidecars and
+  uses low-address storage for its recovered chunk queue; the regression
+  verifies out-of-order chunks are written in sequence before finalization;
 - this verifies startup through map dispatch and its first window render. A
   complete map-transfer/gameplay assertion still requires a supplied map
   service or fixture, which the current headless smoke does not provide.

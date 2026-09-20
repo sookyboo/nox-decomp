@@ -79,6 +79,35 @@ static void nox_game3_low_free(void *address, size_t size)
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
+static FILE *nox_map_download_file;
+static char *nox_map_download_path;
+static unsigned char *nox_map_download_queue_head;
+static unsigned char *nox_map_download_queue_tail;
+
+static void *nox_map_download_alloc(size_t size)
+{
+#if defined(__linux__)
+  void *result = nox_game3_low_alloc(size);
+  return result == MAP_FAILED ? 0 : result;
+#else
+  return malloc(size);
+#endif
+}
+
+static void nox_map_download_free(void *address, size_t size)
+{
+  if ( !address )
+    return;
+#if defined(__linux__)
+  nox_game3_low_free(address, size);
+#else
+  (void)size;
+  free(address);
+#endif
+}
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX
 static int *nox_game3_legacy_ptr(unsigned int offset)
 {
   return (int *)(uintptr_t)*(unsigned int *)&byte_5D4594[offset];
@@ -7334,6 +7363,37 @@ LPCSTR sub_4AB580()
 {
   LPCSTR result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *node;
+  unsigned char *next;
+
+  if ( nox_map_download_file )
+    fclose(nox_map_download_file);
+  node = nox_map_download_queue_head;
+  while ( node )
+  {
+    next = (unsigned char *)(uintptr_t)*(uint32_t *)(node + 12);
+    nox_map_download_free((void *)(uintptr_t)*(uint32_t *)(node + 4),
+                          *(uint32_t *)(node + 8));
+    nox_map_download_free(node, 0x14u);
+    node = next;
+  }
+  result = nox_map_download_path;
+  nox_map_download_file = 0;
+  nox_map_download_path = 0;
+  nox_map_download_queue_head = 0;
+  nox_map_download_queue_tail = 0;
+  *(_DWORD *)&byte_5D4594[1309760] = 0;
+  *(_DWORD *)&byte_5D4594[1309764] = 0;
+  *(_DWORD *)&byte_5D4594[1309784] = 0;
+  *(_DWORD *)&byte_5D4594[1309780] = 0;
+  *(_DWORD *)&byte_5D4594[1309772] = 0;
+  *(_DWORD *)&byte_5D4594[1309768] = 0;
+  *(_DWORD *)&byte_587000[173336] = 1;
+  if ( result )
+    nox_map_download_free((void *)result, strlen(result) + 1);
+  return result;
+#else
   if ( *(_DWORD *)&byte_5D4594[1309760] )
     fclose(*(FILE **)&byte_5D4594[1309760]);
   result = *(LPCSTR *)&byte_5D4594[1309776];
@@ -7347,6 +7407,7 @@ LPCSTR sub_4AB580()
   if ( *(_DWORD *)&byte_5D4594[1309776] )
     free(*(LPVOID *)&byte_5D4594[1309776]);
   return result;
+#endif
 }
 
 //----- (004AB5E0) --------------------------------------------------------
@@ -7414,6 +7475,41 @@ int sub_4AB5E0()
 //----- (004AB720) --------------------------------------------------------
 int sub_4AB720()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *node;
+  unsigned char *next;
+  char *path;
+
+  path = nox_map_download_path;
+  if ( nox_map_download_file )
+    fclose(nox_map_download_file);
+  if ( path )
+    DeleteFileA(path);
+  node = nox_map_download_queue_head;
+  nox_map_download_file = 0;
+  nox_map_download_path = 0;
+  nox_map_download_queue_head = 0;
+  nox_map_download_queue_tail = 0;
+  *(_DWORD *)&byte_5D4594[1309760] = 0;
+  *(_DWORD *)&byte_5D4594[1309764] = 0;
+  *(_DWORD *)&byte_587000[173336] = 1;
+  *(_DWORD *)&byte_5D4594[1309772] = 0;
+  *(_DWORD *)&byte_5D4594[1309768] = 0;
+  while ( node )
+  {
+    next = (unsigned char *)(uintptr_t)*(uint32_t *)(node + 12);
+    nox_map_download_free((void *)(uintptr_t)*(uint32_t *)(node + 4),
+                          *(uint32_t *)(node + 8));
+    nox_map_download_free(node, 0x14u);
+    node = next;
+  }
+  if ( path )
+    nox_map_download_free(path, strlen(path) + 1);
+  *(_DWORD *)&byte_5D4594[1309784] = 0;
+  *(_DWORD *)&byte_5D4594[1309780] = 0;
+  sub_4AB560(0);
+  return sub_4AB570(1);
+#else
   int v0; // esi
   int v1; // edi
 
@@ -7442,11 +7538,85 @@ int sub_4AB720()
   *(_DWORD *)&byte_5D4594[1309780] = 0;
   sub_4AB560(0);
   return sub_4AB570(1);
+#endif
 }
 
 //----- (004AB7C0) --------------------------------------------------------
 void __cdecl sub_4AB7C0(unsigned __int16 a1, void *a2, size_t a3)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *node;
+  unsigned char *next;
+  unsigned char *previous;
+  void *payload;
+
+  if ( !a2 || !a3 )
+    return;
+  if ( a1 == *(_DWORD *)&byte_587000[173336] )
+  {
+    fwrite(a2, a3, 1u, nox_map_download_file);
+    *(_DWORD *)&byte_5D4594[1309768] += a3;
+    ++*(_DWORD *)&byte_587000[173336];
+  }
+  else
+  {
+    node = nox_map_download_alloc(0x14u);
+    payload = nox_map_download_alloc(a3);
+    if ( !node || !payload )
+    {
+      nox_map_download_free(payload, a3);
+      nox_map_download_free(node, 0x14u);
+      return;
+    }
+    memcpy(payload, a2, a3);
+    *(uint16_t *)node = a1;
+    *(uint32_t *)(node + 4) = (uint32_t)(uintptr_t)payload;
+    *(uint32_t *)(node + 8) = (uint32_t)a3;
+    *(uint32_t *)(node + 12) = 0;
+    *(uint32_t *)(node + 16) = (uint32_t)(uintptr_t)nox_map_download_queue_tail;
+    if ( nox_map_download_queue_tail )
+      *(uint32_t *)(nox_map_download_queue_tail + 12) = (uint32_t)(uintptr_t)node;
+    else
+      nox_map_download_queue_head = node;
+    nox_map_download_queue_tail = node;
+  }
+  while ( nox_map_download_queue_head &&
+          *(_DWORD *)&byte_587000[173336] == *(uint16_t *)nox_map_download_queue_head )
+  {
+    node = nox_map_download_queue_head;
+    payload = (void *)(uintptr_t)*(uint32_t *)(node + 4);
+    a3 = *(uint32_t *)(node + 8);
+    fwrite(payload, a3, 1u, nox_map_download_file);
+    *(_DWORD *)&byte_5D4594[1309768] += a3;
+    ++*(_DWORD *)&byte_587000[173336];
+    next = (unsigned char *)(uintptr_t)*(uint32_t *)(node + 12);
+    previous = (unsigned char *)(uintptr_t)*(uint32_t *)(node + 16);
+    if ( previous )
+      *(uint32_t *)(previous + 12) = (uint32_t)(uintptr_t)next;
+    else
+      nox_map_download_queue_head = next;
+    if ( next )
+      *(uint32_t *)(next + 16) = (uint32_t)(uintptr_t)previous;
+    else
+      nox_map_download_queue_tail = previous;
+    nox_map_download_free(payload, a3);
+    nox_map_download_free(node, 0x14u);
+  }
+  if ( *(_DWORD *)&byte_5D4594[1309764] &&
+       *(_DWORD *)&byte_5D4594[1309768] >= *(_DWORD *)&byte_5D4594[1309772] )
+  {
+    sub_4AB580();
+    sub_4AB560(0);
+    sub_4AB570(1);
+    sub_4CC900(0x64u);
+    sub_43CA80();
+  }
+  else if ( *(_DWORD *)&byte_5D4594[1309772] )
+  {
+    sub_4CC900((__int64)((double)*(unsigned int *)&byte_5D4594[1309768]
+                         / (double)*(int *)&byte_5D4594[1309772] * 100.0));
+  }
+#else
   _DWORD *v3; // ebx
   void *v4; // eax
   unsigned __int16 *v5; // esi
@@ -7523,6 +7693,7 @@ void __cdecl sub_4AB7C0(unsigned __int16 a1, void *a2, size_t a3)
       sub_4CC900((__int64)((double)*(unsigned int *)&byte_5D4594[1309768] / (double)*(int *)&byte_5D4594[1309772] * 100.0));
     }
   }
+#endif
 }
 
 //----- (004AB9B0) --------------------------------------------------------
@@ -7553,6 +7724,19 @@ LPCSTR sub_4ABA90()
 {
   LPCSTR result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_map_download_path;
+  if ( *(_DWORD *)&byte_5D4594[1309764] )
+  {
+    sub_43CAB0();
+    if ( nox_map_download_file )
+      fclose(nox_map_download_file);
+    if ( nox_map_download_path )
+      sub_4AB9B0(nox_map_download_path);
+    result = sub_4AB580();
+  }
+  return result;
+#else
   result = *(LPCSTR *)&byte_5D4594[1309764];
   if ( *(_DWORD *)&byte_5D4594[1309764] )
   {
@@ -7563,6 +7747,7 @@ LPCSTR sub_4ABA90()
     result = sub_4AB580();
   }
   return result;
+#endif
 }
 
 //----- (004ABAD0) --------------------------------------------------------
@@ -7624,6 +7809,21 @@ int __cdecl sub_4ABAD0(char *a1, unsigned int a2)
     CreateDirectoryA((LPCSTR)&byte_587000[173400], 0);
   if ( _access(PathName, 0) == -1 )
     CreateDirectoryA(PathName, 0);
+#if UINTPTR_MAX > UINT32_MAX
+  v8 = (char *)nox_map_download_alloc(strlen(v11) + 1);
+  nox_map_download_path = v8;
+  if ( v8 )
+  {
+    strcpy(v8, v11);
+    nox_map_download_file = fopen(nox_map_download_path, "wb");
+    if ( nox_map_download_file )
+    {
+      result = 1;
+      *(_DWORD *)&byte_587000[173336] = 1;
+      return result;
+    }
+  }
+#else
   v8 = (char *)malloc(strlen(v11) + 1);
   *(_DWORD *)&byte_5D4594[1309776] = v8;
   if ( v8 )
@@ -7637,6 +7837,7 @@ int __cdecl sub_4ABAD0(char *a1, unsigned int a2)
       return result;
     }
   }
+#endif
   return 0;
 }
 
