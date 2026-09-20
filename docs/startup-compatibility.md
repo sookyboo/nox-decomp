@@ -114,10 +114,14 @@ With the control-server `server` macro enabled and
 `NOX_SERVER_DEFAULT_MAP=Estate`, native startup reaches the host setup and
 opens the multiplayer window resources. The control server's
 `console "load Estate"` action invokes the production `sub_443C80()` parser on
-the main thread; the native `load` transition reaches
-`map_download_start()` and opens `window/mapdnld.wnd`. A separate native
-window-render callback transport was corrected by moving the two recovered
-DWORD line-drawing callbacks to native sidecars. A separate native callback fault was
+the main thread. Because the recovered `sub_4432B0()` handler consumes a
+32-bit argv record and interprets its argument as a server-list entry, the
+native path allocates a low-address UTF-16 argument and argv record, calls that
+handler, and then sets the normal map-transition flag for a standalone host
+when no matching peer exists. The result reaches `map_download_start()` and
+opens `window/mapdnld.wnd`. A separate native window-render callback transport
+was corrected by moving the two recovered DWORD line-drawing callbacks to
+native sidecars. A separate native callback fault was
 confirmed in `sub_554B40()`: it passed `sub_554FF0()` through an `int` before
 `sub_43DE20()` stored it in the host-width callback sidecar. The resulting
 invalid tick callback jump is fixed and covered by

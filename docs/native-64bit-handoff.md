@@ -190,8 +190,10 @@ After the latest source changes:
   complete initialization path and the callback transport regression without
   the invalid jump;
 - the control server now exposes `console "..."`, which queues an ASCII command
-  for the main-thread production console parser (`sub_443C80()`); its native
-  `load` transition sets the same map-download state consumed by `mainloop()`;
+  for the main-thread production console parser (`sub_443C80()`); on native
+  builds, the `load` command bridges its 32-bit argv contract through low
+  memory into `sub_4432B0()`, then preserves the server-side map-transition
+  flag when the standalone host has no matching server-list entry;
 - the native diagnostic sequence reaches and logs
   `map_download_start()`, then opens `window/mapdnld.wnd`; this verifies the
   startup-to-map-dispatch boundary rather than only macro completion;
@@ -204,10 +206,9 @@ After the latest source changes:
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
-because a timeout does not yet prove that the native process entered a game;
-the current verified assertion is signal-free progression through the complete
-scripted `server` macro, including `defaultServerGame`; it does not yet assert
-that `map_download_start()` was called.
+because a timeout does not prove that the native process entered a game. The
+map-dispatch smoke additionally enables `NOX_TRACE_MAP_DOWNLOAD=1` and checks
+for `map_download_start()` followed by `window/mapdnld.wnd`.
 
 ## Reproduce the native server-startup smoke test
 
@@ -294,8 +295,8 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
 
 ## Recommended next steps
 
-1. Instrument or expose the console-command dispatch so the `load Estate`
-   action can be verified at `map_download_start()` on both architectures.
+1. Supply a map-service fixture or equivalent automated network peer so the
+   map-download packet path can be verified through gameplay state.
 2. Run the complete i386 and ARMHF/QEMU CTest suites after the startup path is
    stable.
 3. Update `startup-compatibility.md` with the final native audio transport

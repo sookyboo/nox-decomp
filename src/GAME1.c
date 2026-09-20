@@ -58478,17 +58478,45 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
   v11 = 0;
   LOBYTE(v10) = 0;
 #if UINTPTR_MAX > UINT32_MAX
-  /* The recovered command callbacks consume a 32-bit argv record.  Keep the
-   * production parser boundary, but handle the server's load transition in
-   * native code until that callback table has a native argv representation. */
+  /* The recovered command callback consumes a 32-bit argv record.  Preserve
+   * the production load handler by constructing that record and its argument
+   * in low memory while the native command table remains unadapted. */
   if ( a1 && (a1[0] == 'l' || a1[0] == 'L')
     && (a1[1] == 'o' || a1[1] == 'O')
     && (a1[2] == 'a' || a1[2] == 'A')
     && (a1[3] == 'd' || a1[3] == 'D')
     && (a1[4] == 0 || a1[4] == ' ') )
   {
+    wchar_t *argument = a1 + 4;
+    size_t argument_length;
+    size_t argument_size;
+    wchar_t *legacy_argument;
+    uint32_t *legacy_argv;
+    int callback_result;
+
+    while ( *argument == ' ' )
+      ++argument;
+    argument_length = nox_wcslen(argument);
+    argument_size = (argument_length + 1) * sizeof(wchar_t);
+    legacy_argument = nox_legacy_low_alloc(argument_size);
+    legacy_argv = nox_legacy_low_alloc(2 * sizeof(*legacy_argv));
+    if ( !legacy_argument || !legacy_argv )
+    {
+      nox_legacy_low_free(legacy_argv, 2 * sizeof(*legacy_argv));
+      nox_legacy_low_free(legacy_argument, argument_size);
+      return 0;
+    }
+    memcpy(legacy_argument, argument, argument_size);
+    legacy_argv[0] = 0;
+    legacy_argv[1] = (uint32_t)(uintptr_t)legacy_argument;
+    callback_result = sub_4432B0(1, 2, (int)(uintptr_t)legacy_argv);
+    nox_legacy_low_free(legacy_argv, 2 * sizeof(*legacy_argv));
+    nox_legacy_low_free(legacy_argument, argument_size);
+    /* The recovered handler interprets the argument as a server-list entry.
+     * A standalone host has no such peer for its map name, but the command's
+     * server-side effect is still the normal map-transition flag. */
     sub_40A4D0(0x100000);
-    return 1;
+    return callback_result;
   }
 #endif
   if ( a1 )
