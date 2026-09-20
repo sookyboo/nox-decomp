@@ -914,6 +914,29 @@ if (BUILD_TESTING)
         target_link_options(map_download_dispatch_test PRIVATE -m32)
     endif()
     add_test(NAME map_download_dispatch_test COMMAND map_download_dispatch_test)
+
+    add_executable(callback_transport_test
+        tests/callback_transport_test.c
+        src/GAME1.c
+        src/GAME_data.c
+    )
+    target_include_directories(callback_transport_test PRIVATE
+        src/external/include
+    )
+    target_compile_definitions(callback_transport_test PRIVATE
+        NOX_CALLBACK_TRANSPORT_TEST
+    )
+    target_compile_options(callback_transport_test PRIVATE
+        -g -fno-strict-aliasing -fno-strict-overflow -fshort-wchar -O0
+        -fcommon -Wno-error=int-conversion -Wno-error=incompatible-pointer-types
+        -ffunction-sections
+    )
+    target_link_options(callback_transport_test PRIVATE -Wl,--gc-sections)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$" AND NOT NOX_ALLOW_64BIT)
+        target_compile_options(callback_transport_test PRIVATE -m32)
+        target_link_options(callback_transport_test PRIVATE -m32)
+    endif()
+    add_test(NAME callback_transport_test COMMAND callback_transport_test)
     endif()
 
     add_executable(audio_compat_test

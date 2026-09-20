@@ -12152,7 +12152,7 @@ int __cdecl sub_554B40(u_short hostshort)
           result = setsockopt(*(SOCKET *)&byte_5D4594[2513920], 0xFFFF, 32, optval, 4);
           if ( result != -1 )
           {
-            sub_43DE20((int)sub_554FF0);
+            sub_43DE20((uintptr_t)sub_554FF0);
             *(_DWORD *)&byte_5D4594[2513916] = 1;
             result = 0;
           }

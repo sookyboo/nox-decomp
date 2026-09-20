@@ -112,10 +112,14 @@ considered stable.
 
 With the control-server `server` macro enabled and
 `NOX_SERVER_DEFAULT_MAP=Estate`, native startup reaches the host setup and
-opens the multiplayer window resources, but currently still faults in a later
-legacy window ownership path. The macro therefore does not yet provide proof
-that the map command reached gameplay; use the first project frame from GDB to
-continue this audit.
+opens the multiplayer window resources. A separate native callback fault was
+confirmed in `sub_554B40()`: it passed `sub_554FF0()` through an `int` before
+`sub_43DE20()` stored it in the host-width callback sidecar. The resulting
+invalid tick callback jump is fixed and covered by
+`callback_transport_test`. The macro still does not provide proof that the
+map command reached gameplay; no production `map_download_start()` entry has
+been observed from the scripted `load Estate` input, so the remaining audit is
+the console-command path after text/Enter injection.
 
 If this smoke test exits with signal 11, rerun the same command with `gdb -q
 -batch`, `run`, and `bt` before the executable arguments. Keep the first

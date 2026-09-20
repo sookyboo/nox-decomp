@@ -53083,6 +53083,13 @@ int __cdecl sub_43DE20(uintptr_t a1)
   return 1;
 }
 
+#ifdef NOX_CALLBACK_TRANSPORT_TEST
+int nox_test_invoke_tick_callback(void)
+{
+  return nox_tick_callback ? nox_tick_callback() : -1;
+}
+#endif
+
 //----- (0043DE40) --------------------------------------------------------
 int __cdecl sub_43DE40(uintptr_t a1)
 {

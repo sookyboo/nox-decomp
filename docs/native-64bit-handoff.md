@@ -146,6 +146,11 @@ The current branch contains native-width handling for:
 - the transition records used by `sub_4AA270()`/`sub_4AA490()`, which retain
   their host pointers in sidecars, and the 32-bit transition callbacks are
   reconstructed before invocation.
+- the network callback registration in `sub_554B40()`: native builds pass the
+  `sub_554FF0()` callback through `uintptr_t` into the host-width main-loop
+  callback sidecar. The recovered call path previously cast this address to
+  `int`, producing a non-canonical jump target from the first multiplayer
+  setup network initialization.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
@@ -162,7 +167,8 @@ Confirmed before the latest startup changes:
 After the latest source changes:
 
 - native x86_64 target `out` builds successfully;
-- native x86_64 CTest in `build-amd64`: 25/25 passed;
+- native x86_64 CTest in `build-amd64`: 28/28 passed, including the callback
+  transport regression and the map-download dispatch regression;
 - the source i386 target still has unrelated pre-existing compile errors in
   `GAME1.c`; the regular-flow comparison therefore uses the existing i386
   binary in `build-i386/src/out`;
@@ -178,6 +184,11 @@ After the latest source changes:
   before the controlled timeout;
 - the earlier `sub_42FAE0(a1=0)` teardown failure and the later freed-window
   traversal were both fixed;
+- the native callback crash at `mainloop()`'s tick callback was reproduced from
+  a core dump as a truncated `sub_554FF0()` address registered by
+  `sub_554B40()`. After widening that registration, native startup passes the
+  complete initialization path and the callback transport regression without
+  the invalid jump;
 - neither architecture reaches the production `map_download_start()` entry
   point from the current scripted `load capflag` command. The macro completion
   therefore verifies the control/input sequence only, not map loading or
