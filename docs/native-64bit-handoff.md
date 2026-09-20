@@ -189,11 +189,15 @@ After the latest source changes:
   `sub_554B40()`. After widening that registration, native startup passes the
   complete initialization path and the callback transport regression without
   the invalid jump;
-- neither architecture reaches the production `map_download_start()` entry
-  point from the current scripted `load capflag` command. The macro completion
-  therefore verifies the control/input sequence only, not map loading or
-  gameplay state. The next investigation is the console-command path between
-  the injected text/Enter events and map dispatch.
+- the control server now exposes `console "..."`, which queues an ASCII command
+  for the main-thread production console parser (`sub_443C80()`); its native
+  `load` transition sets the same map-download state consumed by `mainloop()`;
+- the native diagnostic sequence reaches and logs
+  `map_download_start()`, then opens `window/mapdnld.wnd`; this verifies the
+  startup-to-map-dispatch boundary rather than only macro completion;
+- the run still faults in the subsequent map-download window render callback,
+  so full post-dispatch rendering/gameplay remains unresolved and is the next
+  owning subsystem to audit.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
@@ -227,8 +231,11 @@ timeout --signal=TERM 35s env \
 The verified result is a native x86_64 server-mode startup that reaches the
 main menu, executes the control-server `startMultiplayerNetworkHost` input
 sequence, loads `gamedata.bin` and `monster.bin`, and completes the scripted
-`server` macro through `defaultServerGame` without a signal in the diagnostic
-run. Do not
+`server` macro through `defaultServerGame`. For the map-dispatch assertion,
+use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, a `sleep 30000` bootstrap delay, and
+`console "load Estate"`; set `NOX_TRACE_MAP_DOWNLOAD=1` and verify
+`[map] map_download_start` before investigating the known post-dispatch window
+callback fault. Do not
 treat the timeout alone as success; verify the last completed macro and the
 process exit reason.
 The important native transport boundaries are:

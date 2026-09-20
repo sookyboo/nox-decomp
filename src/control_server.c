@@ -444,6 +444,7 @@ typedef enum {
     ACT_BTN,            // button(0/1/2) down(0/1)
     ACT_KEY,            // SDL scancode, down(0/1)
     ACT_TEXT,           // utf-8 string
+    ACT_CONSOLE,        // production wide-character console command
     ACT_SLEEP_MS,       // delay
     ACT_HOME,           // slam to top-left
     ACT_TRHOME,         // slam to top-right (best-effort)
@@ -565,6 +566,7 @@ extern void nox_ctrl_inject_text_utf8(const char *utf8);
 extern int nox_window_caption_position(const char *caption, int *x, int *y,
                                        int *root_id, int *widget_id);
 extern int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y);
+extern int __cdecl sub_443C80(wchar_t *command, int context);
 
 // Capture hook (we will add in input.c too):
 extern void nox_ctrl_capture_event(const SDL_Event *ev);
@@ -626,6 +628,16 @@ static int parse_quoted(const char *p, char *out, size_t cap, const char **endp)
     if (cap) out[n < cap ? n : (cap - 1)] = 0;
     if (endp) *endp = p;
     return 1;
+}
+
+static void enqueue_console_command(const char *text)
+{
+    ControlAction a;
+    memset(&a, 0, sizeof(a));
+    a.type = ACT_CONSOLE;
+    strncpy(a.text, text ? text : "", sizeof(a.text) - 1);
+    a.text[sizeof(a.text) - 1] = 0;
+    q_push(&a);
 }
 
 // Split commands by ';' not inside quotes.
@@ -1668,6 +1680,18 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         return;
     }
 
+    if (streq_ci(tok, "console") || streq_ci(tok, "cmd")) {
+        char text[256];
+        const char *endp = NULL;
+        if (!parse_quoted(p, text, sizeof(text), &endp)) {
+            send_str_maybe(fd, "ERR console \"command\"\r\n");
+            return;
+        }
+        enqueue_console_command(text);
+        send_str_maybe(fd, "OK\r\n");
+        return;
+    }
+
         // t "text"  (type + press Enter)
         if (streq_ci(tok, "t")) {
             char text[256];
@@ -2039,6 +2063,20 @@ void nox_control_server_pump(void)
              NOX_CTRL_LOG("waitwidget: waiting for root=%d widget=%d", wait_widget_root, wait_widget_id);
              g_sleep_until = SDL_GetTicks() + 50;
              return;
+
+         case ACT_CONSOLE: {
+             /* The recovered parser consumes wchar_t.  The diagnostic command
+              * is intentionally ASCII-only, matching the existing key-based
+              * control macros and avoiding a second text-input path. */
+             wchar_t command[256];
+             size_t i;
+             for (i = 0; i + 1 < sizeof(command) / sizeof(command[0]) && a.text[i]; ++i)
+                 command[i] = (wchar_t)(unsigned char)a.text[i];
+             command[i] = 0;
+             NOX_CTRL_LOG("console: dispatch '%s'", a.text);
+             NOX_CTRL_LOG("console: result=%d", sub_443C80(command, 1));
+             break;
+         }
 
          case ACT_SLEEP_MS: {
              // Non-blocking: defer remaining queued actions to future frames.

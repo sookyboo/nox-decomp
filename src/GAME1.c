@@ -13833,10 +13833,18 @@ FILE *__cdecl sub_40ED10(int a1, int a2)
 {
   FILE *result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = (FILE *)(uintptr_t)*(unsigned int *)&byte_5D4594[4 * (a1 + 32 * a2) + 210036];
+#else
   result = *(FILE **)&byte_5D4594[4 * (a1 + 32 * a2) + 210036];
+#endif
   if ( result )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    sub_420830((_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[4 * (a1 + 32 * a2) + 210036]);
+#else
     sub_420830(*(_DWORD **)&byte_5D4594[4 * (a1 + 32 * a2) + 210036]);
+#endif
     result = (FILE *)sub_40ED40(a1, a2);
   }
   return result;
@@ -13862,7 +13870,11 @@ unsigned __int8 *__cdecl sub_40ED60(int a1, unsigned int a2, _DWORD *a3)
   unsigned __int8 *v7; // edi
   unsigned __int8 *result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  v3 = (int ***) (uintptr_t)*(unsigned int *)&byte_5D4594[4 * (a1 + 32 * a2) + 210036];
+#else
   v3 = *(int ****)&byte_5D4594[4 * (a1 + 32 * a2) + 210036];
+#endif
   v4 = 0;
   memset(&byte_5D4594[207988], 0, 0x800u);
   v5 = sub_420A90(v3, &a2);
@@ -30248,7 +30260,8 @@ _DWORD *__cdecl sub_420890(int a1, int a2)
   _DWORD *result; // eax
   char *v4; // eax
 
-  v2 = malloc(0x18u);
+  /* The queue handle is retained in the recovered 32-bit global tables. */
+  v2 = NOX_MOD_ALLOC(0x18u);
   if ( !v2 )
     return 0;
   v4 = sub_413FE0((const char *)&byte_587000[60336], 16, a1);
@@ -30285,7 +30298,7 @@ void __cdecl sub_4208F0(LPVOID lpMem)
     }
   }
   sub_414100(*((LPVOID *)lpMem + 3));
-  free(lpMem);
+  NOX_MOD_FREE(lpMem, 0);
 }
 
 //----- (00420940) --------------------------------------------------------
@@ -53312,6 +53325,11 @@ int map_download_loop(int first)
 }
 void map_download_start()
 {
+  static int trace_map = -1;
+  if ( trace_map < 0 )
+    trace_map = getenv("NOX_TRACE_MAP_DOWNLOAD") && *getenv("NOX_TRACE_MAP_DOWNLOAD") != '0';
+  if ( trace_map )
+    fprintf(stderr, "[map] map_download_start\n");
   sub_467DF0(1);
   sub_4CC770();
   *(_DWORD *)&byte_587000[173328] = 1;
@@ -58459,6 +58477,20 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
   v3 = 0;
   v11 = 0;
   LOBYTE(v10) = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  /* The recovered command callbacks consume a 32-bit argv record.  Keep the
+   * production parser boundary, but handle the server's load transition in
+   * native code until that callback table has a native argv representation. */
+  if ( a1 && (a1[0] == 'l' || a1[0] == 'L')
+    && (a1[1] == 'o' || a1[1] == 'O')
+    && (a1[2] == 'a' || a1[2] == 'A')
+    && (a1[3] == 'd' || a1[3] == 'D')
+    && (a1[4] == 0 || a1[4] == ' ') )
+  {
+    sub_40A4D0(0x100000);
+    return 1;
+  }
+#endif
   if ( a1 )
   {
     *(_DWORD *)&byte_5D4594[823700] = a1;
