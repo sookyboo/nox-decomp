@@ -2811,7 +2811,7 @@ int __cdecl sub_46C2A0(int a1);
 int sub_46C2E0();
 int __cdecl sub_46C370(_DWORD *a1);
 _DWORD *__cdecl sub_46C3E0(int a1, int a2, int a3, int a4, int a5, int a6, int (*a7)(int,int,int,int));
-int __cdecl sub_46C4E0(_DWORD *a1);
+int __cdecl sub_46C4E0(int a1);
 int sub_46C5D0();
 int sub_46C610();
 int __cdecl sub_46C690(int a1);

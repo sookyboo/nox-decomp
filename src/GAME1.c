@@ -19129,10 +19129,7 @@ int __cdecl sub_414190(_DWORD *a1)
       if ( !a1[30] )
         return 0;
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-      if ( (uintptr_t)a1 == nox_native_window_pool_manager )
-        v5 = NOX_FONT_ALLOC(a1[22] + 16);
-      else
-        v5 = malloc(a1[22] + 16);
+      v5 = NOX_MOD_ALLOC(a1[22] + 16);
 #else
       v5 = malloc(a1[22] + 16);
 #endif
@@ -34661,15 +34658,15 @@ _DWORD **__cdecl sub_425920(_DWORD **a1)
 //----- (00425940) --------------------------------------------------------
 int __cdecl sub_425940(int *a1)
 {
-  int result; // eax
+  uintptr_t result; // eax
 
-  result = *a1;
-  if ( *a1 )
+  result = nox_native_pointer_from_32_value(*(unsigned int *)a1);
+  if ( result )
   {
-    if ( result == *(_DWORD *)(result + 8) )
+    if ( result == nox_native_pointer_from_32_value(*(unsigned int *)(result + 8)) )
       result = 0;
   }
-  return result;
+  return (int)(uintptr_t)result;
 }
 
 //----- (00425960) --------------------------------------------------------

@@ -24656,11 +24656,12 @@ _DWORD *__cdecl sub_46C3E0(int a1, int a2, int a3, int a4, int a5, int a6, int (
 }
 
 //----- (0046C4E0) --------------------------------------------------------
-int __cdecl sub_46C4E0(_DWORD *a1)
+int __cdecl sub_46C4E0(int a1_raw)
 {
   int v2; // eax
   _DWORD *v3; // eax
   _DWORD *v4; // edi
+  _DWORD *a1 = (_DWORD *)nox_native_pointer_from_32_value((unsigned int)a1_raw);
 
   if ( !a1 )
     return -2;
@@ -24758,7 +24759,11 @@ int __cdecl sub_46C690(int a1)
     return -2;
   if ( *(_DWORD *)(a1 + 396) )
     return -3;
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v2 = nox_486_low_alloc(8u);
+ #else
   v2 = malloc(8u);
+ #endif
   if ( !v2 )
     return -1;
   *v2 = a1;
@@ -24770,14 +24775,20 @@ int __cdecl sub_46C690(int a1)
 //----- (0046C6E0) --------------------------------------------------------
 int __cdecl sub_46C6E0(int a1)
 {
-  int v2; // esi
+  unsigned int v2; // esi
+  uintptr_t head;
 
   if ( !a1 )
     return -2;
-  if ( !*(_DWORD *)&byte_5D4594[1064912] || **(_DWORD **)&byte_5D4594[1064912] != a1 )
+  head = nox_native_pointer_from_32_value(*(unsigned int *)&byte_5D4594[1064912]);
+  if ( !head || *(unsigned int *)head != (unsigned int)a1 )
     return -1;
-  v2 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1064912] + 4);
-  free(*(LPVOID *)&byte_5D4594[1064912]);
+  v2 = *(unsigned int *)(head + 4);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_486_low_free((void *)head, 8u);
+#else
+  free((void *)head);
+#endif
   *(_DWORD *)&byte_5D4594[1064912] = v2;
   return 0;
 }

@@ -2,7 +2,13 @@
  * are signed scores. They must not be interpreted as UINT32_MAX by the normal
  * point-limit victory check. */
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 #ifndef __cdecl
 #define __cdecl
@@ -100,6 +106,32 @@ int __cdecl sub_4D8B90(int player, char announce)
 
 char sub_509A60(void);
 
+static void *test_low_alloc(size_t size)
+{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+    size_t mapped_size = (size + page_size - 1) & ~(page_size - 1);
+    void *result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+    return result == MAP_FAILED ? 0 : result;
+#else
+    return calloc(1, size);
+#endif
+}
+
+static void test_low_free(void *memory, size_t size)
+{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+    size_t mapped_size = (size + page_size - 1) & ~(page_size - 1);
+    if (memory)
+        munmap(memory, mapped_size);
+#else
+    (void)size;
+    free(memory);
+#endif
+}
+
 static void reset_winner_state(void)
 {
     team_winner_calls = 0;
@@ -109,10 +141,13 @@ static void reset_winner_state(void)
 
 int main(void)
 {
-    unsigned char team[80];
-    unsigned char unit[800];
-    unsigned char update[320];
-    unsigned char player_info[3712];
+    unsigned char *team = test_low_alloc(80);
+    unsigned char *unit = test_low_alloc(800);
+    unsigned char *update = test_low_alloc(320);
+    unsigned char *player_info = test_low_alloc(3712);
+
+    if (!team || !unit || !update || !player_info)
+        return 5;
 
     memset(team, 0, sizeof(team));
     memset(unit, 0, sizeof(unit));
@@ -153,5 +188,9 @@ int main(void)
     if (player_winner_calls != 1 || last_winner != first_player)
         return 4;
 
+    test_low_free(team, 80);
+    test_low_free(unit, 800);
+    test_low_free(update, 320);
+    test_low_free(player_info, 3712);
     return 0;
 }

@@ -105,14 +105,17 @@ boundary. Window records and their legacy arrays use low-address allocations
 when existing consumers still read a 32-bit slot; callback and persistent
 window handles use native-width sidecars. The shared pointer decoder preserves
 low `MAP_32BIT` addresses and reconstructs high heap addresses from their
-32-bit slot value. This fixes the native startup crash while parsing
-`MainMenu.wnd`, `noxworld.wnd`, and `filter.wnd`.
+32-bit slot value. This gets native startup through parsing
+`MainMenu.wnd`, `noxworld.wnd`, and `filter.wnd`; later window teardown and
+ownership paths still need the same audit before native multiplayer startup is
+considered stable.
 
-With the control-server `server` macro enabled and `NOX_SERVER_DEFAULT_MAP=Estate`,
-the native executable was verified to complete `defaultServerGame` and remain
-signal-free for a 20-second run. The macro currently does not provide an
-observable proof that the map command reached gameplay; that remains a
-separate console-dispatch investigation.
+With the control-server `server` macro enabled and
+`NOX_SERVER_DEFAULT_MAP=Estate`, native startup reaches the host setup and
+opens the multiplayer window resources, but currently still faults in a later
+legacy window ownership path. The macro therefore does not yet provide proof
+that the map command reached gameplay; use the first project frame from GDB to
+continue this audit.
 
 If this smoke test exits with signal 11, rerun the same command with `gdb -q
 -batch`, `run`, and `bt` before the executable arguments. Keep the first

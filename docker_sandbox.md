@@ -277,6 +277,13 @@ aarch64 configuration. The 32-bit-only ABI tests (`abi_cross_test` and
 build directory from `build-i386` and `build-armhf`; reusing a cache can select
 the wrong compiler or libraries.
 
+Some decompiled test seams intentionally model recovered 32-bit pointer slots.
+Their native 64-bit fixtures must therefore be allocated below 4 GiB (the
+tests use Linux `MAP_32BIT`) before passing those addresses through an `int` or
+32-bit record field. A normal 64-bit heap or stack address must not be cast into
+such a field; it will truncate and commonly crash even when the corresponding
+i386 test passes.
+
 For a native x86_64 runtime smoke test, use the extracted game data directory
 as the working directory and provide a virtual X11 display. Disable optional
 network/control services so the test stays local and deterministic. The
@@ -289,7 +296,7 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-linux64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly Estate
 ```
 
 If the smoke test segfaults, run the same environment through GDB and collect
@@ -301,7 +308,7 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   gdb -q -batch -ex 'set pagination off' -ex run -ex bt --args \
-  ../../../build-linux64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly Estate
 ```
 
 The startup-specific ownership and the rule for preserving recovered 32-bit
