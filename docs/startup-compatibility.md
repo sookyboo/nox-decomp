@@ -116,13 +116,14 @@ opens the multiplayer window resources. The control server's
 `console "load Estate"` action invokes the production `sub_443C80()` parser on
 the main thread; the native `load` transition reaches
 `map_download_start()` and opens `window/mapdnld.wnd`. A separate native
-window-render callback fault remains immediately after that boundary. A
-separate native callback fault was
+window-render callback transport was corrected by moving the two recovered
+DWORD line-drawing callbacks to native sidecars. A separate native callback fault was
 confirmed in `sub_554B40()`: it passed `sub_554FF0()` through an `int` before
 `sub_43DE20()` stored it in the host-width callback sidecar. The resulting
 invalid tick callback jump is fixed and covered by
-`callback_transport_test`. The remaining audit is the map-download window
-callback after `map_download_start()`.
+`callback_transport_test`. The bounded smoke now remains alive in the
+map-download screen; actual map transfer and gameplay still need a map-service
+fixture or an equivalent automated network test.
 
 If this smoke test exits with signal 11, rerun the same command with `gdb -q
 -batch`, `run`, and `bt` before the executable arguments. Keep the first

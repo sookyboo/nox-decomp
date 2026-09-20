@@ -6,6 +6,8 @@ static int (*nox_texture_callback)(int, int, int, int, int);
 int (*nox_47d5_callback)(int);
 static int (*nox_49ef_callback)(int, int);
 static void (*nox_49cf_callback)(int, int, int, int);
+static void (*nox_49e_horizontal_callback)(int, int, int);
+static void (*nox_49e_vertical_callback)(int, int, int);
 static int **nox_native_488b_state;
 #define NOX_488B_STATE nox_native_488b_state
 #else
@@ -60736,11 +60738,21 @@ void __cdecl sub_49CC70(int xLeft, int yTop, int a3, int a4)
             sub_49F930((int4 *)&rc, (int4 *)&rc, (int4 *)(*(_DWORD *)&byte_5D4594[3799572] + 4))) )
       {
         v4 = xLeft + a3 - 1;
+ #if UINTPTR_MAX > UINT32_MAX
+        nox_49e_horizontal_callback(xLeft, yTop, v4);
+ #else
         (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798720])(xLeft, yTop, v4);
+ #endif
         v5 = yTop + a4 - 1;
+ #if UINTPTR_MAX > UINT32_MAX
+        nox_49e_vertical_callback(v4, yTop + 1, v5);
+        nox_49e_horizontal_callback(xLeft, v5, xLeft + a3 - 2);
+        nox_49e_vertical_callback(xLeft, yTop + 1, yTop + a4 - 2);
+ #else
         (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798712])(v4, yTop + 1, v5);
         (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798720])(xLeft, v5, xLeft + a3 - 2);
         (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798712])(xLeft, yTop + 1, yTop + a4 - 2);
+ #endif
       }
     }
   }
@@ -62202,18 +62214,34 @@ int sub_49E3F0()
     *(_DWORD *)&byte_5D4594[3798700] = sub_49EFC0;
 #endif
     *(_DWORD *)&byte_5D4594[3798704] = sub_49ED80;
+ #if UINTPTR_MAX > UINT32_MAX
+    nox_49e_horizontal_callback = sub_49F060;
+ #else
     *(_DWORD *)&byte_5D4594[3798720] = sub_49F060;
+ #endif
     *(_DWORD *)&byte_5D4594[3798708] = sub_49F0F0;
+ #if UINTPTR_MAX > UINT32_MAX
+    nox_49e_vertical_callback = sub_49F3A0;
+ #else
     *(_DWORD *)&byte_5D4594[3798712] = sub_49F3A0;
+ #endif
     return 1;
   }
   if ( *(_DWORD *)&byte_5D4594[3801780] != 1 )
     return 1;
+ #if UINTPTR_MAX > UINT32_MAX
+  nox_49e_horizontal_callback = sub_49F180;
+ #else
   *(_DWORD *)&byte_5D4594[3798720] = sub_49F180;
+ #endif
   *(_DWORD *)&byte_5D4594[3798708] = sub_49F210;
   if ( !*(_DWORD *)&byte_5D4594[3801804] )
     *(_DWORD *)&byte_5D4594[3798708] = sub_49F180;
+ #if UINTPTR_MAX > UINT32_MAX
+  nox_49e_vertical_callback = sub_49F420;
+ #else
   *(_DWORD *)&byte_5D4594[3798712] = sub_49F420;
+ #endif
   *(_DWORD *)&byte_5D4594[3798716] = sub_49E930;
 #if UINTPTR_MAX > UINT32_MAX
   nox_49ef_callback = sub_49F010;
@@ -62304,11 +62332,19 @@ int __cdecl sub_49E540(int a1)
         v4 = v24;
         if ( v26 == v25 )
         {
+ #if UINTPTR_MAX > UINT32_MAX
+          nox_49e_vertical_callback(v26, v24, v23);
+ #else
           (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798712])(v26, v24, v23);
+ #endif
         }
         else if ( v24 == v23 )
         {
+ #if UINTPTR_MAX > UINT32_MAX
+          nox_49e_horizontal_callback(v26, v24, v25);
+ #else
           (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798720])(v26, v24, v25);
+ #endif
         }
         else
         {
@@ -62575,11 +62611,19 @@ int __cdecl sub_49E930(int a1)
         v3 = v24;
         if ( v26 == v25 )
         {
+ #if UINTPTR_MAX > UINT32_MAX
+          nox_49e_vertical_callback(v26, v24, v23);
+ #else
           (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798712])(v26, v24, v23);
+ #endif
         }
         else if ( v24 == v23 )
         {
+ #if UINTPTR_MAX > UINT32_MAX
+          nox_49e_horizontal_callback(v26, v24, v25);
+ #else
           (*(void (__cdecl **)(_DWORD, _DWORD, _DWORD))&byte_5D4594[3798720])(v26, v24, v25);
+ #endif
         }
         else
         {

@@ -195,9 +195,12 @@ After the latest source changes:
 - the native diagnostic sequence reaches and logs
   `map_download_start()`, then opens `window/mapdnld.wnd`; this verifies the
   startup-to-map-dispatch boundary rather than only macro completion;
-- the run still faults in the subsequent map-download window render callback,
-  so full post-dispatch rendering/gameplay remains unresolved and is the next
-  owning subsystem to audit.
+- the map-download window render callback now uses native sidecars for the two
+  recovered DWORD line-drawing callback slots; a 40-second bounded native run
+  remains alive in the map-download screen after opening `mapdnld.wnd`;
+- this verifies startup through map dispatch and its first window render. A
+  complete map-transfer/gameplay assertion still requires a supplied map
+  service or fixture, which the current headless smoke does not provide.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
@@ -234,8 +237,7 @@ sequence, loads `gamedata.bin` and `monster.bin`, and completes the scripted
 `server` macro through `defaultServerGame`. For the map-dispatch assertion,
 use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, a `sleep 30000` bootstrap delay, and
 `console "load Estate"`; set `NOX_TRACE_MAP_DOWNLOAD=1` and verify
-`[map] map_download_start` before investigating the known post-dispatch window
-callback fault. Do not
+`[map] map_download_start` and the subsequent `window/mapdnld.wnd` open. Do not
 treat the timeout alone as success; verify the last completed macro and the
 process exit reason.
 The important native transport boundaries are:
