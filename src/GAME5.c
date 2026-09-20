@@ -3,8 +3,47 @@
 #endif
 #include "proto.h"
 #include "netextras.h"
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 #ifdef NOX_BOT_SUPPORT
 #include "bot_runtime.h"
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+/* Network records retain the original four-byte pointer slots.  Keep the
+ * record and every pointer stored in those slots below 4 GiB on native Linux,
+ * while retaining malloc/free on the original 32-bit build. */
+static void *nox_net_legacy_alloc(size_t size)
+{
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  size_t mapped_size;
+  unsigned char *mapping;
+
+  if ( !size || !page_size )
+    return 0;
+  mapped_size = (size + sizeof(size_t) + page_size - 1) & ~(page_size - 1);
+  mapping = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+  if ( mapping == MAP_FAILED )
+    return 0;
+  *(size_t *)mapping = mapped_size;
+  return mapping + sizeof(size_t);
+}
+
+static void nox_net_legacy_free(void *address)
+{
+  unsigned char *mapping;
+
+  if ( !address )
+    return;
+  mapping = (unsigned char *)address - sizeof(size_t);
+  munmap(mapping, *(size_t *)mapping);
+}
+#else
+#define nox_net_legacy_alloc malloc
+#define nox_net_legacy_free free
 #endif
 
 //-------------------------------------------------------------------------
@@ -10553,7 +10592,7 @@ void *__cdecl sub_553000(size_t *a1)
   size_t v10; // eax
   size_t v11; // ebx
 
-  result = malloc(0xA4u);
+  result = nox_net_legacy_alloc(0xA4u);
   v2 = result;
   if ( result )
   {
@@ -10562,23 +10601,23 @@ void *__cdecl sub_553000(size_t *a1)
     *((_DWORD *)v2 + 32) = v3;
     if ( !v3 )
     {
-      free(v2);
+      nox_net_legacy_free(v2);
       return 0;
     }
     v4 = CreateMutexA(0, 0, 0);
     *((_DWORD *)v2 + 31) = v4;
     if ( !v4 )
     {
-      free(v2);
+      nox_net_legacy_free(v2);
       return 0;
     }
     if ( (int)a1[3] > 0 )
     {
-      v5 = malloc(a1[3]);
+      v5 = nox_net_legacy_alloc(a1[3]);
       *((_DWORD *)v2 + 30) = v5;
       if ( !v5 )
       {
-        free(v2);
+        nox_net_legacy_free(v2);
         return 0;
       }
       memset(v5, 0, a1[3]);
@@ -10593,19 +10632,19 @@ void *__cdecl sub_553000(size_t *a1)
     {
       a1[5] = 1024;
     }
-    v7 = (char *)malloc(a1[5] + 2);
+    v7 = (char *)nox_net_legacy_alloc(a1[5] + 2);
     *((_DWORD *)v2 + 8) = v7;
     if ( v7 )
     {
       *((_DWORD *)v2 + 10) = v7;
       *((_DWORD *)v2 + 9) = v7;
       *((_DWORD *)v2 + 11) = &v7[a1[5] + 2];
-      v8 = malloc(a1[5] + 2);
+      v8 = nox_net_legacy_alloc(a1[5] + 2);
       *((_DWORD *)v2 + 12) = v8;
       if ( v8 )
       {
         memset(v8, 0, a1[5] + 2);
-        **((_BYTE **)v2 + 12) = -1;
+        *(unsigned char *)v8 = -1;
         v9 = *((_DWORD *)v2 + 12);
         *((_DWORD *)v2 + 13) = v9 + 2;
         *((_DWORD *)v2 + 14) = v9 + 2;
@@ -10627,16 +10666,16 @@ void *__cdecl sub_553000(size_t *a1)
       }
       else
       {
-        free(*((LPVOID *)v2 + 8));
-        free(*((LPVOID *)v2 + 30));
-        free(v2);
+        nox_net_legacy_free((void *)(uintptr_t)*((_DWORD *)v2 + 8));
+        nox_net_legacy_free((void *)(uintptr_t)*((_DWORD *)v2 + 30));
+        nox_net_legacy_free(v2);
         result = 0;
       }
     }
     else
     {
-      free(*((LPVOID *)v2 + 30));
-      free(v2);
+      nox_net_legacy_free((void *)(uintptr_t)*((_DWORD *)v2 + 30));
+      nox_net_legacy_free(v2);
       result = 0;
     }
   }
@@ -10647,12 +10686,12 @@ void *__cdecl sub_553000(size_t *a1)
 int __cdecl sub_5531C0(LPVOID lpMem)
 {
   if ( *((_DWORD *)lpMem + 30) )
-    free(*((LPVOID *)lpMem + 30));
-  free(*((LPVOID *)lpMem + 8));
-  free(*((LPVOID *)lpMem + 12));
+    nox_net_legacy_free((void *)(uintptr_t)*((_DWORD *)lpMem + 30));
+  nox_net_legacy_free((void *)(uintptr_t)*((_DWORD *)lpMem + 8));
+  nox_net_legacy_free((void *)(uintptr_t)*((_DWORD *)lpMem + 12));
   CloseHandle(*((HANDLE *)lpMem + 32));
   CloseHandle(*((HANDLE *)lpMem + 31));
-  free(lpMem);
+  nox_net_legacy_free(lpMem);
   return 0;
 }
 

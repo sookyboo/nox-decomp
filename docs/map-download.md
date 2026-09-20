@@ -29,8 +29,17 @@ synthetic record and buffers below 4 GiB and uses a non-PIE test executable so
 those legacy slots retain valid addresses; this keeps the test focused on the
 production dispatcher rather than changing the wire/record contract.
 
+The production constructor is `sub_553000()`, called by the normal network
+socket setup (`sub_554380()`). It creates the `0xA4`-byte connection record,
+its receive/send buffers, and optional user data; `sub_5531C0()` owns their
+teardown. On native Linux these allocations use low-address mappings because
+the recovered record stores all of those pointers in four-byte fields. The
+`map_download_dispatch_test` fixture now constructs and destroys one through
+these production entry points before exercising the `0x80` transfer packet,
+so a future high-address regression fails at the owning network boundary.
+
 Run it with:
 
 ```sh
-ctest --test-dir build-i386 -R map_download_dispatch_test --output-on-failure
+ctest --test-dir build-amd64 -R map_download_dispatch_test --output-on-failure
 ```

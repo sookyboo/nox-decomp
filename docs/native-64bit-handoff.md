@@ -200,6 +200,10 @@ After the latest source changes:
 - the map-download window render callback now uses native sidecars for the two
   recovered DWORD line-drawing callback slots; a 40-second bounded native run
   remains alive in the map-download screen after opening `mapdnld.wnd`;
+- native network connection records created by `sub_553000()` now keep their
+  recovered four-byte pointer slots valid through low-address allocation, and
+  the map-download regression covers constructor/destructor cleanup before
+  dispatching a high-bit transfer packet;
 - this verifies startup through map dispatch and its first window render. A
   complete map-transfer/gameplay assertion still requires a supplied map
   service or fixture, which the current headless smoke does not provide.

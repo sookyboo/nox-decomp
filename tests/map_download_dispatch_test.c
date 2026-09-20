@@ -27,6 +27,8 @@ static void __cdecl receive_callback(unsigned int channel,
 
 int main(void)
 {
+    size_t network_record_args[10] = {0};
+    void *network_record;
     unsigned char *connection = nox_test_legacy_alloc(192);
     unsigned char *transfer = nox_test_legacy_alloc(8);
     unsigned char *receive_buffer = nox_test_legacy_alloc(256);
@@ -38,6 +40,21 @@ int main(void)
     int sender_socket;
     int receiver_socket;
     int sent;
+
+    /* A real transfer creates this production connection record before the
+     * packet dispatcher runs.  Its recovered pointer slots must remain valid
+     * on native builds, including through the normal destructor. */
+    network_record_args[3] = 16;
+    network_record_args[5] = 256;
+    network_record = sub_553000(network_record_args);
+    if (!network_record)
+        return 1;
+    if ((uintptr_t)network_record > UINT32_MAX)
+    {
+        sub_5531C0(network_record);
+        return 1;
+    }
+    sub_5531C0(network_record);
 
     if (!connection || !transfer || !receive_buffer)
         return 1;
