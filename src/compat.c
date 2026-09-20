@@ -2041,29 +2041,56 @@ static int casepath(char const *path, char *r)
         rl += 1;
         r[rl] = 0;
 
-        struct dirent *e = readdir(d);
-        while (e)
+        int found = 0;
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL)
         {
             if (strcasecmp(c, e->d_name) == 0)
             {
                 strcpy(r + rl, e->d_name);
                 rl += strlen(e->d_name);
-
-                closedir(d);
-                d = opendir(r);
-
+                found = 1;
                 break;
             }
-
-            e = readdir(d);
         }
 
-        if (!e)
+        if (!found)
         {
+            /* Keep a missing leaf in the requested spelling.  Callers such
+             * as compat_open() use the resolved parent directories to create
+             * new save files.  Missing intermediate components remain in the
+             * returned candidate and fail when the caller opens it. */
             strcpy(r + rl, c);
             rl += strlen(c);
-            last = 1;
+            closedir(d);
+            d = NULL;
+
+            if (p && *p)
+            {
+                while ((c = strsep(&p, "/")) != NULL)
+                {
+                    if (*c == 0)
+                        continue;
+                    r[rl++] = '/';
+                    strcpy(r + rl, c);
+                    rl += strlen(c);
+                }
+            }
+            r[rl] = 0;
+            return 1;
         }
+
+        /* Do not reopen the final component: it may be a regular file. */
+        if (!p || *p == 0)
+        {
+            closedir(d);
+            return 1;
+        }
+
+        closedir(d);
+        d = opendir(r);
+        if (!d)
+            return 0;
 
         c = strsep(&p, "/");
     }

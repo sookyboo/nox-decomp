@@ -13,6 +13,12 @@ paths before attempting the real libc operation. `external_compat_casepath()`
 is also used by movie loading and exposes the same normalization for callers
 that need a resolved path.
 
+The resolver treats the final component as a file when it already exists, so
+`SoundSet.bin` resolves to an extracted `soundset.bin` without attempting to
+open the file as a directory. If the final component does not exist, its
+requested spelling is retained after existing parent directories are resolved;
+this preserves save-file creation through `compat_open()`.
+
 `tests/compat_path_test.c` creates a synthetic `PrimaryInstall/DataFiles`
 fixture, then exercises the normalizer, `compat_fopen()`, and `compat_open()`
 using mismatched casing and Windows separators. This covers the file-resolution

@@ -156,6 +156,12 @@ endif()
 
 add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
 
+if (NOT WIN32)
+    # The 32-bit Linux runtime uses dirent/readdir in compat.c. Keep its
+    # large-file directory ABI consistent with the case-folding test targets.
+    target_compile_definitions(out PRIVATE _FILE_OFFSET_BITS=64)
+endif()
+
 if (USE_MANUAL_SPELL_CASTING)
     target_compile_definitions(out PRIVATE NOX_MANUAL_SPELL_CASTING)
 endif()

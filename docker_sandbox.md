@@ -185,6 +185,64 @@ cmake --build build-i386 -j"$(nproc)"
 The project adds `-m32` for x86 targets. Explicit cross compilers help ensure
 that headers and libraries come from i386 rather than the amd64 host.
 
+### Headless server/map smoke test
+
+The native i386 executable can be run without a desktop session through Xvfb.
+Run it from the extracted game-data directory so relative asset paths resolve
+against `gamefiles/app`. The repository's representative game data includes
+the vanilla `Estate` map at `maps/Estate/Estate.map`:
+
+```sh
+cd build-deps/gamefiles/app
+
+timeout --signal=TERM 35s env \
+  ALSOFT_DRIVERS=null \
+  LIBGL_ALWAYS_SOFTWARE=1 \
+  SDL_VIDEODRIVER=x11 \
+  NOX_GAMEPAD=0 \
+  NOX_NO_INTERNET_SERVERS=1 \
+  NOX_UPNP_ENABLE=0 \
+  NOX_CONTROL_SERVER=0 \
+  NOX_SKIP_INTRO_MOVIES=1 \
+  xvfb-run -a -s '-screen 0 1280x720x24' \
+  ../../../build-i386/src/out -serveronly Estate \
+  2>&1 | tee /tmp/nox-estate-headless.log
+```
+
+The command is intentionally time-limited because the server continues
+running. Exit status `124` means `timeout` stopped the still-running process;
+it is expected for this smoke test. Verify that the requested map opened rather
+than treating the timeout alone as success:
+
+```sh
+grep -E 'fcaseopen\(maps/Estate/Estate\.map\)|fopen\(\./maps/Estate/Estate\.map' \
+  /tmp/nox-estate-headless.log
+```
+
+For the automated control-server flow, use the same environment but replace
+`NOX_CONTROL_SERVER=0` with:
+
+```sh
+NOX_CONTROL_SERVER=1 \
+NOX_CONTROL_SERVER_PASSWORD=secret \
+NOX_CONTROL_SERVER_BIND=127.0.0.1 \
+NOX_CONTROL_SERVER_PORT=2323 \
+NOX_CONTROL_SERVER_SLEEP_SCALE=1 \
+NOX_CONTROL_SERVER_BOOT='sleep 5000; macro server;' \
+NOX_SERVER_NAME=NoxDecomp \
+NOX_SERVER_SYSOP=secret \
+NOX_SERVER_LESSONS=15 \
+NOX_SERVER_TIME=0 \
+NOX_SERVER_DEFAULT_MAP=Estate \
+NOX_CONTROL_LOG=1
+```
+
+The compatibility layer resolves Windows asset names case-insensitively on
+Linux, so extracted names such as `soundset.bin`, `modifier.bin`,
+`window/mainmenu.wnd`, and `window/selclass.wnd` are valid. The i386 runtime
+must be compiled with `_FILE_OFFSET_BITS=64`; otherwise the 32-bit `readdir`
+ABI can prevent the resolver from seeing directory entries.
+
 ## Linux ARM32 hard-float packages
 
 ```sh

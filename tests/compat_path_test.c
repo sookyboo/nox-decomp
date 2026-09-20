@@ -55,6 +55,18 @@ int main(void)
     }
     file = NULL;
 
+    /* A number of game assets live directly in the install root.  The final
+     * component must be case-folded without being treated as a directory. */
+    snprintf(path, sizeof(path), "%s/soundset.bin", root);
+    file = fopen(path, "wb");
+    if (!file)
+        goto cleanup;
+    if (fputs("fixture\n", file) == EOF || fclose(file) != 0) {
+        file = NULL;
+        goto cleanup;
+    }
+    file = NULL;
+
     if (chdir(root) != 0)
         goto cleanup;
     /* Verify the public normalizer resolves both separators and casing. */
@@ -66,6 +78,13 @@ int main(void)
 
     /* This is the path used by ordinary C stdio callers in the game. */
     file = compat_fopen("PRIMARYINSTALL/DATAFILES/MIXED.DAT", "rb");
+    if (!file || !read_file(file) || fclose(file) != 0) {
+        file = NULL;
+        goto cleanup;
+    }
+    file = NULL;
+
+    file = compat_fopen("SoundSet.bin", "rb");
     if (!file || !read_file(file) || fclose(file) != 0) {
         file = NULL;
         goto cleanup;
@@ -92,6 +111,8 @@ cleanup:
         close(fd);
     chdir(cwd);
     snprintf(path, sizeof(path), "%s/PrimaryInstall/DataFiles/Mixed.DAT", root);
+    unlink(path);
+    snprintf(path, sizeof(path), "%s/soundset.bin", root);
     unlink(path);
     snprintf(path, sizeof(path), "%s/PrimaryInstall/DataFiles", root);
     rmdir(path);
