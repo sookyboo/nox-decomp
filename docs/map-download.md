@@ -97,6 +97,11 @@ or EUD map: after the main menu opens, the production control-server command
 `window/mapdnld.wnd`. The bounded amd64 process remains alive in that screen.
 The probe does not claim map activation or peer-supplied transfer completion;
 those still require the map package and normal network lifecycle to finish.
+The standalone native bridge reaches this checkpoint by calling the recovered
+`sub_4432B0()` handler with a low-memory argv record and setting the transition
+flag when `CapFlag` has no server-list entry. That makes it suitable for
+map-window/loader diagnostics, but not for claiming a completed connected
+gameplay lifecycle.
 
 Do not repair this boundary by calling an initializer from the map window:
 `sub_42BF10()` only creates a one-entry server table, while `sub_435CC0()`

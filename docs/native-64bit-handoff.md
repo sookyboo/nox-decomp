@@ -207,6 +207,11 @@ After the latest source changes:
   builds, the `load` command bridges its 32-bit argv contract through low
   memory into `sub_4432B0()`, then preserves the server-side map-transition
   flag when the standalone host has no matching server-list entry;
+- for that standalone diagnostic, the native bridge sets the `0x100000`
+  transition flag with `sub_40A4D0()` after the recovered handler finds no
+  matching server-list entry. This deliberately reaches the production
+  map-download window; it is not evidence that a connected server/client
+  state machine has completed its registry/object-table setup;
 - the native diagnostic sequence reaches and logs
   `map_download_start()`, then opens `window/mapdnld.wnd`; this verifies the
   startup-to-map-dispatch boundary rather than only macro completion;
