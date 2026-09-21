@@ -121,6 +121,12 @@ static struct nox_window_callback_entry nox_window_callbacks[256];
 static unsigned int nox_window_callback_count;
 static struct nox_window_callback_entry nox_window_message_callbacks[256];
 static unsigned int nox_window_message_callback_count;
+struct nox_window_event_entry {
+  int object;
+  uintptr_t callback;
+};
+static struct nox_window_event_entry nox_window_event_callbacks[256];
+static unsigned int nox_window_event_callback_count;
 struct nox_window_draw_entry {
   int object;
   int (*callback)(int, int);
@@ -254,6 +260,54 @@ static int (*nox_window_message_callback_get(int object))(int, int, int, int)
       return nox_window_message_callbacks[i].callback;
   }
   return 0;
+}
+
+void nox_window_event_callback_set(int object, uintptr_t callback)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_event_callback_count; ++i )
+  {
+    if ( nox_window_event_callbacks[i].object == object )
+    {
+      nox_window_event_callbacks[i].callback = callback;
+      return;
+    }
+  }
+  if ( !callback )
+    return;
+  if ( nox_window_event_callback_count < sizeof(nox_window_event_callbacks) / sizeof(nox_window_event_callbacks[0]) )
+  {
+    nox_window_event_callbacks[nox_window_event_callback_count].object = object;
+    nox_window_event_callbacks[nox_window_event_callback_count].callback = callback;
+    ++nox_window_event_callback_count;
+  }
+}
+
+uintptr_t nox_window_event_callback_get(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_event_callback_count; ++i )
+  {
+    if ( nox_window_event_callbacks[i].object == object )
+      return nox_window_event_callbacks[i].callback;
+  }
+  return 0;
+}
+
+void nox_window_event_callback_clear(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_event_callback_count; ++i )
+  {
+    if ( nox_window_event_callbacks[i].object == object )
+    {
+      nox_window_event_callbacks[i] = nox_window_event_callbacks[--nox_window_event_callback_count];
+      return;
+    }
+  }
 }
 
 static void nox_window_value_set(int object, _DWORD *value)
@@ -539,6 +593,28 @@ static wchar_t *nox_window_wrap_buffer;
 #endif
 
 #endif
+
+#if UINTPTR_MAX <= UINT32_MAX
+void nox_window_event_callback_set(int object, uintptr_t callback)
+{
+  if ( object )
+    *(_DWORD *)((unsigned char *)(uintptr_t)(unsigned int)object + 384) = (unsigned int)callback;
+}
+
+uintptr_t nox_window_event_callback_get(int object)
+{
+  if ( object )
+    return *(unsigned int *)((unsigned char *)(uintptr_t)(unsigned int)object + 384);
+  return 0;
+}
+
+void nox_window_event_callback_clear(int object)
+{
+  if ( object )
+    *(_DWORD *)((unsigned char *)(uintptr_t)(unsigned int)object + 384) = 0;
+}
+#endif
+
 static wchar_t *nox_window_wrap_buffer_get(void)
 {
 #if UINTPTR_MAX > UINT32_MAX
@@ -23026,12 +23102,14 @@ wchar_t *__cdecl sub_46B000(wchar_t *a1, wchar_t *a2)
 }
 
 //----- (0046B070) --------------------------------------------------------
-int __cdecl sub_46B070(int a1, int a2)
+int __cdecl sub_46B070(int a1, uintptr_t a2)
 {
-  int result; // eax
+  int result = (int)a2; // eax
 
-  result = a2;
-  *(_DWORD *)(a1 + 384) = a2;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_event_callback_set(a1, a2);
+#endif
+  *(_DWORD *)(a1 + 384) = (unsigned int)a2;
   return result;
 }
 
@@ -23612,7 +23690,7 @@ int __cdecl sub_46B370(int a1, int *a2)
 }
 
 //----- (0046B430) --------------------------------------------------------
-int __cdecl sub_46B430(_DWORD *a1, int (*a2)(int, int, int, int), int (*a3)(int, int), int a4)
+int __cdecl sub_46B430(_DWORD *a1, int (*a2)(int, int, int, int), int (*a3)(int, int), uintptr_t a4)
 {
   if ( !a1 )
     return -2;
@@ -23624,7 +23702,10 @@ int __cdecl sub_46B430(_DWORD *a1, int (*a2)(int, int, int, int), int (*a3)(int,
     a1[95] = a3;
   else
     a1[95] = sub_46B370;
-  a1[96] = a4;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_window_event_callback_set((int)(uintptr_t)a1, a4);
+#endif
+  a1[96] = (unsigned int)a4;
   return 0;
 }
 
@@ -24345,7 +24426,15 @@ LABEL_113:
   {
     if ( v0 )
     {
+ #if UINTPTR_MAX > UINT32_MAX
+      v41 = (void (__cdecl *)(wchar_t *, wchar_t *, int))
+        nox_window_event_callback_get((int)(uintptr_t)v0);
+      if ( !v41 )
+        v41 = (void (__cdecl *)(wchar_t *, wchar_t *, int))
+          nox_native_pointer_from_32(*((_DWORD *)v0 + 96));
+ #else
       v41 = (void (__cdecl *)(wchar_t *, wchar_t *, int))*((_DWORD *)v0 + 96);
+ #endif
       if ( v41 )
       {
         v41(v0, v0 + 18, v60);
@@ -24826,6 +24915,9 @@ int __cdecl sub_46C4E0(int a1_raw)
       sub_46B180(a1);
     else
       sub_46A960((int)a1);
+#if UINTPTR_MAX > UINT32_MAX
+    nox_window_event_callback_clear((int)(uintptr_t)a1);
+#endif
     a1[98] = 0;
     a1[97] = *(_DWORD *)&byte_5D4594[1064896];
     *(_DWORD *)&byte_5D4594[1064896] = a1;

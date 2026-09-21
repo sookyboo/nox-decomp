@@ -16,6 +16,33 @@
 static int callback_count;
 static unsigned char callback_payload;
 
+static int ui_event_callback(wchar_t *window, wchar_t *text, int event)
+{
+    (void)window;
+    (void)text;
+    return event;
+}
+
+static int window_event_callback_storage_test(void)
+{
+    _DWORD *object = nox_test_legacy_alloc(400);
+    uintptr_t callback = (uintptr_t)ui_event_callback;
+    int object_id;
+
+    if (!object)
+        return 0;
+    object_id = (int)(uintptr_t)object;
+
+    sub_46B070(object_id, callback);
+    if (nox_window_event_callback_get(object_id) != callback)
+        return 0;
+    sub_46B430(object, 0, 0, callback);
+    if (nox_window_event_callback_get(object_id) != callback)
+        return 0;
+    nox_window_event_callback_clear(object_id);
+    return nox_window_event_callback_get(object_id) == 0;
+}
+
 static int gameplay_thing_bucket_storage_test(void)
 {
     int i;
@@ -260,6 +287,8 @@ int main(void)
     if (!gameplay_thing_parser_storage_test())
         return 1;
     if (!gameplay_thing_callback_storage_test())
+        return 1;
+    if (!window_event_callback_storage_test())
         return 1;
     if (!map_file_transfer_test())
         return 1;

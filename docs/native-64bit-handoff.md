@@ -141,6 +141,13 @@ The current branch contains native-width handling for:
   which must be tested as a DWORD rather than as a native pointer;
 - the `sub_4A1D80()` menu-button callback slot, reconstructed from its stored
   32-bit value before invocation;
+- the UI click/event callback at recovered window offset `+384`, assigned by
+  `sub_46B070()` or the fourth argument of `sub_46B430()`. Native builds pass
+  these function addresses through a host-width sidecar before the mouse
+  dispatcher invokes them; the recovered DWORD remains present for the i386
+  ABI. The focused map-dispatch test covers both assignment entry points and
+  sidecar cleanup. This is a callback transport fix, not evidence that the
+  server-startup macro now reaches a connected gameplay state.
 - the input-event cursor used by `sub_437060()`, `map_download_loop()`, and
   the main loop. Native builds keep this temporary cursor in a host-width
   sidecar instead of writing its pointer into the recovered 32-bit image slot.
