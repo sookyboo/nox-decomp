@@ -43201,7 +43201,11 @@ LABEL_19:
       sub_42FE30(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8));
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 4) = *(_DWORD *)&byte_5D4594[2598000];
     }
+#if UINTPTR_MAX > UINT32_MAX
+    *(_DWORD *)(nox_native_pointer_from_32_value(*(unsigned int *)&byte_5D4594[787140]) + 28) = *(_DWORD *)&byte_5D4594[787148]
+#else
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[787140] + 28) = *(_DWORD *)&byte_5D4594[787148]
+#endif
                                                       + 36 * *(unsigned __int16 *)(a1 + 8);
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28) = &byte_5D4594[787108];
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32) = *(_DWORD *)&byte_5D4594[787140];
@@ -43211,7 +43215,12 @@ LABEL_19:
   }
   if ( !v4 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8)) =
+      (unsigned int)(uintptr_t)NOX_VIDEO_ALLOC(v3[3]);
+#else
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8)) = malloc(v3[3]);
+#endif
     sub_42FE30(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8));
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 4) = *(_DWORD *)&byte_5D4594[2598000];
     v2 = *(_DWORD *)&byte_5D4594[787148];
@@ -43297,17 +43306,26 @@ int __cdecl sub_42FE30(int a1)
   else
   {
     v3 = 0;
-    v4 = *(char **)v1;
+#if UINTPTR_MAX > UINT32_MAX
+  v4 = (char *)(uintptr_t)*(unsigned int *)v1;
+#else
+  v4 = *(char **)v1;
+#endif
     if ( v2 > *(int *)&byte_5D4594[787184] )
     {
-      v3 = (char *)malloc(v2);
+      v3 = (char *)NOX_VIDEO_ALLOC(v2);
       v10 = sub_40ADD0(v3, 1u, *(_DWORD *)(v1 + 16), fp);
       v6 = v3;
     }
     else
     {
+#if UINTPTR_MAX > UINT32_MAX
+      v5 = sub_40ADD0((char *)(uintptr_t)*(unsigned int *)&byte_5D4594[787208], 1u, v2, fp);
+      v6 = (char *)(uintptr_t)*(unsigned int *)&byte_5D4594[787208];
+#else
       v5 = sub_40ADD0(*(char **)&byte_5D4594[787208], 1u, v2, fp);
       v6 = *(char **)&byte_5D4594[787208];
+#endif
       v10 = v5;
     }
     v7 = *(_DWORD *)(v1 + 12);
@@ -43331,7 +43349,7 @@ int __cdecl sub_42FE30(int a1)
         ;
     }
     if ( v3 )
-      free(v3);
+      NOX_VIDEO_FREE(v3, v2);
   }
   result = v10;
   if ( v10 == *(_DWORD *)(v1 + 16) && *(_DWORD *)&byte_5D4594[3799624] == 2 )

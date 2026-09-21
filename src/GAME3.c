@@ -27330,7 +27330,7 @@ LABEL_30:
           {
             while ( 2 )
             {
-              *(_DWORD *)&byte_5D4594[3799428] = (unsigned __int8)**(_BYTE **)&byte_5D4594[3799444];
+              *(_DWORD *)&byte_5D4594[3799428] = *(unsigned __int8 *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
               ++*(_DWORD *)&byte_5D4594[3799444];
               v17 = (unsigned __int8)**(_BYTE **)&byte_5D4594[3799444];
               result = (byte_5D4594[3799428] & 0xF) - 1;
@@ -27735,7 +27735,7 @@ char *__cdecl sub_4C6900(int a1, int a2)
   if ( a2 )
   {
     v3 = a2;
-    result = *(char **)&byte_5D4594[3799444];
+    result = (char *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
     do
     {
       for ( i = a1; i > 0; i -= v7 )
@@ -28654,10 +28654,10 @@ LABEL_33:
           {
             while ( 1 )
             {
-              *(_DWORD *)&byte_5D4594[3799428] = (unsigned __int8)**(_BYTE **)&byte_5D4594[3799444];
+              *(_DWORD *)&byte_5D4594[3799428] = *(unsigned __int8 *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
               ++*(_DWORD *)&byte_5D4594[3799444];
-              v18 = (unsigned __int8)**(_BYTE **)&byte_5D4594[3799444];
-              *(_DWORD *)&byte_5D4594[3799456] = (unsigned __int8)**(_BYTE **)&byte_5D4594[3799444];
+              v18 = *(unsigned __int8 *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
+              *(_DWORD *)&byte_5D4594[3799456] = *(unsigned __int8 *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
               ++*(_DWORD *)&byte_5D4594[3799444];
               switch ( byte_5D4594[3799428] & 0xF )
               {
@@ -28671,13 +28671,28 @@ LABEL_33:
                     | *(unsigned int *)&byte_5D4594[3799536]))();
                   break;
                 case 4:
+#if UINTPTR_MAX > UINT32_MAX
+                  ((void (*)(void))nox_native_pointer_from_32_value(
+                    *(unsigned int *)&byte_5D4594[3799432]))();
+#else
                   (*(void (**)(void))&byte_5D4594[3799432])();
+#endif
                   break;
                 case 5:
+#if UINTPTR_MAX > UINT32_MAX
+                  ((void (*)(void))nox_native_pointer_from_32_value(
+                    *(unsigned int *)&byte_5D4594[3799544]))();
+#else
                   (*(void (**)(void))&byte_5D4594[3799544])();
+#endif
                   break;
                 case 6:
+#if UINTPTR_MAX > UINT32_MAX
+                  ((void (*)(void))nox_native_pointer_from_32_value(
+                    *(unsigned int *)&byte_5D4594[3799488]))();
+#else
                   (*(void (**)(void))&byte_5D4594[3799488])();
+#endif
                   break;
                 default:
                   break;
@@ -28685,7 +28700,7 @@ LABEL_33:
               v16 -= *(_DWORD *)&byte_5D4594[3799456];
               if ( v16 <= 0 )
                 break;
-              v17 = *(char **)&byte_5D4594[3799540];
+              v17 = (char *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799540];
             }
           }
           v15 += 4;
@@ -29053,7 +29068,10 @@ LABEL_7:
 //----- (004C80E0) --------------------------------------------------------
 void sub_4C80E0()
 {
-  memcpy( *(WORD **)&byte_5D4594[3799540], *(WORD **)&byte_5D4594[3799444], *(_DWORD *)&byte_5D4594[3799456] << 1 );
+  memcpy(
+    (WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799540],
+    (WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444],
+    *(_DWORD *)&byte_5D4594[3799456] << 1);
   *(_DWORD *)&byte_5D4594[3799444] += *(_DWORD *)&byte_5D4594[3799456] << 1;
   *(_DWORD *)&byte_5D4594[3799540] += *(_DWORD *)&byte_5D4594[3799456] << 1;
 }
@@ -29216,7 +29234,7 @@ void sub_4C8410()
   result = *(_DWORD *)&byte_5D4594[3799456] - 1;
   if ( *(_DWORD *)&byte_5D4594[3799456] )
   {
-    v1 = *(_WORD **)&byte_5D4594[3799540];
+    v1 = (WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799540];
     v2 = *(_DWORD *)&byte_5D4594[3799456];
     do
     {
@@ -29697,8 +29715,8 @@ void sub_4C8D60()
   int result; // eax
   int v6; // [esp-4h] [ebp-10h]
 
-  v0 = *(unsigned __int16 **)&byte_5D4594[3799444];
-  v1 = *(_WORD **)&byte_5D4594[3799540];
+  v0 = (unsigned __int16 *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
+  v1 = (WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799540];
   v6 = *(_DWORD *)&byte_5D4594[3799456];
   do
   {
@@ -29741,9 +29759,9 @@ void sub_4C8DF0()
     v5 = *(_DWORD *)&byte_5D4594[3799456];
     do
     {
-      v6 = **(_BYTE **)&byte_5D4594[3799444];
+      v6 = *(unsigned __int8 *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
       ++*(_DWORD *)&byte_5D4594[3799444];
-      **(_WORD **)&byte_5D4594[3799540] = *(_WORD *)(*(_DWORD *)&byte_5D4594[3804672]
+      *(WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799540] = *(_WORD *)(*(_DWORD *)&byte_5D4594[3804672]
                                                    + 2 * ((v3 * (unsigned int)v6) >> 8)) | *(_WORD *)(*(_DWORD *)&byte_5D4594[3804656] + 2 * ((v2 * (unsigned int)v6) >> 8)) | *(_WORD *)(*(_DWORD *)&byte_5D4594[3804664] + 2 * ((v1 * (unsigned int)v6) >> 8));
       result = v5 - 1;
       v4 = v5 == 1;
@@ -29993,12 +30011,12 @@ void sub_4C96A0()
   if ( *(_DWORD *)&byte_5D4594[3799456] )
   {
     HIWORD(result) = *(_WORD *)&byte_5D4594[3799458];
-    v1 = *(_WORD **)&byte_5D4594[3799540];
+    v1 = (WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799540];
     v4 = *(_DWORD *)&byte_5D4594[3799456];
     do
     {
-      LOWORD(result) = **(_WORD **)&byte_5D4594[3799444];
-      v2 = (unsigned __int8)(16 * **(_WORD **)&byte_5D4594[3799444]);
+      LOWORD(result) = *(WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444];
+      v2 = (unsigned __int8)(16 * *(WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[3799444]);
       v5 = (unsigned __int16)(*(_WORD *)&byte_5D4594[3804364] & *v1) >> byte_5D4594[3804376];
       v3 = (unsigned __int16)(*(_WORD *)&byte_5D4594[3804368] & *v1) >> byte_5D4594[3804380];
       *v1 = *(_WORD *)(*(_DWORD *)&byte_5D4594[3804664]

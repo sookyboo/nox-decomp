@@ -18718,7 +18718,11 @@ _DWORD *__thiscall sub_57DD90(_DWORD *this)
   void *v2; // eax
 
   v1 = this;
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = nox_net_legacy_alloc(0x224u);
+#else
   v2 = operator_new(0x224u);
+#endif
   *v1 = v2;
   memset(v2, 0, 0x224u);
   return v1;
@@ -18742,9 +18746,9 @@ int __thiscall sub_57DDD0(void **this)
 }
 
 //----- (0057DDE0) --------------------------------------------------------
-unsigned int __cdecl sub_57DDE0(int a1, int a2)
+unsigned int __cdecl sub_57DDE0(uintptr_t a1, int a2)
 {
-  int v2; // ecx
+  uintptr_t v2; // ecx
   int v3; // esi
   int i; // ebx
   int v5; // eax
@@ -18819,7 +18823,7 @@ int __thiscall sub_57DEA0(_DWORD *this, _WORD *a2)
     v3 += v6;
     *v5 = v6 >> 1;
   }
-  sub_57DDE0((int)(a2 - 2), 274);
+  sub_57DDE0((uintptr_t)(a2 - 2), 274);
   return v3;
 }
 
@@ -19517,10 +19521,19 @@ _DWORD *__thiscall sub_57E8A0(_DWORD *this)
 
   v1 = this;
   sub_57DD90(this);
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = (unsigned __int8 *)nox_net_legacy_alloc(0x224u);
+#else
   v2 = (unsigned __int8 *)operator_new(0x224u);
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  *(unsigned int *)((unsigned char *)v1 + 132) = (unsigned int)(uintptr_t)v2;
+  qmemcpy((unsigned char *)v1 + 4, &byte_587000[315848], 0x80u);
+#else
   v1[33] = v2;
-  qmemcpy(v2, &byte_587000[315976], 0x224u);
   qmemcpy(v1 + 1, &byte_587000[315848], 0x80u);
+#endif
+  qmemcpy(v2, &byte_587000[315976], 0x224u);
   return v1;
 }
 // 5667CB: using guessed type void *__cdecl operator_new(unsigned int);
@@ -19538,9 +19551,17 @@ void __thiscall sub_57E910(LPVOID *this)
 //----- (0057E970) --------------------------------------------------------
 int __thiscall sub_57E970(void **this)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *base = (unsigned char *)this;
+
+  qmemcpy((void *)(uintptr_t)*(unsigned int *)(base + 132), &byte_587000[315976], 0x224u);
+  qmemcpy(base + 4, &byte_587000[315848], 0x80u);
+  return 0;
+#else
   qmemcpy(this[33], &byte_587000[315976], 0x224u);
   qmemcpy(this + 1, &byte_587000[315848], 0x80u);
   return sub_57DDD0(this);
+#endif
 }
 
 //----- (0057E9A0) --------------------------------------------------------
@@ -19549,9 +19570,17 @@ _DWORD *__thiscall sub_57E9A0(_DWORD *this)
   _DWORD *v1; // esi
 
   v1 = this;
+#if UINTPTR_MAX > UINT32_MAX
+  *this = (unsigned int)(uintptr_t)nox_net_legacy_alloc(0x10000u);
+#else
   *this = operator_new(0x10000u);
+#endif
   v1[1] = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  sub_57E8A0((_DWORD *)((unsigned char *)v1 + 8));
+#else
   sub_57E8A0(v1 + 2);
+#endif
   v1[37] = 0;
   v1[36] = 0;
   return v1;
@@ -19577,10 +19606,18 @@ void __thiscall sub_57EA00(LPVOID *this)
 //----- (0057EA60) --------------------------------------------------------
 int __thiscall sub_57EA60(_DWORD *this)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *base = (unsigned char *)this;
+  *(unsigned int *)(base + 148) = 0;
+  *(unsigned int *)(base + 144) = 0;
+  *(unsigned int *)(base + 4) = 0;
+  return sub_57E970((void **)(base + 8));
+#else
   *(_DWORD *)(this + 148) = 0;
   *(_DWORD *)(this + 144) = 0;
   *(_DWORD *)(this + 4) = 0;
   return sub_57E970((void **)(this + 8));
+#endif
 }
 
 //----- (0057EA80) --------------------------------------------------------

@@ -117,6 +117,11 @@ ctest --test-dir build-amd64 -R map_download_dispatch_test --output-on-failure
 
 The normal stock `CapFlag` startup path has since been traced farther: native
 64-bit reaches `sub_431390()` and the first gameplay tick after the same
-`sub_415470()`/object-table initialization as i386. A later crash in the video
-and bag parser is separate from map transfer and was reproduced with the stock
-built-in map only; no reloaded/EUD map is required for this comparison.
+`sub_415470()`/object-table initialization as i386. The native path now also
+passes the video-bag parser and reaches the shared frame decode path
+(`sub_4C79F0()` and its `sub_4C80E0()`/`sub_4C8DF0()`/`sub_4C96A0()` callbacks).
+Those callbacks use recovered DWORD cursor slots, so native reads must rebuild
+the pointer from the slot before dereferencing it; callback addresses require
+the same reconstruction. The current remaining divergence is a later
+out-of-bounds read at the end of the decoded video buffer. This comparison uses
+the stock built-in `CapFlag` map only; no reloaded/EUD map is required.

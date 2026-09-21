@@ -7727,7 +7727,7 @@ int __thiscall nullsub_71(_DWORD); // weak
 _DWORD *__thiscall sub_57DD90(_DWORD *this);
 void __thiscall sub_57DDC0(LPVOID *this);
 int __thiscall sub_57DDD0(void **this);
-unsigned int __cdecl sub_57DDE0(int a1, int a2);
+unsigned int __cdecl sub_57DDE0(uintptr_t a1, int a2);
 int __thiscall sub_57DEA0(_DWORD *this, _WORD *a2);
 _DWORD *__thiscall sub_57DF00(_DWORD *this);
 void __thiscall sub_57DF70(LPVOID *this);
