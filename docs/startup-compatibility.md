@@ -161,15 +161,25 @@ arithmetic. `sub_4BD470()` preserves the recovered 12-byte list-head offset
 when calling `sub_425900()`; using `_DWORD ** + 3` on amd64 incorrectly moved
 the head by 24 bytes into the record's refcount field. `sub_4866F0()` keeps its
 bag `FILE *` in a native sidecar. `sub_451BE0()`/`sub_451DC0()`/`sub_451F30()`/`sub_452050()` decode
-SoundSet record pointers before using them. This probe does not use maps that
-require reloaded EUD support; the stock `CapFlag` probe now remains alive at
-the main menu past the audio pool lookup after sample initialization. The
-SDL/MSS compatibility layer
+SoundSet record pointers before using them. `sub_452490()` likewise reconstructs
+the packed audio-manager and selected-record pointers before entering
+`sub_4BDB40()`. `sub_4BD470()` must read its manager's packed pool pointers and
+maximum-buffer field by byte offset; native `_DWORD **` indexing otherwise
+selects the wrong pool and corrupts the active records. In `sub_43EE00()`, the
+MSS callback's sample-buffer table and leftover-buffer fields are also packed
+32-bit pointers. Its partial-buffer path uses a local 0x4000-byte staging area
+and reconstructs those pointers before copying. The SDL/MSS compatibility layer
 allocates native `HSAMPLE` objects below 4 GiB because the recovered audio
 state stores the handle in a DWORD, while the sample's internal driver and
 OpenAL fields remain host-width. Native callback dispatch in
 `sub_43EE00()`/`sub_4BD8C0()`/`sub_4BD940()` likewise decodes packed function
-pointers at the callback boundary.
+pointers at the callback boundary. The timer-driven `sub_4873C0()` path also
+reconstructs packed audio-state pointers and the callback stored behind the
+linked owner record's `+32` slot. With these boundaries fixed, the stock
+`CapFlag` probe reaches the multiplayer-host path and loads `gamedata.bin`,
+`monster.bin`, and `window/ArnaMain.wnd` without a native 64-bit crash during
+the bounded probe. This probe does not use maps that require reloaded EUD
+support.
 
 ## Compatibility rule
 

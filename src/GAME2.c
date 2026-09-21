@@ -1725,7 +1725,7 @@ int __cdecl sub_44DF90(int a1)
 {
   int result; // eax
   unsigned __int8 *v2; // esi
-  int v3; // edi
+  uintptr_t v3; // edi
   void (*v4)(void); // eax
 
   result = 0;
@@ -4754,21 +4754,30 @@ int __cdecl sub_452410(uintptr_t a1)
 //----- (00452490) --------------------------------------------------------
 int __cdecl sub_452490(_DWORD *a1)
 {
-  int v1; // eax
+  uintptr_t v1; // eax
   int v3; // edi
   int v4; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = nox_native_pointer_from_32(a1[44]);
+  if ( a1 != (_DWORD *)nox_native_pointer_from_32(*(unsigned int *)(v1 + 152)) )
+#else
   v1 = a1[44];
   if ( a1 != *(_DWORD **)(v1 + 152) )
+#endif
     return 0;
+#if UINTPTR_MAX > UINT32_MAX
+  v3 = nox_native_pointer_from_32(a1[74]);
+#else
   v3 = a1[74];
-  sub_4BDB90((_DWORD *)v1, (_DWORD *)a1[74]);
+#endif
+  sub_4BDB90((_DWORD *)v1, (_DWORD *)v3);
   a1[7] = 3;
   v4 = a1[6];
   LOBYTE(v4) = v4 | 2;
   a1[6] = v4;
   a1[74] = 0;
-  if ( !sub_4BDB40(a1[44]) )
+  if ( !sub_4BDB40(v1) )
     return 1;
   a1[7] = 1;
   a1[74] = v3;
@@ -45651,11 +45660,27 @@ int __cdecl sub_4873C0(uintptr_t a3)
         {
           if ( (sub_486520((unsigned int *)(v12 + 16)), v17)
             || sub_486550((_BYTE *)(v12 + 16))
+#if UINTPTR_MAX > UINT32_MAX
+            || *(_DWORD *)(v12 + 116)
+                && sub_486550((_BYTE *)nox_native_pointer_from_32(
+                    *(unsigned int *)(v12 + 116)))
+            || *(_DWORD *)(v12 + 112)
+                && sub_486550((_BYTE *)nox_native_pointer_from_32(
+                    *(unsigned int *)(v12 + 112)))
+#else
             || *(_DWORD *)(v12 + 116) && sub_486550(*(_BYTE **)(v12 + 116))
-            || *(_DWORD *)(v12 + 112) && sub_486550(*(_BYTE **)(v12 + 112)) )
+            || *(_DWORD *)(v12 + 112) && sub_486550(*(_BYTE **)(v12 + 112))
+#endif
+            )
           {
             sub_4BD840(v12);
+#if UINTPTR_MAX > UINT32_MAX
+            ((void (__cdecl *)(int))nox_native_pointer_from_32(
+                *(unsigned int *)(nox_native_pointer_from_32(
+                    *(unsigned int *)(v12 + 172)) + 32)))(v12);
+#else
             (*(void (__cdecl **)(int))(*(_DWORD *)(v12 + 172) + 32))(v12);
+#endif
           }
         }
         v12 = v13;

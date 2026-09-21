@@ -20036,7 +20036,15 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
   _DWORD *v10; // [esp+18h] [ebp+8h]
 #if UINTPTR_MAX > UINT32_MAX
   uintptr_t manager;
-  manager = nox_game3_pointer_from_32(*a1);
+  uintptr_t pool_records;
+  uintptr_t pool_buffers;
+  int max_buffer;
+  manager = nox_game3_pointer_from_32(*(unsigned int *)a1);
+  pool_records = nox_game3_pointer_from_32(
+      *(unsigned int *)((unsigned char *)a1 + sizeof(unsigned int)));
+  pool_buffers = nox_game3_pointer_from_32(
+      *(unsigned int *)((unsigned char *)a1 + 2 * sizeof(unsigned int)));
+  max_buffer = *(int *)((unsigned char *)a1 + 6 * sizeof(unsigned int));
 #endif
 
   v2 = sub_4BD420((uintptr_t)a1, a2);
@@ -20062,7 +20070,7 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
                     a2) )
   {
 #if UINTPTR_MAX > UINT32_MAX
-    v5 = sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[2]));
+    v5 = sub_4BD2E0((_DWORD **)pool_buffers);
 #else
     v5 = sub_4BD2E0((_DWORD **)a1[2]);
 #endif
@@ -20070,7 +20078,7 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
     {
       sub_4BD600((int)a1);
 #if UINTPTR_MAX > UINT32_MAX
-      v5 = sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[2]));
+      v5 = sub_4BD2E0((_DWORD **)pool_buffers);
 #else
       v5 = sub_4BD2E0((_DWORD **)a1[2]);
 #endif
@@ -20119,11 +20127,15 @@ LABEL_19:
     }
     while ( 1 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      v7 = ( _DWORD *)(uintptr_t)max_buffer;
+#else
       v7 = a1[6];
+#endif
       if ( (int)v7 > (int)v6 )
         v7 = v6;
 #if UINTPTR_MAX > UINT32_MAX
-      v8 = (char *)sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[1]));
+      v8 = (char *)sub_4BD2E0((_DWORD **)pool_records);
 #else
       v8 = (char *)sub_4BD2E0((_DWORD **)a1[1]);
 #endif
@@ -20149,7 +20161,7 @@ LABEL_17:
     while ( sub_4BD600((int)a1) )
     {
 #if UINTPTR_MAX > UINT32_MAX
-      v8 = (char *)sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[1]));
+      v8 = (char *)sub_4BD2E0((_DWORD **)pool_records);
 #else
       v8 = (char *)sub_4BD2E0((_DWORD **)a1[1]);
 #endif

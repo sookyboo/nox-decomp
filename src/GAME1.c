@@ -54406,7 +54406,14 @@ int __cdecl sub_43EE00(int a1)
   char *v19; // [esp+Ch] [ebp-10h]
   int v20; // [esp+10h] [ebp-Ch]
   int v21; // [esp+14h] [ebp-8h]
-  char *v22; // [esp+18h] [ebp-4h]
+  /* The recovered leftover-buffer path uses this stack area as a staging
+   * buffer before refilling an MSS sample buffer. The decompiler emitted the
+   * local as an uninitialized pointer, which only becomes visible when an
+   * EOB callback carries a partial buffer. */
+  char v22_storage[0x4000];
+  char *v22;
+
+  v22 = v22_storage;
 
   v1 = a1;
   result = AIL_sample_buffer_ready(*(_DWORD *)(a1 + 8));
@@ -54418,7 +54425,12 @@ int __cdecl sub_43EE00(int a1)
       v3 = *(_DWORD *)(v1 + 4);
       v4 = 0;
       v5 = 0;
+#if UINTPTR_MAX > UINT32_MAX
+      v17 = (char *)nox_native_pointer_from_32(
+          *(unsigned int *)(v1 + 4 * v20 + 20));
+#else
       v17 = *(char **)(v1 + 4 * v20 + 20);
+#endif
       v6 = 0;
       v7 = 0;
       v21 = 0;
@@ -54465,7 +54477,11 @@ LABEL_27:
       }
       if ( v4 )
         break;
+#if UINTPTR_MAX > UINT32_MAX
+      v19 = (char *)nox_native_pointer_from_32(*(unsigned int *)(v3 + 296));
+#else
       v19 = *(char **)(v3 + 296);
+#endif
       if ( v8 < 0x4000 || v5 )
         break;
       v7 = v8;
@@ -54502,8 +54518,11 @@ LABEL_24:
     }
     else if ( !v6 )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      v5 = (char *)nox_native_pointer_from_32(*(unsigned int *)(v3 + 296));
+#else
       v5 = *(char **)(v3 + 296);
-      v22 = v17;
+#endif
       v18 = v8;
 LABEL_23:
       v7 = v8;
@@ -54511,7 +54530,11 @@ LABEL_23:
       v6 = v18;
       goto LABEL_24;
     }
+#if UINTPTR_MAX > UINT32_MAX
+    qmemcpy(v17, nox_native_pointer_from_32(*(unsigned int *)(v3 + 296)), v8);
+#else
     qmemcpy(v17, *(const void **)(v3 + 296), v8);
+#endif
     v4 = v21;
     goto LABEL_23;
   }
