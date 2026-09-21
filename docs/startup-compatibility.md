@@ -135,7 +135,7 @@ project frame in the backtrace as the owning boundary; do not widen every
 nearby field as a workaround.
 
 At the time of this document update, the native executable builds, loads the
-Estate test data, completes config localization, reaches OpenGL initialization,
+CapFlag test data, completes config localization, reaches OpenGL initialization,
 loads the font resources, completes the graphics row clear, completes video
 index-table initialization, initializes the timer records, parses SoundSet.bin,
 and reaches both Modifier.bin record parsers. The native Modifier dispatch
