@@ -178,8 +178,13 @@ reconstructs packed audio-state pointers and the callback stored behind the
 linked owner record's `+32` slot. With these boundaries fixed, the stock
 `CapFlag` probe reaches the multiplayer-host path and loads `gamedata.bin`,
 `monster.bin`, and `window/ArnaMain.wnd` without a native 64-bit crash during
-the bounded probe. This probe does not use maps that require reloaded EUD
-support.
+the bounded probe. A direct production-console `load CapFlag` command now
+continues through `map_download_start()` and opens `window/mapdnld.wnd`; the
+map-download screen remains alive in the bounded native probe. The related
+`sub_4BDA80()`/`sub_4BDAC0()`/`sub_4BDAF0()` lifecycle callbacks decode both
+the callback at record offset `+148` and the owner callback table at `+172`
+before dispatch. These observations are from the stock built-in `CapFlag` map;
+no map requiring reloaded EUD support is used.
 
 ## Compatibility rule
 

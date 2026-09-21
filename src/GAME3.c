@@ -20502,8 +20502,19 @@ int (__cdecl *__cdecl sub_4BDA80(int a1))(int)
   int (__cdecl *result)(int); // eax
 
   if ( *(_BYTE *)(a1 + 124) & 5 )
+#if UINTPTR_MAX > UINT32_MAX
+    ((void (__cdecl *)(int))nox_game3_pointer_from_32(
+        *(unsigned int *)(nox_game3_pointer_from_32(
+            *(unsigned int *)(a1 + 172)) + 16)))(a1);
+#else
     (*(void (__cdecl **)(int))(*(_DWORD *)(a1 + 172) + 16))(a1);
+#endif
+#if UINTPTR_MAX > UINT32_MAX
+  result = (int (__cdecl *)(int))nox_game3_pointer_from_32(
+      *(unsigned int *)(a1 + 148));
+#else
   result = *(int (__cdecl **)(int))(a1 + 148);
+#endif
   if ( result )
     result = (int (__cdecl *)(int))result(a1);
   *(_DWORD *)(a1 + 288) = 0;
@@ -20520,7 +20531,13 @@ void __cdecl sub_4BDAC0(int a1)
     v1 = *(_DWORD *)(a1 + 124);
     LOBYTE(v1) = v1 & 0xFE;
     *(_DWORD *)(a1 + 124) = v1;
+#if UINTPTR_MAX > UINT32_MAX
+    ((int (__cdecl *)(int))nox_game3_pointer_from_32(
+        *(unsigned int *)(nox_game3_pointer_from_32(
+            *(unsigned int *)(a1 + 172)) + 20)))(a1);
+#else
     (*(int (__cdecl **)(int))(*(_DWORD *)(a1 + 172) + 20))(a1);
+#endif
     *(_DWORD *)(a1 + 124) |= 4u;
   }
 }
@@ -20530,7 +20547,13 @@ void __cdecl sub_4BDAF0(int a1)
 {
   if ( *(_BYTE *)(a1 + 124) & 4 )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    ((int (__cdecl *)(int))nox_game3_pointer_from_32(
+        *(unsigned int *)(nox_game3_pointer_from_32(
+            *(unsigned int *)(a1 + 172)) + 24)))(a1);
+#else
     (*(int (__cdecl **)(int))(*(_DWORD *)(a1 + 172) + 24))(a1);
+#endif
     *(_DWORD *)(a1 + 124) &= 0xFFFFFFFB;
     *(_DWORD *)(a1 + 124) |= 1u;
   }

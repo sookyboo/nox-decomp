@@ -85,6 +85,13 @@ blocked at the same unpopulated object-ID table. The fixture is removed after
 the probe; this remains headless runtime coverage rather than a full
 interactive gameplay session.
 
+The current native interactive boundary was also verified without a reloaded
+or EUD map: after the main menu opens, the production control-server command
+`console "load CapFlag"` returns success, logs `map_download_start`, and opens
+`window/mapdnld.wnd`. The bounded amd64 process remains alive in that screen.
+The probe does not claim map activation or peer-supplied transfer completion;
+those still require the map package and normal network lifecycle to finish.
+
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.
 Those writes overlapped the adjacent path strings used by `sub_4AC2B0()`;
