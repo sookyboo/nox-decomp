@@ -7,6 +7,11 @@
 #endif
 #include <SDL2/SDL.h>
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 #define MINIMP3_ONLY_MP3
 #define MINIMP3_NO_SIMD
 #define MINIMP3_IMPLEMENTATION
@@ -65,6 +70,17 @@ struct _SAMPLE
     AILSAMPLECB eos;
     S32 user[8];
 };
+
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+static void *nox_mss_low_calloc(size_t size)
+{
+    size_t page = (size_t)sysconf(_SC_PAGESIZE);
+    size_t mapped = (size + page - 1) & ~(page - 1);
+    void *memory = mmap(NULL, mapped, PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+    return memory == MAP_FAILED ? NULL : memory;
+}
+#endif
 
 struct _STREAM
 {
@@ -405,7 +421,13 @@ static void stream_unqueue_buffers(HSTREAM S)
 
 DXDEC HSAMPLE AILCALL AIL_allocate_sample_handle (HDIGDRIVER dig)
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    HSAMPLE sample = nox_mss_low_calloc(sizeof(*sample));
+#else
     HSAMPLE sample = calloc(1, sizeof(*sample));
+#endif
+    if (!sample)
+        return NULL;
     sample->dig = dig;
     // fprintf(stderr, "%s\n", __FUNCTION__);
 

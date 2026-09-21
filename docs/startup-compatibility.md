@@ -159,7 +159,12 @@ host-width dereferences, and `sub_4866F0()` keeps its bag `FILE *` in a native
 sidecar. `sub_451BE0()`/`sub_451DC0()`/`sub_451F30()`/`sub_452050()` decode
 SoundSet record pointers before using them. This probe does not use maps that
 require reloaded EUD support; the next remaining failure is in the native
-audio sample object passed into `sub_43ED00()`.
+audio pool lookup after sample initialization. The SDL/MSS compatibility layer
+allocates native `HSAMPLE` objects below 4 GiB because the recovered audio
+state stores the handle in a DWORD, while the sample's internal driver and
+OpenAL fields remain host-width. Native callback dispatch in
+`sub_43EE00()`/`sub_4BD8C0()`/`sub_4BD940()` likewise decodes packed function
+pointers at the callback boundary.
 
 ## Compatibility rule
 

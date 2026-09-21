@@ -54439,11 +54439,19 @@ LABEL_27:
       v8 = *(_DWORD *)(v3 + 300);
       if ( !v8 )
       {
+#if UINTPTR_MAX > UINT32_MAX
+        ((void (__cdecl *)(int))nox_native_pointer_from_32(*(unsigned int *)(v3 + 276)))(v3);
+#else
         (*(void (__cdecl **)(int))(v3 + 276))(v3);
+#endif
         v8 = *(_DWORD *)(v3 + 300);
         if ( !v8 )
         {
+#if UINTPTR_MAX > UINT32_MAX
+          ((void (__cdecl *)(int))nox_native_pointer_from_32(*(unsigned int *)(v3 + 280)))(v3);
+#else
           (*(void (__cdecl **)(int))(v3 + 280))(v3);
+#endif
           v8 = *(_DWORD *)(v3 + 300);
           if ( !v8 )
           {

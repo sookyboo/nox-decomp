@@ -20340,7 +20340,11 @@ int __cdecl sub_4BD8C0(int a1)
   int v3; // eax
   int v4; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = (int (__cdecl *)(int))nox_game3_pointer_from_32(*(unsigned int *)(a1 + 136));
+#else
   v1 = *(int (__cdecl **)(int))(a1 + 136);
+#endif
   if ( v1 )
   {
     result = v1(a1);
@@ -20356,7 +20360,11 @@ int __cdecl sub_4BD8C0(int a1)
   {
     if ( *(_DWORD *)(a1 + 292) )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      v3 = sub_425940((int *)nox_game3_pointer_from_32(*(unsigned int *)(a1 + 292)));
+#else
       v3 = sub_425940(*(int **)(a1 + 292));
+#endif
       *(_DWORD *)(a1 + 292) = v3;
       if ( v3 )
       {
@@ -20387,11 +20395,22 @@ int __cdecl sub_4BD940(int a1)
   {
     sub_4BDB90((_DWORD *)a1, 0);
   }
+ #if UINTPTR_MAX > UINT32_MAX
+  v1 = (void (__cdecl *)(int))nox_game3_pointer_from_32(*(unsigned int *)(a1 + 140));
+ #else
   v1 = *(void (__cdecl **)(int))(a1 + 140);
+ #endif
   if ( v1 )
     v1(a1);
   if ( *(_DWORD *)(a1 + 288) )
+  {
+#if UINTPTR_MAX > UINT32_MAX
+    ((void (__cdecl *)(int))nox_game3_pointer_from_32(
+        *(unsigned int *)(nox_game3_pointer_from_32(*(unsigned int *)(a1 + 172)) + 36)))(a1);
+#else
     (*(void (__cdecl **)(int))(*(_DWORD *)(a1 + 172) + 36))(a1);
+#endif
+  }
   return 0;
 }
 

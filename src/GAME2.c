@@ -4904,15 +4904,27 @@ int __cdecl sub_452770(_DWORD *a1)
   int v4; // eax
   unsigned int v5; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = (_DWORD *)nox_native_pointer_from_32(a1[38]);
+#else
   v1 = (_DWORD *)a1[38];
-  v2 = (_DWORD *)sub_451CF0((_DWORD *)a1[38]);
+#endif
+  v2 = (_DWORD *)sub_451CF0(v1);
+#if UINTPTR_MAX > UINT32_MAX
+  if ( *(_DWORD *)(nox_native_pointer_from_32(v1[9]) + 72) < 0x21u )
+#else
   if ( *(_DWORD *)(v1[9] + 72) < 0x21u )
+#endif
   {
     sub_4BDB90(a1, v2);
     return 0;
   }
   sub_4BDB90(a1, 0);
+#if UINTPTR_MAX > UINT32_MAX
+  v4 = (int)nox_native_pointer_from_32(v1[9]);
+#else
   v4 = v1[9];
+#endif
   if ( !(*(_BYTE *)(v4 + 4) & 8) || v2 || v1[142] )
   {
     v5 = sub_415FF0(*(_DWORD *)(v4 + 68), *(_DWORD *)(v4 + 72), (const char *)&byte_587000[127220], 706);
