@@ -190,6 +190,42 @@ extern HDIGDRIVER nox_mss_digital_handle;
 extern uintptr_t nox_native_audio_state;
 extern uintptr_t nox_native_window_pool_manager;
 extern _DWORD *nox_native_video_mode_state;
+
+/* v1[9] is a recovered DWORD field, but sub_452300 stores a host pointer
+ * there for the SoundSet source record. Keep that association out of the
+ * packed playback record on native builds. */
+struct nox_native_sound_source_entry {
+  _DWORD *playback;
+  _DWORD *source;
+};
+static struct nox_native_sound_source_entry nox_native_sound_sources[576];
+
+static void nox_native_sound_source_set(_DWORD *playback, _DWORD *source)
+{
+  unsigned int i;
+
+  for ( i = 0; i < sizeof(nox_native_sound_sources) / sizeof(nox_native_sound_sources[0]); ++i )
+  {
+    if ( nox_native_sound_sources[i].playback == playback || !nox_native_sound_sources[i].playback )
+    {
+      nox_native_sound_sources[i].playback = playback;
+      nox_native_sound_sources[i].source = source;
+      return;
+    }
+  }
+}
+
+static uintptr_t nox_native_sound_source_get(_DWORD *playback)
+{
+  unsigned int i;
+
+  for ( i = 0; i < sizeof(nox_native_sound_sources) / sizeof(nox_native_sound_sources[0]); ++i )
+  {
+    if ( nox_native_sound_sources[i].playback == playback )
+      return (uintptr_t)nox_native_sound_sources[i].source;
+  }
+  return nox_native_pointer_from_32(playback[9]);
+}
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -4008,9 +4044,10 @@ int sub_4519C0()
       {
         do
         {
-          v2 = (uintptr_t)(unsigned int)*(_DWORD *)(v1 + 36);
 #if UINTPTR_MAX > UINT32_MAX
-          v2 = nox_native_pointer_from_32((unsigned int)v2);
+          v2 = nox_native_sound_source_get((_DWORD *)v1);
+#else
+          v2 = (uintptr_t)(unsigned int)*(_DWORD *)(v1 + 36);
 #endif
           if ( *(_DWORD *)(v2 + 100) != *(_DWORD *)&byte_5D4594[1045440] )
           {
@@ -4089,7 +4126,11 @@ int sub_4519C0()
         }
         else
         {
+#if UINTPTR_MAX > UINT32_MAX
+          v3 += (unsigned int)(33 * (*(_DWORD *)(nox_native_sound_source_get((_DWORD *)v1) + 20) >> 16)) >> 14;
+#else
           v3 += (unsigned int)(33 * (*(_DWORD *)(nox_native_pointer_from_32(*(unsigned int *)(v1 + 36)) + 20) >> 16)) >> 14;
+#endif
           sub_452050((_DWORD *)v1);
         }
         v1 = (uintptr_t)v5;
@@ -4173,8 +4214,7 @@ int __cdecl sub_451BE0(uintptr_t a1)
   v1 = a1;
   v2 = *(_DWORD *)(a1 + 36);
 #if UINTPTR_MAX > UINT32_MAX
-  v1 = nox_native_pointer_from_32((unsigned int)v2);
-  v2 = v1;
+  v2 = nox_native_sound_source_get((_DWORD *)a1);
 #endif
   v3 = *(_DWORD *)(a1 + 188) >> 16;
 #if UINTPTR_MAX > UINT32_MAX
@@ -4287,7 +4327,7 @@ int __cdecl sub_451CF0(_DWORD *a1)
   int v9; // eax
 
 #if UINTPTR_MAX > UINT32_MAX
-  v1 = nox_native_pointer_from_32(a1[9]);
+  v1 = nox_native_sound_source_get(a1);
 #else
   v1 = a1[9];
 #endif
@@ -4342,7 +4382,7 @@ int __cdecl sub_451DC0(uintptr_t a1)
   int v6; // eax
 
 #if UINTPTR_MAX > UINT32_MAX
-  v1 = (_DWORD *)nox_native_pointer_from_32(*(unsigned int *)(a1 + 36));
+  v1 = (_DWORD *)nox_native_sound_source_get((_DWORD *)a1);
 #else
   v1 = *(_DWORD **)(a1 + 36);
 #endif
@@ -4398,7 +4438,11 @@ int __cdecl sub_451E80(int a1)
   int v10; // ecx
   _DWORD *v11; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = (int)nox_native_sound_source_get((_DWORD *)a1);
+#else
   v1 = *(_DWORD *)(a1 + 36);
+#endif
   v2 = *(_DWORD *)(v1 + 4);
   if ( *(int *)(a1 + 568) <= 0 )
   {
@@ -4449,7 +4493,7 @@ int __cdecl sub_451F30(uintptr_t a1, int a2)
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
-  source = nox_native_pointer_from_32(*(unsigned int *)(a1 + 36));
+  source = nox_native_sound_source_get((_DWORD *)a1);
 #endif
   *(_DWORD *)(a1 + 4 * *(_DWORD *)(a1 + 168) + 40) = sub_4BD470(
 #if UINTPTR_MAX > UINT32_MAX
@@ -4550,7 +4594,7 @@ _DWORD *__cdecl sub_452050(_DWORD *a1)
   _DWORD *v8; // esi
 
 #if UINTPTR_MAX > UINT32_MAX
-  v1 = (_DWORD *)nox_native_pointer_from_32(a1[9]);
+  v1 = (_DWORD *)nox_native_sound_source_get(a1);
 #else
   v1 = (_DWORD *)a1[9];
 #endif
@@ -4601,7 +4645,11 @@ int *__cdecl sub_452120(int a1)
   unsigned __int8 *v5; // edi
 
   v1 = 0;
+#if UINTPTR_MAX > UINT32_MAX
+  result = sub_4521A0(*(_DWORD *)(a1 + 300) + *(_DWORD *)(nox_native_sound_source_get((_DWORD *)a1) + 48));
+#else
   result = sub_4521A0(*(_DWORD *)(a1 + 300) + *(_DWORD *)(*(_DWORD *)(a1 + 36) + 48));
+#endif
   v3 = result;
   if ( result )
   {
@@ -4823,7 +4871,12 @@ _DWORD *__cdecl sub_452300(_DWORD *a1)
       return 0;
   }
   memset(v1, 0, 0x240u);
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_sound_source_set(v1, a1);
+  v1[9] = 0;
+#else
   v1[9] = a1;
+#endif
   sub_425770(v1);
   v1[7] = 0;
   v1[75] = 0;
@@ -4957,7 +5010,7 @@ int __cdecl sub_452580(_DWORD *a1)
   int v5; // eax
 
 #if UINTPTR_MAX > UINT32_MAX
-  v1 = nox_native_pointer_from_32(a1[9]);
+  v1 = nox_native_sound_source_get(a1);
 #else
   v1 = a1[9];
 #endif
@@ -5049,7 +5102,7 @@ int __cdecl sub_452770(_DWORD *a1)
 #endif
   v2 = (_DWORD *)sub_451CF0(v1);
 #if UINTPTR_MAX > UINT32_MAX
-  if ( *(_DWORD *)(nox_native_pointer_from_32(v1[9]) + 72) < 0x21u )
+  if ( *(_DWORD *)(nox_native_sound_source_get(v1) + 72) < 0x21u )
 #else
   if ( *(_DWORD *)(v1[9] + 72) < 0x21u )
 #endif
@@ -5059,7 +5112,7 @@ int __cdecl sub_452770(_DWORD *a1)
   }
   sub_4BDB90(a1, 0);
 #if UINTPTR_MAX > UINT32_MAX
-  v4 = (int)nox_native_pointer_from_32(v1[9]);
+  v4 = (int)nox_native_sound_source_get(v1);
 #else
   v4 = v1[9];
 #endif
@@ -5604,7 +5657,7 @@ unsigned int __cdecl sub_452F10(uintptr_t a1, int a2)
     v2 = 100;
   }
 #if UINTPTR_MAX > UINT32_MAX
-  source = nox_native_pointer_from_32(*(unsigned int *)(a1 + 36));
+  source = nox_native_sound_source_get((_DWORD *)a1);
   return (unsigned int)(163 * v2 * (*(_DWORD *)(source + 20) >> 16)) >> 14;
 #else
   return (unsigned int)(163 * v2 * (*(_DWORD *)(*(_DWORD *)(a1 + 36) + 20) >> 16)) >> 14;

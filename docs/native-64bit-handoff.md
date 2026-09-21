@@ -570,6 +570,14 @@ contract as `sub_412D40()`.
 advances each SoundSet state, updates its audio timing, and returns the status
 used by the frame before `sub_4312C0()` runs. Its recovered list head and links
 are DWORD slots, so native code must reconstruct them before every traversal.
+`sub_452300()` also stores the source SoundSet record in playback-record slot
+`v1[9]`; that slot is another recovered DWORD and cannot retain a host pointer.
+Native playback records now use a sidecar association for that source pointer,
+and `sub_451BE0()`, `sub_451DC0()`, `sub_451F30()`, `sub_452050()`,
+`sub_452120()`, `sub_452580()`, `sub_452770()`, and `sub_452F10()` consume the
+sidecar. Without it, the second native frame reconstructed a null source and
+crashed while updating SoundSet timing. The i386 path retains the original
+packed slot.
 The second traversal previously reloaded the head as a native pointer, and a
 later callback still read the head and next link with native-width pointer
 loads. After the server screen opened, that could leave the main loop spinning

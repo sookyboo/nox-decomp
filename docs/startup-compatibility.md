@@ -179,6 +179,9 @@ OpenAL fields remain host-width. Native callback dispatch in
 pointers at the callback boundary. The timer-driven `sub_4873C0()` path also
 reconstructs packed audio-state pointers and the callback stored behind the
 linked owner record's `+32` slot. With these boundaries fixed, the stock
+playback records created by `sub_452300()` use a native sidecar for their
+SoundSet source pointer; the recovered `v1[9]` DWORD remains the i386 storage
+location. The per-frame SoundSet consumers use the sidecar on native builds.
 `CapFlag` probe reaches the multiplayer-host path and loads `gamedata.bin`,
 `monster.bin`, and `window/ArnaMain.wnd` without a native 64-bit crash during
 the bounded probe. A direct production-console `load CapFlag` command now
