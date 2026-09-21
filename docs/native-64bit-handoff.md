@@ -221,9 +221,9 @@ After the latest source changes:
   `sub_4AC2B0()` for the fixture map. The original `CapFlag` files were
   restored byte-for-byte after the probe. This validates the native file
   consumer and map-loader handoff, but is not a peer/network-transfer test;
-  the temporary GDB packet injector stalls when a synthetic `0xB9` call carries
-  more than the small packet sizes already covered by the production parser
-  fixture;
+  the temporary GDB packet injector still stalls for larger synthetic calls,
+  although the production parser fixture now covers 1,024-byte `0xB9`
+  payloads on both architectures;
 - the callback transport regression invokes the production tick-callback
   storage on both architectures: the native build uses its host-width
   sidecar, while i386 uses the recovered callback slot;

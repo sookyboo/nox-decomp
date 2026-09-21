@@ -74,19 +74,21 @@ cleanup:
 
 static int map_packet_transfer_test(void)
 {
+    enum { chunk_size = 1024, chunk_count = 3 };
     char original[PATH_MAX];
     char temporary[] = "/tmp/nox-map-packets-XXXXXX";
     unsigned char *packet = 0;
-    unsigned char output[6];
+    unsigned char output[chunk_size * chunk_count];
     FILE *file;
     int success = 0;
+    int finalized = 0;
     unsigned int sequences[] = {3, 2, 1};
     size_t i;
 
     if (!getcwd(original, sizeof(original)) || !mkdtemp(temporary) ||
         chdir(temporary) != 0)
         return 0;
-    packet = nox_test_legacy_alloc(88);
+    packet = nox_test_legacy_alloc(chunk_size + 6);
     if (!packet)
         goto cleanup;
 
@@ -101,26 +103,40 @@ static int map_packet_transfer_test(void)
     *(uint32_t *)&byte_5D4594[1309764] = 0;
     for (i = 0; i < sizeof(sequences) / sizeof(sequences[0]); ++i)
     {
-        memset(packet, 0, 88);
+        memset(packet, 0, chunk_size + 6);
         packet[0] = 0xB9;
         *(uint16_t *)(packet + 2) = (uint16_t)sequences[i];
-        *(uint16_t *)(packet + 4) = 2;
-        packet[6] = (unsigned char)('A' + 2 * (2 - i));
-        packet[7] = (unsigned char)('B' + 2 * (2 - i));
-        if (sub_48EA70(31, (unsigned int)(uintptr_t)packet, 8) < 0)
+        *(uint16_t *)(packet + 4) = chunk_size;
+        /* Arrival is 3,2,1, so the payloads must be C,B,A to write A,B,C. */
+        memset(packet + 6, (int)('A' + (chunk_count - 1 - i)), chunk_size);
+        if (sub_48EA70(31, (unsigned int)(uintptr_t)packet,
+                       chunk_size + 6) < 0)
             goto cleanup;
     }
     sub_4AB580();
+    finalized = 1;
 
     file = fopen("maps/Fixture/Fixture.nxz", "rb");
     if (!file || fread(output, 1, sizeof(output), file) != sizeof(output))
         goto cleanup;
     fclose(file);
-    success = memcmp(output, "ABCDEF", sizeof(output)) == 0;
+    success = 1;
+    for (i = 0; i < chunk_count; ++i)
+    {
+        unsigned char expected = (unsigned char)('A' + i);
+        if (output[i * chunk_size] != expected ||
+            output[i * chunk_size + chunk_size - 1] != expected)
+        {
+            success = 0;
+            break;
+        }
+    }
     remove("maps/Fixture/Fixture.nxz");
 
 cleanup:
-    if (!success)
+    if (finalized)
+        remove("maps/Fixture/Fixture.nxz");
+    else if (!success)
         sub_4AB720();
     rmdir("maps/Fixture");
     rmdir("maps");

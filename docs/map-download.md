@@ -58,8 +58,9 @@ The native runtime handoff has also been validated with the stock
 payload through `sub_4AB7C0()`, `sub_4AB580()` finalized it, and the real
 `map_download_loop()` reached `sub_4AC2B0()` through `map_download_finish()`.
 This probe uses a temporary destination and restores the stock map files. It
-does not claim a complete peer/network transfer; the GDB packet injector is
-limited to the small synthetic packet sizes covered by the parser test.
+does not claim a complete peer/network transfer; the production parser test
+covers 1,024-byte synthetic chunks, while the GDB packet injector remains a
+diagnostic harness and stalls for larger synthetic calls.
 
 Run it with:
 
