@@ -69,18 +69,21 @@ discarded; a codec conclusion must use `CapFlag.map` or a self-contained map
 fixture. The stock `.map` and `.nxz` files are both ordinary built-in assets;
 no reloaded/EUD map is needed for this investigation.
 
-After the section-dispatch sidecar fix, a headless native probe initializes the
-normal startup state, opens the stock built-in `CapFlag.map`, and returns
-success from `sub_4AC2B0()`. This verifies the map-loader entry point through
-the `ObjectData` section on native Linux; it is narrower than a complete
-server/gameplay session.
+After the section-dispatch sidecar fix, the headless native probe reaches the
+stock built-in `CapFlag.map` header and `ObjectData` callback without the prior
+pointer-table crash. It still returns failure because the `-serveronly`
+checkpoint used by the probe has not populated the object-ID table required by
+`sub_4AC610()`. The same checkpoint on i386 also has an empty table and fails
+at the same callback, so this result is not evidence of a 64-bit-only loader
+regression.
 
 The stronger combined probe copies the stock `.map` into a temporary fixture,
 delivers the stock `.nxz` through `sub_4ABAD0()`/`sub_4AB7C0()` in 1,024-byte
 chunks, finalizes it, and then calls `sub_4AC2B0()` for the fixture map. The
-resulting `.nxz` matched the source byte-for-byte and the loader returned
-success on native Linux. The fixture was removed after the probe; this remains
-headless runtime coverage rather than a full interactive gameplay session.
+resulting `.nxz` matched the source byte-for-byte, but map activation remains
+blocked at the same unpopulated object-ID table. The fixture is removed after
+the probe; this remains headless runtime coverage rather than a full
+interactive gameplay session.
 
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.
@@ -96,9 +99,11 @@ names and handlers. `sub_426E20()` serializes every section through that
 sidecar, while `sub_426EA0()` and `sub_426F40()` use it for named section loads
 and the `ObjectData` callback. The i386 path retains the recovered table. A
 headless native GDB probe against the stock built-in `CapFlag.map` now passes
-the header and section dispatch and returns success from `sub_4AC2B0()`; the
-same probe cannot currently reach the loader on i386 because its unrelated
-startup allocator fails earlier in `sub_4101D0()`.
+the header and reaches the `ObjectData` callback. The object-ID table at
+`byte_5D4594[741676]` is another recovered four-byte pointer slot: native
+code now allocates its two-byte entries below 4 GiB and reconstructs the
+pointer from the slot before dereferencing it. Both architectures still
+report the same lifecycle failure when this table has not been populated.
 
 Run it with:
 

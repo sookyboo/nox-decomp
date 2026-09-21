@@ -9,6 +9,40 @@
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 #include <sys/mman.h>
 #include <unistd.h>
+
+static size_t nox_map_id_table_page_size(void)
+{
+  static size_t page_size;
+
+  if ( !page_size )
+    page_size = (size_t)sysconf(_SC_PAGESIZE);
+  return page_size;
+}
+
+static void *nox_map_id_table_low_alloc(size_t size)
+{
+  size_t page_size = nox_map_id_table_page_size();
+  size_t mapped_size;
+  void *result;
+
+  if ( !size || !page_size )
+    return 0;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  result = mmap(0, mapped_size, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+  return result == MAP_FAILED ? 0 : result;
+}
+
+static void nox_map_id_table_low_free(void *address, size_t size)
+{
+  size_t page_size = nox_map_id_table_page_size();
+  size_t mapped_size;
+
+  if ( !address || !size || !page_size )
+    return;
+  mapped_size = (size + page_size - 1) & ~(page_size - 1);
+  munmap(address, mapped_size);
+}
 #endif
 #ifdef NOX_MANUAL_SPELL_CASTING
 #include <stdlib.h>
@@ -39910,7 +39944,11 @@ int sub_42BF10()
     v1 = sub_44D390();
   }
   *(_DWORD *)&byte_5D4594[741680] = v1;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  *(_DWORD *)&byte_5D4594[741676] = nox_map_id_table_low_alloc(2u * (size_t)v1);
+#else
   *(_DWORD *)&byte_5D4594[741676] = malloc(2 * v1);
+#endif
   if ( *(_DWORD *)&byte_5D4594[741676] )
   {
     sub_42BFB0();
@@ -39924,10 +39962,14 @@ LPVOID sub_42BF80()
 {
   LPVOID result; // eax
 
-  result = *(LPVOID *)&byte_5D4594[741676];
+  result = (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[741676];
   if ( *(_DWORD *)&byte_5D4594[741676] )
   {
-    free(*(LPVOID *)&byte_5D4594[741676]);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_map_id_table_low_free(result, 2u * (size_t)*(unsigned int *)&byte_5D4594[741680]);
+#else
+    free((LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[741676]);
+#endif
     *(_DWORD *)&byte_5D4594[741676] = 0;
   }
   *(_DWORD *)&byte_5D4594[741680] = 0;
@@ -39940,7 +39982,8 @@ int sub_42BFB0()
   int result; // eax
 
   result = 0;
-  memset(*(void **)&byte_5D4594[741676], 0, 2 * *(_DWORD *)&byte_5D4594[741680]);
+  memset((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[741676],
+         0, 2 * *(_DWORD *)&byte_5D4594[741680]);
   *(_WORD *)&byte_5D4594[741684] = 0;
   return result;
 }
@@ -40113,7 +40156,7 @@ __int16 __cdecl sub_42C2B0(__int16 a1)
   _WORD *v1; // ecx
   unsigned int v2; // eax
 
-  v1 = *(_WORD **)&byte_5D4594[741676];
+  v1 = (_WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[741676];
   if ( *(_DWORD *)&byte_5D4594[741676] && (v2 = 0, *(_DWORD *)&byte_5D4594[741680]) )
   {
     while ( *v1 != a1 )
@@ -40155,7 +40198,7 @@ LPVOID __cdecl sub_42C310(unsigned __int16 a1, __int16 a2)
 {
   LPVOID result; // eax
 
-  result = *(LPVOID *)&byte_5D4594[741676];
+  result = (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[741676];
   if ( *(_DWORD *)&byte_5D4594[741676] )
     *(_WORD *)(*(_DWORD *)&byte_5D4594[741676] + 2 * a1) = a2;
   return result;

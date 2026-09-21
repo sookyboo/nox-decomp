@@ -226,14 +226,23 @@ After the latest source changes:
   records were being populated with host-width pointers. Native code now uses
   a host-width sidecar for `sub_426E20()`, `sub_426EA0()`, and
   `sub_426F40()`, while i386 retains the recovered table. A headless GDB probe
-  against the stock built-in `CapFlag.map` now passes the header and
-  `ObjectData` dispatch and returns success from `sub_4AC2B0()`;
+  against the stock built-in `CapFlag.map` now passes the header and reaches
+  `ObjectData` dispatch, but the `-serveronly` checkpoint has not populated the
+  object-ID table required by `sub_4AC610()`, so both amd64 and i386 return
+  failure at that callback;
 - a combined native probe copied the stock `CapFlag.map` into a temporary
   fixture, delivered the exact stock `CapFlag.nxz` through
   `sub_4ABAD0()`/`sub_4AB7C0()` in 1,024-byte chunks, verified the finalized
-  package byte-for-byte, and then loaded the fixture map successfully through
-  `sub_4AC2B0()`. The temporary fixture was removed afterward; interactive
-  gameplay and peer-supplied transfer remain separate coverage.
+  package byte-for-byte, and then reached the same unpopulated object-ID table
+  while loading the fixture through `sub_4AC2B0()`. The temporary fixture was
+  removed afterward; interactive gameplay and peer-supplied transfer remain
+  separate coverage.
+- the object-ID table at `byte_5D4594[741676]` is also a recovered four-byte
+  pointer slot. Native allocation now uses a low-address mapping and all
+  pointer reads reconstruct the address from the four-byte slot; i386 keeps
+  `malloc()` and the original pointer-width behavior. This removes the native
+  crash in `sub_42C2B0()` and exposes the shared lifecycle precondition instead
+  of masking it;
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
