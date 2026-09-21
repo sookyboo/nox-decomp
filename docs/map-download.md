@@ -45,9 +45,11 @@ out-of-order chunk, and drains whichever queued chunk has the next expected
 sequence. The queue is not assumed to be FIFO: network arrival order such as
 `3,2,1` is valid and is covered by the fixture.
 `sub_4AB580()` finalizes the temporary file, while `sub_4AB720()` aborts and
-deletes it. Native builds keep the `FILE *`, path, queue head/tail, and queued
-payloads in host-width sidecars/low-address storage; the test fixture sends
-sequences `3`, `2`, and `1` and verifies the resulting file bytes are ordered.
+deletes it. Both architecture branches search the linked queue for the next
+expected sequence; native builds additionally keep the `FILE *`, path, queue
+head/tail, and queued payloads in host-width sidecars/low-address storage. The
+test fixture sends sequences `3`, `2`, and `1` and verifies the resulting file
+bytes are ordered on both i386 and x86_64.
 
 Run it with:
 

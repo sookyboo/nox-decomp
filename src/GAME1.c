@@ -53099,7 +53099,11 @@ int __cdecl sub_43DE20(uintptr_t a1)
 #ifdef NOX_CALLBACK_TRANSPORT_TEST
 int nox_test_invoke_tick_callback(void)
 {
+#if UINTPTR_MAX > UINT32_MAX
   return nox_tick_callback ? nox_tick_callback() : -1;
+#else
+  return (*(int (**)(void))&byte_5D4594[816396])();
+#endif
 }
 #endif
 

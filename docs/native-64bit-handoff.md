@@ -172,7 +172,7 @@ After the latest source changes:
 - native x86_64 target `out` builds successfully;
 - native x86_64 CTest in `build-amd64`: 28/28 passed, including the callback
   transport regression and the map-download dispatch regression;
-- i386 CTest in `build-i386`: 39/39 passed, including the same map-download
+- i386 CTest in `build-i386`: 40/40 passed, including the same map-download
   dispatch regression; the executable is the existing 32-bit target in
   `build-i386/src/out`;
 - the 32-bit trace reaches `macro end: startMultiplayerNetworkHost`,
@@ -210,9 +210,12 @@ After the latest source changes:
 - the map-file consumer now keeps native `FILE *`/path state in sidecars and
   uses low-address storage for its recovered chunk queue; the regression
   verifies non-FIFO chunks (`3,2,1`) are searched and written in sequence
-  before finalization. The same fixture passes on i386 and x86_64, so the
-  recovered 32-bit queue behavior is unchanged while the native sidecar path
-  is exercised;
+  before finalization. Both the recovered 32-bit queue and the native sidecar
+  queue now search for the next expected sequence, and the same fixture passes
+  on i386 and x86_64;
+- the callback transport regression invokes the production tick-callback
+  storage on both architectures: the native build uses its host-width
+  sidecar, while i386 uses the recovered callback slot;
 - the native server-startup smoke now reaches `defaultServerGame` and the end
   of the scripted `server` macro after loading `gamedata.bin` and
   `monster.bin`; this verifies the native path through the server gameplay

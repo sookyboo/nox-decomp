@@ -7656,32 +7656,28 @@ void __cdecl sub_4AB7C0(unsigned __int16 a1, void *a2, size_t a3)
         }
       }
     }
-    v5 = *(unsigned __int16 **)&byte_5D4594[1309780];
-    if ( *(_DWORD *)&byte_5D4594[1309780] )
+    for ( ;; )
     {
-      do
-      {
-        if ( *(_DWORD *)&byte_587000[173336] == *v5 )
-        {
-          fwrite(*((void **)v5 + 1), *((_DWORD *)v5 + 2), 1u, *(FILE **)&byte_5D4594[1309760]);
-          *(_DWORD *)&byte_5D4594[1309768] += *((_DWORD *)v5 + 2);
-          ++*(_DWORD *)&byte_587000[173336];
-          v6 = *((_DWORD *)v5 + 4);
-          if ( v6 )
-            *(_DWORD *)(v6 + 12) = *((_DWORD *)v5 + 3);
-          else
-            *(_DWORD *)&byte_5D4594[1309780] = *((_DWORD *)v5 + 3);
-          v7 = *((_DWORD *)v5 + 3);
-          if ( v7 )
-            *(_DWORD *)(v7 + 16) = *((_DWORD *)v5 + 4);
-          else
-            *(_DWORD *)&byte_5D4594[1309784] = *((_DWORD *)v5 + 4);
-          free(*((LPVOID *)v5 + 1));
-          free(v5);
-        }
+      v5 = *(unsigned __int16 **)&byte_5D4594[1309780];
+      while ( v5 && *(_DWORD *)&byte_587000[173336] != *v5 )
         v5 = (unsigned __int16 *)*((_DWORD *)v5 + 3);
-      }
-      while ( v5 );
+      if ( !v5 )
+        break;
+      fwrite(*((void **)v5 + 1), *((_DWORD *)v5 + 2), 1u, *(FILE **)&byte_5D4594[1309760]);
+      *(_DWORD *)&byte_5D4594[1309768] += *((_DWORD *)v5 + 2);
+      ++*(_DWORD *)&byte_587000[173336];
+      v6 = *((_DWORD *)v5 + 4);
+      v7 = *((_DWORD *)v5 + 3);
+      if ( v6 )
+        *(_DWORD *)(v6 + 12) = v7;
+      else
+        *(_DWORD *)&byte_5D4594[1309780] = v7;
+      if ( v7 )
+        *(_DWORD *)(v7 + 16) = v6;
+      else
+        *(_DWORD *)&byte_5D4594[1309784] = v6;
+      free(*((LPVOID *)v5 + 1));
+      free(v5);
     }
     if ( *(_DWORD *)&byte_5D4594[1309764] && *(_DWORD *)&byte_5D4594[1309768] >= *(int *)&byte_5D4594[1309772] )
     {
