@@ -329,6 +329,11 @@ After the latest source changes:
   that point faults in `sub_414DB0()` because later gameplay preconditions are
   absent; this is diagnostic evidence, not a production workaround. The
   object table must be created by the normal state-machine ordering;
+- calling only `sub_42BF10()` at the map window allocates a one-entry table
+  from the server registry (`count=1`) but does not activate the stock map;
+  calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These
+  probes confirm that table allocation and gameplay initialization depend on
+  earlier state-machine preconditions; neither call belongs in the map loader.
 - this still does not prove a complete peer-supplied map transfer. The
   map-dispatch smoke reaches `map_download_start()` and renders
   `window/mapdnld.wnd`, the deterministic transfer regression verifies the

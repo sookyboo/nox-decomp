@@ -98,6 +98,12 @@ or EUD map: after the main menu opens, the production control-server command
 The probe does not claim map activation or peer-supplied transfer completion;
 those still require the map package and normal network lifecycle to finish.
 
+Do not repair this boundary by calling an initializer from the map window:
+`sub_42BF10()` only creates a one-entry server table, while `sub_435CC0()`
+faults in `sub_49A8E0()` when injected at that point. Both functions require
+state established before the map-download flag is set; the owning fix belongs
+in the state-machine transition, not in `sub_4AC2B0()` or the transfer loop.
+
 The native transfer-to-loader probe has two distinct cases. Injecting
 `CapFlag.map` bytes through the transfer API is intentionally not a valid
 activation test: `sub_4ABAD0()` removes the local `.map` while opening the
