@@ -122,9 +122,11 @@ passes the video-bag parser and reaches the shared frame decode path
 (`sub_4C79F0()` and its `sub_4C80E0()`/`sub_4C8DF0()`/`sub_4C96A0()` callbacks).
 Those callbacks use recovered DWORD cursor slots, so native reads must rebuild
 the pointer from the slot before dereferencing it; callback addresses require
-the same reconstruction. The current remaining divergence is a later
-out-of-bounds read at the end of the decoded video buffer. This comparison uses
-the stock built-in `CapFlag` map only; no reloaded/EUD map is required.
+the same reconstruction. The native cursor renderer also keeps its source and
+SDL pixel destinations in native shadows because the recovered DWORD slots
+cannot hold host pointers. The stock native probe now reaches
+`window/MainMenu.wnd`; this comparison uses the stock built-in `CapFlag` map
+only, with no reloaded/EUD map required.
 
 The 32-bit comparison also exposed a decompiler typing trap in
 `sub_57EA60()`: its recovered fields are byte offsets, although the generated
@@ -132,3 +134,10 @@ parameter was typed as `_DWORD *`. Using `_DWORD` indexing passed the parser
 reset object at the wrong address and made `sub_57DDD0()` clear `0xc` as a
 pointer. The byte-offset form preserves the recovered layout on i386 and lets
 the stock probe reach `window/MainMenu.wnd`.
+
+`sub_48C200()`/`sub_48C320()` decode the cursor stream returned by the shared
+`sub_42FB30()` bag callback, selecting a row destination and dispatching the
+decoded runs to `sub_48C480()` or `sub_48C4D0()`. `sub_42FAE0()` owns cleanup of
+the decoded bag record; native cleanup must use the same low-address allocator
+and recorded output size as allocation. These roles are inferred from the
+callers and recovered state slots.

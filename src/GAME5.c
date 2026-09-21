@@ -19556,6 +19556,7 @@ int __thiscall sub_57E970(void **this)
 
   qmemcpy((void *)(uintptr_t)*(unsigned int *)(base + 132), &byte_587000[315976], 0x224u);
   qmemcpy(base + 4, &byte_587000[315848], 0x80u);
+  memset((void *)(uintptr_t)*(unsigned int *)base, 0, 0x224u);
   return 0;
 #else
   qmemcpy(this[33], &byte_587000[315976], 0x224u);

@@ -4,6 +4,10 @@ static void (*nox_draw_callback)(int, int, int);
 static int (*nox_texture_callback)(int, int, int, int, int);
 #if UINTPTR_MAX > UINT32_MAX
 int (*nox_47d5_callback)(int);
+#if defined(USE_SDL)
+extern uintptr_t nox_cursor_decode_source;
+extern uintptr_t nox_cursor_decode_dest;
+#endif
 static int (*nox_49ef_callback)(int, int);
 static void (*nox_49cf_callback)(int, int, int, int);
 static void (*nox_49e_horizontal_callback)(int, int, int);
@@ -47777,7 +47781,11 @@ int __cdecl sub_48C0C0(int a1, _DWORD *a2, _DWORD *a3)
   _DWORD *v4; // eax
   _DWORD *v5; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_47d5_callback(a1);
+#else
   result = (*(int (__cdecl **)(_DWORD))&byte_5D4594[3799492])(a1);
+#endif
   *(_DWORD *)&byte_5D4594[1193516] = result;
   if ( result )
   {
@@ -47872,8 +47880,16 @@ __int16 sub_48C480()
   int v3; // ecx
   int v4; // eax
 
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+  v0 = (int *)nox_cursor_decode_source;
+  v1 = (_DWORD *)nox_cursor_decode_dest;
+#elif UINTPTR_MAX > UINT32_MAX
+  v0 = (int *)(uintptr_t)*(unsigned int *)&byte_5D4594[1193516];
+  v1 = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1193584];
+#else
   v0 = *(int **)&byte_5D4594[1193516];
   v1 = *(_DWORD **)&byte_5D4594[1193584];
+#endif
   v2 = byte_5D4594[1193520] & 1;
   v3 = *(_DWORD *)&byte_5D4594[1193520] >> 1;
   if ( *(_DWORD *)&byte_5D4594[1193520] >> 1 )
@@ -47896,6 +47912,10 @@ __int16 sub_48C480()
   }
   *(_DWORD *)&byte_5D4594[1193516] = v0;
   *(_DWORD *)&byte_5D4594[1193584] = v1;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+  nox_cursor_decode_source = (uintptr_t)v0;
+  nox_cursor_decode_dest = (uintptr_t)v1;
+#endif
   return v4;
 }
 
@@ -47909,8 +47929,16 @@ int sub_48C4D0()
   int result; // eax
   int v6; // [esp-4h] [ebp-10h]
 
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+  v0 = (unsigned __int16 *)nox_cursor_decode_source;
+  v1 = (WORD *)nox_cursor_decode_dest;
+#elif UINTPTR_MAX > UINT32_MAX
+  v0 = (unsigned __int16 *)(uintptr_t)*(unsigned int *)&byte_5D4594[1193516];
+  v1 = (WORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1193584];
+#else
   v0 = *(unsigned __int16 **)&byte_5D4594[1193516];
   v1 = *(_WORD **)&byte_5D4594[1193584];
+#endif
   v6 = *(_DWORD *)&byte_5D4594[1193520];
   do
   {
@@ -47926,6 +47954,10 @@ int sub_48C4D0()
   *(_DWORD *)&byte_5D4594[1193520] = v6;
   *(_DWORD *)&byte_5D4594[1193516] = v0;
   *(_DWORD *)&byte_5D4594[1193584] = v1;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+  nox_cursor_decode_source = (uintptr_t)v0;
+  nox_cursor_decode_dest = (uintptr_t)v1;
+#endif
   return result;
 }
 

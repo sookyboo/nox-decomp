@@ -34,6 +34,10 @@ void nox_palette_lut_free(void *address, size_t size);
 
 #include "proto.h"
 
+#if UINTPTR_MAX > UINT32_MAX
+extern int (*nox_47d5_callback)(int);
+#endif
+
 #ifdef USE_SDL
 enum {
     DDSD_CAPS = 1,
@@ -515,7 +519,9 @@ DWORD dword_6F7BF8;
 BYTE *dword_6F7C74;
 BYTE *dword_6F7C78;
 #if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
-static BYTE *nox_cursor_rows[128];
+BYTE *nox_cursor_rows[128];
+uintptr_t nox_cursor_decode_source;
+uintptr_t nox_cursor_decode_dest;
 
 static void nox_cursor_fill(BYTE *address, int value, unsigned int size)
 {
@@ -4488,7 +4494,7 @@ unsigned __int8 *__cdecl sub_48C200(int a1, int a2, int a3)
 	int v13; // ecx
 	int v14; // ebx
 	int v15; // edi
-	int v16; // esi
+	uintptr_t v16; // esi
 	int v17; // ecx
 	unsigned __int8 *v18; // eax
 	int v19; // edx
@@ -4497,7 +4503,11 @@ unsigned __int8 *__cdecl sub_48C200(int a1, int a2, int a3)
 	int v22; // [esp+18h] [ebp+8h]
 	int v23; // [esp+1Ch] [ebp+Ch]
 
+#if UINTPTR_MAX > UINT32_MAX
+	result = (unsigned __int8 *)nox_47d5_callback(a1);
+#else
 	result = (unsigned __int8 *)(*(int(__cdecl **)(_DWORD))&byte_5D4594[3799492])(a1);
+#endif
 	*(_DWORD *)&byte_5D4594[1193516] = result;
 	if (result)
 	{
@@ -4517,6 +4527,9 @@ unsigned __int8 *__cdecl sub_48C200(int a1, int a2, int a3)
 		*(_DWORD *)&byte_5D4594[1193568] = v4;
 		*(_DWORD *)&byte_5D4594[1193576] = v6;
 		*(_DWORD *)&byte_5D4594[1193516] = result;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+		nox_cursor_decode_source = (uintptr_t)result;
+#endif
 		v11 = dword_6F7C34;
 		if (!*(_DWORD *)(*(_DWORD *)&byte_5D4594[3799572] + 60))
 			v11 = dword_6F7C40;
@@ -4532,10 +4545,18 @@ unsigned __int8 *__cdecl sub_48C200(int a1, int a2, int a3)
 			{
 				v14 += 4;
 				v15 = v4;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+				v16 = v23 + (uintptr_t)nox_cursor_rows[(v14 >> 2) - 1];
+				nox_cursor_decode_dest = v16;
+				for (*(_DWORD *)&byte_5D4594[1193584] = v23 + (uintptr_t)nox_cursor_rows[(v14 >> 2) - 1];
+					v15 > 0;
+					v15 -= v19)
+#else
 				v16 = v23 + *(_DWORD *)(v14 + *(_DWORD *)&byte_5D4594[1193704] - 4);
 				for (*(_DWORD *)&byte_5D4594[1193584] = v23 + *(_DWORD *)(v14 + *(_DWORD *)&byte_5D4594[1193704] - 4);
 					v15 > 0;
 					v15 -= v19)
+#endif
 				{
 					v17 = *result;
 					v18 = result + 1;
@@ -4546,13 +4567,21 @@ unsigned __int8 *__cdecl sub_48C200(int a1, int a2, int a3)
 					v20 = (v17 & 0xF) - 1;
 					*(_DWORD *)&byte_5D4594[1193520] = v19;
 					*(_DWORD *)&byte_5D4594[1193516] = result;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+					nox_cursor_decode_source = (uintptr_t)result;
+#endif
 					if (v20)
 					{
 						if (v20 == 1)
 						{
 							v21();
+							#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+							result = (unsigned __int8 *)nox_cursor_decode_source;
+							v16 = nox_cursor_decode_dest;
+							#else
 							result = *(unsigned __int8 **)&byte_5D4594[1193516];
 							v16 = *(_DWORD *)&byte_5D4594[1193584];
+							#endif
 							v19 = *(_DWORD *)&byte_5D4594[1193520];
 						}
 					}
@@ -4560,6 +4589,9 @@ unsigned __int8 *__cdecl sub_48C200(int a1, int a2, int a3)
 					{
 						v16 += 2 * v19;
 						*(_DWORD *)&byte_5D4594[1193584] = v16;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+						nox_cursor_decode_dest = v16;
+#endif
 					}
 				}
 				--v22;
@@ -4582,7 +4614,7 @@ unsigned __int8 *__cdecl sub_48C320(int a1, int a2, int a3)
 	void(*v10)(void); // esi
 	int v11; // esi
 	int v12; // ecx
-	int v13; // ebp
+	uintptr_t v13; // ebp
 	int v14; // esi
 	int v15; // ecx
 	unsigned __int8 *v16; // eax
@@ -4591,7 +4623,11 @@ unsigned __int8 *__cdecl sub_48C320(int a1, int a2, int a3)
 	void(*v19)(void); // [esp+14h] [ebp+4h]
 	int v20; // [esp+18h] [ebp+8h]
 
+#if UINTPTR_MAX > UINT32_MAX
+	result = (unsigned __int8 *)nox_47d5_callback(a1);
+#else
 	result = (unsigned __int8 *)(*(int(__cdecl **)(_DWORD))&byte_5D4594[3799492])(a1);
+#endif
 	*(_DWORD *)&byte_5D4594[1193516] = result;
 	if (result)
 	{
@@ -4610,6 +4646,9 @@ unsigned __int8 *__cdecl sub_48C320(int a1, int a2, int a3)
 		*(_DWORD *)&byte_5D4594[1193568] = v4;
 		*(_DWORD *)&byte_5D4594[1193576] = v6;
 		*(_DWORD *)&byte_5D4594[1193516] = result;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+		nox_cursor_decode_source = (uintptr_t)result;
+#endif
 		v10 = dword_6F7C34;
 		if (!*(_DWORD *)(*(_DWORD *)&byte_5D4594[3799572] + 60))
 			v10 = dword_6F7C40;
@@ -4623,10 +4662,19 @@ unsigned __int8 *__cdecl sub_48C320(int a1, int a2, int a3)
 			do
 			{
 				v13 += 4;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+				nox_cursor_decode_dest = v8 + (uintptr_t)nox_cursor_rows[(v13 >> 2) - 1];
+#endif
 				v14 = v4;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+				for (*(_DWORD *)&byte_5D4594[1193584] = v8 + (uintptr_t)nox_cursor_rows[(v13 >> 2) - 1];
+					v14 > 0;
+					v14 -= v17)
+#else
 				for (*(_DWORD *)&byte_5D4594[1193584] = v8 + *(_DWORD *)(*(_DWORD *)&byte_5D4594[1193704] + v13 - 4);
 					v14 > 0;
 					v14 -= v17)
+#endif
 				{
 					v15 = *result;
 					v16 = result + 1;
@@ -4636,19 +4684,29 @@ unsigned __int8 *__cdecl sub_48C320(int a1, int a2, int a3)
 					result = v16 + 1;
 					v18 = (v15 & 0xF) - 1;
 					*(_DWORD *)&byte_5D4594[1193520] = v17;
-					*(_DWORD *)&byte_5D4594[1193516] = result;
+						*(_DWORD *)&byte_5D4594[1193516] = result;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+						nox_cursor_decode_source = (uintptr_t)result;
+#endif
 					if (v18)
 					{
 						if (v18 == 1)
 						{
 							v19();
+							#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+							result = (unsigned __int8 *)nox_cursor_decode_source;
+							#else
 							result = *(unsigned __int8 **)&byte_5D4594[1193516];
+#endif
 							v17 = *(_DWORD *)&byte_5D4594[1193520];
 						}
 					}
 					else
 					{
 						*(_DWORD *)&byte_5D4594[1193584] += v17;
+#if UINTPTR_MAX > UINT32_MAX && defined(USE_SDL)
+						nox_cursor_decode_dest += v17;
+#endif
 					}
 				}
 				--v20;
