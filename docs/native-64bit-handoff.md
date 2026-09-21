@@ -410,6 +410,12 @@ After the latest source changes:
   checking or replacing the transition callback, and must post its dialog
   through `nox_server_screen_root`; the i386 branches retain the recovered
   layout.
+- `sub_4AA270()` must also initialize the transition state and callbacks
+  through those native transition sidecars. The recovered DWORD slots are
+  compatibility copies only; dereferencing them during creation works by
+  accident when an allocation is below 4 GiB and faults when the transition
+  record is above it. The i386 path continues to initialize the recovered
+  records directly.
 - `sub_4E2B60()` is the gameplay `thing.bin` initializer: it creates the
   native object records, builds the 27 per-letter lookup buckets, and then
   calls `sub_42BF10()` to create the map-object ID table. Those bucket entries

@@ -6600,13 +6600,19 @@ int sub_4AA270()
     result = sub_43C5B0(v1, 0, 0, 0, -240, 0, 20, 0, -40);
     *(_DWORD *)&byte_5D4594[1309708] = result;
 #if UINTPTR_MAX > UINT32_MAX
-    nox_server_transition_left = result;
+  nox_server_transition_left = result;
 #endif
     if ( result )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      *nox_server_transition_left = 400;
+      nox_server_transition_left[48 / sizeof(_DWORD)] = (uintptr_t)sub_4AA450;
+      nox_server_transition_left[56 / sizeof(_DWORD)] = (uintptr_t)sub_4AA490;
+#else
       *(_DWORD *)result = 400;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 48) = sub_4AA450;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 56) = sub_4AA490;
+#endif
       v2 = sub_46B0C0(nox_server_screen_root_get(), 420);
       sub_46B2C0((int)v2, sub_4AA4D0);
       result = sub_43C5B0(v2, 0, 240, 0, 480, 0, -20, 0, 40);
@@ -6616,6 +6622,11 @@ int sub_4AA270()
 #endif
       if ( result )
       {
+#if UINTPTR_MAX > UINT32_MAX
+        *nox_server_transition_right = 400;
+#else
+        *(_DWORD *)result = 400;
+#endif
         sub_4A19F0((char *)&byte_587000[172636]);
         sub_46A8A0();
         if ( sub_40A5C0(0x2000000) )
