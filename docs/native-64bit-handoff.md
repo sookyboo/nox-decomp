@@ -10,6 +10,9 @@ The work is on branch `experiment64`.
 
 Relevant commits:
 
+- `5817288` — native map-transfer file state and ordered chunk buffering;
+- `1a4e51c` — native network transfer-record ownership;
+- `0594448` — native `load` command handoff into the production handler;
 - `422035f` — native 64-bit startup pointer-table and map/CSF compatibility
   fixes;
 - `f355655` — architecture, sandbox, and startup compatibility documentation.
@@ -207,9 +210,15 @@ After the latest source changes:
 - the map-file consumer now keeps native `FILE *`/path state in sidecars and
   uses low-address storage for its recovered chunk queue; the regression
   verifies out-of-order chunks are written in sequence before finalization;
-- this verifies startup through map dispatch and its first window render. A
-  complete map-transfer/gameplay assertion still requires a supplied map
-  service or fixture, which the current headless smoke does not provide.
+- the native server-startup smoke now reaches `defaultServerGame` and the end
+  of the scripted `server` macro after loading `gamedata.bin` and
+  `monster.bin`; this verifies the native path through the server gameplay
+  handoff without a signal before the controlled timeout;
+- this still does not prove a complete peer-supplied map transfer. The
+  map-dispatch smoke reaches `map_download_start()` and renders
+  `window/mapdnld.wnd`, while the deterministic transfer regression verifies
+  the production file consumer with ordered chunks. A complete network
+  transfer assertion still requires a supplied map service or fixture.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
@@ -223,7 +232,7 @@ Run from the extracted game-data directory:
 
 ```sh
 cd build-deps/gamefiles/app
-timeout --signal=TERM 35s env \
+timeout --foreground --signal=TERM 35s env \
   ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=0 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=1 NOX_CONTROL_SERVER_PASSWORD=secret \
