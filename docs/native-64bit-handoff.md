@@ -159,6 +159,16 @@ The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
 pointer-sized types; those changes would alter the compatibility ABI.
 
+The latest verified native startup batch preserves the fixed 16-byte
+`sub_40ABF0()` file-reader record (four DWORD fields), reconstructs its cursor
+fields during the `thing.bin` family parsers, and keeps related fixed-width
+tables and video parser state below 4 GiB or in native sidecars. With stock
+`CapFlag`, native startup now completes `sub_415470()`, `sub_430190()`,
+`sub_4101D0()`, `sub_410F60()`, and `sub_431390()`, then enters the first
+gameplay tick. The remaining divergence is later in the video/bag parser's
+recovered 32-bit object layout; it is not a map-transfer or reloaded/EUD-map
+failure.
+
 ## Validation status
 
 Confirmed before the latest startup changes:

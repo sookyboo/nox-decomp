@@ -616,14 +616,23 @@ int sub_4A2210()
     v1 = sub_46B0C0(nox_server_menu_root_get(), 98);
     sub_46B300((int)v1, sub_4A18E0);
     sub_46B340((int)v1, sub_4A22A0);
+#if UINTPTR_MAX > UINT32_MAX
+    v2 = (const char *)nox_native_pointer_from_32_value(
+      *(unsigned int *)&byte_587000[168832]);
+#else
     v2 = *(const char **)&byte_587000[168832];
+#endif
     if ( *(_DWORD *)&byte_587000[168832] )
     {
       v3 = &byte_587000[168832];
       do
       {
         *((_DWORD *)v3 + 1) = sub_42F970(v2);
+#if UINTPTR_MAX > UINT32_MAX
+        v2 = (const char *)nox_native_pointer_from_32_value(*((_DWORD *)v3 + 12));
+#else
         v2 = (const char *)*((_DWORD *)v3 + 12);
+#endif
         v3 += 48;
       }
       while ( v2 );

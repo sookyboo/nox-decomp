@@ -114,3 +114,9 @@ Run it with:
 ```sh
 ctest --test-dir build-amd64 -R map_download_dispatch_test --output-on-failure
 ```
+
+The normal stock `CapFlag` startup path has since been traced farther: native
+64-bit reaches `sub_431390()` and the first gameplay tick after the same
+`sub_415470()`/object-table initialization as i386. A later crash in the video
+and bag parser is separate from map transfer and was reproduced with the stock
+built-in map only; no reloaded/EUD map is required for this comparison.

@@ -14255,7 +14255,7 @@ int __cdecl sub_578C10(_DWORD *a1, _BYTE *a2, _DWORD *a3, unsigned int a4, _DWOR
 }
 
 //----- (00578C30) --------------------------------------------------------
-int __cdecl sub_578C30(int a1)
+int __cdecl sub_578C30(_DWORD *a1)
 {
   return sub_57EA60(a1);
 }
@@ -19575,7 +19575,7 @@ void __thiscall sub_57EA00(LPVOID *this)
 }
 
 //----- (0057EA60) --------------------------------------------------------
-int __thiscall sub_57EA60(int this)
+int __thiscall sub_57EA60(_DWORD *this)
 {
   *(_DWORD *)(this + 148) = 0;
   *(_DWORD *)(this + 144) = 0;

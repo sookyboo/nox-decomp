@@ -145,7 +145,7 @@ int sub_40AA50();
 int __cdecl sub_40AA60(int a1);
 int __cdecl sub_40AA70(int a1);
 BOOL sub_40ABD0();
-size_t *__cdecl sub_40ABF0(char *a1, int a2);
+_DWORD *__cdecl sub_40ABF0(char *a1, int a2);
 void __cdecl sub_40ACA0(LPVOID lpMem); // idb
 unsigned int __cdecl sub_40ACC0(void *a1, unsigned int a2, int a3, int a4);
 unsigned int __cdecl sub_40AD10(unsigned int *a1, int a2, int a3);
@@ -7590,7 +7590,7 @@ int __cdecl sub_578BB0(void **a1, int a2, unsigned __int8 *a3, int a4);
 int __cdecl sub_578BD0(LPVOID lpMem); // idb
 _DWORD *sub_578BF0();
 int __cdecl sub_578C10(_DWORD *a1, _BYTE *a2, _DWORD *a3, unsigned int a4, _DWORD *a5);
-int __cdecl sub_578C30(int a1);
+int __cdecl sub_578C30(_DWORD *a1);
 int __cdecl sub_578C40(LPVOID lpMem); // idb
 int sub_578C60();
 int __cdecl sub_578C90(int a1);
@@ -7741,7 +7741,7 @@ void __thiscall sub_57E910(LPVOID *this);
 int __thiscall sub_57E970(void **this);
 _DWORD *__thiscall sub_57E9A0(_DWORD *this);
 void __thiscall sub_57EA00(LPVOID *this);
-int __thiscall sub_57EA60(int this);
+int __thiscall sub_57EA60(_DWORD *this);
 int __thiscall sub_57EA80(_DWORD *this, _BYTE *a2, _DWORD *a3, unsigned int a4, _DWORD *a5);
 _DWORD *__thiscall sub_57F160(int this, int a2, int a3);
 char __cdecl sub_57F1D0(float2 *a1); // idb

@@ -4917,7 +4917,7 @@ BOOL __cdecl sub_452890(int a1, void *a2)
   unsigned __int8 v29; // [esp+30h] [ebp+4h]
 
   v2 = a1;
-  v3 = *(unsigned __int8 **)(a1 + 8);
+  v3 = (unsigned __int8 *)(uintptr_t)*(unsigned int *)(a1 + 8);
   v21 = a1;
   v28 = *v3;
   *(_DWORD *)(v21 + 8) = v3 + 1;
@@ -4928,7 +4928,7 @@ BOOL __cdecl sub_452890(int a1, void *a2)
   {
     while ( 2 )
     {
-      v6 = *(char **)(v2 + 8);
+      v6 = (char *)(uintptr_t)*(unsigned int *)(v2 + 8);
       v7 = *v6;
       v8 = v6 + 1;
       *(_DWORD *)(v2 + 8) = v8;
@@ -5035,7 +5035,7 @@ BOOL __cdecl sub_452890(int a1, void *a2)
 //----- (00452B00) --------------------------------------------------------
 BOOL __cdecl sub_452B00(int a1)
 {
-  *(_DWORD *)(a1 + 8) += **(unsigned __int8 **)(a1 + 8) + 1;
+  *(_DWORD *)(a1 + 8) += *(unsigned __int8 *)(uintptr_t)*(unsigned int *)(a1 + 8) + 1;
   return sub_452B30(a1);
 }
 
@@ -5054,7 +5054,7 @@ BOOL __cdecl sub_452B30(int a1)
   v1 = a1;
   while ( 2 )
   {
-    v2 = *(char **)(v1 + 8);
+    v2 = (char *)(uintptr_t)*(unsigned int *)(v1 + 8);
     v3 = *v2;
     v8 = *v2;
     *(_DWORD *)(v1 + 8) = v2 + 1;
@@ -5078,7 +5078,7 @@ BOOL __cdecl sub_452B30(int a1)
       case 7:
         while ( 1 )
         {
-          v4 = *(unsigned __int8 **)(v1 + 8);
+          v4 = (unsigned __int8 *)(uintptr_t)*(unsigned int *)(v1 + 8);
           v5 = *v4;
           v6 = (int)(v4 + 1);
           *(_DWORD *)(v1 + 8) = v6;
@@ -5136,7 +5136,7 @@ int __cdecl sub_452BD0(int a1, char *a2)
 
   v2 = a1;
   v3 = a2;
-  v4 = *(char **)(a1 + 8);
+  v4 = (char *)(uintptr_t)*(unsigned int *)(a1 + 8);
   v5 = *v4;
   *(_DWORD *)(a1 + 8) = v4 + 1;
   sub_40ACC0(a2, 1u, v5, a1);
@@ -5144,33 +5144,33 @@ int __cdecl sub_452BD0(int a1, char *a2)
   v6 = sub_40AF50(a2);
   if ( v6 && (v7 = sub_452270(v6)) != 0 )
   {
-    v8 = *(__int16 **)(a1 + 8);
+    v8 = (__int16 *)(uintptr_t)*(unsigned int *)(a1 + 8);
     v9 = *v8;
     *(_DWORD *)(a1 + 8) = v8 + 1;
     *((_DWORD *)v7 + 1) = 2;
     *((_DWORD *)v7 + 2) = v9;
-    v10 = *(unsigned __int8 **)(a1 + 8);
+    v10 = (unsigned __int8 *)(uintptr_t)*(unsigned int *)(a1 + 8);
     v30 = *v10;
     *(_DWORD *)(v2 + 8) = v10 + 1;
     sub_4862E0(NOX_TIMER_ADDRESS(v7 + 16), 163 * v30);
-    v11 = *(__int16 **)(v2 + 8);
+    v11 = (__int16 *)(uintptr_t)*(unsigned int *)(v2 + 8);
     v12 = *v11;
     *(_DWORD *)(v2 + 8) = v11 + 1;
     if ( v12 > 0 )
       *((_DWORD *)v7 + 16) = 15 * v12;
-    v13 = *(char **)(v2 + 8);
+    v13 = (char *)(uintptr_t)*(unsigned int *)(v2 + 8);
     v14 = *v13;
     *(_DWORD *)(v2 + 8) = v13 + 1;
     *((_DWORD *)v7 + 14) = v14;
-    v15 = *(char **)(v2 + 8);
+    v15 = (char *)(uintptr_t)*(unsigned int *)(v2 + 8);
     v16 = *v15;
     *(_DWORD *)(v2 + 8) = v15 + 1;
     *((_DWORD *)v7 + 19) = v16;
-    v17 = *(char **)(v2 + 8);
+    v17 = (char *)(uintptr_t)*(unsigned int *)(v2 + 8);
     v18 = *v17;
     *(_DWORD *)(v2 + 8) = v17 + 1;
     *((_DWORD *)v7 + 20) = v18;
-    v19 = *(char **)(v2 + 8);
+    v19 = (char *)(uintptr_t)*(unsigned int *)(v2 + 8);
     v20 = *v19;
     *(_DWORD *)(v2 + 8) = v19 + 1;
     *((_DWORD *)v7 + 12) = v20;
@@ -5180,7 +5180,7 @@ int __cdecl sub_452BD0(int a1, char *a2)
       v31 = v7 + 128;
       while ( 1 )
       {
-        v22 = *(char **)(v2 + 8);
+        v22 = (char *)(uintptr_t)*(unsigned int *)(v2 + 8);
         v23 = *v22;
         *(_DWORD *)(v2 + 8) = v22 + 1;
         if ( !v23 )
@@ -5212,7 +5212,7 @@ int __cdecl sub_452BD0(int a1, char *a2)
   {
     for ( *(_DWORD *)(a1 + 8) += 9; ; *(_DWORD *)(a1 + 8) = v29 + v28 )
     {
-      v27 = *(char **)(a1 + 8);
+      v27 = (char *)(uintptr_t)*(unsigned int *)(a1 + 8);
       v28 = *v27;
       v29 = (int)(v27 + 1);
       *(_DWORD *)(a1 + 8) = v29;
