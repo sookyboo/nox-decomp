@@ -92,12 +92,12 @@ timeout --signal=TERM 20s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-amd64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly CapFlag
 ```
 
-`Estate` is the known-working map selected for this smoke test. Startup still
+`CapFlag` is the stock built-in map selected for this smoke test. Startup still
 scans the complete map catalog before selecting the requested map, so a crash
-before the config path completes does not yet establish that `Estate.map` was
+before the config path completes does not yet establish that `CapFlag.map` was
 opened for gameplay.
 
 The native window parser keeps recovered DWORD pointer fields decoded at the
@@ -111,9 +111,9 @@ ownership paths still need the same audit before native multiplayer startup is
 considered stable.
 
 With the control-server `server` macro enabled and
-`NOX_SERVER_DEFAULT_MAP=Estate`, native startup reaches the host setup and
+`NOX_SERVER_DEFAULT_MAP=CapFlag`, native startup reaches the host setup and
 opens the multiplayer window resources. The control server's
-`console "load Estate"` action invokes the production `sub_443C80()` parser on
+`console "load CapFlag"` action invokes the production `sub_443C80()` parser on
 the main thread. Because the recovered `sub_4432B0()` handler consumes a
 32-bit argv record and interprets its argument as a server-list entry, the
 native path allocates a low-address UTF-16 argument and argv record, calls that

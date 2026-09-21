@@ -322,7 +322,7 @@ timeout --foreground --signal=TERM 35s env \
   NOX_CONTROL_INJECT_LOG=0 NOX_CONTROL_LOG=1 \
   NOX_SERVER_NAME=NoxDecomp NOX_SERVER_SYSOP=secret \
   NOX_SERVER_LESSONS=15 NOX_SERVER_TIME=0 \
-  NOX_SERVER_DEFAULT_MAP=Estate NOX_CAPTURE_INPUT=0 \
+  NOX_SERVER_DEFAULT_MAP=CapFlag NOX_CAPTURE_INPUT=0 \
   NOX_LOBBY_REGISTER_ENABLE=0 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   ../../../build-amd64/src/out
@@ -333,7 +333,7 @@ main menu, executes the control-server `startMultiplayerNetworkHost` input
 sequence, loads `gamedata.bin` and `monster.bin`, and completes the scripted
 `server` macro through `defaultServerGame`. For the map-dispatch assertion,
 use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, a `sleep 30000` bootstrap delay, and
-`console "load Estate"`; set `NOX_TRACE_MAP_DOWNLOAD=1` and verify
+`console "load CapFlag"`; set `NOX_TRACE_MAP_DOWNLOAD=1` and verify
 `[map] map_download_start` and the subsequent `window/mapdnld.wnd` open. Do not
 treat the timeout alone as success; verify the last completed macro and the
 process exit reason.
