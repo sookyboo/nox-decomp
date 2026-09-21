@@ -388,6 +388,12 @@ After the latest source changes:
   button's `16391` dispatch. The remaining native boundary is after
   `window/ArnaMain.wnd` opens, before the positive connection-result/gameplay
   state; do not inject state to bypass that ordering;
+- a control-server click sent immediately after startup can be consumed by
+  the temporary legal/overlay window (widget `9901`) rather than by the
+  MainMenu. Its native draw callback decrements the recovered countdown from
+  300 to 0, after which the same `(250,165)` click reaches the normal
+  `16391` dispatch. A failed early click is therefore a probe-timing failure,
+  not evidence that the native hit-test or MainMenu callback is broken;
 - `sub_4AA270()` creates the server gameplay screen and stores its root in the
   recovered DWORD slot at `byte_5D4594[1309716]`. On native builds that root is
   a host-width window pointer, so the slot is only a compatibility copy;
