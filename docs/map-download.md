@@ -75,6 +75,13 @@ success from `sub_4AC2B0()`. This verifies the map-loader entry point through
 the `ObjectData` section on native Linux; it is narrower than a complete
 server/gameplay session.
 
+The stronger combined probe copies the stock `.map` into a temporary fixture,
+delivers the stock `.nxz` through `sub_4ABAD0()`/`sub_4AB7C0()` in 1,024-byte
+chunks, finalizes it, and then calls `sub_4AC2B0()` for the fixture map. The
+resulting `.nxz` matched the source byte-for-byte and the loader returned
+success on native Linux. The fixture was removed after the probe; this remains
+headless runtime coverage rather than a full interactive gameplay session.
+
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.
 Those writes overlapped the adjacent path strings used by `sub_4AC2B0()`;

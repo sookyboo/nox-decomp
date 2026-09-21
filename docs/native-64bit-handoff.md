@@ -228,6 +228,12 @@ After the latest source changes:
   `sub_426F40()`, while i386 retains the recovered table. A headless GDB probe
   against the stock built-in `CapFlag.map` now passes the header and
   `ObjectData` dispatch and returns success from `sub_4AC2B0()`;
+- a combined native probe copied the stock `CapFlag.map` into a temporary
+  fixture, delivered the exact stock `CapFlag.nxz` through
+  `sub_4ABAD0()`/`sub_4AB7C0()` in 1,024-byte chunks, verified the finalized
+  package byte-for-byte, and then loaded the fixture map successfully through
+  `sub_4AC2B0()`. The temporary fixture was removed afterward; interactive
+  gameplay and peer-supplied transfer remain separate coverage.
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
