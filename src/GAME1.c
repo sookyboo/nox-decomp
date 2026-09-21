@@ -34860,14 +34860,16 @@ _DWORD **__cdecl sub_425920(_DWORD **a1)
 
 #if UINTPTR_MAX > UINT32_MAX
   uintptr_t next = nox_native_pointer_from_32(*(unsigned int *)a1);
-  uintptr_t previous = nox_native_pointer_from_32(*(unsigned int *)(a1 + 1));
+  uintptr_t previous = nox_native_pointer_from_32(
+      *(unsigned int *)((unsigned char *)a1 + sizeof(unsigned int)));
   if ( !previous )
     previous = next;
   result = a1;
   *(unsigned int *)previous = *(unsigned int *)a1;
   *(unsigned int *)(next + 4) = (unsigned int)(uintptr_t)a1;
   *(unsigned int *)a1 = (unsigned int)(uintptr_t)a1;
-  *(unsigned int *)(a1 + 1) = (unsigned int)(uintptr_t)a1;
+  *(unsigned int *)((unsigned char *)a1 + sizeof(unsigned int)) =
+      (unsigned int)(uintptr_t)a1;
   return result;
 #else
   result = a1;

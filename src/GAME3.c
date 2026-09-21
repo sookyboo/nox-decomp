@@ -20044,7 +20044,13 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
   if ( v2 )
   {
     sub_425920((_DWORD **)v2);
-    sub_425900(a1 + 3, v3);
+    sub_425900(
+#if UINTPTR_MAX > UINT32_MAX
+        (_DWORD **)((unsigned char *)a1 + 12),
+#else
+        a1 + 3,
+#endif
+        v3);
     return v3;
   }
   if ( sub_486B60(
@@ -20096,7 +20102,13 @@ LABEL_19:
 #else
       sub_486AA0(*a1, v5[4], v5 + 14);
 #endif
-      sub_425900(a1 + 3, v5);
+      sub_425900(
+#if UINTPTR_MAX > UINT32_MAX
+          (_DWORD **)((unsigned char *)a1 + 12),
+#else
+          a1 + 3,
+#endif
+          v5);
       v5[5] = 1;
 #if UINTPTR_MAX > UINT32_MAX
       sub_486E00((int)manager);

@@ -155,11 +155,16 @@ the stock built-in `CapFlag` map selection. The audio subsystem retains its
 packed pool/list records and uses native handling at these boundaries:
 `sub_486A10()` decodes the packed SoundSet base pointer before `bsearch`,
 `sub_4BD2E0()`/`sub_425900()`/`sub_425920()` operate on DWORD links without
-host-width dereferences, and `sub_4866F0()` keeps its bag `FILE *` in a native
-sidecar. `sub_451BE0()`/`sub_451DC0()`/`sub_451F30()`/`sub_452050()` decode
+host-width dereferences. The native `sub_425920()` path also addresses the
+second packed link at byte offset 4 rather than using 64-bit pointer
+arithmetic. `sub_4BD470()` preserves the recovered 12-byte list-head offset
+when calling `sub_425900()`; using `_DWORD ** + 3` on amd64 incorrectly moved
+the head by 24 bytes into the record's refcount field. `sub_4866F0()` keeps its
+bag `FILE *` in a native sidecar. `sub_451BE0()`/`sub_451DC0()`/`sub_451F30()`/`sub_452050()` decode
 SoundSet record pointers before using them. This probe does not use maps that
-require reloaded EUD support; the next remaining failure is in the native
-audio pool lookup after sample initialization. The SDL/MSS compatibility layer
+require reloaded EUD support; the stock `CapFlag` probe now remains alive at
+the main menu past the audio pool lookup after sample initialization. The
+SDL/MSS compatibility layer
 allocates native `HSAMPLE` objects below 4 GiB because the recovered audio
 state stores the handle in a DWORD, while the sample's internal driver and
 OpenAL fields remain host-width. Native callback dispatch in
