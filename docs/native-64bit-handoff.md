@@ -212,7 +212,9 @@ After the latest source changes:
 - an earlier accelerated native/32-bit comparison reached `macro end:
   defaultServerGame` and `macro end: server` on both builds, but that is not
   the current reproducible boundary and must not be used as proof of gameplay
-  initialization;
+  initialization. With normal timing, native reaches `window/ArnaMain.wnd`
+  and remains in the transition until the bounded timeout; the i386 runtime
+  comparison is being rebuilt separately from the native 64-bit investigation;
 - the earlier `sub_42FAE0(a1=0)` teardown failure and the later freed-window
   traversal were both fixed;
 - the native callback crash at `mainloop()`'s tick callback was reproduced from
@@ -358,6 +360,14 @@ After the latest source changes:
   macro therefore does not currently establish a positive connection-result
   transition; do not treat a bounded timeout at this point as successful
   gameplay initialization;
+- the native UI handoff itself is now traced through the production callback
+  chain: MainMenu widget 112 dispatches event `16391` to the MainMenu
+  callback, `sub_4D1630()` returns success, and transition callback
+  `sub_4AA270()` runs. Break on `sub_46B490()` to observe this event;
+  `sub_46B4C0()` is the separate message-callback path and will not show the
+  button's `16391` dispatch. The remaining native boundary is after
+  `window/ArnaMain.wnd` opens, before the positive connection-result/gameplay
+  state; do not inject state to bypass that ordering;
 - `sub_4E2B60()` is the gameplay `thing.bin` initializer: it creates the
   native object records, builds the 27 per-letter lookup buckets, and then
   calls `sub_42BF10()` to create the map-object ID table. Those bucket entries
