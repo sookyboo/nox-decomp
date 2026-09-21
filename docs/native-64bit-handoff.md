@@ -361,8 +361,11 @@ does not use maps that require reloaded EUD support.
 Before a headless gameplay probe, stop any prior `out`, `xvfb-run`, or GDB
 processes. An orphaned process can retain the control port or consume the
 shared X display and make UI macro timing appear to be a native gameplay bug.
-Use one bounded process group per probe and verify that the target has exited
-before starting the 32-bit comparison.
+Use [`tools/run-native-probe.sh`](/c/Users/carol/dev/nox-decomp/tools/run-native-probe.sh)
+to put the complete `xvfb-run` command in one process group and terminate the
+whole group on timeout. Verify that the target has exited before starting the
+32-bit comparison; wrapping only `out` in `timeout` can leave `xvfb-run` and
+the game alive.
 
 ## Reproduce the native server-startup smoke test
 
