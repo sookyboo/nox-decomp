@@ -16,6 +16,8 @@
 static int callback_count;
 static unsigned char callback_payload;
 
+int __cdecl sub_48EA70(int channel, unsigned int packet, int length);
+
 static void __cdecl receive_callback(unsigned int channel,
                                      int payload,
                                      int length,
@@ -70,6 +72,63 @@ cleanup:
     return success;
 }
 
+static int map_packet_transfer_test(void)
+{
+    char original[PATH_MAX];
+    char temporary[] = "/tmp/nox-map-packets-XXXXXX";
+    unsigned char *packet = 0;
+    unsigned char output[6];
+    FILE *file;
+    int success = 0;
+    unsigned int sequences[] = {3, 2, 1};
+    size_t i;
+
+    if (!getcwd(original, sizeof(original)) || !mkdtemp(temporary) ||
+        chdir(temporary) != 0)
+        return 0;
+    packet = nox_test_legacy_alloc(88);
+    if (!packet)
+        goto cleanup;
+
+    memset(packet, 0, 88);
+    packet[0] = 0xB8;
+    *(uint32_t *)(packet + 4) = sizeof(output);
+    memcpy(packet + 8, "maps\\Fixture\\Fixture.nxz", 24);
+    if (sub_48EA70(31, (unsigned int)(uintptr_t)packet, 88) < 0)
+        goto cleanup;
+
+    /* Keep completion/UI callbacks out of this focused parser fixture. */
+    *(uint32_t *)&byte_5D4594[1309764] = 0;
+    for (i = 0; i < sizeof(sequences) / sizeof(sequences[0]); ++i)
+    {
+        memset(packet, 0, 88);
+        packet[0] = 0xB9;
+        *(uint16_t *)(packet + 2) = (uint16_t)sequences[i];
+        *(uint16_t *)(packet + 4) = 2;
+        packet[6] = (unsigned char)('A' + 2 * (2 - i));
+        packet[7] = (unsigned char)('B' + 2 * (2 - i));
+        if (sub_48EA70(31, (unsigned int)(uintptr_t)packet, 8) < 0)
+            goto cleanup;
+    }
+    sub_4AB580();
+
+    file = fopen("maps/Fixture/Fixture.nxz", "rb");
+    if (!file || fread(output, 1, sizeof(output), file) != sizeof(output))
+        goto cleanup;
+    fclose(file);
+    success = memcmp(output, "ABCDEF", sizeof(output)) == 0;
+    remove("maps/Fixture/Fixture.nxz");
+
+cleanup:
+    if (!success)
+        sub_4AB720();
+    rmdir("maps/Fixture");
+    rmdir("maps");
+    chdir(original);
+    rmdir(temporary);
+    return success;
+}
+
 int main(void)
 {
     size_t network_record_args[10] = {0};
@@ -87,6 +146,8 @@ int main(void)
     int sent;
 
     if (!map_file_transfer_test())
+        return 1;
+    if (!map_packet_transfer_test())
         return 1;
 
     /* A real transfer creates this production connection record before the

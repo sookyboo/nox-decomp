@@ -209,10 +209,11 @@ After the latest source changes:
   dispatching a high-bit transfer packet;
 - the map-file consumer now keeps native `FILE *`/path state in sidecars and
   uses low-address storage for its recovered chunk queue; the regression
-  verifies non-FIFO chunks (`3,2,1`) are searched and written in sequence
-  before finalization. Both the recovered 32-bit queue and the native sidecar
-  queue now search for the next expected sequence, and the same fixture passes
-  on i386 and x86_64;
+  drives the production `sub_48EA70()` `0xB8`/`0xB9` message cases and verifies
+  non-FIFO chunks (`3,2,1`) are searched and written in sequence before
+  finalization. Both the recovered 32-bit queue and the native sidecar queue
+  now search for the next expected sequence, and the same fixture passes on
+  i386 and x86_64;
 - the callback transport regression invokes the production tick-callback
   storage on both architectures: the native build uses its host-width
   sidecar, while i386 uses the recovered callback slot;

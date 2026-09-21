@@ -38,9 +38,10 @@ the recovered record stores all of those pointers in four-byte fields. The
 these production entry points before exercising the `0x80` transfer packet,
 so a future high-address regression fails at the owning network boundary.
 
-The file-transfer consumer is `sub_4ABAD0()` → `sub_4AB7C0()`. The first
-function opens the temporary map package and establishes the expected chunk
-sequence; the second writes an in-order chunk immediately, queues an
+The production message parser is `sub_48EA70()`. Its `0xB8` case calls
+`sub_4ABAD0()` to open the temporary map package and establish the expected
+chunk sequence; its `0xB9` case calls `sub_4AB7C0()` with the chunk sequence
+and payload. `sub_4AB7C0()` writes an in-order chunk immediately, queues an
 out-of-order chunk, and drains whichever queued chunk has the next expected
 sequence. The queue is not assumed to be FIFO: network arrival order such as
 `3,2,1` is valid and is covered by the fixture.
@@ -48,8 +49,9 @@ sequence. The queue is not assumed to be FIFO: network arrival order such as
 deletes it. Both architecture branches search the linked queue for the next
 expected sequence; native builds additionally keep the `FILE *`, path, queue
 head/tail, and queued payloads in host-width sidecars/low-address storage. The
-test fixture sends sequences `3`, `2`, and `1` and verifies the resulting file
-bytes are ordered on both i386 and x86_64.
+test fixture drives `sub_48EA70()` with `0xB8` and `0xB9` messages, sends
+sequences `3`, `2`, and `1`, and verifies the resulting file bytes are ordered
+on both i386 and x86_64.
 
 Run it with:
 
