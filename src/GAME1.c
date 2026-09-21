@@ -34806,17 +34806,25 @@ _DWORD *__cdecl sub_4258C0(_DWORD **a1, int a2)
 }
 
 //----- (004258E0) --------------------------------------------------------
-_DWORD *__cdecl sub_4258E0(int a1, _DWORD *a2)
+_DWORD *__cdecl sub_4258E0(uintptr_t a1, _DWORD *a2)
 {
   _DWORD *result; // eax
-  int v3; // edx
+  uintptr_t v3; // edx
 
   result = a2;
+#if UINTPTR_MAX > UINT32_MAX
+  v3 = (uintptr_t)*(unsigned int *)(a1 + 4);
+  *a2 = (unsigned int)a1;
+  a2[1] = (unsigned int)v3;
+  *(unsigned int *)(a1 + 4) = (unsigned int)(uintptr_t)a2;
+  *(unsigned int *)NOX_STATIC_POINTER_FROM_32(a2[1]) = (unsigned int)(uintptr_t)a2;
+#else
   v3 = *(_DWORD *)(a1 + 4);
   *a2 = a1;
   a2[1] = v3;
   *(_DWORD *)(a1 + 4) = a2;
   *(_DWORD *)a2[1] = a2;
+#endif
   return result;
 }
 
@@ -34825,12 +34833,24 @@ _DWORD *__cdecl sub_425900(_DWORD *a1, _DWORD *a2)
 {
   _DWORD *result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  uintptr_t next = nox_native_pointer_from_32(*a1);
+  if ( !next )
+    next = (uintptr_t)a1;
+  result = a2;
+  a2[1] = (unsigned int)(uintptr_t)a1;
+  *a2 = (unsigned int)next;
+  *a1 = (unsigned int)(uintptr_t)a2;
+  *(unsigned int *)(next + 4) = (unsigned int)(uintptr_t)a2;
+  return result;
+#else
   result = a2;
   a2[1] = a1;
   *a2 = *a1;
   *a1 = a2;
   *(_DWORD *)(*a2 + 4) = a2;
   return result;
+#endif
 }
 
 //----- (00425920) --------------------------------------------------------
@@ -34838,12 +34858,25 @@ _DWORD **__cdecl sub_425920(_DWORD **a1)
 {
   _DWORD **result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  uintptr_t next = nox_native_pointer_from_32(*(unsigned int *)a1);
+  uintptr_t previous = nox_native_pointer_from_32(*(unsigned int *)(a1 + 1));
+  if ( !previous )
+    previous = next;
+  result = a1;
+  *(unsigned int *)previous = *(unsigned int *)a1;
+  *(unsigned int *)(next + 4) = (unsigned int)(uintptr_t)a1;
+  *(unsigned int *)a1 = (unsigned int)(uintptr_t)a1;
+  *(unsigned int *)(a1 + 1) = (unsigned int)(uintptr_t)a1;
+  return result;
+#else
   result = a1;
   *a1[1] = *a1;
   (*a1)[1] = a1[1];
   *a1 = a1;
   a1[1] = a1;
   return result;
+#endif
 }
 
 //----- (00425940) --------------------------------------------------------

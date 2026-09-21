@@ -149,6 +149,18 @@ transports record addresses as `uintptr_t`, the SoundSet boundary uses a native
 name sidecar while retaining its packed 32-bit field-offset table, and the CSF
 parser routes its stream through a native `FILE *` sidecar.
 
+The control-server startup probe now also completes the native SoundSet and
+Modifier work, opens the title stream, and reaches `window/MainMenu.wnd` using
+the stock built-in `CapFlag` map selection. The audio subsystem retains its
+packed pool/list records and uses native handling at these boundaries:
+`sub_486A10()` decodes the packed SoundSet base pointer before `bsearch`,
+`sub_4BD2E0()`/`sub_425900()`/`sub_425920()` operate on DWORD links without
+host-width dereferences, and `sub_4866F0()` keeps its bag `FILE *` in a native
+sidecar. `sub_451BE0()`/`sub_451DC0()`/`sub_451F30()`/`sub_452050()` decode
+SoundSet record pointers before using them. This probe does not use maps that
+require reloaded EUD support; the next remaining failure is in the native
+audio sample object passed into `sub_43ED00()`.
+
 ## Compatibility rule
 
 When fixing another startup failure, first classify the value:

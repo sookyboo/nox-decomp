@@ -19898,6 +19898,17 @@ _DWORD *__cdecl sub_4BD2E0(_DWORD **a1)
   _DWORD *result; // eax
   _DWORD *v2; // edx
 
+#if UINTPTR_MAX > UINT32_MAX
+  /* The pool header and links are legacy DWORD pointers even in native
+   * builds. Do not let a host-width dereference combine adjacent fields. */
+  result = (_DWORD *)(uintptr_t)*(unsigned int *)a1;
+  if ( result )
+  {
+    v2 = (_DWORD *)(uintptr_t)*result;
+    *(unsigned int *)a1 = (unsigned int)(uintptr_t)v2;
+  }
+  return result;
+#else
   result = *a1;
   if ( *a1 )
   {
@@ -19906,6 +19917,7 @@ _DWORD *__cdecl sub_4BD2E0(_DWORD **a1)
     *a1 = v2;
   }
   return result;
+#endif
 }
 
 //----- (004BD300) --------------------------------------------------------
@@ -19972,10 +19984,22 @@ void __cdecl sub_4BD3C0(LPVOID lpMem)
 }
 
 //----- (004BD420) --------------------------------------------------------
-_DWORD *__cdecl sub_4BD420(int a1, int a2)
+_DWORD *__cdecl sub_4BD420(uintptr_t a1, int a2)
 {
   _DWORD *result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = (_DWORD *)nox_game3_pointer_from_32(*(unsigned int *)(a1 + 12));
+  if ( result == (_DWORD *)(a1 + 12) )
+    return 0;
+  while ( result[4] != a2 || !result[5] )
+  {
+    result = (_DWORD *)nox_game3_pointer_from_32(*(unsigned int *)result);
+    if ( result == (_DWORD *)(a1 + 12) )
+      return 0;
+  }
+  return result;
+#else
   result = *(_DWORD **)(a1 + 12);
   if ( result == (_DWORD *)(a1 + 12) )
     return 0;
@@ -19986,6 +20010,7 @@ _DWORD *__cdecl sub_4BD420(int a1, int a2)
       return 0;
   }
   return result;
+#endif
 }
 
 //----- (004BD450) --------------------------------------------------------
@@ -20009,8 +20034,12 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
   char *v8; // edi
   signed int v9; // eax
   _DWORD *v10; // [esp+18h] [ebp+8h]
+#if UINTPTR_MAX > UINT32_MAX
+  uintptr_t manager;
+  manager = nox_game3_pointer_from_32(*a1);
+#endif
 
-  v2 = sub_4BD420((int)a1, a2);
+  v2 = sub_4BD420((uintptr_t)a1, a2);
   v3 = v2;
   if ( v2 )
   {
@@ -20018,13 +20047,27 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
     sub_425900(a1 + 3, v3);
     return v3;
   }
-  if ( sub_486B60((int)*a1, a2) )
+  if ( sub_486B60(
+#if UINTPTR_MAX > UINT32_MAX
+                    (int)manager,
+#else
+                    (int)*a1,
+#endif
+                    a2) )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    v5 = sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[2]));
+#else
     v5 = sub_4BD2E0((_DWORD **)a1[2]);
+#endif
     if ( !v5 )
     {
       sub_4BD600((int)a1);
+#if UINTPTR_MAX > UINT32_MAX
+      v5 = sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[2]));
+#else
       v5 = sub_4BD2E0((_DWORD **)a1[2]);
+#endif
       if ( !v5 )
       {
         sub_486E00((int)*a1);
@@ -20038,15 +20081,28 @@ _DWORD *__cdecl sub_4BD470(_DWORD **a1, int a2)
     sub_487C30(v5 + 6);
     nullsub_10(v5 + 14);
     v5[11] = v5 + 14;
+#if UINTPTR_MAX > UINT32_MAX
+    v6 = ((_DWORD *)manager)[71];
+    v10 = ((_DWORD *)manager)[71];
+#else
     v6 = (_DWORD *)(*a1)[71];
     v10 = (_DWORD *)(*a1)[71];
+#endif
     if ( !v6 )
     {
 LABEL_19:
+#if UINTPTR_MAX > UINT32_MAX
+      sub_486AA0((_DWORD *)manager, v5[4], v5 + 14);
+#else
       sub_486AA0(*a1, v5[4], v5 + 14);
+#endif
       sub_425900(a1 + 3, v5);
       v5[5] = 1;
+#if UINTPTR_MAX > UINT32_MAX
+      sub_486E00((int)manager);
+#else
       sub_486E00((int)*a1);
+#endif
       return v5;
     }
     while ( 1 )
@@ -20054,13 +20110,23 @@ LABEL_19:
       v7 = a1[6];
       if ( (int)v7 > (int)v6 )
         v7 = v6;
+#if UINTPTR_MAX > UINT32_MAX
+      v8 = (char *)sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[1]));
+#else
       v8 = (char *)sub_4BD2E0((_DWORD **)a1[1]);
+#endif
       if ( !v8 )
         break;
 LABEL_17:
       sub_487D30(v8, (int)(v8 + 24), (int)v7);
       sub_487C50((int)(v5 + 6), v8);
-      v9 = sub_486DB0((int)*a1, v8 + 24, (signed int)v7);
+      v9 = sub_486DB0(
+#if UINTPTR_MAX > UINT32_MAX
+                         (int)manager,
+#else
+                         (int)*a1,
+#endif
+                         v8 + 24, (signed int)v7);
       if ( (_DWORD *)v9 != v7 )
         goto LABEL_20;
       v10 = (_DWORD *)((char *)v10 - v9);
@@ -20070,7 +20136,11 @@ LABEL_17:
     }
     while ( sub_4BD600((int)a1) )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      v8 = (char *)sub_4BD2E0((_DWORD **)nox_game3_pointer_from_32(a1[1]));
+#else
       v8 = (char *)sub_4BD2E0((_DWORD **)a1[1]);
+#endif
       if ( v8 )
         goto LABEL_17;
     }
@@ -20216,30 +20286,49 @@ _DWORD *__cdecl sub_4BD7C0(_DWORD *a1)
 }
 
 //----- (004BD840) --------------------------------------------------------
-int __cdecl sub_4BD840(int a3)
+int __cdecl sub_4BD840(uintptr_t a3)
 {
-  int v1; // ebp
+  uintptr_t v1; // ebp
   unsigned int *v2; // edi
   _DWORD *v3; // esi
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = nox_game3_pointer_from_32(*(unsigned int *)(a3 + 132));
+#else
   v1 = *(_DWORD *)(a3 + 132);
+#endif
   v2 = (unsigned int *)(a3 + 176);
   sub_4864A0((_DWORD *)(a3 + 176));
   sub_486570((unsigned int *)(a3 + 176), (_DWORD *)(a3 + 16));
   sub_486620((_DWORD *)(a3 + 16));
   if ( *(_DWORD *)(a3 + 112) )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    sub_486570(v2, (_DWORD *)nox_game3_pointer_from_32(*(unsigned int *)(a3 + 112)));
+    sub_486620((_DWORD *)nox_game3_pointer_from_32(*(unsigned int *)(a3 + 112)));
+#else
     sub_486570(v2, *(_DWORD **)(a3 + 112));
     sub_486620(*(_DWORD **)(a3 + 112));
+#endif
   }
+#if UINTPTR_MAX > UINT32_MAX
+  v3 = (_DWORD *)nox_game3_pointer_from_32(*(unsigned int *)(a3 + 116));
+#else
   v3 = *(_DWORD **)(a3 + 116);
+#endif
   if ( v3 )
     sub_486570(v2, v3);
   sub_486570(v2, (_DWORD *)(v1 + 88));
   result = *(_DWORD *)(v1 + 184);
   if ( result )
+  {
+#if UINTPTR_MAX > UINT32_MAX
+    result = sub_486570(v2, (_DWORD *)nox_game3_pointer_from_32((unsigned int)result));
+#else
     result = sub_486570(v2, *(_DWORD **)(v1 + 184));
+#endif
+  }
   return result;
 }
 
@@ -20425,7 +20514,7 @@ int __cdecl sub_4BDB30(int a1)
 }
 
 //----- (004BDB40) --------------------------------------------------------
-int __cdecl sub_4BDB40(int a2)
+int __cdecl sub_4BDB40(uintptr_t a2)
 {
   int result; // eax
 
@@ -20435,7 +20524,12 @@ int __cdecl sub_4BDB40(int a2)
     return -2147024896;
   sub_486520((unsigned int *)(a2 + 16));
   sub_4BD840(a2);
+#if UINTPTR_MAX > UINT32_MAX
+  result = ((int (__cdecl *)(int))nox_game3_pointer_from_32(
+              *(unsigned int *)(nox_game3_pointer_from_32(*(unsigned int *)(a2 + 172)) + 12)))((int)a2);
+#else
   result = (*(int (__cdecl **)(int))(*(_DWORD *)(a2 + 172) + 12))(a2);
+#endif
   if ( !result )
     *(_DWORD *)(a2 + 124) |= 1u;
   return result;
