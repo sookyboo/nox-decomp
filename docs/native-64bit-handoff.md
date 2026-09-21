@@ -291,6 +291,14 @@ After the latest source changes:
   error/reporting path without a native SIGSEGV. The probe is diagnostic: it
   does not claim successful map activation, and it does not use a reloaded-EUD
   map.
+- A follow-up probe uses the exact stock `CapFlag.nxz` package, restores the
+  stock `.map` after `sub_4ABAD0()` removes it, and reaches the production
+  `ObjectData` callback. The callback returns the same failure when the direct
+  checkpoint has no populated object-ID table. Calling the full gameplay
+  initializer from that checkpoint is not a valid workaround: it faults in a
+  separate precondition before map parsing. The remaining work is therefore
+  to reach the normal registry/object-table lifecycle before activation, not
+  to bypass the map loader or widen another recovered field.
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
