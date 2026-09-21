@@ -91,10 +91,20 @@ static void *nox_game3_low_realloc(void *address, size_t old_size, size_t new_si
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
+#define NOX_THING_BUCKET(index) nox_native_thing_buckets[(index)]
+#else
+#define NOX_THING_BUCKET(index) (*(_DWORD **)&byte_5D4594[1563348 + 4 * (index)])
+#endif
+
+#if UINTPTR_MAX > UINT32_MAX
 static FILE *nox_map_download_file;
 static char *nox_map_download_path;
 static unsigned char *nox_map_download_queue_head;
 static unsigned char *nox_map_download_queue_tail;
+/* The recovered 27-entry thing buckets are DWORD pointer slots.  Keep the
+ * native addresses in a sidecar and mirror only the legacy representation on
+ * 32-bit builds. */
+static _DWORD *nox_native_thing_buckets[27];
 
 static void *nox_map_download_alloc(size_t size)
 {
@@ -49696,7 +49706,7 @@ void sub_4E29D0()
   {
     v1 = *(_DWORD *)&byte_5D4594[i + 1563668];
     if ( v1 > 1 )
-      qsort(*(void **)&byte_5D4594[i + 1563348], v1, 4u, sub_4E2A00);
+      qsort(NOX_THING_BUCKET(i / 4), v1, 4u, sub_4E2A00);
   }
 }
 
@@ -49778,9 +49788,24 @@ int sub_4E2A20()
 //----- (004E2B30) --------------------------------------------------------
 LPVOID sub_4E2B30()
 {
-  LPVOID *v0; // esi
   LPVOID result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  int i;
+  result = 0;
+  for ( i = 0; i < 27; ++i )
+  {
+    result = NOX_THING_BUCKET(i);
+    if ( result )
+#if defined(__linux__)
+      nox_game3_low_free(result, 4u * (size_t)*(unsigned int *)&byte_5D4594[1563668 + 4 * i]);
+#else
+      free(result);
+#endif
+    NOX_THING_BUCKET(i) = 0;
+  }
+#else
+  LPVOID *v0; // esi
   v0 = (LPVOID *)&byte_5D4594[1563348];
   do
   {
@@ -49791,6 +49816,7 @@ LPVOID sub_4E2B30()
     ++v0;
   }
   while ( (int)v0 < (int)&byte_5D4594[1563456] );
+#endif
   return result;
 }
 
@@ -50038,7 +50064,11 @@ int sub_4E3010()
   result = 0;
   memset(&byte_5D4594[1563668], 0, 0x6Cu);
   memset(&byte_5D4594[1563776], 0, 0x6Cu);
+#if UINTPTR_MAX > UINT32_MAX
+  memset(nox_native_thing_buckets, 0, sizeof(nox_native_thing_buckets));
+#else
   memset(&byte_5D4594[1563348], 0, 0x6Cu);
+#endif
   return result;
 }
 
@@ -50053,12 +50083,20 @@ size_t sub_4E3040()
     result = *(_DWORD *)&byte_5D4594[i + 1563668];
     if ( result )
     {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      result = (size_t)nox_game3_low_alloc(4u * (size_t)result);
+      if ( (void *)result == MAP_FAILED )
+        result = 0;
+      if ( result )
+        memset((void *)result, 0, 4u * (size_t)*(_DWORD *)&byte_5D4594[i + 1563668]);
+#else
       result = (size_t)calloc(1u, 4 * result);
-      *(_DWORD *)&byte_5D4594[i + 1563348] = result;
+#endif
+      NOX_THING_BUCKET(i / 4) = (_DWORD *)result;
     }
     else
     {
-      *(_DWORD *)&byte_5D4594[i + 1563348] = 0;
+      NOX_THING_BUCKET(i / 4) = 0;
     }
     *(_DWORD *)&byte_5D4594[i + 1563776] = 0;
   }
@@ -50105,7 +50143,7 @@ void __cdecl sub_4E30D0(int a1)
   if ( a1 )
   {
     v1 = sub_4E30A0(*(CHAR **)(a1 + 4));
-    v2 = *(_DWORD *)&byte_5D4594[4 * v1 + 1563348];
+    v2 = (int)(uintptr_t)NOX_THING_BUCKET(v1);
     if ( v2 )
     {
       *(_DWORD *)(v2 + 4 * *(_DWORD *)&byte_5D4594[4 * v1 + 1563776]) = a1;
@@ -50469,7 +50507,7 @@ int __cdecl sub_4E3830(CHAR *a1)
   if ( a1
     && (v1 = sub_4E30A0(a1), v1 >= 0)
     && (v2 = *(_DWORD *)&byte_5D4594[4 * v1 + 1563668], v2 >= 0)
-    && (v3 = *(const void **)&byte_5D4594[4 * v1 + 1563348]) != 0
+    && (v3 = NOX_THING_BUCKET(v1)) != 0
     && (v4 = (int *)bsearch(a1, v3, v2, 4u, sub_4E3880)) != 0 )
   {
     result = *v4;

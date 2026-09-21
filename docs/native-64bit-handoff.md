@@ -341,6 +341,14 @@ After the latest source changes:
   macro therefore does not currently establish a positive connection-result
   transition; do not treat a bounded timeout at this point as successful
   gameplay initialization;
+- `sub_4E2B60()` is the gameplay `thing.bin` initializer: it creates the
+  native object records, builds the 27 per-letter lookup buckets, and then
+  calls `sub_42BF10()` to create the map-object ID table. Those bucket entries
+  are recovered four-byte pointer slots, so native builds now keep their
+  full-width addresses in a sidecar and use low-address storage on Linux.
+  `map_download_dispatch_test` exercises the bucket allocation/release
+  lifecycle on both architectures; this is a pointer-ownership fix, not an
+  initializer call injected into the map loader;
 - calling only `sub_42BF10()` at the map window allocates a one-entry table
   from the server registry (`count=1`) but does not activate the stock map;
   calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These

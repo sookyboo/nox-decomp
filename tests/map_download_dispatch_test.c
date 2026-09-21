@@ -16,6 +16,24 @@
 static int callback_count;
 static unsigned char callback_payload;
 
+static int gameplay_thing_bucket_storage_test(void)
+{
+    int i;
+    size_t buckets;
+
+    /* sub_4E3040() allocates the production per-letter lookup buckets and
+     * sub_4E2B30() releases them.  On native builds these recovered DWORD
+     * slots must not receive a truncated high heap address. */
+    sub_4E3010();
+    for (i = 0; i < 27; ++i)
+        *(uint32_t *)&byte_5D4594[1563668 + 4 * i] = 1;
+    buckets = sub_4E3040();
+    if (!buckets)
+        return 0;
+    sub_4E2B30();
+    return 1;
+}
+
 int __cdecl sub_48EA70(int channel, unsigned int packet, int length);
 
 static void __cdecl receive_callback(unsigned int channel,
@@ -201,6 +219,8 @@ int main(void)
     int receiver_socket;
     int sent;
 
+    if (!gameplay_thing_bucket_storage_test())
+        return 1;
     if (!map_file_transfer_test())
         return 1;
     if (!map_packet_transfer_test())
