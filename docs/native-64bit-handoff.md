@@ -368,6 +368,14 @@ After the latest source changes:
   button's `16391` dispatch. The remaining native boundary is after
   `window/ArnaMain.wnd` opens, before the positive connection-result/gameplay
   state; do not inject state to bypass that ordering;
+- `sub_4AA270()` creates the server gameplay screen and stores its root in the
+  recovered DWORD slot at `byte_5D4594[1309716]`. On native builds that root is
+  a host-width window pointer, so the slot is only a compatibility copy;
+  `nox_server_screen_root` is the authoritative sidecar used by the child
+  lookup/event calls and by `sub_4AA490()` when the transition closes the
+  screen. i386 continues to use the recovered slot directly. This is the same
+  lifecycle boundary as the existing menu-root sidecars and must be preserved
+  when adding another server-screen callback or teardown path;
 - `sub_4E2B60()` is the gameplay `thing.bin` initializer: it creates the
   native object records, builds the 27 per-letter lookup buckets, and then
   calls `sub_42BF10()` to create the map-object ID table. Those bucket entries

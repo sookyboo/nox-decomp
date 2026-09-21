@@ -26,6 +26,7 @@ static _DWORD *nox_menu_button_left;
 static _DWORD *nox_menu_button_right;
 static _DWORD *nox_server_transition_left;
 static _DWORD *nox_server_transition_right;
+static _DWORD *nox_server_screen_root;
 
 uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
@@ -57,6 +58,15 @@ static _DWORD *nox_server_menu_root_get(void)
   return (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1307300];
 #else
   return *(_DWORD **)&byte_5D4594[1307300];
+#endif
+}
+
+static _DWORD *nox_server_screen_root_get(void)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_server_screen_root;
+#else
+  return *(_DWORD **)&byte_5D4594[1309716];
 #endif
 }
 
@@ -6579,10 +6589,13 @@ int sub_4AA270()
   sub_43AF50(2);
   result = sub_4A0AD0((const char *)&byte_587000[172620], sub_4AA4D0);
   *(_DWORD *)&byte_5D4594[1309716] = result;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_server_screen_root = result;
+#endif
   if ( result )
   {
     sub_46B300(result, sub_4A18E0);
-    v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309716], 410);
+    v1 = sub_46B0C0(nox_server_screen_root_get(), 410);
     sub_46B2C0((int)v1, sub_4AA4D0);
     result = sub_43C5B0(v1, 0, 0, 0, -240, 0, 20, 0, -40);
     *(_DWORD *)&byte_5D4594[1309708] = result;
@@ -6594,7 +6607,7 @@ int sub_4AA270()
       *(_DWORD *)result = 400;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 48) = sub_4AA450;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 56) = sub_4AA490;
-      v2 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309716], 420);
+      v2 = sub_46B0C0(nox_server_screen_root_get(), 420);
       sub_46B2C0((int)v2, sub_4AA4D0);
       result = sub_43C5B0(v2, 0, 240, 0, 480, 0, -20, 0, 40);
       *(_DWORD *)&byte_5D4594[1309712] = result;
@@ -6607,14 +6620,14 @@ int sub_4AA270()
         sub_46A8A0();
         if ( sub_40A5C0(0x2000000) )
         {
-          v3 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309716], 411);
-          sub_46B490(*(int *)&byte_5D4594[1309716], 16391, (int)v3, 0);
+          v3 = sub_46B0C0(nox_server_screen_root_get(), 411);
+          sub_46B490((int)(uintptr_t)nox_server_screen_root_get(), 16391, (int)v3, 0);
           result = 1;
         }
         else if ( sub_4D6FA0() == 1 )
         {
-          v4 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309716], 421);
-          sub_46B490(*(int *)&byte_5D4594[1309716], 16391, (int)v4, 0);
+          v4 = sub_46B0C0(nox_server_screen_root_get(), 421);
+          sub_46B490((int)(uintptr_t)nox_server_screen_root_get(), 16391, (int)v4, 0);
           result = 1;
         }
         else
@@ -6665,7 +6678,10 @@ int sub_4AA490()
   sub_43C570(*(LPVOID *)&byte_5D4594[1309708]);
   sub_43C570(*(LPVOID *)&byte_5D4594[1309712]);
 #endif
-  sub_46C4E0(*(_DWORD **)&byte_5D4594[1309716]);
+  sub_46C4E0(nox_server_screen_root_get());
+#if UINTPTR_MAX > UINT32_MAX
+  nox_server_screen_root = 0;
+#endif
   v0();
   return 1;
 }
