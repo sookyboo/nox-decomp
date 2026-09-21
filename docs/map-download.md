@@ -63,6 +63,15 @@ The probe uses a temporary destination and restores the stock map files. The
 production parser test covers 1,024-byte synthetic chunks; the GDB packet
 injector remains diagnostic and stalls for larger synthetic calls.
 
+A direct codec comparison with the restored stock package narrowed this
+failure further: after opening `CapFlag.nxz` with key slot 19, both the native
+and i386 test binaries decode the first four bytes as `0x8ce7fc49`, while
+`sub_4AC2B0()` expects `0xFADEBEEF` or `0xFADEFACE`. The i386 comparison uses
+the same production map-file entry points and a no-op time callback because
+the standalone test does not run the full startup callback initialization. This
+shows that the remaining bad-header result is not presently a native pointer
+width divergence; no architecture-specific codec change is justified yet.
+
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.
 Those writes overlapped the adjacent path strings used by `sub_4AC2B0()`;

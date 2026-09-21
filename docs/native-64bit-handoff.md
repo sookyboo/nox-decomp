@@ -231,6 +231,13 @@ After the latest source changes:
   restored byte-for-byte after the probe. The temporary GDB packet injector
   still stalls for larger synthetic calls, although the production parser
   fixture covers 1,024-byte `0xB9` payloads on both architectures;
+- a direct codec comparison using the restored stock package produced the same
+  decoded first word, `0x8ce7fc49`, on native and i386 after key slot 19 was
+  selected. `sub_4AC2B0()` expects `0xFADEBEEF` or `0xFADEFACE`, so the current
+  bad-header result is shared by the two builds rather than being a native
+  pointer-width divergence. The i386 standalone comparison supplies only the
+  production test harness's no-op time callback; it is not a claim of full
+  i386 startup equivalence.
 - the callback transport regression invokes the production tick-callback
   storage on both architectures: the native build uses its host-width
   sidecar, while i386 uses the recovered callback slot;
