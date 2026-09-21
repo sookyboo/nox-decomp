@@ -189,12 +189,13 @@ After the latest source changes:
   `macro end: newMultiNewCharacterWarrior`, `macro end: chatScreenPopUpClickOk`,
   `macro end: chatScreenServerName`, and then continues into
   `defaultServerGame`;
-- native x86_64 reaches the same milestones through
+- an earlier native x86_64 trace reached the milestones through
   `macro end: chatScreenServerName`, after opening `gamedata.bin` and
-  `monster.bin`; no signal occurs in the verified 35-second diagnostic run;
-- an accelerated native/32-bit comparison reaches `macro end: defaultServerGame`
-  and `macro end: server` on both builds, with no native signal reported
-  before the controlled timeout;
+  `monster.bin`; no signal occurred in that 35-second diagnostic run;
+- an earlier accelerated native/32-bit comparison reached `macro end:
+  defaultServerGame` and `macro end: server` on both builds, but that is not
+  the current reproducible boundary and must not be used as proof of gameplay
+  initialization;
 - the earlier `sub_42FAE0(a1=0)` teardown failure and the later freed-window
   traversal were both fixed;
 - the native callback crash at `mainloop()`'s tick callback was reproduced from
@@ -334,6 +335,12 @@ After the latest source changes:
   that point faults in `sub_414DB0()` because later gameplay preconditions are
   absent; this is diagnostic evidence, not a production workaround. The
   object table must be created by the normal state-machine ordering;
+- the latest accelerated native trace reaches the same server setup boundary,
+  opens `window/ArnaMain.wnd`, and then remains before any
+  `CONNECT_RESULT`, `sub_4D1660()`, or `sub_42BF10()` call. The scripted UI
+  macro therefore does not currently establish a positive connection-result
+  transition; do not treat a bounded timeout at this point as successful
+  gameplay initialization;
 - calling only `sub_42BF10()` at the map window allocates a one-entry table
   from the server registry (`count=1`) but does not activate the stock map;
   calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These
@@ -390,7 +397,7 @@ Run from the extracted game-data directory:
 
 ```sh
 cd build-deps/gamefiles/app
-timeout --foreground --signal=TERM 35s env \
+env \
   ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=0 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=1 NOX_CONTROL_SERVER_PASSWORD=secret \
@@ -402,19 +409,19 @@ timeout --foreground --signal=TERM 35s env \
   NOX_SERVER_LESSONS=15 NOX_SERVER_TIME=0 \
   NOX_SERVER_DEFAULT_MAP=CapFlag NOX_CAPTURE_INPUT=0 \
   NOX_LOBBY_REGISTER_ENABLE=0 \
-  xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-amd64/src/out
+  ../../../tools/run-native-probe.sh 35 xvfb-run -a \
+  -s '-screen 0 1280x720x24' ../../../build-amd64/src/out
 ```
 
-The verified result is a native x86_64 server-mode startup that reaches the
-main menu, executes the control-server `startMultiplayerNetworkHost` input
-sequence, loads `gamedata.bin` and `monster.bin`, and completes the scripted
-`server` macro through `defaultServerGame`. For the map-dispatch assertion,
-use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, a `sleep 30000` bootstrap delay, and
-`console "load CapFlag"`; set `NOX_TRACE_MAP_DOWNLOAD=1` and verify
-`[map] map_download_start` and the subsequent `window/mapdnld.wnd` open. Do not
-treat the timeout alone as success; verify the last completed macro and the
-process exit reason.
+The current verified result is a native x86_64 server-mode startup that reaches
+the main menu, executes the host setup far enough to load `gamedata.bin`,
+`monster.bin`, and `window/ArnaMain.wnd`, then remains before the positive
+connection-result state transition. Do not treat the timeout alone as success;
+verify the last completed macro and the process exit reason. For the separate
+map-dispatch assertion, use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, a
+`sleep 30000` bootstrap delay, and `console "load CapFlag"`; set
+`NOX_TRACE_MAP_DOWNLOAD=1` and verify `[map] map_download_start` followed by
+`window/mapdnld.wnd`.
 The important native transport boundaries are:
 
 ```text
