@@ -6651,8 +6651,13 @@ int sub_4AA270()
 //----- (004AA450) --------------------------------------------------------
 int sub_4AA450()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_server_transition_left[64 / sizeof(_DWORD)] = 2;
+  nox_server_transition_right[64 / sizeof(_DWORD)] = 2;
+#else
   *(_BYTE *)(*(_DWORD *)&byte_5D4594[1309708] + 64) = 2;
   *(_BYTE *)(*(_DWORD *)&byte_5D4594[1309712] + 64) = 2;
+#endif
   sub_43BE40(2);
   sub_452D80(923, 100);
   return 1;

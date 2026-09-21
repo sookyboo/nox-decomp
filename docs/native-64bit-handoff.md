@@ -376,6 +376,10 @@ After the latest source changes:
   screen. i386 continues to use the recovered slot directly. This is the same
   lifecycle boundary as the existing menu-root sidecars and must be preserved
   when adding another server-screen callback or teardown path;
+- `sub_4AA450()` is the transition-state callback installed by
+  `sub_4AA270()`. Its native branch must update the two transition records
+  through `nox_server_transition_left/right`; using the recovered slots at
+  `1309708` and `1309712` would dereference truncated record addresses.
 - `sub_4E2B60()` is the gameplay `thing.bin` initializer: it creates the
   native object records, builds the 27 per-letter lookup buckets, and then
   calls `sub_42BF10()` to create the map-object ID table. Those bucket entries
