@@ -6704,7 +6704,13 @@ int __cdecl sub_4AA4D0(int a1, unsigned int a2, int *a3, int a4)
   {
     if ( a2 != 16391 )
       return 0;
-    if ( *(_BYTE *)(*(_DWORD *)&byte_5D4594[1309708] + 64) && !sub_40A5C0(0x2000000) && !sub_4D6F30() )
+    if ( *(_BYTE *)((char *)
+#if UINTPTR_MAX > UINT32_MAX
+      nox_server_transition_left
+#else
+      *(_DWORD *)&byte_5D4594[1309708]
+#endif
+      + 64) && !sub_40A5C0(0x2000000) && !sub_4D6F30() )
       goto LABEL_17;
     v4 = sub_46B0A0(a3) - 411;
     if ( v4 )
@@ -6716,7 +6722,11 @@ LABEL_17:
         return 1;
       }
       sub_4AA450();
+#if UINTPTR_MAX > UINT32_MAX
+      nox_server_transition_left[52 / sizeof(_DWORD)] = (uintptr_t)sub_4379F0;
+#else
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 52) = sub_4379F0;
+#endif
       sub_43AF50(0);
     }
     else
@@ -6725,7 +6735,7 @@ LABEL_17:
       {
         v7 = sub_40F1D0((char *)&byte_587000[172696], 0, (const char *)&byte_587000[172656], 100);
         v5 = sub_40F1D0((char *)&byte_587000[172756], 0, (const char *)&byte_587000[172716], 100);
-        sub_449A10(*(int *)&byte_5D4594[1309716], (int)v5, (int)v7, 33, 0, 0);
+        sub_449A10((int)(uintptr_t)nox_server_screen_root_get(), (int)v5, (int)v7, 33, 0, 0);
         return 0;
       }
       if ( sub_40D5B0((int)&a2) && a2 < 0x10009 )
@@ -6733,12 +6743,16 @@ LABEL_17:
         sub_41D4C0();
         v8 = sub_40F1D0((char *)&byte_587000[172804], 0, (const char *)&byte_587000[172764], 111);
         v6 = sub_40F1D0((char *)&byte_587000[172864], 0, (const char *)&byte_587000[172824], 111);
-        sub_449A10(*(int *)&byte_5D4594[1309716], (int)v6, (int)v8, 33, 0, 0);
+        sub_449A10((int)(uintptr_t)nox_server_screen_root_get(), (int)v6, (int)v8, 33, 0, 0);
         return 0;
       }
       sub_4A1A40(0);
       sub_4AA450();
+#if UINTPTR_MAX > UINT32_MAX
+      nox_server_transition_left[52 / sizeof(_DWORD)] = (uintptr_t)sub_44A560;
+#else
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 52) = sub_44A560;
+#endif
     }
     sub_40A540(0x1000000);
     goto LABEL_17;

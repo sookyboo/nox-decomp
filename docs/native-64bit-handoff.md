@@ -380,6 +380,10 @@ After the latest source changes:
   `sub_4AA270()`. Its native branch must update the two transition records
   through `nox_server_transition_left/right`; using the recovered slots at
   `1309708` and `1309712` would dereference truncated record addresses.
+  The related `sub_4AA4D0()` event callback must use those same sidecars when
+  checking or replacing the transition callback, and must post its dialog
+  through `nox_server_screen_root`; the i386 branches retain the recovered
+  layout.
 - `sub_4E2B60()` is the gameplay `thing.bin` initializer: it creates the
   native object records, builds the 27 per-letter lookup buckets, and then
   calls `sub_42BF10()` to create the map-object ID table. Those bucket entries
