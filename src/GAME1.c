@@ -58,6 +58,10 @@ extern SDL_Window *g_window;
 
 #if UINTPTR_MAX > UINT32_MAX
 HDIGDRIVER nox_mss_digital_handle;
+static void *nox_screenshot_buffer;
+#define NOX_SCREENSHOT_BUFFER nox_screenshot_buffer
+#else
+#define NOX_SCREENSHOT_BUFFER (*(void **)&byte_5D4594[3798796])
 #endif
 HSTREAM nox_mss_music_stream;
 
@@ -43396,7 +43400,7 @@ int __cdecl sub_42FE30(int a1)
            NOX_VIDEO_PARSER,
            &v4[*(_DWORD *)(v1 + 12) - v9],
            &v9,
-           (unsigned int)&v6[*(_DWORD *)(v1 + 16) - a1],
+           (uintptr_t)&v6[*(_DWORD *)(v1 + 16) - a1],
            &a1) )
     {
       while ( a1 > 0
@@ -43404,7 +43408,7 @@ int __cdecl sub_42FE30(int a1)
                 NOX_VIDEO_PARSER,
                 &v4[*(_DWORD *)(v1 + 12) - v9],
                 &v9,
-                (unsigned int)&v6[*(_DWORD *)(v1 + 16) - a1],
+                (uintptr_t)&v6[*(_DWORD *)(v1 + 16) - a1],
                 &a1) )
         ;
     }
@@ -44322,7 +44326,7 @@ int __cdecl sub_430DB0(int a1, int a2)
   *(_DWORD *)&byte_5D4594[3798836] = 0;
   *(_DWORD *)&byte_5D4594[3798840] = 0;
   v3 = (char *)malloc(v2);
-  *(_DWORD *)&byte_5D4594[3798796] = v3;
+  NOX_SCREENSHOT_BUFFER = v3;
   if ( !v3 )
     return 0;
   *(_DWORD *)&byte_5D4594[3798844] = &v3[v2];
@@ -44357,10 +44361,10 @@ int sub_430E70()
 //----- (00430EC0) --------------------------------------------------------
 int sub_430EC0()
 {
-  if ( *(_DWORD *)&byte_5D4594[3798796] )
+  if ( NOX_SCREENSHOT_BUFFER )
   {
-    free(*(LPVOID *)&byte_5D4594[3798796]);
-    *(_DWORD *)&byte_5D4594[3798796] = 0;
+    free(NOX_SCREENSHOT_BUFFER);
+    NOX_SCREENSHOT_BUFFER = 0;
   }
   sub_444C50();
   return 1;
@@ -54825,6 +54829,19 @@ LABEL_18:
 //----- (0043F2E0) --------------------------------------------------------
 void *sub_43F2E0()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  void *result = 0;
+  int i;
+
+  for ( i = 0; i < 5; ++i )
+  {
+    result = nox_font_dispatch_table[i].resource;
+    nox_font_dispatch_table[i].resource = 0;
+    if ( result )
+      sub_440840(result);
+  }
+  return result;
+#else
   int v0; // edi
   void **v1; // esi
   void *result; // eax
@@ -54847,6 +54864,7 @@ void *sub_43F2E0()
   }
   while ( (int)v1 < (int)&byte_5D4594[816484] );
   return result;
+#endif
 }
 
 //----- (0043F320) --------------------------------------------------------

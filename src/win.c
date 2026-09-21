@@ -577,12 +577,12 @@ void sub_4516C0(wchar_t *a1, ...)
 	if (!NOX_LOG_FILE)
 		sub_451630();
 	sub_451610();
-	v1 = sub_40F1D0("FatalErrorHeader", 0, (int)"C:\\NoxPost\\src\\Client\\Io\\Console.c", 314);
+	v1 = sub_40F1D0("FatalErrorHeader", 0, "C:\\NoxPost\\src\\Client\\Io\\Console.c", 314);
 	nox_swprintf((wchar_t *)&byte_5D4594[833752], v1);
 	nox_vswprintf((wchar_t *)&byte_5D4594[833778], a1, va);
 	fprintf(NOX_LOG_FILE, "%S", &byte_5D4594[833752]);
 	fflush(NOX_LOG_FILE);
-	v3 = sub_40F1D0("FatalError", 0, (int)"C:\\NoxPost\\src\\Client\\Io\\Console.c", 324);
+	v3 = sub_40F1D0("FatalError", 0, "C:\\NoxPost\\src\\Client\\Io\\Console.c", 324);
 	v2 = sub_401FD0();
     NOX_DBG("FatalError: sub_401FD0() hwnd=%p", (void*)v2);
 	if (v2) {

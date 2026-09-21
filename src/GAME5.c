@@ -14249,7 +14249,7 @@ _DWORD *sub_578BF0()
 // 5667CB: using guessed type void *__cdecl operator_new(unsigned int);
 
 //----- (00578C10) --------------------------------------------------------
-int __cdecl sub_578C10(_DWORD *a1, _BYTE *a2, _DWORD *a3, unsigned int a4, _DWORD *a5)
+int __cdecl sub_578C10(_DWORD *a1, _BYTE *a2, _DWORD *a3, uintptr_t a4, _DWORD *a5)
 {
   return sub_57EA80(a1, a2, a3, a4, a5);
 }
@@ -16929,9 +16929,9 @@ int __cdecl sub_57BC50(char *a1, char *a2)
   a1 = v5;
   v13 = v12;
   v9 = sub_578BF0();
-  if ( sub_578C10(v9, &v8[v12 - v13], &v13, (unsigned int)&v5[v6 - a1], &a1) )
+  if ( sub_578C10(v9, &v8[v12 - v13], &v13, (uintptr_t)&v5[v6 - a1], &a1) )
   {
-    while ( (int)a1 > 0 && sub_578C10(v9, &v8[v12 - v13], &v13, (unsigned int)&v5[v6 - a1], &a1) )
+    while ( (int)a1 > 0 && sub_578C10(v9, &v8[v12 - v13], &v13, (uintptr_t)&v5[v6 - a1], &a1) )
       ;
   }
   sub_578C40(v9);
@@ -18708,7 +18708,11 @@ LABEL_144:
 //----- (0057DD70) --------------------------------------------------------
 void __thiscall sub_57DD70(LPVOID *this)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_net_legacy_free((void *)(uintptr_t)*(unsigned int *)this);
+#else
   operator_delete(*this);
+#endif
 }
 
 //----- (0057DD90) --------------------------------------------------------
@@ -18732,7 +18736,11 @@ _DWORD *__thiscall sub_57DD90(_DWORD *this)
 //----- (0057DDC0) --------------------------------------------------------
 void __thiscall sub_57DDC0(LPVOID *this)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  nox_net_legacy_free((void *)(uintptr_t)*(unsigned int *)this);
+#else
   operator_delete(*this);
+#endif
 }
 
 //----- (0057DDD0) --------------------------------------------------------
@@ -19541,10 +19549,14 @@ _DWORD *__thiscall sub_57E8A0(_DWORD *this)
 //----- (0057E910) --------------------------------------------------------
 void __thiscall sub_57E910(LPVOID *this)
 {
-  LPVOID *v1; // esi
+  LPVOID *v1 = this;
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *base = (unsigned char *)this;
 
-  v1 = this;
+  nox_net_legacy_free((void *)(uintptr_t)*(unsigned int *)(base + 132));
+#else
   operator_delete(this[33]);
+#endif
   sub_57DDC0(v1);
 }
 
@@ -19591,6 +19603,12 @@ _DWORD *__thiscall sub_57E9A0(_DWORD *this)
 //----- (0057EA00) --------------------------------------------------------
 void __thiscall sub_57EA00(LPVOID *this)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  unsigned char *base = (unsigned char *)this;
+
+  sub_57E910((LPVOID *)(base + 8));
+  nox_net_legacy_free((void *)(uintptr_t)*(unsigned int *)base);
+#else
   LPVOID *v1; // esi
   LPVOID *v2; // ecx
   LPVOID *v4; // [esp+4h] [ebp-10h]
@@ -19602,6 +19620,7 @@ void __thiscall sub_57EA00(LPVOID *this)
     v2 = v1 + 2;
   sub_57E910(v2);
   operator_delete(*v1);
+#endif
 }
 
 //----- (0057EA60) --------------------------------------------------------
@@ -19622,7 +19641,7 @@ int __thiscall sub_57EA60(_DWORD *this)
 }
 
 //----- (0057EA80) --------------------------------------------------------
-int __thiscall sub_57EA80(_DWORD *this, _BYTE *a2, _DWORD *a3, unsigned int a4, _DWORD *a5)
+int __thiscall sub_57EA80(_DWORD *this, _BYTE *a2, _DWORD *a3, uintptr_t a4, _DWORD *a5)
 {
   unsigned __int8 *v5; // ebp
   _DWORD *v6; // ebx

@@ -76,6 +76,18 @@ static void nox_game3_low_free(void *address, size_t size)
   if ( address )
     munmap(address, mapped);
 }
+
+static void *nox_game3_low_realloc(void *address, size_t old_size, size_t new_size)
+{
+  void *result = nox_game3_low_alloc(new_size);
+
+  if ( result == MAP_FAILED )
+    return 0;
+  if ( address && old_size )
+    memcpy(result, address, old_size < new_size ? old_size : new_size);
+  nox_game3_low_free(address, old_size);
+  return result;
+}
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -9461,13 +9473,23 @@ LPVOID sub_4AE540()
 
   if ( *(_DWORD *)&byte_5D4594[3798632] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798632],
+                       4u * *(unsigned int *)&byte_5D4594[3801788]);
+#else
     free(*(LPVOID *)&byte_5D4594[3798632]);
+#endif
     *(_DWORD *)&byte_5D4594[3798632] = 0;
   }
-  result = *(LPVOID *)&byte_5D4594[3798644];
+  result = (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[3798644];
   if ( *(_DWORD *)&byte_5D4594[3798644] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798644],
+                       *(unsigned int *)&byte_5D4594[3801788] << 6);
+#else
     free(*(LPVOID *)&byte_5D4594[3798644]);
+#endif
     *(_DWORD *)&byte_5D4594[3798644] = 0;
   }
   return result;
@@ -9946,13 +9968,39 @@ int __cdecl sub_4AEDA0(int *a1, int *a2, int a3, int a4)
 void *sub_4AEDF0()
 {
   void *result; // eax
+#if UINTPTR_MAX > UINT32_MAX
+  void *v1;
+  unsigned int count = *(unsigned int *)&byte_5D4594[3801788];
+#endif
 
+#if UINTPTR_MAX > UINT32_MAX
+  v1 = nox_game3_low_alloc(4u * count);
+  if ( v1 == MAP_FAILED )
+    v1 = 0;
+  *(_DWORD *)&byte_5D4594[3798632] = (uintptr_t)v1;
+  result = v1;
+#else
   result = malloc(4 * *(_DWORD *)&byte_5D4594[3801788]);
   *(_DWORD *)&byte_5D4594[3798632] = result;
+#endif
   if ( result )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    v1 = nox_game3_low_alloc(count << 6);
+    if ( v1 == MAP_FAILED )
+      v1 = 0;
+    *(_DWORD *)&byte_5D4594[3798644] = (uintptr_t)v1;
+    result = (void *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798644];
+    if ( !result )
+    {
+      nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798632],
+                         4u * count);
+      *(_DWORD *)&byte_5D4594[3798632] = 0;
+    }
+#else
     *(_DWORD *)&byte_5D4594[3798644] = malloc(*(_DWORD *)&byte_5D4594[3801788] << 6);
     result = (void *)(*(_DWORD *)&byte_5D4594[3798644] != 0);
+#endif
   }
   return result;
 }
@@ -10651,15 +10699,41 @@ int __cdecl sub_4AF8C0(_DWORD *a1)
 int sub_4AF8D0()
 {
   unsigned __int8 *v1; // eax
+#if UINTPTR_MAX > UINT32_MAX
+  void *v2;
+#endif
 
   *(_DWORD *)&byte_5D4594[3798628] = &byte_587000[174348];
   *(_DWORD *)&byte_5D4594[1311148] = 512;
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = nox_game3_low_alloc(0x200u * 0x88u);
+  if ( v2 == MAP_FAILED )
+    *(_DWORD *)&byte_5D4594[1311140] = 0;
+  else
+    *(_DWORD *)&byte_5D4594[1311140] = (uintptr_t)v2;
+#else
   *(_DWORD *)&byte_5D4594[1311140] = calloc(0x200u, 0x88u);
+#endif
   if ( !*(_DWORD *)&byte_5D4594[1311140] )
     return 0;
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = nox_game3_low_alloc(0x200u);
+  if ( v2 == MAP_FAILED )
+    *(_DWORD *)&byte_5D4594[1311144] = 0;
+  else
+    *(_DWORD *)&byte_5D4594[1311144] = (uintptr_t)v2;
+#else
   *(_DWORD *)&byte_5D4594[1311144] = calloc(0x200u, 1u);
+#endif
   if ( !*(_DWORD *)&byte_5D4594[1311144] )
+  {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[1311140],
+                       0x200u * 0x88u);
+    *(_DWORD *)&byte_5D4594[1311140] = 0;
+#endif
     return 0;
+  }
   v1 = &byte_5D4594[1311160];
   do
   {
@@ -10680,13 +10754,23 @@ LPVOID sub_4AF950()
 
   if ( *(_DWORD *)&byte_5D4594[1311140] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[1311140],
+                       136u * *(unsigned int *)&byte_5D4594[1311148]);
+#else
     free(*(LPVOID *)&byte_5D4594[1311140]);
+#endif
     *(_DWORD *)&byte_5D4594[1311140] = 0;
   }
   result = *(LPVOID *)&byte_5D4594[1311144];
   if ( *(_DWORD *)&byte_5D4594[1311144] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[1311144],
+                       *(unsigned int *)&byte_5D4594[1311148]);
+#else
     free(*(LPVOID *)&byte_5D4594[1311144]);
+#endif
     *(_DWORD *)&byte_5D4594[1311144] = 0;
   }
   *(_DWORD *)&byte_5D4594[1311148] = 0;
@@ -11464,12 +11548,24 @@ int __cdecl sub_4B0220(size_t a1)
   int result; // eax
 
   v1 = a1 - *(_DWORD *)&byte_5D4594[1311148];
-  result = realloc(*(LPVOID *)&byte_5D4594[1311140], 136 * a1);
+#if UINTPTR_MAX > UINT32_MAX
+  result = (int)(uintptr_t)nox_game3_low_realloc(
+    (void *)(uintptr_t)*(unsigned int *)&byte_5D4594[1311140],
+    136u * *(unsigned int *)&byte_5D4594[1311148], 136u * a1);
+#else
+  result = (int)(uintptr_t)realloc(*(LPVOID *)&byte_5D4594[1311140], 136 * a1);
+#endif
   if ( result )
   {
     *(_DWORD *)&byte_5D4594[1311140] = result;
     memset((void *)(result + 136 * *(_DWORD *)&byte_5D4594[1311148]), 0, 136 * v1);
-    result = realloc(*(LPVOID *)&byte_5D4594[1311144], a1);
+#if UINTPTR_MAX > UINT32_MAX
+    result = (int)(uintptr_t)nox_game3_low_realloc(
+      (void *)(uintptr_t)*(unsigned int *)&byte_5D4594[1311144],
+      *(unsigned int *)&byte_5D4594[1311148], a1);
+#else
+    result = (int)(uintptr_t)realloc(*(LPVOID *)&byte_5D4594[1311144], a1);
+#endif
     if ( result )
     {
       *(_DWORD *)&byte_5D4594[1311144] = result;

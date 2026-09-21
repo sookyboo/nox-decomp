@@ -198,6 +198,18 @@ write the original slot. This removes the native libc fault that occurred
 immediately after the completed `CapFlag.nxz` transfer was reopened by the
 production map parser.
 
+The next map-loader cleanup boundary is also layout-sensitive. The compressed
+video decoder receives a host pointer through `sub_578C10()`/
+`sub_57EA80()`, so native callers pass `uintptr_t`; its recovered fixed-offset
+allocation fields are still 32-bit addresses and are freed through the native
+low-address legacy allocator. `sub_430DB0()`/`sub_430EC0()` keep the screenshot
+buffer in a native sidecar, while the map object table and font/range table
+used by `sub_4AF8D0()`/`sub_4B0220()` and `sub_4AEDF0()`/`sub_49F500()` are
+allocated below 4 GiB because consumers directly dereference their recovered
+DWORD slots. The stock `CapFlag` transfer probe now reaches the existing
+loader fatal-error path without the former native invalid-pointer crashes;
+i386 retains the original layout and allocator behavior.
+
 ## Compatibility rule
 
 When fixing another startup failure, first classify the value:

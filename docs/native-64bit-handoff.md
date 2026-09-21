@@ -277,6 +277,20 @@ After the latest source changes:
   `nox_log_file` sidecar, while i386 preserves the recovered slot. The native
   startup comparison now passes `sub_4101D0()` and opens `window/MainMenu.wnd`;
   the i386 comparison still stops at its known later `sub_4101D0()` fault.
+- the stock map-transfer probe then exposed four more recovered-pointer
+  boundaries. The compressed-video input passed to `sub_578C10()`/
+  `sub_57EA80()` is now `uintptr_t`; their fixed-layout cleanup paths rebuild
+  low 32-bit allocation addresses before freeing them. The screenshot buffer
+  owned by `sub_430DB0()`/`sub_430EC0()` uses a native sidecar, while the map
+  object tables owned by `sub_4AF8D0()`/`sub_4B0220()` and the font/range table
+  owned by `sub_4AEDF0()`/`sub_49F500()` use low-address storage because their
+  consumers still read recovered DWORD slots. The i386 paths retain the
+  original allocations and slot behavior.
+- With those fixes, a native GDB probe using the stock built-in `CapFlag.map`
+  and an exact-size transfer reaches the existing map-loader fatal
+  error/reporting path without a native SIGSEGV. The probe is diagnostic: it
+  does not claim successful map activation, and it does not use a reloaded-EUD
+  map.
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written

@@ -98,6 +98,15 @@ or EUD map: after the main menu opens, the production control-server command
 The probe does not claim map activation or peer-supplied transfer completion;
 those still require the map package and normal network lifecycle to finish.
 
+The next native transfer-to-loader probe injects the exact stock
+`CapFlag.map` bytes through the production map-download loop. It now passes
+the compressed-input pointer boundary, screenshot cleanup, map-object-table
+cleanup, font/range-table cleanup, and fixed-layout video-decoder cleanup
+without a SIGSEGV. The probe ends at the existing map-loader fatal-error /
+reporting path because this synthetic checkpoint does not provide the complete
+map lifecycle. This comparison uses only the stock built-in `CapFlag` fixture;
+no reloaded-EUD map is required.
+
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.
 Those writes overlapped the adjacent path strings used by `sub_4AC2B0()`;

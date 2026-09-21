@@ -44350,6 +44350,18 @@ static void nox_486_low_free(void *address, size_t size)
   mapped_size = (size + page_size - 1) & ~(page_size - 1);
   munmap(address, mapped_size);
 }
+
+static void *nox_49f_low_realloc(void *address, size_t old_size, size_t new_size)
+{
+  void *result = nox_486_low_alloc(new_size);
+
+  if ( !result )
+    return 0;
+  if ( address && old_size )
+    memcpy(result, address, old_size < new_size ? old_size : new_size);
+  nox_486_low_free(address, old_size);
+  return result;
+}
 #endif
 
 LPVOID sub_486110()
@@ -63653,19 +63665,27 @@ BOOL sub_49F4A0()
 {
   *(_DWORD *)&byte_5D4594[1305724] = 32;
   *(_DWORD *)&byte_5D4594[3798692] = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  *(_DWORD *)&byte_5D4594[3798696] = (uintptr_t)nox_486_low_alloc(0x20u * 8u);
+#else
   *(_DWORD *)&byte_5D4594[3798696] = calloc(0x20u, 8u);
+#endif
   return *(_DWORD *)&byte_5D4594[3798696] != 0;
 }
 
 //----- (0049F4D0) --------------------------------------------------------
 LPVOID sub_49F4D0()
 {
-  LPVOID result; // eax
+  LPVOID result = (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[3798696];
 
-  result = *(LPVOID *)&byte_5D4594[3798696];
   if ( *(_DWORD *)&byte_5D4594[3798696] )
   {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_486_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798696],
+                     (size_t)*(unsigned int *)&byte_5D4594[1305724] * 8u);
+#else
     free(*(LPVOID *)&byte_5D4594[3798696]);
+#endif
     *(_DWORD *)&byte_5D4594[3798696] = 0;
     *(_DWORD *)&byte_5D4594[3798692] = 0;
   }
@@ -63678,7 +63698,14 @@ int __cdecl sub_49F500(int a1, int a2)
   if ( *(_DWORD *)&byte_5D4594[3798692] >= *(int *)&byte_5D4594[1305724] )
   {
     *(_DWORD *)&byte_5D4594[1305724] += 16;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    *(_DWORD *)&byte_5D4594[3798696] = (uintptr_t)nox_49f_low_realloc(
+      (void *)(uintptr_t)*(unsigned int *)&byte_5D4594[3798696],
+      8u * (size_t)(*(unsigned int *)&byte_5D4594[1305724] - 16u),
+      8u * (size_t)*(unsigned int *)&byte_5D4594[1305724]);
+#else
     *(_DWORD *)&byte_5D4594[3798696] = realloc(*(LPVOID *)&byte_5D4594[3798696], 8 * *(_DWORD *)&byte_5D4594[1305724]);
+#endif
   }
   *(_DWORD *)(*(_DWORD *)&byte_5D4594[3798696] + 8 * *(_DWORD *)&byte_5D4594[3798692]) = a1;
   *(_DWORD *)(*(_DWORD *)&byte_5D4594[3798696] + 8 * *(_DWORD *)&byte_5D4594[3798692] + 4) = a2;
