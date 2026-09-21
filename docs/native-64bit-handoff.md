@@ -358,6 +358,12 @@ under `build-deps/gamefiles/app`; a failed hash check means the fixture must be
 restored before interpreting another map result. This workflow deliberately
 does not use maps that require reloaded EUD support.
 
+Before a headless gameplay probe, stop any prior `out`, `xvfb-run`, or GDB
+processes. An orphaned process can retain the control port or consume the
+shared X display and make UI macro timing appear to be a native gameplay bug.
+Use one bounded process group per probe and verify that the target has exited
+before starting the 32-bit comparison.
+
 ## Reproduce the native server-startup smoke test
 
 Run from the extracted game-data directory:

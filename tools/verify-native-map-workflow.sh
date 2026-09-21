@@ -40,6 +40,12 @@ check_hash() {
 check_elf "${repo_dir}/build-amd64/src/out" 'x86-64' 'amd64 target'
 check_elf "${repo_dir}/build-i386/src/out" 'Intel i386' 'i386 target'
 
+for target in "${repo_dir}/build-amd64/src/out" "${repo_dir}/build-i386/src/out"; do
+    if pgrep -f -- "$target" >/dev/null 2>&1; then
+        die "target is already running: $target (stop stale game/GDB processes first)"
+    fi
+done
+
 # CapFlag is a built-in stock fixture.  Keep this workflow independent of
 # reloaded EUD maps and fail loudly if a probe left the game data modified.
 check_hash "${app_dir}/maps/CapFlag/CapFlag.map" \
