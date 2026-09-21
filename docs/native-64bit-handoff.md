@@ -386,7 +386,7 @@ env ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   gdb -q -batch -ex 'set pagination off' -ex run -ex bt --args \
-  ../../../build-amd64/src/out -serveronly Estate
+  ../../../build-amd64/src/out -serveronly CapFlag
 ```
 
 ## Recommended next steps

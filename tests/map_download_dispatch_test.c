@@ -145,6 +145,46 @@ cleanup:
     return success;
 }
 
+static int map_transfer_completion_test(void)
+{
+    char original[PATH_MAX];
+    char temporary[] = "/tmp/nox-map-completion-XXXXXX";
+    char transfer_name[] = "maps\\Fixture\\Fixture.nxz";
+    unsigned char payload[] = {'A', 'B', 'C', 'D'};
+    unsigned char output[sizeof(payload)];
+    FILE *file;
+    int success = 0;
+
+    if (!getcwd(original, sizeof(original)) || !mkdtemp(temporary) ||
+        chdir(temporary) != 0)
+        return 0;
+    if (!sub_4ABAD0(transfer_name, sizeof(payload)))
+        goto cleanup;
+
+    /* The final chunk must close the temporary package and publish the
+     * completed-transfer state without caller-side cleanup. */
+    sub_4AB7C0(1, payload, sizeof(payload));
+    if (*(uint32_t *)&byte_587000[173328] != 0 ||
+        *(uint32_t *)&byte_587000[173332] != 1)
+        goto cleanup;
+
+    file = fopen("maps/Fixture/Fixture.nxz", "rb");
+    if (!file || fread(output, 1, sizeof(output), file) != sizeof(output))
+        goto cleanup;
+    fclose(file);
+    success = memcmp(output, payload, sizeof(output)) == 0;
+    remove("maps/Fixture/Fixture.nxz");
+
+cleanup:
+    if (!success)
+        sub_4AB720();
+    rmdir("maps/Fixture");
+    rmdir("maps");
+    chdir(original);
+    rmdir(temporary);
+    return success;
+}
+
 int main(void)
 {
     size_t network_record_args[10] = {0};
@@ -164,6 +204,8 @@ int main(void)
     if (!map_file_transfer_test())
         return 1;
     if (!map_packet_transfer_test())
+        return 1;
+    if (!map_transfer_completion_test())
         return 1;
 
     /* A real transfer creates this production connection record before the

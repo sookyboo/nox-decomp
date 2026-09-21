@@ -61,6 +61,12 @@ temporary destination and restores the stock map files. The production parser
 test covers 1,024-byte synthetic chunks; the GDB packet injector remains
 diagnostic and stalls for larger synthetic calls.
 
+The regression also covers the production completion transition: the final
+`0xB9` chunk closes the temporary package and publishes the success state
+without caller-side cleanup. This is checked on both i386 and native amd64;
+manual `sub_4AB580()` cleanup remains covered for interrupted or test-fixture
+transfers.
+
 The loader's `FADEBEEF`/`FADEFACE` header check applies to the stock `.map`
 file, not its companion `.nxz` script package. The `.nxz` files begin with a
 four-byte uncompressed payload length, so decoding that field is not a valid
