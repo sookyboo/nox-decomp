@@ -8100,8 +8100,15 @@ char *__cdecl sub_4AC2B0(char *a1)
     _splitpath(a1, &v3, v11, v13, v16);
     if ( !strlen(v11) )
     {
+#if UINTPTR_MAX > UINT32_MAX
+      /* These recovered table entries are four-byte pointer slots.  The
+       * native startup table cannot hold a host-width pointer in them. */
+      strcpy(v11, (const char *)&byte_587000[173424]);
+      strcat(v11, (const char *)&byte_587000[173440]);
+#else
       strcpy(v11, *(const char **)&byte_587000[173412]);
       strcat(v11, *(const char **)&byte_587000[173420]);
+#endif
       strcat(v11, v13);
     }
     _makepath(FileName, &v3, v11, v13, v16);

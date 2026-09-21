@@ -214,16 +214,23 @@ After the latest source changes:
   finalization. Both the recovered 32-bit queue and the native sidecar queue
   now search for the next expected sequence, and the same fixture passes on
   i386 and x86_64;
-- a rebuilt native executable was also exercised through the real
-  `map_download_loop()`/`map_download_finish()` path with the stock
+- the native map-loader crash after transfer was traced to the startup table:
+  its three recovered four-byte pointer slots at offsets `173412`, `173416`,
+  and `173420` were widened to eight-byte writes, corrupting the adjacent
+  strings and later causing `sub_4AC2B0()` to dereference an invalid pointer.
+  Native startup now leaves those legacy writes disabled, and the loader reads
+  the underlying in-blob strings directly; the i386 pointer-table behavior is
+  unchanged;
+- a rebuilt native executable was exercised through the real
+  `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
-  to a temporary fixture, finalized, and the main loop entered
-  `sub_4AC2B0()` for the fixture map. The original `CapFlag` files were
-  restored byte-for-byte after the probe. This validates the native file
-  consumer and map-loader handoff, but is not a peer/network-transfer test;
-  the temporary GDB packet injector still stalls for larger synthetic calls,
-  although the production parser fixture now covers 1,024-byte `0xB9`
-  payloads on both architectures;
+  and finalized, and `sub_4AC2B0()` opened the stock-basename package and
+  returned without a signal. The probe currently returns the loader's failure
+  result rather than activating gameplay, so successful map activation and a
+  peer/network transfer remain unverified. The original `CapFlag` files were
+  restored byte-for-byte after the probe. The temporary GDB packet injector
+  still stalls for larger synthetic calls, although the production parser
+  fixture covers 1,024-byte `0xB9` payloads on both architectures;
 - the callback transport regression invokes the production tick-callback
   storage on both architectures: the native build uses its host-width
   sidecar, while i386 uses the recovered callback slot;
@@ -235,8 +242,10 @@ After the latest source changes:
   map-dispatch smoke reaches `map_download_start()` and renders
   `window/mapdnld.wnd`, the deterministic transfer regression verifies the
   production parser and file consumer with ordered chunks, and the bounded
-  native runtime probe now verifies the finalized loader handoff. A complete
-  network transfer assertion still requires a supplied map service or fixture.
+  native runtime probe now verifies the finalized file reaches the loader
+  without the former native pointer crash. Successful map activation and a
+  complete network transfer assertion still require a supplied map service or
+  fixture.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
