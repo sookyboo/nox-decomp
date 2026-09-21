@@ -19613,10 +19613,10 @@ int __thiscall sub_57EA60(_DWORD *this)
   *(unsigned int *)(base + 4) = 0;
   return sub_57E970((void **)(base + 8));
 #else
-  *(_DWORD *)(this + 148) = 0;
-  *(_DWORD *)(this + 144) = 0;
-  *(_DWORD *)(this + 4) = 0;
-  return sub_57E970((void **)(this + 8));
+  *(_DWORD *)((unsigned char *)this + 148) = 0;
+  *(_DWORD *)((unsigned char *)this + 144) = 0;
+  *(_DWORD *)((unsigned char *)this + 4) = 0;
+  return sub_57E970((void **)((unsigned char *)this + 8));
 #endif
 }
 

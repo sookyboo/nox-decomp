@@ -125,3 +125,10 @@ the pointer from the slot before dereferencing it; callback addresses require
 the same reconstruction. The current remaining divergence is a later
 out-of-bounds read at the end of the decoded video buffer. This comparison uses
 the stock built-in `CapFlag` map only; no reloaded/EUD map is required.
+
+The 32-bit comparison also exposed a decompiler typing trap in
+`sub_57EA60()`: its recovered fields are byte offsets, although the generated
+parameter was typed as `_DWORD *`. Using `_DWORD` indexing passed the parser
+reset object at the wrong address and made `sub_57DDD0()` clear `0xc` as a
+pointer. The byte-offset form preserves the recovered layout on i386 and lets
+the stock probe reach `window/MainMenu.wnd`.
