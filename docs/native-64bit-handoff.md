@@ -172,9 +172,9 @@ After the latest source changes:
 - native x86_64 target `out` builds successfully;
 - native x86_64 CTest in `build-amd64`: 28/28 passed, including the callback
   transport regression and the map-download dispatch regression;
-- the source i386 target still has unrelated pre-existing compile errors in
-  `GAME1.c`; the regular-flow comparison therefore uses the existing i386
-  binary in `build-i386/src/out`;
+- i386 CTest in `build-i386`: 39/39 passed, including the same map-download
+  dispatch regression; the executable is the existing 32-bit target in
+  `build-i386/src/out`;
 - the 32-bit trace reaches `macro end: startMultiplayerNetworkHost`,
   `macro end: newMultiNewCharacterWarrior`, `macro end: chatScreenPopUpClickOk`,
   `macro end: chatScreenServerName`, and then continues into
@@ -210,7 +210,9 @@ After the latest source changes:
 - the map-file consumer now keeps native `FILE *`/path state in sidecars and
   uses low-address storage for its recovered chunk queue; the regression
   verifies non-FIFO chunks (`3,2,1`) are searched and written in sequence
-  before finalization;
+  before finalization. The same fixture passes on i386 and x86_64, so the
+  recovered 32-bit queue behavior is unchanged while the native sidecar path
+  is exercised;
 - the native server-startup smoke now reaches `defaultServerGame` and the end
   of the scripted `server` macro after loading `gamedata.bin` and
   `monster.bin`; this verifies the native path through the server gameplay
@@ -226,6 +228,13 @@ OpenGL support, and `gdb`. The comparison command below remains diagnostic
 because a timeout does not prove that the native process entered a game. The
 map-dispatch smoke additionally enables `NOX_TRACE_MAP_DOWNLOAD=1` and checks
 for `map_download_start()` followed by `window/mapdnld.wnd`.
+
+To compare the focused transfer boundary on both architectures:
+
+```sh
+ctest --test-dir build-i386 -R map_download_dispatch_test --output-on-failure
+ctest --test-dir build-amd64 -R map_download_dispatch_test --output-on-failure
+```
 
 ## Reproduce the native server-startup smoke test
 
