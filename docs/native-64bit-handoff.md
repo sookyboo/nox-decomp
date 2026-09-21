@@ -214,6 +214,16 @@ After the latest source changes:
   finalization. Both the recovered 32-bit queue and the native sidecar queue
   now search for the next expected sequence, and the same fixture passes on
   i386 and x86_64;
+- a rebuilt native executable was also exercised through the real
+  `map_download_loop()`/`map_download_finish()` path with the stock
+  `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
+  to a temporary fixture, finalized, and the main loop entered
+  `sub_4AC2B0()` for the fixture map. The original `CapFlag` files were
+  restored byte-for-byte after the probe. This validates the native file
+  consumer and map-loader handoff, but is not a peer/network-transfer test;
+  the temporary GDB packet injector stalls when a synthetic `0xB9` call carries
+  more than the small packet sizes already covered by the production parser
+  fixture;
 - the callback transport regression invokes the production tick-callback
   storage on both architectures: the native build uses its host-width
   sidecar, while i386 uses the recovered callback slot;
@@ -223,9 +233,10 @@ After the latest source changes:
   handoff without a signal before the controlled timeout;
 - this still does not prove a complete peer-supplied map transfer. The
   map-dispatch smoke reaches `map_download_start()` and renders
-  `window/mapdnld.wnd`, while the deterministic transfer regression verifies
-  the production file consumer with ordered chunks. A complete network
-  transfer assertion still requires a supplied map service or fixture.
+  `window/mapdnld.wnd`, the deterministic transfer regression verifies the
+  production parser and file consumer with ordered chunks, and the bounded
+  native runtime probe now verifies the finalized loader handoff. A complete
+  network transfer assertion still requires a supplied map service or fixture.
 
 The headless dependencies are installed: `xvfb`, `xauth`, Mesa software
 OpenGL support, and `gdb`. The comparison command below remains diagnostic
