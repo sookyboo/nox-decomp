@@ -77,11 +77,11 @@ no reloaded/EUD map is needed for this investigation.
 
 After the section-dispatch sidecar fix, the headless native probe reaches the
 stock built-in `CapFlag.map` header and `ObjectData` callback without the prior
-pointer-table crash. It still returns failure because the `-serveronly`
-checkpoint used by the probe has not populated the object-ID table required by
-`sub_4AC610()`. The same checkpoint on i386 also has an empty table and fails
-at the same callback, so this result is not evidence of a 64-bit-only loader
-regression.
+pointer-table crash. It still returns failure because the direct checkpoint has
+not populated the object-ID table required by `sub_4AC610()`. The corresponding
+i386 runtime probe stops earlier at its known `sub_410160()`/`sub_4101D0()`
+startup fault, so it does not provide an end-to-end callback comparison; the
+shared parser contract is covered by the parser-level regression instead.
 
 The stronger combined probe copies the stock `.map` into a temporary fixture,
 delivers the stock `.nxz` through `sub_4ABAD0()`/`sub_4AB7C0()` in 1,024-byte

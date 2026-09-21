@@ -237,9 +237,10 @@ After the latest source changes:
   a host-width sidecar for `sub_426E20()`, `sub_426EA0()`, and
   `sub_426F40()`, while i386 retains the recovered table. A headless GDB probe
   against the stock built-in `CapFlag.map` now passes the header and reaches
-  `ObjectData` dispatch, but the `-serveronly` checkpoint has not populated the
-  object-ID table required by `sub_4AC610()`, so both amd64 and i386 return
-  failure at that callback;
+  `ObjectData` dispatch, but the direct native checkpoint has not populated the
+  object-ID table required by `sub_4AC610()`. The corresponding i386 runtime
+  probe stops earlier at its known `sub_410160()`/`sub_4101D0()` startup fault
+  and does not reach this callback;
 - a combined native probe copied the stock `CapFlag.map` into a temporary
   fixture, delivered the exact stock `CapFlag.nxz` through
   `sub_4ABAD0()`/`sub_4AB7C0()` in 1,024-byte chunks, verified the finalized
@@ -322,6 +323,12 @@ After the latest source changes:
   of the scripted `server` macro after loading `gamedata.bin` and
   `monster.bin`; this verifies the native path through the server gameplay
   handoff without a signal before the controlled timeout;
+- the clean native server UI trace enters `sub_4D1630()` with both server-mode
+  flags set, but the direct `load CapFlag` checkpoint does not enter
+  `sub_4D1660()` or `sub_42BF10()` first. Calling `sub_4D1660()` manually at
+  that point faults in `sub_414DB0()` because later gameplay preconditions are
+  absent; this is diagnostic evidence, not a production workaround. The
+  object table must be created by the normal state-machine ordering;
 - this still does not prove a complete peer-supplied map transfer. The
   map-dispatch smoke reaches `map_download_start()` and renders
   `window/mapdnld.wnd`, the deterministic transfer regression verifies the
