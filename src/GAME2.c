@@ -4021,7 +4021,20 @@ int sub_4519C0()
           sub_486520((unsigned int *)(v1 + 184));
           if ( *(_DWORD *)(v1 + 28) != 4 )
           sub_451BE0(v1);
+#if UINTPTR_MAX > UINT32_MAX
+          v2 = nox_native_pointer_from_32(*(unsigned int *)v1);
+          // A recovered DWORD list can leave an orphaned singleton after a
+          // state callback; do not spin forever waiting for the high address
+          // sentinel that the original 32-bit image used.
+          if ( v2 == v1 )
+          {
+            v1 = (uintptr_t)&byte_5D4594[840612];
+            break;
+          }
+          v1 = v2;
+#else
           v1 = nox_native_pointer_from_32(*(unsigned int *)v1);
+#endif
         }
         while ( (unsigned __int8 *)v1 != &byte_5D4594[840612] );
 #if UINTPTR_MAX > UINT32_MAX
@@ -4034,10 +4047,26 @@ int sub_4519C0()
           do
           {
             sub_452510(v1);
+#if UINTPTR_MAX > UINT32_MAX
+            v2 = nox_native_pointer_from_32(*(unsigned int *)v1);
+            if ( v2 == v1 )
+            {
+              v1 = (uintptr_t)&byte_5D4594[840612];
+              break;
+            }
+            v1 = v2;
+#else
             v1 = nox_native_pointer_from_32(*(unsigned int *)v1);
+#endif
           }
           while ( (unsigned __int8 *)v1 != &byte_5D4594[840612] );
+#if UINTPTR_MAX > UINT32_MAX
+          // The SoundSet list head remains a recovered DWORD slot on native
+          // builds; reconstruct its low-address value before the next pass.
+          v1 = nox_native_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+#else
           v1 = *(_DWORD *)&byte_5D4594[840612];
+#endif
         }
       }
       v3 = 0;
@@ -4082,6 +4111,10 @@ LABEL_35:
         do
         {
           v7 = nox_native_pointer_from_32(*(unsigned int *)v6);
+#if UINTPTR_MAX > UINT32_MAX
+          if ( v7 == v6 )
+            v7 = (uintptr_t)&byte_5D4594[840612];
+#endif
           result = *((_DWORD *)v6 + 7);
           if ( result == 1 )
           {
@@ -4095,6 +4128,10 @@ LABEL_35:
                 if ( !sub_452120((int)v6) )
                   break;
                 v7 = nox_native_pointer_from_32(*(unsigned int *)v6);
+#if UINTPTR_MAX > UINT32_MAX
+                if ( v7 == v6 )
+                  v7 = (uintptr_t)&byte_5D4594[840612];
+#endif
                 sub_451DC0((int)v6);
                 v9 = sub_451CA0(v6);
                 *((_DWORD *)v6 + 74) = v9;
@@ -4569,12 +4606,21 @@ int *__cdecl sub_452120(int a1)
   if ( result )
   {
     sub_452190((int)result);
+#if UINTPTR_MAX > UINT32_MAX
+    v4 = (unsigned __int8 *)nox_native_pointer_from_32(*(unsigned int *)&byte_5D4594[840612]);
+    if ( (uintptr_t)v4 != (uintptr_t)&byte_5D4594[840612] )
+#else
     v4 = *(unsigned __int8 **)&byte_5D4594[840612];
     if ( *(unsigned __int8 **)&byte_5D4594[840612] != &byte_5D4594[840612] )
+#endif
     {
       do
       {
+#if UINTPTR_MAX > UINT32_MAX
+        v5 = (unsigned __int8 *)nox_native_pointer_from_32(*(unsigned int *)v4);
+#else
         v5 = *(unsigned __int8 **)v4;
+#endif
         if ( *((int **)v4 + 9) == v3 )
         {
           sub_4523D0(v4);

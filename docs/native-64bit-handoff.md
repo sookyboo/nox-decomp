@@ -565,6 +565,20 @@ and a native dispatch sidecar; its COLOR lookup similarly shadows only the
 pointer table, not the returned index. The class and damage-type lookups use
 the same sidecar rule, and `sub_412ED0()` now preserves the same record/list
 contract as `sub_412D40()`.
+
+`sub_4519C0()` is the per-frame SoundSet update called from `mainloop`: it
+advances each SoundSet state, updates its audio timing, and returns the status
+used by the frame before `sub_4312C0()` runs. Its recovered list head and links
+are DWORD slots, so native code must reconstruct them before every traversal.
+The second traversal previously reloaded the head as a native pointer, and a
+later callback still read the head and next link with native-width pointer
+loads. After the server screen opened, that could leave the main loop spinning
+on an orphaned singleton instead of reaching the next event-pump call. Native
+now reconstructs those links and terminates a self-linked recovered node for
+the current frame; the i386 path retains the original sentinel traversal.
+This role and root cause are based on the native trace; positive gameplay
+connection success remains unproven.
+
 Native shutdown keeps the modifier and property-list heads separate from the
 packed image slots and avoids walking fixed-width auxiliary teardown lists
 whose adjacent 32-bit slots cannot encode a host pointer; those allocations
