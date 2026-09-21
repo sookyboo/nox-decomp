@@ -365,6 +365,11 @@ After the latest source changes:
   object-callback lookup before `sub_4E3470()` stores it. The object callback
   itself is retained in a native sidecar and all gameplay callers use the
   widened accessor; i386 continues to read the recovered slots directly;
+- the post-fix bounded native amd64 server probe reaches the production
+  `sub_415470('thing.bin')` parser and continues through `sub_4101D0()` and
+  `sub_410F60()` without a callback-table fault. It still stops at the known
+  pre-connection UI boundary, so this verifies parser startup only and does
+  not establish successful map activation;
 - calling only `sub_42BF10()` at the map window allocates a one-entry table
   from the server registry (`count=1`) but does not activate the stock map;
   calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These
