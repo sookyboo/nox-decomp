@@ -41,11 +41,13 @@ so a future high-address regression fails at the owning network boundary.
 The file-transfer consumer is `sub_4ABAD0()` → `sub_4AB7C0()`. The first
 function opens the temporary map package and establishes the expected chunk
 sequence; the second writes an in-order chunk immediately, queues an
-out-of-order chunk, and drains the queue when its sequence becomes current.
+out-of-order chunk, and drains whichever queued chunk has the next expected
+sequence. The queue is not assumed to be FIFO: network arrival order such as
+`3,2,1` is valid and is covered by the fixture.
 `sub_4AB580()` finalizes the temporary file, while `sub_4AB720()` aborts and
 deletes it. Native builds keep the `FILE *`, path, queue head/tail, and queued
 payloads in host-width sidecars/low-address storage; the test fixture sends
-sequences `3`, `1`, and `2` and verifies the resulting file bytes are ordered.
+sequences `3`, `2`, and `1` and verifies the resulting file bytes are ordered.
 
 Run it with:
 

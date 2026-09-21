@@ -7580,10 +7580,13 @@ void __cdecl sub_4AB7C0(unsigned __int16 a1, void *a2, size_t a3)
       nox_map_download_queue_head = node;
     nox_map_download_queue_tail = node;
   }
-  while ( nox_map_download_queue_head &&
-          *(_DWORD *)&byte_587000[173336] == *(uint16_t *)nox_map_download_queue_head )
+  for ( ;; )
   {
     node = nox_map_download_queue_head;
+    while ( node && *(_DWORD *)&byte_587000[173336] != *(uint16_t *)node )
+      node = (unsigned char *)(uintptr_t)*(uint32_t *)(node + 12);
+    if ( !node )
+      break;
     payload = (void *)(uintptr_t)*(uint32_t *)(node + 4);
     a3 = *(uint32_t *)(node + 8);
     fwrite(payload, a3, 1u, nox_map_download_file);

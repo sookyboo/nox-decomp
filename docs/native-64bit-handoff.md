@@ -209,7 +209,8 @@ After the latest source changes:
   dispatching a high-bit transfer packet;
 - the map-file consumer now keeps native `FILE *`/path state in sidecars and
   uses low-address storage for its recovered chunk queue; the regression
-  verifies out-of-order chunks are written in sequence before finalization;
+  verifies non-FIFO chunks (`3,2,1`) are searched and written in sequence
+  before finalization;
 - the native server-startup smoke now reaches `defaultServerGame` and the end
   of the scripted `server` macro after loading `gamedata.bin` and
   `monster.bin`; this verifies the native path through the server gameplay

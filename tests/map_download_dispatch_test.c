@@ -49,8 +49,8 @@ static int map_file_transfer_test(void)
     /* Keep completion/UI callbacks out of this focused file fixture. */
     *(uint32_t *)&byte_5D4594[1309764] = 0;
     sub_4AB7C0(3, third, sizeof(third));
-    sub_4AB7C0(1, first, sizeof(first));
     sub_4AB7C0(2, second, sizeof(second));
+    sub_4AB7C0(1, first, sizeof(first));
     sub_4AB580();
 
     file = fopen("maps/Fixture/Fixture.nxz", "rb");
