@@ -53,15 +53,13 @@ test fixture drives `sub_48EA70()` with `0xB8` and `0xB9` messages, sends
 sequences `3`, `2`, and `1`, and verifies the resulting file bytes are ordered
 on both i386 and x86_64.
 
-The native runtime boundary has also been exercised with the exact stock
-`CapFlag.nxz` bytes: a temporary transfer wrote and finalized all 79,398 bytes,
-and the real `map_download_loop()` reached `sub_4AC2B0()` through
-`map_download_finish()` without the former native pointer crash. The loader
-currently returns its failure result rather than activating gameplay, so this
-does not claim successful map activation or a complete peer/network transfer.
-The probe uses a temporary destination and restores the stock map files. The
-production parser test covers 1,024-byte synthetic chunks; the GDB packet
-injector remains diagnostic and stalls for larger synthetic calls.
+The native transfer boundary has also been exercised with the exact stock
+`CapFlag.nxz` bytes: a temporary transfer wrote and finalized all 79,398 bytes.
+That transfer-only probe does not establish map activation because `.nxz` is a
+script package, not the `.map` consumed by `sub_4AC2B0()`. The probe uses a
+temporary destination and restores the stock map files. The production parser
+test covers 1,024-byte synthetic chunks; the GDB packet injector remains
+diagnostic and stalls for larger synthetic calls.
 
 The loader's `FADEBEEF`/`FADEFACE` header check applies to the stock `.map`
 file, not its companion `.nxz` script package. The `.nxz` files begin with a
@@ -70,6 +68,12 @@ map-loader codec test. An earlier direct comparison used `CapFlag.nxz` and is
 discarded; a codec conclusion must use `CapFlag.map` or a self-contained map
 fixture. The stock `.map` and `.nxz` files are both ordinary built-in assets;
 no reloaded/EUD map is needed for this investigation.
+
+After the section-dispatch sidecar fix, a headless native probe initializes the
+normal startup state, opens the stock built-in `CapFlag.map`, and returns
+success from `sub_4AC2B0()`. This verifies the map-loader entry point through
+the `ObjectData` section on native Linux; it is narrower than a complete
+server/gameplay session.
 
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.

@@ -231,13 +231,12 @@ After the latest source changes:
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
-  and finalized, and `sub_4AC2B0()` opened the stock-basename package and
-  returned without a signal. The probe currently returns the loader's failure
-  result rather than activating gameplay, so successful map activation and a
-  peer/network transfer remain unverified. The original `CapFlag` files were
-  restored byte-for-byte after the probe. The temporary GDB packet injector
-  still stalls for larger synthetic calls, although the production parser
-  fixture covers 1,024-byte `0xB9` payloads on both architectures;
+  and finalized. Because `.nxz` is the companion script package rather than the
+  map file, that transfer-only probe is not map activation evidence. The
+  original `CapFlag` files were restored byte-for-byte after the probe. The
+  temporary GDB packet injector still stalls for larger synthetic calls,
+  although the production parser fixture covers 1,024-byte `0xB9` payloads on
+  both architectures;
 - the earlier direct codec comparison accidentally used the companion stock
   `.nxz` script package rather than the `.map` file consumed by
   `sub_4AC2B0()`. Because `.nxz` begins with its uncompressed payload length,
