@@ -33340,11 +33340,21 @@ int __cdecl sub_424170(char *a1)
     {
       while ( sub_409470(v2, v6) )
       {
-        v3 = calloc(1u, 0x54u);
+        v3 = (_DWORD *)NOX_MOD_ALLOC(0x54u);
+        if ( v3 )
+          memset(v3, 0, 0x54u);
+        if ( !v3 )
+          return 0;
         v3[19] = *(_DWORD *)&byte_5D4594[588120];
         v3[20] = 0;
         *(_DWORD *)&byte_5D4594[588120] = v3;
-        v4 = (char *)malloc(strlen(v6) + 1);
+        v4 = (char *)NOX_MOD_ALLOC(strlen(v6) + 1);
+        if ( !v4 )
+        {
+          *(_DWORD *)&byte_5D4594[588120] = v3[19];
+          NOX_MOD_FREE(v3, 0x54u);
+          return 0;
+        }
         *v3 = v4;
         strcpy(v4, v6);
         while ( sub_409470(v2, v6) && strcmp(v6, (const char *)&byte_587000[65184]) && sub_409470(v2, v7) )
@@ -33374,8 +33384,8 @@ void sub_4242C0()
     do
     {
       v1 = *(_DWORD *)(v0 + 76);
-      free(*(LPVOID *)v0);
-      free((LPVOID)v0);
+      NOX_MOD_FREE(*(LPVOID *)v0, strlen(*(const char **)v0) + 1);
+      NOX_MOD_FREE((LPVOID)v0, 0x54u);
       v0 = v1;
     }
     while ( v1 );

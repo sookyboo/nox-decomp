@@ -261,6 +261,15 @@ After the latest source changes:
   The probe reaches the same `sub_4D7C60()` registry precondition as i386;
   it is not a successful gameplay-session result because the direct checkpoint
   does not run the preceding `sub_4D1630()` registry setup.
+- the direct stock `CapFlag` startup comparison then isolated another native
+  loader boundary in `sub_424170()`: SoundSet records and names were allocated
+  with ordinary host-width `calloc()`/`malloc()` but retained in recovered
+  four-byte list links. Native code now uses the existing low-address legacy
+  allocator for those records and frees them with the matching size-aware
+  path; i386 keeps the original layout and allocator. After this fix amd64
+  completes `sub_415470()` and reaches `window/MainMenu.wnd`, matching the
+  i386 boundary. The later i386 `sub_4101D0()` crash remains a separate,
+  pre-existing comparison point.
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written

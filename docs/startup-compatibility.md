@@ -153,6 +153,9 @@ The control-server startup probe now also completes the native SoundSet and
 Modifier work, opens the title stream, and reaches `window/MainMenu.wnd` using
 the stock built-in `CapFlag` map selection. The audio subsystem retains its
 packed pool/list records and uses native handling at these boundaries:
+`sub_424170()` owns the SoundSet.bin name/record list; native allocation now
+keeps its recovered four-byte links valid below 4 GiB, and `sub_4242C0()` frees
+the same records through the matching low-address allocator.
 `sub_486A10()` decodes the packed SoundSet base pointer before `bsearch`,
 `sub_4BD2E0()`/`sub_425900()`/`sub_425920()` operate on DWORD links without
 host-width dereferences. The native `sub_425920()` path also addresses the
