@@ -373,6 +373,13 @@ After the latest source changes:
   creation boundary; the next probe must cover the subsequent UI event or
   control-macro progression that changes those records from their initial
   state.
+- the callback trace separates two event paths after the handoff: the
+  MainMenu `16391` events arrive through the generic `sub_4A7F50()`/window
+  dispatcher, while `sub_4AA4D0()` receives the server-screen construction
+  events (`1` and `22`). No server-screen `16391` was observed after
+  `window/ArnaMain.wnd` opened, including a post-load control-server click;
+  breakpoints on the generic dispatcher alone therefore cannot prove that the
+  server-screen action was accepted.
 - the native UI handoff itself is now traced through the production callback
   chain: MainMenu widget 112 dispatches event `16391` to the MainMenu
   callback, `sub_4D1630()` returns success, and transition callback
