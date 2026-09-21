@@ -360,6 +360,13 @@ After the latest source changes:
   macro therefore does not currently establish a positive connection-result
   transition; do not treat a bounded timeout at this point as successful
   gameplay initialization;
+- a transition-tick trace confirms that this bounded stop is not an idle
+  main-loop scheduler: `sub_43C380()` continues to run and the active
+  low-address transition records advance through their normal state values.
+  The older list head can remain at state `0` while newer server-screen
+  records are active, so inspecting only the head is insufficient evidence
+  that `sub_4AA450()` was skipped. Future probes must enumerate the full
+  transition list before attributing the stop to transition dispatch;
 - the native UI handoff itself is now traced through the production callback
   chain: MainMenu widget 112 dispatches event `16391` to the MainMenu
   callback, `sub_4D1630()` returns success, and transition callback
