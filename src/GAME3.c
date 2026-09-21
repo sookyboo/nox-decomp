@@ -49439,14 +49439,20 @@ int sub_4E2A20()
       v1 = *(_DWORD *)(v0 + 220);
       if ( *(_DWORD *)(v0 + 4) )
         free(*(LPVOID *)(v0 + 4));
-      if ( *(_DWORD *)(v0 + 136) )
-        free(*(LPVOID *)(v0 + 136));
       if ( *(_DWORD *)(v0 + 144) )
         free(*(LPVOID *)(v0 + 144));
       if ( *(_DWORD *)(v0 + 164) )
         free(*(LPVOID *)(v0 + 164));
       if ( *(_DWORD *)(v0 + 176) )
         free(*(LPVOID *)(v0 + 176));
+      if ( *(_DWORD *)(v0 + 136) )
+      {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)(v0 + 136), 0x14u);
+#else
+        free(*(LPVOID *)(v0 + 136));
+#endif
+      }
       v2 = *(_DWORD *)(v0 + 192);
       if ( v2 )
       {
@@ -49460,7 +49466,11 @@ int sub_4E2A20()
       }
       if ( *(_DWORD *)(v0 + 204) )
         free(*(LPVOID *)(v0 + 204));
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      nox_game3_low_free((void *)(uintptr_t)(unsigned int)v0, 0xE0u);
+ #else
       free((LPVOID)v0);
+ #endif
       v0 = v1;
     }
     while ( v1 );
@@ -49468,7 +49478,12 @@ int sub_4E2A20()
   *(_DWORD *)&byte_5D4594[1563660] = 0;
   if ( *(_DWORD *)&byte_5D4594[1563456] )
   {
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_game3_low_free((void *)(uintptr_t)*(unsigned int *)&byte_5D4594[1563456],
+                       4u * (size_t)*(unsigned int *)&byte_587000[201384]);
+ #else
     free(*(LPVOID *)&byte_5D4594[1563456]);
+ #endif
     *(_DWORD *)&byte_5D4594[1563456] = 0;
   }
   *(_DWORD *)&byte_587000[201384] = 1;
@@ -49569,7 +49584,13 @@ void *__cdecl sub_4E2B60(char *a1)
         sub_415240((int)v2);
         break;
       case 1414024775:
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        v5 = nox_game3_low_alloc(0xE0u);
+        if ( v5 )
+          memset(v5, 0, 0xE0u);
+ #else
         v5 = calloc(1u, 0xE0u);
+ #endif
         if ( !v5 )
           goto LABEL_53;
         v6 = (unsigned __int8 *)v2[2];
@@ -49652,7 +49673,13 @@ LABEL_53:
         {
           if ( !*((_DWORD *)v5 + 34) )
           {
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+            v15 = nox_game3_low_alloc(0x14u);
+            if ( v15 )
+              memset(v15, 0, 0x14u);
+ #else
             v15 = calloc(1u, 0x14u);
+ #endif
             *((_DWORD *)v5 + 34) = v15;
             if ( !v15 )
               return 0;
@@ -49686,7 +49713,13 @@ LABEL_53:
   if ( result )
   {
     sub_4E3C20();
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    result = nox_game3_low_alloc(4u * (size_t)*(unsigned int *)&byte_587000[201384]);
+    if ( result )
+      memset(result, 0, 4u * (size_t)*(unsigned int *)&byte_587000[201384]);
+ #else
     result = malloc(4 * *(_DWORD *)&byte_587000[201384]);
+ #endif
     *(_DWORD *)&byte_5D4594[1563456] = result;
     if ( result )
     {
@@ -49909,7 +49942,7 @@ void sub_4E3320()
   int v1; // edx
   int v2; // esi
 
-  v0 = *(_DWORD **)&byte_5D4594[1563660];
+  v0 = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[1563660];
   v1 = 0;
   if ( *(_DWORD *)&byte_5D4594[1563660] )
   {
@@ -50345,7 +50378,7 @@ BOOL __cdecl sub_4E3AD0(int a1)
 //----- (004E3B30) --------------------------------------------------------
 LPVOID sub_4E3B30()
 {
-  return *(LPVOID *)&byte_5D4594[1563660];
+  return (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[1563660];
 }
 
 //----- (004E3B40) --------------------------------------------------------
@@ -61236,23 +61269,23 @@ const char *sub_4F0640()
   unsigned __int8 *v14; // esi
   int v15; // eax
 
-  v0 = *(char **)&byte_587000[208180];
+  v0 = (char *)nox_game3_pointer_from_32(*(unsigned int *)&byte_587000[208180]);
   if ( *(_DWORD *)&byte_587000[208180] )
   {
     v1 = &byte_587000[208180];
     do
     {
       v2 = *v0;
-      v3 = *(CHAR **)v1;
+      v3 = (CHAR *)nox_game3_pointer_from_32(*(unsigned int *)v1);
       if ( v2 == 35 )
         ++v3;
       *((_DWORD *)v1 + 1) = sub_4E3AA0(v3);
-      v0 = (char *)*((_DWORD *)v1 + 5);
+      v0 = (char *)nox_game3_pointer_from_32(*((unsigned int *)v1 + 5));
       v1 += 20;
     }
     while ( v0 );
   }
-  v4 = *(const char **)&byte_587000[210712];
+  v4 = (const char *)nox_game3_pointer_from_32(*(unsigned int *)&byte_587000[210712]);
   if ( *(_DWORD *)&byte_587000[210712] )
   {
     v5 = &byte_587000[210712];
@@ -61260,12 +61293,12 @@ const char *sub_4F0640()
     {
       v6 = sub_413290(v4);
       *((_DWORD *)v5 - 1) = sub_413330(v6);
-      v4 = (const char *)*((_DWORD *)v5 + 6);
+      v4 = (const char *)nox_game3_pointer_from_32(*((unsigned int *)v5 + 6));
       v5 += 24;
     }
     while ( v4 );
   }
-  v7 = *(const char **)&byte_587000[210856];
+  v7 = (const char *)nox_game3_pointer_from_32(*(unsigned int *)&byte_587000[210856]);
   if ( *(_DWORD *)&byte_587000[210856] )
   {
     v8 = &byte_587000[210856];
@@ -61273,12 +61306,12 @@ const char *sub_4F0640()
     {
       v9 = sub_413290(v7);
       *((_DWORD *)v8 - 1) = sub_413330(v9);
-      v7 = (const char *)*((_DWORD *)v8 + 6);
+      v7 = (const char *)nox_game3_pointer_from_32(*((unsigned int *)v8 + 6));
       v8 += 24;
     }
     while ( v7 );
   }
-  v10 = *(const char **)&byte_587000[211000];
+  v10 = (const char *)nox_game3_pointer_from_32(*(unsigned int *)&byte_587000[211000]);
   if ( *(_DWORD *)&byte_587000[211000] )
   {
     v11 = &byte_587000[211000];
@@ -61286,12 +61319,12 @@ const char *sub_4F0640()
     {
       v12 = sub_413290(v10);
       *((_DWORD *)v11 - 1) = sub_413330(v12);
-      v10 = (const char *)*((_DWORD *)v11 + 6);
+      v10 = (const char *)nox_game3_pointer_from_32(*((unsigned int *)v11 + 6));
       v11 += 24;
     }
     while ( v10 );
   }
-  result = *(const char **)&byte_587000[209344];
+  result = (const char *)nox_game3_pointer_from_32(*(unsigned int *)&byte_587000[209344]);
   if ( *(_DWORD *)&byte_587000[209344] )
   {
     v14 = &byte_587000[209344];
@@ -61299,7 +61332,7 @@ const char *sub_4F0640()
     {
       v15 = sub_413290(result);
       *((_DWORD *)v14 - 1) = sub_413330(v15);
-      result = (const char *)*((_DWORD *)v14 + 6);
+      result = (const char *)nox_game3_pointer_from_32(*((unsigned int *)v14 + 6));
       v14 += 24;
     }
     while ( result );

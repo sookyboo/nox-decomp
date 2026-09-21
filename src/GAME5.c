@@ -12,9 +12,9 @@
 #endif
 
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-/* Network records retain the original four-byte pointer slots.  Keep the
- * record and every pointer stored in those slots below 4 GiB on native Linux,
- * while retaining malloc/free on the original 32-bit build. */
+/* Legacy records retain the original four-byte pointer slots. Keep the record
+ * and every pointer stored in those slots below 4 GiB on native Linux, while
+ * retaining malloc/free on the original 32-bit build. */
 static void *nox_net_legacy_alloc(size_t size)
 {
   size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
@@ -13275,7 +13275,7 @@ int __cdecl sub_56F280(int a1, int a2)
   int v3; // ecx
   int v4; // ecx
 
-  v2 = calloc(1u, 0x10u);
+  v2 = nox_net_legacy_alloc(0x10u);
   if ( !v2 )
     return 0;
   v2[3] = 0;
@@ -13344,13 +13344,13 @@ _DWORD *sub_56F3B0()
   _DWORD *result; // eax
   _DWORD *v1; // esi
 
-  result = *(_DWORD **)&byte_5D4594[2516344];
+  result = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[2516344];
   if ( *(_DWORD *)&byte_5D4594[2516344] )
   {
     do
     {
       v1 = (_DWORD *)result[2];
-      free(result);
+      nox_net_legacy_free(result);
       result = v1;
     }
     while ( v1 );
@@ -13390,7 +13390,7 @@ int __cdecl sub_56F480(int a1, int a2)
   int v3; // ecx
   int v4; // ecx
 
-  v2 = calloc(1u, 0x10u);
+  v2 = nox_net_legacy_alloc(0x10u);
   if ( !v2 )
     return 0;
   v2[3] = 0;
@@ -13452,7 +13452,7 @@ _DWORD *__cdecl sub_56F590(int a1)
 {
   _DWORD *result; // eax
 
-  result = *(_DWORD **)&byte_5D4594[2516344];
+  result = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[2516344];
   if ( *(_DWORD *)&byte_5D4594[2516344] )
   {
     while ( *result != (a1 ^ *(_DWORD *)&byte_5D4594[2516348]) )
@@ -13511,7 +13511,7 @@ int sub_56F5C0()
     }
     ++i;
   }
-  v9 = *(int **)&byte_5D4594[2516344];
+  v9 = (int *)(uintptr_t)*(unsigned int *)&byte_5D4594[2516344];
   *(_DWORD *)&byte_5D4594[2516348] = 0;
   if ( *(_DWORD *)&byte_5D4594[2516344] )
   {
@@ -13543,7 +13543,7 @@ _DWORD *__cdecl sub_56F6F0(int a1)
   _DWORD *result; // eax
   int v2; // ecx
 
-  result = *(_DWORD **)&byte_5D4594[2516344];
+  result = (_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[2516344];
   v2 = 0;
   if ( *(_DWORD *)&byte_5D4594[2516344] )
   {

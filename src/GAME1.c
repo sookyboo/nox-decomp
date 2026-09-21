@@ -345,11 +345,16 @@ static const void *nox_native_pointer_from_32(unsigned int value)
 {
   if ( !value )
     return 0;
+  if ( value < 0x50000000u )
+    return (const void *)(uintptr_t)value;
   return (const void *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value);
 }
 
+#define NOX_STATIC_POINTER_FROM_32(value) nox_native_pointer_from_32(value)
+
 #define NOX_INPUT_EVENT_CURSOR nox_input_event_cursor
 #else
+#define NOX_STATIC_POINTER_FROM_32(value) ((const void *)(uintptr_t)(value))
 #define NOX_INPUT_EVENT_CURSOR (*(char **)&byte_5D4594[2618912])
 #endif
 
@@ -3212,6 +3217,7 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[35776] = &byte_587000[37672];
 *(void **)&byte_587000[35788] = &byte_587000[37700];
 *(void **)&byte_587000[35800] = &byte_587000[37728];
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[54592] = &byte_587000[54752];
 *(void **)&byte_587000[54608] = &byte_587000[54772];
 *(void **)&byte_587000[54624] = &byte_587000[54804];
@@ -3222,6 +3228,18 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[54704] = &byte_587000[54984];
 *(void **)&byte_587000[54720] = &byte_587000[55020];
 *(void **)&byte_587000[54736] = &byte_587000[55056];
+#else
+*(unsigned int *)&byte_587000[54592] = (unsigned int)(uintptr_t)&byte_587000[54752];
+*(unsigned int *)&byte_587000[54608] = (unsigned int)(uintptr_t)&byte_587000[54772];
+*(unsigned int *)&byte_587000[54624] = (unsigned int)(uintptr_t)&byte_587000[54804];
+*(unsigned int *)&byte_587000[54640] = (unsigned int)(uintptr_t)&byte_587000[54840];
+*(unsigned int *)&byte_587000[54656] = (unsigned int)(uintptr_t)&byte_587000[54876];
+*(unsigned int *)&byte_587000[54672] = (unsigned int)(uintptr_t)&byte_587000[54912];
+*(unsigned int *)&byte_587000[54688] = (unsigned int)(uintptr_t)&byte_587000[54948];
+*(unsigned int *)&byte_587000[54704] = (unsigned int)(uintptr_t)&byte_587000[54984];
+*(unsigned int *)&byte_587000[54720] = (unsigned int)(uintptr_t)&byte_587000[55020];
+*(unsigned int *)&byte_587000[54736] = (unsigned int)(uintptr_t)&byte_587000[55056];
+#endif
 *(void **)&byte_587000[54604] = &byte_5D4594[2523948];
 *(void **)&byte_587000[54684] = &byte_5D4594[2589772];
 *(void **)&byte_587000[54620] = &byte_5D4594[2589776];
@@ -3231,6 +3249,19 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[54668] = &byte_5D4594[2649820];
 *(void **)&byte_587000[54716] = &byte_5D4594[2650656];
 *(void **)&byte_587000[54636] = &byte_5D4594[2650684];
+#if UINTPTR_MAX > UINT32_MAX
+/* The adjacent recovered records are four-byte pointer slots. */
+*(unsigned int *)&byte_587000[54592] = (unsigned int)(uintptr_t)&byte_587000[54752];
+*(unsigned int *)&byte_587000[54608] = (unsigned int)(uintptr_t)&byte_587000[54772];
+*(unsigned int *)&byte_587000[54624] = (unsigned int)(uintptr_t)&byte_587000[54804];
+*(unsigned int *)&byte_587000[54640] = (unsigned int)(uintptr_t)&byte_587000[54840];
+*(unsigned int *)&byte_587000[54656] = (unsigned int)(uintptr_t)&byte_587000[54876];
+*(unsigned int *)&byte_587000[54672] = (unsigned int)(uintptr_t)&byte_587000[54912];
+*(unsigned int *)&byte_587000[54688] = (unsigned int)(uintptr_t)&byte_587000[54948];
+*(unsigned int *)&byte_587000[54704] = (unsigned int)(uintptr_t)&byte_587000[54984];
+*(unsigned int *)&byte_587000[54720] = (unsigned int)(uintptr_t)&byte_587000[55020];
+*(unsigned int *)&byte_587000[54736] = (unsigned int)(uintptr_t)&byte_587000[55056];
+#endif
 #if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[55744] = &byte_5D4594[527672];
 #endif
@@ -14108,7 +14139,11 @@ void __cdecl sub_40F000(int a1, int a2)
 //----- (0040F020) --------------------------------------------------------
 int __cdecl sub_40F020(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  sub_420830((_DWORD *)(uintptr_t)*(unsigned int *)&byte_5D4594[4 * a1 + 210292]);
+#else
   sub_420830(*(_DWORD **)&byte_5D4594[4 * a1 + 210292]);
+#endif
   return sub_40F040(a1);
 }
 
@@ -17689,7 +17724,7 @@ int __cdecl sub_412AE0(const char *a1, FILE *a2, char *a3)
     v5 = (char *)NOX_MOD_ALLOC(strlen(v9) + 1);
     *(_DWORD *)v4 = (uint32_t)(uintptr_t)v5;
 #else
-    v5 = (char *)malloc(strlen(v9) + 1);
+    v5 = (char *)NOX_MOD_ALLOC(strlen(v9) + 1);
     *v4 = v5;
 #endif
     if ( !v5 )
@@ -17817,7 +17852,7 @@ int __cdecl sub_412D40(int a1, FILE *a2, char *a3)
     ++*(_DWORD *)&byte_5D4594[251604];
     *(_DWORD *)&byte_5D4594[251600] = v3;
 #endif
-    v5 = (char *)malloc(strlen(v9) + 1);
+    v5 = (char *)NOX_MOD_ALLOC(strlen(v9) + 1);
 #if UINTPTR_MAX > UINT32_MAX
     *(_DWORD *)v4 = (uint32_t)(uintptr_t)v5;
 #else
@@ -17900,7 +17935,7 @@ int __cdecl sub_412ED0(int a1, FILE *a2, char *a3)
     ++*(_DWORD *)&byte_5D4594[251612];
     nox_native_property_head = v3;
     *(_DWORD *)&byte_5D4594[251608] = (uint32_t)(uintptr_t)v3;
-    v5 = (char *)malloc(strlen(v9) + 1);
+    v5 = (char *)NOX_MOD_ALLOC(strlen(v9) + 1);
     *(_DWORD *)v4 = (uint32_t)(uintptr_t)v5;
     if ( !v5 )
       return 0;
@@ -18104,21 +18139,21 @@ CHAR *sub_4131A0()
   int i; // esi
   int j; // esi
 
-  result = *(CHAR **)&byte_5D4594[251616];
+  result = (CHAR *)(uintptr_t)*(unsigned int *)&byte_5D4594[251616];
   if ( *(_DWORD *)&byte_5D4594[251616] != 1 )
   {
     for ( i = *(_DWORD *)&byte_5D4594[251600]; i; i = *(_DWORD *)(i + 80) )
     {
       if ( sub_40A5C0(2097153) )
       {
-        result = (CHAR *)sub_4E3AA0(*(CHAR **)i);
+        result = (CHAR *)sub_4E3AA0((CHAR *)(uintptr_t)*(unsigned int *)i);
       }
       else
       {
         result = (CHAR *)sub_40A5C0(2);
         if ( !result )
           return result;
-        result = (CHAR *)sub_44CFC0(*(CHAR **)i);
+        result = (CHAR *)sub_44CFC0((CHAR *)(uintptr_t)*(unsigned int *)i);
       }
       *(_DWORD *)(i + 4) = result;
     }
@@ -18126,14 +18161,14 @@ CHAR *sub_4131A0()
     {
       if ( sub_40A5C0(2097153) )
       {
-        result = (CHAR *)sub_4E3AA0(*(CHAR **)j);
+        result = (CHAR *)sub_4E3AA0((CHAR *)(uintptr_t)*(unsigned int *)j);
       }
       else
       {
         result = (CHAR *)sub_40A5C0(2);
         if ( !result )
           return result;
-        result = (CHAR *)sub_44CFC0(*(CHAR **)j);
+        result = (CHAR *)sub_44CFC0((CHAR *)(uintptr_t)*(unsigned int *)j);
       }
       *(_DWORD *)(j + 4) = result;
     }
@@ -18195,7 +18230,7 @@ LABEL_6:
     if ( (int)v1 >= (int)&byte_5D4594[251596] )
       return 255;
   }
-  while ( strcmp(*(const char **)v2, a1) )
+  while ( strcmp((const char *)NOX_STATIC_POINTER_FROM_32(*(unsigned int *)v2), a1) )
   {
     v2 = *(_DWORD *)(v2 + 136);
     if ( !v2 )
@@ -20750,13 +20785,13 @@ void sub_415AB0()
       {
         if ( sub_40A5C0(2097153) )
         {
-          *((_DWORD *)v0 - 2) = sub_4E3AA0(*((CHAR **)v0 - 4));
-          v1 = sub_4E3AA0(*(CHAR **)v0);
+          *((_DWORD *)v0 - 2) = sub_4E3AA0((CHAR *)NOX_STATIC_POINTER_FROM_32(*((unsigned int *)v0 - 4)));
+          v1 = sub_4E3AA0((CHAR *)NOX_STATIC_POINTER_FROM_32(*(unsigned int *)v0));
         }
         else
         {
-          *((_DWORD *)v0 - 2) = sub_44CFC0(*((CHAR **)v0 - 4));
-          v1 = sub_44CFC0(*(CHAR **)v0);
+          *((_DWORD *)v0 - 2) = sub_44CFC0((CHAR *)NOX_STATIC_POINTER_FROM_32(*((unsigned int *)v0 - 4)));
+          v1 = sub_44CFC0((CHAR *)NOX_STATIC_POINTER_FROM_32(*(unsigned int *)v0));
         }
         *((_DWORD *)v0 + 1) = v1;
         v2 = *((_DWORD *)v0 + 2);
@@ -22755,7 +22790,9 @@ int sub_417C60()
     v1 = &byte_587000[54596];
     do
     {
-      *(_DWORD *)v1 = sub_40F1D0(*((char **)v1 - 1), 0, (const char *)&byte_587000[55092], 233);
+      *(_DWORD *)v1 = sub_40F1D0(
+        (char *)NOX_STATIC_POINTER_FROM_32(*((unsigned int *)v1 - 1)),
+        0, (const char *)&byte_587000[55092], 233);
       v1 += 16;
     }
     while ( (int)v1 < (int)&byte_587000[54756] );
@@ -35522,13 +35559,14 @@ CHAR *__cdecl sub_426680(int a1, char *a2)
     if ( !*((_DWORD *)result + 2) )
     {
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-      void *old_table = *(void **)result;
+      void *old_table = (void *)(uintptr_t)*(unsigned int *)result;
       size_t count = (size_t)*((unsigned __int8 *)result + 4);
       size_t old_size = 8u * count;
       if ( old_table )
-        *(void **)result = nox_legacy_low_realloc(old_table, old_size, 8u * (count + 5u));
+        *(unsigned int *)result = (unsigned int)(uintptr_t)
+          nox_legacy_low_realloc(old_table, old_size, 8u * (count + 5u));
       else
-        *(void **)result = nox_legacy_low_alloc(8u * 256u);
+        *(unsigned int *)result = (unsigned int)(uintptr_t)nox_legacy_low_alloc(8u * 256u);
       *((_DWORD *)v3 + 2) = old_table ? 5 : 256;
 #else
       *(_DWORD *)result = realloc(*(LPVOID *)result, 8 * (*((_DWORD *)result + 1) + 5));
@@ -60347,14 +60385,16 @@ FILE *__cdecl sub_4463E0(int a1)
     fseek(result, 0, 2);
     *(_DWORD *)&byte_5D4594[4 * a1 + 826040] = ftell(v2);
     fseek(v2, 0, 0);
-    v3 = (char *)calloc(*(_DWORD *)&byte_5D4594[4 * a1 + 826040] + 1, 1u);
-    *(_DWORD *)&byte_5D4594[826036] = v3;
-    if ( v3 )
-    {
-      sub_40ADD0(v3, *(_DWORD *)&byte_5D4594[4 * a1 + 826040], 1u, v2);
-      v3 = *(char **)&byte_5D4594[826036];
-    }
-    v3[(*(_DWORD *)&byte_5D4594[4 * a1 + 826040])++] = 0;
+      v3 = (char *)NOX_MOD_ALLOC(*(_DWORD *)&byte_5D4594[4 * a1 + 826040] + 1);
+      *(_DWORD *)&byte_5D4594[826036] = v3;
+      if ( v3 )
+      {
+        memset(v3, 0, *(_DWORD *)&byte_5D4594[4 * a1 + 826040] + 1);
+        sub_40ADD0(v3, *(_DWORD *)&byte_5D4594[4 * a1 + 826040], 1u, v2);
+        v3 = (char *)(uintptr_t)*(unsigned int *)&byte_5D4594[826036];
+        v3[(*(_DWORD *)&byte_5D4594[4 * a1 + 826040])] = 0;
+        ++*(_DWORD *)&byte_5D4594[4 * a1 + 826040];
+      }
     result = (FILE *)fclose(v2);
   }
   return result;
@@ -60365,10 +60405,10 @@ LPVOID __cdecl sub_446490(void *a1)
 {
   LPVOID result; // eax
 
-  result = *(LPVOID *)&byte_5D4594[826036];
+  result = (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[826036];
   if ( *(_DWORD *)&byte_5D4594[826036] )
   {
-    free(*(LPVOID *)&byte_5D4594[826036]);
+    NOX_MOD_FREE(result, (size_t)*(unsigned int *)&byte_5D4594[4 * (_DWORD)a1 + 826040]);
     result = a1;
   }
   *(_DWORD *)&byte_5D4594[826036] = 0;
@@ -60380,7 +60420,7 @@ LPVOID __cdecl sub_446490(void *a1)
 LPVOID __cdecl sub_4464D0(int a1, _DWORD *a2)
 {
   *a2 = *(_DWORD *)&byte_5D4594[4 * a1 + 826040];
-  return *(LPVOID *)&byte_5D4594[826036];
+  return (LPVOID)(uintptr_t)*(unsigned int *)&byte_5D4594[826036];
 }
 
 //----- (004464F0) --------------------------------------------------------

@@ -243,6 +243,14 @@ After the latest source changes:
   `malloc()` and the original pointer-width behavior. This removes the native
   crash in `sub_42C2B0()` and exposes the shared lifecycle precondition instead
   of masking it;
+- the native gameplay-initialization probe then exposed the same ABI pattern in
+  the legacy thing/modifier setup: `sub_56F1C0()` list nodes, `sub_4E2B60()`
+  thing records, the `motd.txt` buffer in `sub_4463E0()`, and several recovered
+  static pointer slots were being widened or reloaded as host-width pointers.
+  Native allocations and pointer reads now preserve those four-byte contracts.
+  The probe reaches the same `sub_4D7C60()` registry precondition as i386;
+  it is not a successful gameplay-session result because the direct checkpoint
+  does not run the preceding `sub_4D1630()` registry setup.
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written

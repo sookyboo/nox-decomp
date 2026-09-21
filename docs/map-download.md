@@ -104,6 +104,10 @@ the header and reaches the `ObjectData` callback. The object-ID table at
 code now allocates its two-byte entries below 4 GiB and reconstructs the
 pointer from the slot before dereferencing it. Both architectures still
 report the same lifecycle failure when this table has not been populated.
+The broader direct gameplay-initialization probe also reaches the same
+`sub_4D7C60()` registry precondition on both architectures after the native
+legacy-record fixes; it is diagnostic only because that checkpoint does not
+perform the normal `sub_4D1630()` registry setup.
 
 Run it with:
 
