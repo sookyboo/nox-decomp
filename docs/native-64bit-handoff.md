@@ -270,6 +270,13 @@ After the latest source changes:
   completes `sub_415470()` and reaches `window/MainMenu.wnd`, matching the
   i386 boundary. The later i386 `sub_4101D0()` crash remains a separate,
   pre-existing comparison point.
+- the next transfer-to-loader probe isolated the log stream in
+  `sub_451630()`: it opened `log` and stored the host-width `FILE *` in the
+  recovered four-byte slot at `byte_5D4594[839880]`. Native
+  `sub_4515B0()`/`sub_4517A0()` and `sub_4516C0()` now use a pointer-sized
+  `nox_log_file` sidecar, while i386 preserves the recovered slot. The native
+  startup comparison now passes `sub_4101D0()` and opens `window/MainMenu.wnd`;
+  the i386 comparison still stops at its known later `sub_4101D0()` fault.
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written

@@ -1,5 +1,12 @@
 #include "proto.h"
 
+#if UINTPTR_MAX > UINT32_MAX
+FILE *nox_log_file;
+#define NOX_LOG_FILE nox_log_file
+#else
+#define NOX_LOG_FILE (*(FILE **)&byte_5D4594[839880])
+#endif
+
 static void (*nox_draw_callback)(int, int, int);
 static int (*nox_texture_callback)(int, int, int, int, int);
 #if UINTPTR_MAX > UINT32_MAX
@@ -3727,12 +3734,12 @@ wchar_t *sub_4515B0(wchar_t *a1, ...)
   va_list va; // [esp+8h] [ebp+8h]
 
   va_start(va, a1);
-  if ( !*(_DWORD *)&byte_5D4594[839880] )
+  if ( !NOX_LOG_FILE )
     sub_451630();
   v1 = (wchar_t *)sub_451610();
   nox_swprintf((wchar_t *)&byte_5D4594[833752], a1, va);
-  fprintf(*(FILE **)&byte_5D4594[839880], (const char *)&byte_587000[126660], &byte_5D4594[833752]);
-  fflush(*(FILE **)&byte_5D4594[839880]);
+  fprintf(NOX_LOG_FILE, (const char *)&byte_587000[126660], &byte_5D4594[833752]);
+  fflush(NOX_LOG_FILE);
   return nox_wcsncpy(v1, (const wchar_t *)&byte_5D4594[833752], 0x63u);
 }
 
@@ -3762,8 +3769,8 @@ unsigned __int8 *sub_451630()
   wchar_t *v3; // [esp-Ch] [ebp-Ch]
   wchar_t *v4; // [esp-8h] [ebp-8h]
 
-  *(_DWORD *)&byte_5D4594[839880] = fopen("log", "w");
-  if ( !*(_DWORD *)&byte_5D4594[839880] )
+  NOX_LOG_FILE = fopen("log", "w");
+  if ( !NOX_LOG_FILE )
   {
     v4 = sub_40F1D0((char *)&byte_587000[126708], 0, (const char *)&byte_587000[126672], 272);
     v3 = sub_40F1D0((char *)&byte_587000[126756], 0, (const char *)&byte_587000[126720], 271);
@@ -3793,14 +3800,14 @@ wchar_t *sub_4517A0(wchar_t *a1, ...)
   va_list va; // [esp+8h] [ebp+8h]
 
   va_start(va, a1);
-  if ( !*(_DWORD *)&byte_5D4594[839880] )
+  if ( !NOX_LOG_FILE )
     sub_451630();
   v1 = (wchar_t *)sub_451610();
   v2 = sub_40F1D0((char *)&byte_587000[126924], 0, (const char *)&byte_587000[126888], 355);
   nox_swprintf((wchar_t *)&byte_5D4594[833752], v2);
   nox_vswprintf((wchar_t *)&byte_5D4594[833770], a1, va);
-  fprintf(*(FILE **)&byte_5D4594[839880], (const char *)&byte_587000[126940], &byte_5D4594[833752]);
-  fflush(*(FILE **)&byte_5D4594[839880]);
+  fprintf(NOX_LOG_FILE, (const char *)&byte_587000[126940], &byte_5D4594[833752]);
+  fflush(NOX_LOG_FILE);
   v5 = sub_40F1D0((char *)&byte_587000[126980], 0, (const char *)&byte_587000[126944], 365);
   nullsub_4(sub_401FD0(), &byte_5D4594[833752], v5, 0);
   return nox_wcsncpy(v1, (const wchar_t *)&byte_5D4594[833752], 0x63u);

@@ -189,6 +189,15 @@ the callback at record offset `+148` and the owner callback table at `+172`
 before dispatch. These observations are from the stock built-in `CapFlag` map;
 no map requiring reloaded EUD support is used.
 
+The map-loader logging boundary follows the same layout rule. `sub_451630()`
+owns the process log stream and the recovered slot at
+`byte_5D4594[839880]` is only four bytes wide. Native builds keep the actual
+`FILE *` in `nox_log_file`; `sub_4515B0()`, `sub_4517A0()`, and the fatal-error
+shutdown path in `sub_4516C0()` all use that sidecar. i386 continues to read and
+write the original slot. This removes the native libc fault that occurred
+immediately after the completed `CapFlag.nxz` transfer was reopened by the
+production map parser.
+
 ## Compatibility rule
 
 When fixing another startup failure, first classify the value:

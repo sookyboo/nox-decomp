@@ -5,6 +5,12 @@
 #include "proto.h"
 extern void nox_ctrl_capture_event(const SDL_Event *ev);
 
+#if UINTPTR_MAX > UINT32_MAX
+#define NOX_LOG_FILE nox_log_file
+#else
+#define NOX_LOG_FILE (*(FILE **)&byte_5D4594[839880])
+#endif
+
 #ifdef USE_SDL
 #include <SDL2/SDL.h>
 #ifdef _WIN32
@@ -568,14 +574,14 @@ void sub_4516C0(wchar_t *a1, ...)
 	va_list va; // [esp+8h] [ebp+8h]
 
 	va_start(va, a1);
-	if (!*(_DWORD *)&byte_5D4594[839880])
+	if (!NOX_LOG_FILE)
 		sub_451630();
 	sub_451610();
 	v1 = sub_40F1D0("FatalErrorHeader", 0, (int)"C:\\NoxPost\\src\\Client\\Io\\Console.c", 314);
 	nox_swprintf((wchar_t *)&byte_5D4594[833752], v1);
 	nox_vswprintf((wchar_t *)&byte_5D4594[833778], a1, va);
-	fprintf(*(FILE **)&byte_5D4594[839880], "%S", &byte_5D4594[833752]);
-	fflush(*(FILE **)&byte_5D4594[839880]);
+	fprintf(NOX_LOG_FILE, "%S", &byte_5D4594[833752]);
+	fflush(NOX_LOG_FILE);
 	v3 = sub_40F1D0("FatalError", 0, (int)"C:\\NoxPost\\src\\Client\\Io\\Console.c", 324);
 	v2 = sub_401FD0();
     NOX_DBG("FatalError: sub_401FD0() hwnd=%p", (void*)v2);
@@ -584,8 +590,8 @@ void sub_4516C0(wchar_t *a1, ...)
     } else {
         NOX_DBG("FatalError: skipping nullsub_4 (no hwnd)");
     }
-	fprintf(*(FILE **)&byte_5D4594[839880], "exiting..\n");
-	fclose(*(FILE **)&byte_5D4594[839880]);
+	fprintf(NOX_LOG_FILE, "exiting..\n");
+	fclose(NOX_LOG_FILE);
 	if (*(_DWORD *)&byte_5D4594[823776])
 		sub_430EF0();
 	sub_4453A0();
