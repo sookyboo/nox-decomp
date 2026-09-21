@@ -349,6 +349,16 @@ After the latest source changes:
   `map_download_dispatch_test` exercises the bucket allocation/release
   lifecycle on both architectures; this is a pointer-ownership fix, not an
   initializer call injected into the map loader;
+- the same gameplay record path also copies parser-owned variable-size data
+  into recovered DWORD pointer slots at `sub_4E3470()` offsets `+556`, `+692`,
+  `+700`, `+736`, `+748`, and `+756`. Native Linux now allocates those copies
+  below 4 GiB and records their mapping size for teardown. The corresponding
+  `thing.bin` parser callbacks in `GAME4.c` use the same ownership rule, while
+  i386 retains the original `calloc`/`free` behavior. The focused dispatch test
+  invokes the production `sub_535A60()` callback twice and then the normal
+  `sub_4E2A20()` destructor, covering replacement and release of the fixed-size
+  `+136` parser pointer; this is another ownership fix, not a map-loader
+  initializer injection;
 - calling only `sub_42BF10()` at the map window allocates a one-entry table
   from the server registry (`count=1`) but does not activate the stock map;
   calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These

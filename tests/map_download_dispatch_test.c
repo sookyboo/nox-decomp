@@ -34,6 +34,27 @@ static int gameplay_thing_bucket_storage_test(void)
     return 1;
 }
 
+static int gameplay_thing_parser_storage_test(void)
+{
+    unsigned char *record = nox_test_legacy_alloc(0xE0);
+    char value[] = "1";
+    uint32_t pointer;
+
+    if (!record || !sub_535A60((int)(uintptr_t)record, 0, value))
+        return 0;
+    pointer = *(uint32_t *)(record + 136);
+    if (!pointer || (uintptr_t)pointer > UINT32_MAX ||
+        *(uint16_t *)(uintptr_t)pointer != 1)
+        return 0;
+
+    /* A second parser assignment exercises the production replacement/free
+     * path before the normal gameplay-record destructor releases the record. */
+    if (!sub_535A60((int)(uintptr_t)record, 0, value))
+        return 0;
+    *(uint32_t *)&byte_5D4594[1563660] = (uint32_t)(uintptr_t)record;
+    return sub_4E2A20() && *(uint32_t *)&byte_5D4594[1563660] == 0;
+}
+
 int __cdecl sub_48EA70(int channel, unsigned int packet, int length);
 
 static void __cdecl receive_callback(unsigned int channel,
@@ -220,6 +241,8 @@ int main(void)
     int sent;
 
     if (!gameplay_thing_bucket_storage_test())
+        return 1;
+    if (!gameplay_thing_parser_storage_test())
         return 1;
     if (!map_file_transfer_test())
         return 1;

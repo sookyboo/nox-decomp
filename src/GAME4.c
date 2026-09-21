@@ -19,6 +19,27 @@ static void *nox_game4_low_alloc(size_t size)
 }
 #endif
 
+static void *nox_game4_legacy_alloc(size_t size)
+{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  void *result;
+
+  if ( !size || !page_size )
+    return 0;
+  result = nox_game4_low_alloc(size + sizeof(size_t));
+  if ( !result )
+    return 0;
+  *(size_t *)result = (size + sizeof(size_t) + page_size - 1)
+                    & ~(page_size - 1);
+  result = (char *)result + sizeof(size_t);
+  memset(result, 0, size);
+  return result;
+#else
+  return calloc(1u, size);
+#endif
+}
+
 #ifdef NOX_EUD_COMPAT
 #include "eud_compat.h"
 #endif
@@ -53929,7 +53950,7 @@ int __cdecl sub_535CD0(int a1, _DWORD *a2, void *a3)
     v7 = *(_DWORD *)(a1 + 192);
     if ( !v7 )
       return result;
-    v8 = (char *)calloc(1u, 0x100u);
+    v8 = (char *)nox_game4_legacy_alloc(0x100u);
     v47 = v8;
     if ( !v8 )
       return 0;
@@ -54301,7 +54322,7 @@ int __cdecl sub_5363F0(_DWORD *a1, int a2, char *a3)
   a1[52] = *(_DWORD *)&byte_587000[v7 + 269792];
   if ( !*(_DWORD *)&byte_587000[v7 + 269792] )
     goto LABEL_13;
-  result = (int)calloc(1u, *(_DWORD *)&byte_587000[v7 + 269792]);
+  result = (int)(intptr_t)nox_game4_legacy_alloc(*(_DWORD *)&byte_587000[v7 + 269792]);
   a1[51] = result;
   if ( !result )
     return result;
@@ -54412,7 +54433,7 @@ int __cdecl sub_536620(_DWORD *a1, int a2, char *a3)
   a1[49] = *(_DWORD *)&byte_587000[v7 + 270336];
   if ( !*(_DWORD *)&byte_587000[v7 + 270336] )
     goto LABEL_13;
-  result = (int)calloc(1u, *(_DWORD *)&byte_587000[v7 + 270336]);
+  result = (int)(intptr_t)nox_game4_legacy_alloc(*(_DWORD *)&byte_587000[v7 + 270336]);
   a1[48] = result;
   if ( !result )
     return result;
@@ -54590,7 +54611,7 @@ int __cdecl sub_536930(_DWORD *a1, int a2, char *a3)
   a1[45] = *(_DWORD *)&byte_587000[v7 + 273120];
   if ( !*(_DWORD *)&byte_587000[v7 + 273120] )
     goto LABEL_13;
-  result = (int)calloc(1u, *(_DWORD *)&byte_587000[v7 + 273120]);
+  result = (int)(intptr_t)nox_game4_legacy_alloc(*(_DWORD *)&byte_587000[v7 + 273120]);
   a1[44] = result;
   if ( !result )
     return result;
@@ -54726,7 +54747,7 @@ int __cdecl sub_536B80(int a1, int a2, char *a3)
   *(_DWORD *)(a1 + 160) = *(_DWORD *)&byte_587000[v7 + 274084];
   if ( !*(_DWORD *)&byte_587000[v7 + 274088] )
     goto LABEL_14;
-  result = (int)calloc(1u, *(_DWORD *)&byte_587000[v7 + 274088]);
+  result = (int)(intptr_t)nox_game4_legacy_alloc(*(_DWORD *)&byte_587000[v7 + 274088]);
   *(_DWORD *)(a1 + 164) = result;
   if ( !result )
     return result;
@@ -54900,7 +54921,7 @@ int __cdecl sub_536EC0(_DWORD *a1, int a2, char *a3)
   a1[37] = *(_DWORD *)&byte_587000[v7 + 274880];
   if ( !*(_DWORD *)&byte_587000[v7 + 274880] )
     goto LABEL_14;
-  result = (int)calloc(1u, *(_DWORD *)&byte_587000[v7 + 274880]);
+  result = (int)(intptr_t)nox_game4_legacy_alloc(*(_DWORD *)&byte_587000[v7 + 274880]);
   a1[36] = result;
   if ( !result )
     return result;

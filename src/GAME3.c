@@ -88,7 +88,41 @@ static void *nox_game3_low_realloc(void *address, size_t old_size, size_t new_si
   nox_game3_low_free(address, old_size);
   return result;
 }
+
 #endif
+
+static void *nox_game3_legacy_alloc(size_t size)
+{
+  void *result;
+
+  if ( !size )
+    return 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = nox_game3_low_alloc(size + sizeof(size_t));
+  if ( result == MAP_FAILED )
+    return 0;
+  *(size_t *)result = (size + sizeof(size_t) + (size_t)sysconf(_SC_PAGESIZE) - 1)
+                    & ~((size_t)sysconf(_SC_PAGESIZE) - 1);
+  result = (char *)result + sizeof(size_t);
+  memset(result, 0, size);
+  return result;
+#else
+  return calloc(1u, size);
+#endif
+}
+
+static void nox_game3_legacy_free(void *address, size_t size)
+{
+  if ( !address )
+    return;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  nox_game3_low_free((char *)address - sizeof(size_t),
+                     *(size_t *)((char *)address - sizeof(size_t)));
+#else
+  (void)size;
+  free(address);
+#endif
+}
 
 #if UINTPTR_MAX > UINT32_MAX
 #define NOX_THING_BUCKET(index) nox_native_thing_buckets[(index)]
@@ -49731,13 +49765,20 @@ int sub_4E2A20()
     {
       v1 = *(_DWORD *)(v0 + 220);
       if ( *(_DWORD *)(v0 + 4) )
+      {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        nox_game3_low_free(*(LPVOID *)(v0 + 4),
+                           strlen(*(const char **)(v0 + 4)) + 1);
+#else
         free(*(LPVOID *)(v0 + 4));
+#endif
+      }
       if ( *(_DWORD *)(v0 + 144) )
-        free(*(LPVOID *)(v0 + 144));
+        nox_game3_legacy_free(*(LPVOID *)(v0 + 144), *(size_t *)(v0 + 148));
       if ( *(_DWORD *)(v0 + 164) )
-        free(*(LPVOID *)(v0 + 164));
+        nox_game3_legacy_free(*(LPVOID *)(v0 + 164), 0);
       if ( *(_DWORD *)(v0 + 176) )
-        free(*(LPVOID *)(v0 + 176));
+        nox_game3_legacy_free(*(LPVOID *)(v0 + 176), 0);
       if ( *(_DWORD *)(v0 + 136) )
       {
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
@@ -49753,12 +49794,12 @@ int sub_4E2A20()
         {
           v3 = *(void **)(v2 + 476);
           if ( v3 )
-            free(v3);
+            nox_game3_legacy_free(v3, 0);
         }
-        free(*(LPVOID *)(v0 + 192));
+        nox_game3_legacy_free(*(LPVOID *)(v0 + 192), *(size_t *)(v0 + 196));
       }
       if ( *(_DWORD *)(v0 + 204) )
-        free(*(LPVOID *)(v0 + 204));
+        nox_game3_legacy_free(*(LPVOID *)(v0 + 204), 0);
  #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
       nox_game3_low_free((void *)(uintptr_t)(unsigned int)v0, 0xE0u);
  #else
@@ -49983,9 +50024,7 @@ LABEL_53:
           if ( !*((_DWORD *)v5 + 34) )
           {
  #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
-            v15 = nox_game3_low_alloc(0x14u);
-            if ( v15 )
-              memset(v15, 0, 0x14u);
+            v15 = nox_game3_legacy_alloc(0x14u);
  #else
             v15 = calloc(1u, 0x14u);
  #endif
@@ -50395,7 +50434,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     *((_WORD *)v2 + 2) = *(_WORD *)a1;
     if ( *(_DWORD *)(a1 + 136) )
     {
-      result = calloc(1u, 0x14u);
+      result = nox_game3_legacy_alloc(0x14u);
       v2[139] = result;
       if ( !result )
         return result;
@@ -50404,7 +50443,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     v2[172] = *(_DWORD *)(a1 + 172);
     if ( *(_DWORD *)(a1 + 180) )
     {
-      result = calloc(1u, *(_DWORD *)(a1 + 180));
+      result = nox_game3_legacy_alloc(*(_DWORD *)(a1 + 180));
       v2[173] = result;
       if ( !result )
         return result;
@@ -50413,7 +50452,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     v2[174] = *(_DWORD *)(a1 + 140);
     if ( *(_DWORD *)(a1 + 148) )
     {
-      result = calloc(1u, *(_DWORD *)(a1 + 148));
+      result = nox_game3_legacy_alloc(*(_DWORD *)(a1 + 148));
       v2[175] = result;
       if ( !result )
         return result;
@@ -50423,7 +50462,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     v2[183] = *(_DWORD *)(a1 + 200);
     if ( *(_DWORD *)(a1 + 208) )
     {
-      result = calloc(1u, *(_DWORD *)(a1 + 208));
+      result = nox_game3_legacy_alloc(*(_DWORD *)(a1 + 208));
       v2[184] = result;
       if ( !result )
         return result;
@@ -50432,7 +50471,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     v2[186] = *(_DWORD *)(a1 + 188);
     if ( *(_DWORD *)(a1 + 196) )
     {
-      result = calloc(1u, *(_DWORD *)(a1 + 196));
+      result = nox_game3_legacy_alloc(*(_DWORD *)(a1 + 196));
       v2[187] = result;
       if ( !result )
         return result;
@@ -50450,7 +50489,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     v2[9] = v9;
     if ( sub_40A5C0(6291456)
       && (v2[2] & 0x20A02 || (int (__cdecl *)(int *))v2[176] == sub_4F5AA0 || *((char *)v2 + 488) != -1)
-      && (v5 = calloc(1u, 0xA0Cu), (v2[189] = v5) == 0) )
+      && (v5 = nox_game3_legacy_alloc(0xA0Cu), (v2[189] = v5) == 0) )
     {
       sub_4E38A0((int)v2);
       result = 0;
@@ -50571,23 +50610,23 @@ int __cdecl sub_4E38A0(int a1)
   if ( *(_DWORD *)a1 )
     free(*(LPVOID *)a1);
   if ( *(_DWORD *)(a1 + 556) )
-    free(*(LPVOID *)(a1 + 556));
+    nox_game3_legacy_free(*(LPVOID *)(a1 + 556), 0x14u);
   if ( *(_DWORD *)(a1 + 760) )
     free(*(LPVOID *)(a1 + 760));
   if ( *(_DWORD *)(a1 + 756) )
-    free(*(LPVOID *)(a1 + 756));
+    nox_game3_legacy_free(*(LPVOID *)(a1 + 756), 0xA0Cu);
   if ( *(_DWORD *)(a1 + 692) )
-    free(*(LPVOID *)(a1 + 692));
+    nox_game3_legacy_free(*(LPVOID *)(a1 + 692), 0);
   if ( *(_DWORD *)(a1 + 700) )
-    free(*(LPVOID *)(a1 + 700));
+    nox_game3_legacy_free(*(LPVOID *)(a1 + 700), 0);
   if ( *(_DWORD *)(a1 + 736) )
-    free(*(LPVOID *)(a1 + 736));
+    nox_game3_legacy_free(*(LPVOID *)(a1 + 736), 0);
   if ( *(_DWORD *)(a1 + 748) )
   {
 #ifdef NOX_EUD_COMPAT
     nox_eud_object_extension_released(a1, *(_DWORD *)(a1 + 748));
 #endif
-    free(*(LPVOID *)(a1 + 748));
+    nox_game3_legacy_free(*(LPVOID *)(a1 + 748), 0);
   }
   v6 = *(_DWORD *)(a1 + 36);
   sub_414400(*(unsigned int **)&byte_5D4594[1563344], (_QWORD *)a1);
