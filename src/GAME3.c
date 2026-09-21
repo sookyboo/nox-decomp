@@ -20665,7 +20665,11 @@ int __cdecl sub_4BD9B0(_DWORD *a2)
   a2[31] = v1;
   a2[32] = 0;
   sub_4864A0(a2 + 4);
+#if UINTPTR_MAX > UINT32_MAX
+  v2 = (int (__cdecl *)(_DWORD *))nox_game3_pointer_from_32(a2[36]);
+#else
   v2 = (int (__cdecl *)(_DWORD *))a2[36];
+#endif
   if ( v2 )
     result = v2(a2);
   else

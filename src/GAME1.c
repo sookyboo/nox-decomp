@@ -54379,7 +54379,13 @@ int __stdcall sub_43EDB0(int a1)
   result = *(_DWORD *)(v1 + 28);
   if ( !result )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    uintptr_t owner = nox_native_pointer_from_32(*(unsigned int *)(v2 + 4));
+    uintptr_t callback = nox_native_pointer_from_32(*(unsigned int *)(owner + 284));
+    result = ((int (__cdecl *)(_DWORD))callback)((_DWORD)owner);
+#else
     result = (*(int (__cdecl **)(_DWORD))(*(_DWORD *)(v2 + 4) + 284))(*(_DWORD *)(v2 + 4));
+#endif
     *(_DWORD *)(v2 + 28) = 1;
   }
   return result;
@@ -54563,11 +54569,24 @@ int __cdecl sub_43EFD0(int a1)
 {
   _DWORD *v1; // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  /* The sound-object link at +272 is a recovered DWORD.  Reading it as a
+   * native pointer consumes the following four bytes and produces a bogus
+   * sample record during transition teardown. */
+  v1 = (_DWORD *)(uintptr_t)*(unsigned int *)(a1 + 272);
+#else
   v1 = *(_DWORD **)(a1 + 272);
+#endif
   AIL_end_sample(v1[2]);
   if ( !v1[7] )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    uintptr_t owner = nox_native_pointer_from_32((unsigned int)v1[1]);
+    uintptr_t callback = nox_native_pointer_from_32(*(unsigned int *)(owner + 284));
+    ((void (__cdecl *)(_DWORD))callback)((_DWORD)owner);
+#else
     (*(void (__cdecl **)(_DWORD))(v1[1] + 284))(v1[1]);
+#endif
     v1[7] = 1;
   }
   return 0;

@@ -161,6 +161,16 @@ The current branch contains native-width handling for:
   callback sidecar. The recovered call path previously cast this address to
   `int`, producing a non-canonical jump target from the first multiplayer
   setup network initialization.
+- the sound-object link at `sub_43EFD0()` offset `+272`: native teardown now
+  zero-extends the recovered DWORD before ending the sample. Reading this
+  field as a host pointer consumed the adjacent DWORD and crashed while the
+  server transition rebuilt `MainMenu.wnd`; this was observed after the
+  scripted server macro completed, before map activation.
+- the sample EOS callback in `sub_43EDB0()` and the sound-state callback at
+  `sub_4BD9B0()` offset `+144`: both are recovered code-pointer DWORDs and
+  must be reconstructed before native invocation. The transition probe
+  reached the first fix and then exposed the second callback as the next
+  truncated jump target.
 
 The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
