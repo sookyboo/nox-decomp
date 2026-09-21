@@ -55,6 +55,21 @@ static int gameplay_thing_parser_storage_test(void)
     return sub_4E2A20() && *(uint32_t *)&byte_5D4594[1563660] == 0;
 }
 
+static int gameplay_thing_callback_storage_test(void)
+{
+    _DWORD object[176 + 1] = {0};
+    uintptr_t callback = (uintptr_t)gameplay_thing_callback_storage_test;
+
+    object[176] = (uint32_t)callback;
+    if (nox_game3_thing_callback_get(object) != callback)
+        return 0;
+    nox_game3_thing_callback_set(object, callback);
+    if (nox_game3_thing_callback_get(object) != callback)
+        return 0;
+    nox_game3_thing_callback_clear(object);
+    return nox_game3_thing_callback_get(object) == callback;
+}
+
 int __cdecl sub_48EA70(int channel, unsigned int packet, int length);
 
 static void __cdecl receive_callback(unsigned int channel,
@@ -243,6 +258,8 @@ int main(void)
     if (!gameplay_thing_bucket_storage_test())
         return 1;
     if (!gameplay_thing_parser_storage_test())
+        return 1;
+    if (!gameplay_thing_callback_storage_test())
         return 1;
     if (!map_file_transfer_test())
         return 1;

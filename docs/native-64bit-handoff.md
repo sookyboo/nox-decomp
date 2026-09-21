@@ -359,6 +359,12 @@ After the latest source changes:
   `sub_4E2A20()` destructor, covering replacement and release of the fixed-size
   `+136` parser pointer; this is another ownership fix, not a map-loader
   initializer injection;
+- the `thing.bin` parser dispatch table has the same recovered DWORD pointer
+  representation for callback names and handlers. `sub_4E3220()` now widens
+  both table reads at the call boundary, and `sub_5360A0()` widens the related
+  object-callback lookup before `sub_4E3470()` stores it. The object callback
+  itself is retained in a native sidecar and all gameplay callers use the
+  widened accessor; i386 continues to read the recovered slots directly;
 - calling only `sub_42BF10()` at the map window allocates a one-entry table
   from the server registry (`count=1`) but does not activate the stock map;
   calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These

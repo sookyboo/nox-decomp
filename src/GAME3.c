@@ -27,7 +27,7 @@ static _DWORD *nox_menu_button_right;
 static _DWORD *nox_server_transition_left;
 static _DWORD *nox_server_transition_right;
 
-static uintptr_t nox_game3_pointer_from_32(unsigned int value)
+uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
   if ( !value )
     return 0;
@@ -36,7 +36,7 @@ static uintptr_t nox_game3_pointer_from_32(unsigned int value)
   return ((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value;
 }
 #else
-static uintptr_t nox_game3_pointer_from_32(unsigned int value)
+uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
   return value;
 }
@@ -121,6 +121,80 @@ static void nox_game3_legacy_free(void *address, size_t size)
 #else
   (void)size;
   free(address);
+#endif
+}
+
+#if UINTPTR_MAX > UINT32_MAX
+struct nox_native_thing_callback {
+  _DWORD *object;
+  uintptr_t callback;
+  struct nox_native_thing_callback *next;
+};
+
+static struct nox_native_thing_callback *nox_native_thing_callbacks;
+#endif
+
+uintptr_t nox_game3_thing_callback_get(_DWORD *object)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  struct nox_native_thing_callback *entry;
+
+  for ( entry = nox_native_thing_callbacks; entry; entry = entry->next )
+  {
+    if ( entry->object == object )
+      return entry->callback;
+  }
+  return nox_game3_pointer_from_32(object[176]);
+#else
+  return object[176];
+#endif
+}
+
+void nox_game3_thing_callback_set(_DWORD *object, uintptr_t callback)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  struct nox_native_thing_callback *entry;
+
+  for ( entry = nox_native_thing_callbacks; entry; entry = entry->next )
+  {
+    if ( entry->object == object )
+    {
+      entry->callback = callback;
+      return;
+    }
+  }
+  if ( !callback )
+    return;
+  entry = malloc(sizeof(*entry));
+  if ( !entry )
+    return;
+  entry->object = object;
+  entry->callback = callback;
+  entry->next = nox_native_thing_callbacks;
+  nox_native_thing_callbacks = entry;
+#else
+  object[176] = (unsigned int)callback;
+#endif
+}
+
+void nox_game3_thing_callback_clear(_DWORD *object)
+{
+#if UINTPTR_MAX > UINT32_MAX
+  struct nox_native_thing_callback **cursor = &nox_native_thing_callbacks;
+
+  while ( *cursor )
+  {
+    if ( (*cursor)->object == object )
+    {
+      struct nox_native_thing_callback *entry = *cursor;
+      *cursor = entry->next;
+      free(entry);
+      return;
+    }
+    cursor = &(*cursor)->next;
+  }
+#else
+  (void)object;
 #endif
 }
 
@@ -34635,7 +34709,7 @@ int sub_4CFCE0()
         return 0;
       v0 = sub_4E3810(v8);
       v1 = (int)v0;
-      if ( !v0 || !((int (__cdecl *)(_DWORD *, _DWORD))v0[176])(v0, 0) )
+      if ( !v0 || !((int (__cdecl *)(_DWORD *, _DWORD))nox_game3_thing_callback_get(v0))(v0, 0) )
         goto LABEL_9;
       sub_4F3F50(v1, 0, 0);
     }
@@ -34970,7 +35044,7 @@ int __cdecl sub_4D0250(char *a1, char *a2, int a3, int a4)
             sub_426A50(0);
             return 0;
           }
-          if ( !((int (__cdecl *)(_DWORD *, int4 *))v8[176])(v8, &v28) )
+          if ( !((int (__cdecl *)(_DWORD *, int4 *))nox_game3_thing_callback_get(v8))(v8, &v28) )
           {
             sub_426A20(v7);
             sub_4E38A0((int)v8);
@@ -50279,7 +50353,7 @@ LABEL_2:
     v6 = &byte_587000[201392];
     if ( *(_DWORD *)&byte_587000[201396] )
     {
-      while ( strcmp(v5, *(const char **)v6) )
+      while ( strcmp(v5, (const char *)nox_game3_pointer_from_32(*(unsigned int *)v6)) )
       {
         v7 = *((_DWORD *)v6 + 3);
         v6 += 8;
@@ -50289,7 +50363,8 @@ LABEL_2:
       v8 = strtok(0, (const char *)&byte_587000[201952]);
       if ( v8 )
         memmove(v3, v8 + 1, strlen(v8 + 1) + 1);
-      if ( !(*((int (__cdecl **)(int, int, char *))v6 + 1))(a3, a1, v3) )
+      if ( !((int (__cdecl *)(int, int, char *))nox_game3_pointer_from_32(
+                *(unsigned int *)(v6 + 4)))(a3, a1, v3) )
         return 0;
     }
   }
@@ -50459,6 +50534,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
       qmemcpy(result, *(const void **)(a1 + 144), *(_DWORD *)(a1 + 148));
     }
     v2[176] = *(_DWORD *)(a1 + 212);
+    nox_game3_thing_callback_set(v2, nox_game3_pointer_from_32(v2[176]));
     v2[183] = *(_DWORD *)(a1 + 200);
     if ( *(_DWORD *)(a1 + 208) )
     {
@@ -50488,7 +50564,7 @@ _DWORD *__cdecl sub_4E3470(int a1)
     v2[192] = -1;
     v2[9] = v9;
     if ( sub_40A5C0(6291456)
-      && (v2[2] & 0x20A02 || (int (__cdecl *)(int *))v2[176] == sub_4F5AA0 || *((char *)v2 + 488) != -1)
+      && (v2[2] & 0x20A02 || (int (__cdecl *)(int *))nox_game3_thing_callback_get(v2) == sub_4F5AA0 || *((char *)v2 + 488) != -1)
       && (v5 = nox_game3_legacy_alloc(0xA0Cu), (v2[189] = v5) == 0) )
     {
       sub_4E38A0((int)v2);
@@ -50607,6 +50683,7 @@ int __cdecl sub_4E38A0(int a1)
       while ( v5 );
     }
   }
+  nox_game3_thing_callback_clear((_DWORD *)a1);
   if ( *(_DWORD *)a1 )
     free(*(LPVOID *)a1);
   if ( *(_DWORD *)(a1 + 556) )
@@ -65017,7 +65094,7 @@ int __cdecl sub_4F3E30(unsigned __int16 a1, int a2, int a3)
     sub_426C20(&v12, 4u);
     v5 = sub_4E3450(v4);
     v6 = v5;
-    if ( !v5 || !((int (__cdecl *)(_DWORD *, _DWORD))v5[176])(v5, 0) )
+    if ( !v5 || !((int (__cdecl *)(_DWORD *, _DWORD))nox_game3_thing_callback_get(v5))(v5, 0) )
       break;
     v7 = *(_DWORD *)(a2 + 504);
     v6[125] = 0;

@@ -25548,7 +25548,7 @@ BOOL __cdecl sub_41AC30(_DWORD *a1)
         v25 = v24;
         if ( !v24 )
           return 0;
-        if ( !((int (__cdecl *)(_DWORD *, _DWORD))v24[176])(v24, 0) )
+        if ( !((int (__cdecl *)(_DWORD *, _DWORD))nox_game3_thing_callback_get(v24))(v24, 0) )
           return 0;
         v25[14] = 1161297920;
         v25[15] = 1161297920;
@@ -25661,7 +25661,7 @@ LABEL_106:
           v34 = (unsigned __int8)v39;
           v16 = (_BYTE *)sub_4E39D0(v15);
           sub_426AC0(v16, v34);
-          if ( !(*(int (__cdecl **)(int, _DWORD))(v15 + 704))(v15, 0) )
+          if ( !((int (__cdecl *)(int, _DWORD))nox_game3_thing_callback_get((_DWORD *)v15))(v15, 0) )
             return 0;
         }
         v15 = *(_DWORD *)(v15 + 496);
@@ -25700,7 +25700,7 @@ LABEL_106:
               v33 = (unsigned __int8)v39;
               v14 = (_BYTE *)sub_4E39D0(v13);
               sub_426AC0(v14, v33);
-              if ( !(*(int (__cdecl **)(int, _DWORD))(v13 + 704))(v13, 0) )
+            if ( !((int (__cdecl *)(int, _DWORD))nox_game3_thing_callback_get((_DWORD *)v13))(v13, 0) )
                 return 0;
               ++v10;
               ++v11;

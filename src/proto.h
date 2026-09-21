@@ -4931,6 +4931,10 @@ int sub_4E3420();
 void nullsub_23(void); // weak
 _DWORD *__cdecl sub_4E3450(int a1);
 _DWORD *__cdecl sub_4E3470(int a1);
+uintptr_t nox_game3_pointer_from_32(unsigned int value);
+uintptr_t nox_game3_thing_callback_get(_DWORD *object);
+void nox_game3_thing_callback_set(_DWORD *object, uintptr_t callback);
+void nox_game3_thing_callback_clear(_DWORD *object);
 _DWORD *__cdecl sub_4E3810(CHAR *a1);
 int __cdecl sub_4E3830(CHAR *a1);
 int __cdecl sub_4E3880(const void *, const void *); // idb

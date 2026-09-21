@@ -995,7 +995,7 @@ LABEL_36:
             return 0;
           sub_426AC0(&v26, 2u);
           sub_426C20(&v32, 4u);
-          if ( !((int (__cdecl *)(_DWORD *, _DWORD))v18[176])(v18, 0) )
+          if ( !((int (__cdecl *)(_DWORD *, _DWORD))nox_game3_thing_callback_get(v18))(v18, 0) )
             return 0;
           v19 = v17++ + 4 * v16;
           v20 = v17 < (unsigned __int8)v30;
@@ -11318,7 +11318,7 @@ int __cdecl sub_503830(int a1)
       v3 = (int)v2;
       if ( !v2 )
         return 0;
-      if ( !((int (__cdecl *)(_DWORD *, int4 *))v2[176])(v2, &v25) )
+      if ( !((int (__cdecl *)(_DWORD *, int4 *))nox_game3_thing_callback_get(v2))(v2, &v25) )
       {
         sub_4E38A0(v3);
 LABEL_15:
@@ -12374,7 +12374,7 @@ int __cdecl sub_504CF0(_DWORD *a2)
         if ( !v9 )
           break;
         v11 = 0;
-        if ( !((int (__cdecl *)(_DWORD *, unsigned int))v9[176])(v9, a2 != 0 ? (unsigned int)&v16 : 0) )
+        if ( !((int (__cdecl *)(_DWORD *, unsigned int))nox_game3_thing_callback_get(v9))(v9, a2 != 0 ? (unsigned int)&v16 : 0) )
           break;
         if ( v10[4] & 0x400000 )
         {
@@ -20411,11 +20411,11 @@ void __cdecl sub_50E970(int a1)
                       *(_DWORD *)&v44[12] = v39;
                       sub_4E4990(v36, (int *)v44);
                     }
-                    if ( *(int (__cdecl **)(int *))(v36 + 704) == sub_4F5F30 )
+                    if ( nox_game3_thing_callback_get((_DWORD *)v36) == (uintptr_t)sub_4F5F30 )
                       **(_BYTE **)(v36 + 736) = v34[4];
-                    if ( *(int (__cdecl **)(int *))(v36 + 704) == sub_4F6240 )
+                    if ( nox_game3_thing_callback_get((_DWORD *)v36) == (uintptr_t)sub_4F6240 )
                       **(_BYTE **)(v36 + 736) = v34[4];
-                    if ( *(int (__cdecl **)(int *))(v36 + 704) == sub_4F6390 )
+                    if ( nox_game3_thing_callback_get((_DWORD *)v36) == (uintptr_t)sub_4F6390 )
                     {
                       strcpy(*(char **)(v36 + 736), (const char *)sub_4E3A80(*((_DWORD *)v34 + 1)));
                       v1 = a1;
@@ -34272,7 +34272,7 @@ int __cdecl sub_51DF90(int a1)
     return 0;
   sub_426AC0(&a1, 2u);
   sub_426C90();
-  result = (*(int (__cdecl **)(int, _DWORD))(v1 + 704))(v1, 0);
+  result = ((int (__cdecl *)(int, _DWORD))nox_game3_thing_callback_get((_DWORD *)v1))(v1, 0);
   if ( result )
   {
     sub_426D40();
@@ -54121,7 +54121,7 @@ int __cdecl sub_5360A0(int a1, int a2, char *a3)
   unsigned __int8 *v6; // edi
 
   v3 = strtok(a3, (const char *)&byte_587000[269772]);
-  v4 = *(const char **)&byte_587000[269128];
+  v4 = (const char *)nox_game3_pointer_from_32(*(unsigned int *)&byte_587000[269128]);
   v5 = 0;
   if ( *(_DWORD *)&byte_587000[269128] )
   {
@@ -54130,7 +54130,7 @@ int __cdecl sub_5360A0(int a1, int a2, char *a3)
     {
       if ( !strcmp(v4, v3) )
         break;
-      v4 = (const char *)*((_DWORD *)v6 + 2);
+      v4 = (const char *)nox_game3_pointer_from_32(*((unsigned int *)v6 + 2));
       v6 += 8;
       ++v5;
     }
