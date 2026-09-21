@@ -727,6 +727,7 @@ static int g_ctrl_y = 0;
 
 static int g_tr_x = 0;
 static int g_tr_y = 0;
+static int g_home_left = 0;
 
 static int g_trhome_left = 0;
 
@@ -2010,8 +2011,9 @@ void nox_control_server_pump(void)
     if (g_home_left > 0) {
         nox_ctrl_inject_mouse_move(-16384, -16384, 0);
         g_home_left--;
-        if (g_home_left > 0)
-            g_sleep_until = now + 10;
+        if (g_home_left > 0) {
+            g_sleep_until = SDL_GetTicks() + 10;
+        }
         return;
     }
     // NEW: if we're in the middle of a TRHOME slam, finish it BEFORE processing queue
@@ -2090,15 +2092,17 @@ void nox_control_server_pump(void)
              return; // stop processing more actions this frame
          }
 
-         case ACT_HOME:
-             // Complete the three-step re-anchor across frames before the
-             // queued coordinate move can run.
-             g_home_left = 3;
-             nox_ctrl_inject_mouse_move(-16384, -16384, 0);
-             g_home_left--;
-             if (g_home_left > 0)
-                 g_sleep_until = SDL_GetTicks() + 10;
-             return;
+        case ACT_HOME:
+            // Slam to top-left using repeated large negative moves WITHOUT
+            // blocking.  Keep the remaining steps in pump state so queued
+            // actions cannot run before the re-anchor is complete.
+            g_home_left = 3;
+            nox_ctrl_inject_mouse_move(-16384, -16384, 0);
+            g_home_left--;
+            if (g_home_left > 0) {
+                g_sleep_until = SDL_GetTicks() + 10;
+            }
+            return;
         case ACT_TRHOME:
             // NEW: start a 3-step slam to top-right, non-blocking
             g_trhome_left = 3;

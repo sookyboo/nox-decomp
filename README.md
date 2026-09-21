@@ -343,6 +343,13 @@ configured map. See
 root mapping, logs, and headless test configuration. The
 `multiplayerHostMenusBeforeGo` macro is the safe UI-only variant.
 
+Absolute `c X Y` macro clicks are implemented on top of relative mouse input.
+Each click first performs a three-frame top-left re-anchor, so the coordinates
+are independent of the previous cursor position. Keep the macro sleep scale
+high enough for the target build to process those re-anchor frames; a fast
+probe can use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1` after confirming that the
+macro still reaches its intended UI state.
+
 # Other env vars
 ```
 export NOX_SKIP_INTRO_MOVIES=0 # default is 1 - skip the logo movies at the start of the game

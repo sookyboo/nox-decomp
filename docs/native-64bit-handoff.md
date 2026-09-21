@@ -451,6 +451,15 @@ map-dispatch assertion, use `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, a
 `sleep 30000` bootstrap delay, and `console "load CapFlag"`; set
 `NOX_TRACE_MAP_DOWNLOAD=1` and verify `[map] map_download_start` followed by
 `window/mapdnld.wnd`.
+
+The control-server absolute-click path is now deterministic across the native
+and i386 builds: `ACT_HOME` completes all three large relative moves before
+the queued click is released. The old implementation injected only the first
+move and then advanced the queue, making later macro coordinates depend on the
+previous cursor position. Runtime verification with native amd64 and stock
+`CapFlag` shows three top-left re-anchor moves before each scripted click;
+macro completion still does not prove that the UI accepted the click or that
+the positive connection-result transition occurred.
 The important native transport boundaries are:
 
 ```text
