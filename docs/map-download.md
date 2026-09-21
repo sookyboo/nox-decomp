@@ -63,20 +63,31 @@ The probe uses a temporary destination and restores the stock map files. The
 production parser test covers 1,024-byte synthetic chunks; the GDB packet
 injector remains diagnostic and stalls for larger synthetic calls.
 
-A direct codec comparison with the restored stock package narrowed this
-failure further: after opening `CapFlag.nxz` with key slot 19, both the native
-and i386 test binaries decode the first four bytes as `0x8ce7fc49`, while
-`sub_4AC2B0()` expects `0xFADEBEEF` or `0xFADEFACE`. The i386 comparison uses
-the same production map-file entry points and a no-op time callback because
-the standalone test does not run the full startup callback initialization. This
-shows that the remaining bad-header result is not presently a native pointer
-width divergence; no architecture-specific codec change is justified yet.
+The loader's `FADEBEEF`/`FADEFACE` header check applies to the stock `.map`
+file, not its companion `.nxz` script package. The `.nxz` files begin with a
+four-byte uncompressed payload length, so decoding that field is not a valid
+map-loader codec test. An earlier direct comparison used `CapFlag.nxz` and is
+discarded; a codec conclusion must use `CapFlag.map` or a self-contained map
+fixture. The stock `.map` and `.nxz` files are both ordinary built-in assets;
+no reloaded/EUD map is needed for this investigation.
 
 The crash root cause was native startup writing host-width pointers into the
 recovered four-byte slots at `byte_587000[173412]`, `[173416]`, and `[173420]`.
 Those writes overlapped the adjacent path strings used by `sub_4AC2B0()`;
 native code now reads the strings by their authoritative in-blob addresses,
 while i386 keeps the recovered pointer-slot behavior.
+
+The next native loader crash had the same ownership pattern in the map section
+dispatch table at `byte_587000[70168]`: each recovered record is a 4-byte name
+pointer followed by a 4-byte handler pointer. Native startup now leaves those
+legacy writes disabled and uses a host-width sidecar containing the 16 section
+names and handlers. `sub_426E20()` serializes every section through that
+sidecar, while `sub_426EA0()` and `sub_426F40()` use it for named section loads
+and the `ObjectData` callback. The i386 path retains the recovered table. A
+headless native GDB probe against the stock built-in `CapFlag.map` now passes
+the header and section dispatch and returns success from `sub_4AC2B0()`; the
+same probe cannot currently reach the loader on i386 because its unrelated
+startup allocator fails earlier in `sub_4101D0()`.
 
 Run it with:
 

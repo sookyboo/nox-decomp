@@ -221,6 +221,13 @@ After the latest source changes:
   Native startup now leaves those legacy writes disabled, and the loader reads
   the underlying in-blob strings directly; the i386 pointer-table behavior is
   unchanged;
+- the next native map-loader crash was the same ABI issue in the 16-entry map
+  section dispatch table at `byte_587000[70168]`: its 4-byte name/handler
+  records were being populated with host-width pointers. Native code now uses
+  a host-width sidecar for `sub_426E20()`, `sub_426EA0()`, and
+  `sub_426F40()`, while i386 retains the recovered table. A headless GDB probe
+  against the stock built-in `CapFlag.map` now passes the header and
+  `ObjectData` dispatch and returns success from `sub_4AC2B0()`;
 - a rebuilt native executable was exercised through the real
   `map_download_loop()`/`map_download_finish()` path with the exact stock
   `CapFlag.nxz` bytes fed through `sub_4AB7C0()`: all 79,398 bytes were written
@@ -231,13 +238,13 @@ After the latest source changes:
   restored byte-for-byte after the probe. The temporary GDB packet injector
   still stalls for larger synthetic calls, although the production parser
   fixture covers 1,024-byte `0xB9` payloads on both architectures;
-- a direct codec comparison using the restored stock package produced the same
-  decoded first word, `0x8ce7fc49`, on native and i386 after key slot 19 was
-  selected. `sub_4AC2B0()` expects `0xFADEBEEF` or `0xFADEFACE`, so the current
-  bad-header result is shared by the two builds rather than being a native
-  pointer-width divergence. The i386 standalone comparison supplies only the
-  production test harness's no-op time callback; it is not a claim of full
-  i386 startup equivalence.
+- the earlier direct codec comparison accidentally used the companion stock
+  `.nxz` script package rather than the `.map` file consumed by
+  `sub_4AC2B0()`. Because `.nxz` begins with its uncompressed payload length,
+  its decoded first word is not evidence about the map-loader header. That
+  comparison is discarded; future codec tests must use the stock built-in
+  `.map` or a self-contained map fixture, without relying on a reloaded/EUD
+  map.
 - the callback transport regression invokes the production tick-callback
   storage on both architectures: the native build uses its host-width
   sidecar, while i386 uses the recovered callback slot;

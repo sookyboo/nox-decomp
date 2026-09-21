@@ -99,6 +99,31 @@ static void *nox_native_property_head;
 static const char *nox_builtin_strings[0x3FF];
 static const char *nox_soundset_names[18];
 
+struct nox_map_section_handler {
+  const char *name;
+  int (*handler)(int);
+};
+
+static const struct nox_map_section_handler nox_map_section_handlers[] = {
+  { &byte_587000[70304], (int (*)(int))sub_42A6E0 },
+  { &byte_587000[70312], (int (*)(int))sub_429B20 },
+  { &byte_587000[70320], (int (*)(int))sub_422230 },
+  { &byte_587000[70332], (int (*)(int))sub_4297C0 },
+  { &byte_587000[70344], (int (*)(int))sub_429530 },
+  { &byte_587000[70364], (int (*)(int))sub_506260 },
+  { &byte_587000[70376], (int (*)(int))sub_5060D0 },
+  { &byte_587000[70388], (int (*)(int))sub_4292C0 },
+  { &byte_587000[70400], (int (*)(int))sub_505C30 },
+  { &byte_587000[70412], (int (*)(int))sub_505A40 },
+  { &byte_587000[70428], (int (*)(int))sub_429200 },
+  { &byte_587000[70440], (int (*)(int))sub_428CD0 },
+  { &byte_587000[70452], (int (*)(int))sub_505080 },
+  { &byte_587000[70464], (int (*)(int))sub_504F90 },
+  { &byte_587000[70476], (int (*)(int))sub_428B30 },
+  { &byte_587000[70488], (int (*)(int))sub_504CF0 },
+  { 0, 0 },
+};
+
 struct nox_string_index {
   int index;
   const char *name;
@@ -3607,6 +3632,7 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[69748] = &byte_587000[69820];
 *(void **)&byte_587000[69752] = &byte_587000[69836];
 *(void **)&byte_587000[69756] = &byte_587000[69860];
+#if UINTPTR_MAX <= UINT32_MAX
 *(void **)&byte_587000[70168] = &byte_587000[70304];
 *(void **)&byte_587000[70172] = &sub_42A6E0;
 *(void **)&byte_587000[70176] = &byte_587000[70312];
@@ -3639,6 +3665,7 @@ NOX_BUILTIN_PTR(9272, 25696);
 *(void **)&byte_587000[70284] = &sub_428B30;
 *(void **)&byte_587000[70288] = &byte_587000[70488];
 *(void **)&byte_587000[70292] = &sub_504CF0;
+#endif
 *(void **)&byte_587000[70500] = &byte_587000[70664];
 *(void **)&byte_587000[70504] = &byte_587000[70680];
 *(void **)&byte_587000[70508] = &byte_587000[70684];
@@ -35933,6 +35960,21 @@ void __cdecl sub_426D40()
 //----- (00426E20) --------------------------------------------------------
 int __cdecl sub_426E20(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  const struct nox_map_section_handler *entry;
+
+  for ( entry = nox_map_section_handlers; entry->name; ++entry )
+  {
+    unsigned char length = strlen(entry->name) + 1;
+    sub_426AC0(&length, 1u);
+    sub_426AC0((char *)entry->name, length);
+    sub_426C90();
+    if ( !entry->handler(a1) )
+      return 0;
+    sub_426D40();
+  }
+  return 1;
+#else
   int v1; // ebp
   const char **v2; // ebx
   unsigned __int8 *v3; // esi
@@ -35959,6 +36001,7 @@ int __cdecl sub_426E20(int a1)
       return 1;
   }
   return 0;
+#endif
 }
 // 426E69: variable 'v4' is possibly undefined
 // 426E79: variable 'v5' is possibly undefined
@@ -35966,6 +36009,23 @@ int __cdecl sub_426E20(int a1)
 //----- (00426EA0) --------------------------------------------------------
 BOOL __cdecl sub_426EA0(int a1, const char *a2, _DWORD *a3)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  const struct nox_map_section_handler *entry;
+
+  *a3 = 0;
+  for ( entry = nox_map_section_handlers; entry->name; ++entry )
+  {
+    if ( !strcmp(entry->name, a2) )
+    {
+      if ( entry->handler(a1) )
+        return 1;
+      *a3 = 1;
+      sub_4269F0();
+      return 0;
+    }
+  }
+  return 0;
+#else
   int v3; // ebp
   const char *v4; // eax
   unsigned __int8 *v5; // edi
@@ -35989,11 +36049,29 @@ BOOL __cdecl sub_426EA0(int a1, const char *a2, _DWORD *a3)
   *a3 = 1;
   sub_4269F0();
   return 0;
+#endif
 }
 
 //----- (00426F40) --------------------------------------------------------
 BOOL __cdecl sub_426F40(int a1, const char *a2, _DWORD *a3, int (__cdecl *a4)(int))
 {
+#if UINTPTR_MAX > UINT32_MAX
+  const struct nox_map_section_handler *entry;
+
+  *a3 = 0;
+  if ( !a4 )
+  {
+    *a3 = 1;
+    sub_4269F0();
+    return 0;
+  }
+  for ( entry = nox_map_section_handlers; entry->name; ++entry )
+  {
+    if ( !strcmp(entry->name, a2) )
+      return a4(a1) ? 1 : (*a3 = 1, sub_4269F0(), 0);
+  }
+  return 0;
+#else
   BOOL result; // eax
   const char *v5; // eax
   int v6; // ebp
@@ -36034,6 +36112,7 @@ LABEL_7:
     result = 0;
   }
   return result;
+#endif
 }
 
 //----- (00426FF0) --------------------------------------------------------
