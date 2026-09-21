@@ -367,6 +367,12 @@ After the latest source changes:
   records are active, so inspecting only the head is insufficient evidence
   that `sub_4AA450()` was skipped. Future probes must enumerate the full
   transition list before attributing the stop to transition dispatch;
+- enumerating the list immediately after `sub_4AA270()` creates the server
+  screen shows both new low-address records and their populated `+48`/`+56`
+  transition callbacks. This rules out missing callback installation at the
+  creation boundary; the next probe must cover the subsequent UI event or
+  control-macro progression that changes those records from their initial
+  state.
 - the native UI handoff itself is now traced through the production callback
   chain: MainMenu widget 112 dispatches event `16391` to the MainMenu
   callback, `sub_4D1630()` returns success, and transition callback
