@@ -394,6 +394,13 @@ After the latest source changes:
   300 to 0, after which the same `(250,165)` click reaches the normal
   `16391` dispatch. A failed early click is therefore a probe-timing failure,
   not evidence that the native hit-test or MainMenu callback is broken;
+- the built-in `startMultiplayerNetworkHost` macro now waits long enough after
+  the MainMenu handoff for `window/ArnaMain.wnd` to finish loading and clicks
+  its actual WOLAPI button rectangle `(237..403,182..217)` at `(300,200)`.
+  Its previous `(300,270)` click was outside both ArnaMain buttons and could
+  never generate the server-screen `16391` event. With the corrected timing
+  and coordinate, the native trace reaches `sub_4AA4D0(a2=16391)` through
+  `sub_46B490()`/`sub_4A7F50()` without a signal;
 - `sub_4AA270()` creates the server gameplay screen and stores its root in the
   recovered DWORD slot at `byte_5D4594[1309716]`. On native builds that root is
   a host-width window pointer, so the slot is only a compatibility copy;
