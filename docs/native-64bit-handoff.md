@@ -360,6 +360,15 @@ After the latest source changes:
   macro therefore does not currently establish a positive connection-result
   transition; do not treat a bounded timeout at this point as successful
   gameplay initialization;
+- with `NOX_CONTROL_SERVER_SLEEP_SCALE=0.1`, the complete built-in `server`
+  macro now reaches and logs the ends of `startMultiplayerNetworkHost`,
+  `newMultiNewCharacterWarrior`, `chatScreenPopUpClickOk`,
+  `chatScreenServerName`, and `defaultServerGame` without a native signal.
+  After the macro completes, the native trace repeatedly reloads
+  `window/MainMenu.wnd` instead of entering map activation. This is a
+  state-machine/UI handoff boundary, not evidence that `CapFlag` was loaded.
+  The native `-serveronly CapFlag` entry point likewise reaches the server
+  loop and remains alive without entering the client map-download path.
 - a transition-tick trace confirms that this bounded stop is not an idle
   main-loop scheduler: `sub_43C380()` continues to run and the active
   low-address transition records advance through their normal state values.
