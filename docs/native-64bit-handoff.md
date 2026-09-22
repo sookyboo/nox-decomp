@@ -396,11 +396,13 @@ After the latest source changes:
   not evidence that the native hit-test or MainMenu callback is broken;
 - the built-in `startMultiplayerNetworkHost` macro now waits long enough after
   the MainMenu handoff for `window/ArnaMain.wnd` to finish loading and clicks
-  its actual WOLAPI button rectangle `(237..403,182..217)` at `(300,200)`.
-  Its previous `(300,270)` click was outside both ArnaMain buttons and could
-  never generate the server-screen `16391` event. With the corrected timing
-  and coordinate, the native trace reaches `sub_4AA4D0(a2=16391)` through
-  `sub_46B490()`/`sub_4A7F50()` without a signal;
+  its native-LAN button 421 rectangle `(237..403,256..291)` at `(300,270)`;
+  the local `y=16..51` coordinate is offset by parent 420's global `y=240`.
+  The previous macro used this coordinate before the screen had finished
+  loading, while the intermediate `(300,200)` WOLAPI click entered the
+  platform-specific `sub_40CE60()` path that is unavailable on native Linux.
+  With the corrected timing and LAN coordinate, the native trace reaches the
+  server-screen `16391` dispatch without selecting WOLAPI or using Windows;
 - `sub_4AA270()` creates the server gameplay screen and stores its root in the
   recovered DWORD slot at `byte_5D4594[1309716]`. On native builds that root is
   a host-width window pointer, so the slot is only a compatibility copy;
@@ -464,6 +466,17 @@ After the latest source changes:
   preference helpers now use the sidecar. This removes a startup SIGSEGV in
   `AIL_digital_handle_release()` before the main menu and lets the native probe
   reach `window/MainMenu.wnd`; the i386 path remains unchanged.
+- native server discovery reaches the shared packed-list insertion helper
+  `sub_4258E0()` with recovered 32-bit node addresses. Its native branch now
+  reconstructs the list anchor before reading or updating the `+4` link; using
+  the encoded low value as a host pointer crashed while processing the first
+  server-info response. The callback registration and packet argument use
+  host-width sidecars/types as well, while i386 retains the original slots.
+- the same discovery-list walk uses `sub_425940()` to reconstruct the next
+  node. Its return type must remain host-width on native builds; truncating the
+  reconstructed pointer back to `int` caused the duplicate server-name check
+  in `sub_4A0410()` to call `strcmp()` on an invalid node. The shared walker
+  now returns `uintptr_t`, preserving the original 32-bit result on i386.
 - this still does not prove a complete peer-supplied map transfer. The
   map-dispatch smoke reaches `map_download_start()` and renders
   `window/mapdnld.wnd`, the deterministic transfer regression verifies the

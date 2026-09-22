@@ -46,6 +46,10 @@ static void nox_net_legacy_free(void *address)
 #define nox_net_legacy_free free
 #endif
 
+#if UINTPTR_MAX > UINT32_MAX
+static int (*nox_serverinfo_callback)(const char *, __int16, char *, uintptr_t);
+#endif
+
 //-------------------------------------------------------------------------
 // Function declarations
 
@@ -12472,14 +12476,24 @@ LABEL_8:
               {
                 if ( v4 )
                 {
-                  if ( *(_DWORD *)&byte_5D4594[2513928] )
+                  if (
+#if UINTPTR_MAX > UINT32_MAX
+                    nox_serverinfo_callback
+#else
+                    *(_DWORD *)&byte_5D4594[2513928]
+#endif
+                  )
                   {
                     LOWORD(v6) = ntohs(*(u_short *)&in[2]);
+#if UINTPTR_MAX > UINT32_MAX
+                    if ( nox_serverinfo_callback(v5, v6, &buf[72], (uintptr_t)buf) == 1 )
+#else
                     if ( (*(int (__cdecl **)(_DWORD, _DWORD, _DWORD, _DWORD))&byte_5D4594[2513928])(
                            v5,
                            v6,
                            &buf[72],
                            buf) == 1 )
+#endif
                       sub_555000(0);
                   }
                 }
@@ -12543,12 +12557,16 @@ int sub_554FF0()
 }
 
 //----- (00555000) --------------------------------------------------------
-int __cdecl sub_555000(int a1)
+uintptr_t __cdecl sub_555000(uintptr_t a1)
 {
-  int result; // eax
+  uintptr_t result; // eax
 
   result = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_serverinfo_callback = (int (*)(const char *, __int16, char *, uintptr_t))a1;
+#else
   *(_DWORD *)&byte_5D4594[2513928] = a1;
+#endif
   return result;
 }
 

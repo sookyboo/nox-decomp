@@ -1087,7 +1087,7 @@ _DWORD *__cdecl sub_4258C0(_DWORD **a1, int a2);
 _DWORD *__cdecl sub_4258E0(uintptr_t a1, _DWORD *a2);
 _DWORD *__cdecl sub_425900(_DWORD *a1, _DWORD *a2);
 _DWORD **__cdecl sub_425920(_DWORD **a1);
-int __cdecl sub_425940(int *a1);
+uintptr_t __cdecl sub_425940(int *a1);
 int __cdecl sub_425960(int a1);
 _DWORD *__cdecl sub_425980(_DWORD *a1);
 int __cdecl sub_4259A0(int a1);
@@ -1574,7 +1574,7 @@ void sub_437310();
 int __cdecl sub_437320(int a1);
 void sub_4373A0();
 void __cdecl sub_4375C0(int a1);
-int __cdecl sub_4375F0(const char *a1, __int16 a2, char *a3, int a4);
+int __cdecl sub_4375F0(const char *a1, __int16 a2, char *a3, uintptr_t a4);
 int __cdecl sub_437860(int a1, int a2);
 int sub_4378B0();
 void sub_4379C0();
@@ -7291,7 +7291,7 @@ int __cdecl sub_554C80(u_short hostshort, char *buf, int); // idb
 int sub_554D10();
 int __cdecl sub_554D70(char a1);
 int sub_554FF0();
-int __cdecl sub_555000(int a1);
+uintptr_t __cdecl sub_555000(uintptr_t a1);
 int __cdecl sub_555010(int, u_short hostshort, char *buf, int); // idb
 int __cdecl sub_5550A0(int, u_short hostshort, char *buf); // idb
 int __cdecl sub_5550D0(int, u_short hostshort, char *buf); // idb

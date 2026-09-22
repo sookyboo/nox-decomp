@@ -34827,10 +34827,13 @@ _DWORD *__cdecl sub_4258E0(uintptr_t a1, _DWORD *a2)
 
   result = a2;
 #if UINTPTR_MAX > UINT32_MAX
-  v3 = (uintptr_t)*(unsigned int *)(a1 + 4);
-  *a2 = (unsigned int)a1;
+  uintptr_t native_a1 = nox_native_pointer_from_32((unsigned int)a1);
+  if ( !native_a1 )
+    native_a1 = a1;
+  v3 = (uintptr_t)*(unsigned int *)(native_a1 + 4);
+  *a2 = (unsigned int)native_a1;
   a2[1] = (unsigned int)v3;
-  *(unsigned int *)(a1 + 4) = (unsigned int)(uintptr_t)a2;
+  *(unsigned int *)(native_a1 + 4) = (unsigned int)(uintptr_t)a2;
   *(unsigned int *)NOX_STATIC_POINTER_FROM_32(a2[1]) = (unsigned int)(uintptr_t)a2;
 #else
   v3 = *(_DWORD *)(a1 + 4);
@@ -34896,7 +34899,7 @@ _DWORD **__cdecl sub_425920(_DWORD **a1)
 }
 
 //----- (00425940) --------------------------------------------------------
-int __cdecl sub_425940(int *a1)
+uintptr_t __cdecl sub_425940(int *a1)
 {
   uintptr_t result; // eax
 
@@ -34906,7 +34909,7 @@ int __cdecl sub_425940(int *a1)
     if ( result == nox_native_pointer_from_32_value(*(unsigned int *)(result + 8)) )
       result = 0;
   }
-  return (int)(uintptr_t)result;
+  return result;
 }
 
 //----- (00425960) --------------------------------------------------------
@@ -48839,7 +48842,7 @@ void __cdecl sub_4375C0(int a1)
 }
 
 //----- (004375F0) --------------------------------------------------------
-int __cdecl sub_4375F0(const char *a1, __int16 a2, char *a3, int a4)
+int __cdecl sub_4375F0(const char *a1, __int16 a2, char *a3, uintptr_t a4)
 {
   DWORD v4; // edx
   int v5; // edi
