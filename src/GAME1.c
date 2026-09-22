@@ -54058,13 +54058,24 @@ int sub_43E8E0()
 {
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_mss_digital_handle != 0;
+  if ( nox_mss_digital_handle )
+#else
   result = *(_DWORD *)&byte_5D4594[816432];
   if ( *(_DWORD *)&byte_5D4594[816432] )
+#endif
   {
     if ( !*(_DWORD *)&byte_5D4594[816436] )
     {
       *(_DWORD *)&byte_5D4594[816436] = 1;
-      result = AIL_digital_handle_release(*(_DWORD *)&byte_5D4594[816432]);
+      result = AIL_digital_handle_release(
+#if UINTPTR_MAX > UINT32_MAX
+        nox_mss_digital_handle
+#else
+        *(_DWORD *)&byte_5D4594[816432]
+#endif
+      );
     }
   }
   return result;
@@ -54076,12 +54087,23 @@ int sub_43E910()
 {
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_mss_digital_handle != 0;
+  if ( nox_mss_digital_handle )
+#else
   result = *(_DWORD *)&byte_5D4594[816432];
   if ( *(_DWORD *)&byte_5D4594[816432] )
+#endif
   {
     if ( *(_DWORD *)&byte_5D4594[816436] )
     {
-      result = AIL_digital_handle_reacquire(*(_DWORD *)&byte_5D4594[816432]);
+      result = AIL_digital_handle_reacquire(
+#if UINTPTR_MAX > UINT32_MAX
+        nox_mss_digital_handle
+#else
+        *(_DWORD *)&byte_5D4594[816432]
+#endif
+      );
       *(_DWORD *)&byte_5D4594[816436] = 0;
     }
   }
@@ -54162,7 +54184,11 @@ int __cdecl sub_43EA20(uintptr_t a1)
 #endif
     *(_DWORD *)&byte_5D4594[816432] = digital_handle;
   }
+#if UINTPTR_MAX > UINT32_MAX
+  if ( !nox_mss_digital_handle )
+#else
   if ( !*(_DWORD *)&byte_5D4594[816432] )
+#endif
     return -2147221504;
   *(_DWORD *)&byte_587000[93948] = AIL_get_preference(42);
   *(_DWORD *)(a1 + 196) = 24;
@@ -54251,11 +54277,21 @@ int sub_43EC10()
 {
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_mss_digital_handle != 0;
+  if ( nox_mss_digital_handle )
+#else
   result = *(_DWORD *)&byte_5D4594[816432];
   if ( *(_DWORD *)&byte_5D4594[816432] )
+#endif
   {
+#if UINTPTR_MAX > UINT32_MAX
+    AIL_waveOutClose(nox_mss_digital_handle);
+    nox_mss_digital_handle = 0;
+#else
     AIL_waveOutClose(*(_DWORD *)&byte_5D4594[816432]);
     *(_DWORD *)&byte_5D4594[816432] = 0;
+#endif
   }
   return result;
 }
@@ -54673,7 +54709,11 @@ int __cdecl sub_43F0E0(_DWORD *a1)
 //----- (0043F130) --------------------------------------------------------
 int sub_43F130()
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_mss_digital_handle != 0;
+#else
   return *(_DWORD *)&byte_5D4594[816432];
+#endif
 }
 
 //----- (0043F140) --------------------------------------------------------
@@ -54682,8 +54722,13 @@ int __cdecl sub_43F140(int a1)
   int result; // eax
   int v2; // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_mss_digital_handle != 0;
+  if ( nox_mss_digital_handle )
+#else
   result = *(_DWORD *)&byte_5D4594[816432];
   if ( *(_DWORD *)&byte_5D4594[816432] )
+#endif
   {
     result = AIL_get_preference(34);
     if ( result )
@@ -54714,8 +54759,13 @@ int sub_43F1A0()
 {
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_mss_digital_handle != 0;
+  if ( nox_mss_digital_handle )
+#else
   result = *(_DWORD *)&byte_5D4594[816432];
   if ( *(_DWORD *)&byte_5D4594[816432] )
+#endif
   {
     AIL_set_preference(42, *(_DWORD *)&byte_587000[93948]);
     AIL_serve();

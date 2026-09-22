@@ -450,6 +450,13 @@ After the latest source changes:
   calling the broader `sub_435CC0()` there faults in `sub_49A8E0()`. These
   probes confirm that table allocation and gameplay initialization depend on
   earlier state-machine preconditions; neither call belongs in the map loader.
+- the native startup audio boundary also uses a host-width sidecar:
+  `nox_mss_digital_handle` is authoritative for the AIL digital-driver
+  lifecycle, while `byte_5D4594[816432]` remains the recovered i386 slot and
+  native compatibility copy. The release/reacquire, close, presence, and
+  preference helpers now use the sidecar. This removes a startup SIGSEGV in
+  `AIL_digital_handle_release()` before the main menu and lets the native probe
+  reach `window/MainMenu.wnd`; the i386 path remains unchanged.
 - this still does not prove a complete peer-supplied map transfer. The
   map-dispatch smoke reaches `map_download_start()` and renders
   `window/mapdnld.wnd`, the deterministic transfer regression verifies the
