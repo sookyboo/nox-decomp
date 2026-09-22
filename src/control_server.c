@@ -1012,7 +1012,7 @@ static const NoxCtrlMacro g_macros[] = {
     {
         "startMultiplayerNetworkHost",
         "sleep 1000; c 1 1; sleep 1000; c 1 1; sleep 1000; c 1 1; sleep 1000; "
-        "c 250 165; sleep 10000; c 300 270; sleep 30000; click 60 60; sleep 30000; "
+        "c 250 165; sleep 10000; c 300 270; sleep 30000; click 60 300; sleep 30000; "
         "# startMultiplayerNetworkHost\n"
     },
     {

@@ -12157,6 +12157,9 @@ int __cdecl sub_554B40(u_short hostshort)
   struct sockaddr name; // [esp+4h] [ebp-1A4h]
   char optval[4]; // [esp+14h] [ebp-194h]
   struct WSAData WSAData; // [esp+18h] [ebp-190h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  u_long nonblocking;
+#endif
 
   if ( *(_DWORD *)&byte_5D4594[2513916] == 1 )
     return -14;
@@ -12195,9 +12198,29 @@ int __cdecl sub_554B40(u_short hostshort)
           result = setsockopt(*(SOCKET *)&byte_5D4594[2513920], 0xFFFF, 32, optval, 4);
           if ( result != -1 )
           {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+            /*
+             * sub_554D70() historically checked FIONREAD before calling
+             * recvfrom().  That check races with another discovery callback
+             * on native Linux, allowing the main loop to block in recvfrom()
+             * and starve the UI/control pump.  Keep the recovered i386 path
+             * unchanged, but make the native discovery socket polling-safe.
+             */
+            nonblocking = 1;
+            if ( ioctlsocket(*(SOCKET *)&byte_5D4594[2513920], 0x8004667e, &nonblocking) == -1 )
+            {
+              closesocket(*(SOCKET *)&byte_5D4594[2513920]);
+              closesocket(*(SOCKET *)&byte_5D4594[2513924]);
+              WSACleanup();
+              result = -1;
+            }
+            else
+#endif
+            {
             sub_43DE20((uintptr_t)sub_554FF0);
             *(_DWORD *)&byte_5D4594[2513916] = 1;
             result = 0;
+            }
           }
         }
       }

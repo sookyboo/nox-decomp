@@ -403,11 +403,13 @@ After the latest source changes:
   platform-specific `sub_40CE60()` path that is unavailable on native Linux.
   With the corrected timing and LAN coordinate, the native trace reaches the
   server-screen `16391` dispatch without selecting WOLAPI or using Windows;
-- `noxworld.wnd` places the local Host Game button 10002 at global rectangle
-  `(40..190,49..81)`, so the macro's `(60,60)` click is intentional. The
-  macro now waits three scaled seconds after `noxworld.wnd` opens before that
-  click, and three more scaled seconds after it, allowing the native host
-  transition to consume the action before the character/map steps begin.
+- `noxworld.wnd` places the local Host Game button 10002 at rectangle
+  `(40..190,49..81)` inside ArnaMain's lower panel 420, whose global y origin
+  is 240. Its effective global rectangle is therefore `(40..190,289..321)`;
+  the macro uses `(60,300)`, not the file-local `(60,60)`. It waits three
+  scaled seconds after `noxworld.wnd` opens before that click, and three more
+  scaled seconds after it, allowing the native host transition to consume the
+  action before the character/map steps begin.
 - `sub_4AA270()` creates the server gameplay screen and stores its root in the
   recovered DWORD slot at `byte_5D4594[1309716]`. On native builds that root is
   a host-width window pointer, so the slot is only a compatibility copy;
@@ -477,6 +479,13 @@ After the latest source changes:
   the encoded low value as a host pointer crashed while processing the first
   server-info response. The callback registration and packet argument use
   host-width sidecars/types as well, while i386 retains the original slots.
+- `sub_554D70()` performs a FIONREAD check before `recvfrom()`. On native
+  Linux, another discovery callback could consume the datagram between those
+  operations, leaving the main loop blocked in `recvfrom()` and starving the
+  control/UI pump. `sub_554B40()` now makes the native amd64 discovery socket
+  nonblocking immediately after bind/setup; the recovered i386 path remains
+  unchanged. This is why the native UI macro can reliably reach the Host Game
+  transition before later gameplay-state work.
 - the same discovery-list walk uses `sub_425940()` to reconstruct the next
   node. Its return type must remain host-width on native builds; truncating the
   reconstructed pointer back to `int` caused the duplicate server-name check
