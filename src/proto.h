@@ -26,6 +26,10 @@ extern FILE *nox_log_file;
 void nox_native_list_pointer_remember(uintptr_t native);
 void nox_native_list_pointer_forget(uintptr_t native);
 uintptr_t nox_native_list_pointer_resolve(unsigned int encoded);
+void nox_native_transition_callback_set(uintptr_t record, unsigned int offset,
+                                        uintptr_t callback);
+uintptr_t nox_native_transition_callback_get(uintptr_t record, unsigned int offset);
+void nox_native_transition_callback_clear(uintptr_t record);
 #endif
 
 void init_data();

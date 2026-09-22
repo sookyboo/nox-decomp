@@ -155,7 +155,10 @@ The current branch contains native-width handling for:
   host-width global when the corresponding recovered window record is freed;
 - the transition records used by `sub_4AA270()`/`sub_4AA490()`, which retain
   their host pointers in sidecars, and the 32-bit transition callbacks are
-  reconstructed before invocation.
+  reconstructed before invocation. The same callback sidecar applies to the
+  menu and map-download transition records created by `sub_4A1C00()` and
+  `sub_4AA6B0()`; `nox_game3_pointer_from_32()` is a data-pointer decoder and
+  must not be used to reconstruct host function addresses.
 - the network callback registration in `sub_554B40()`: native builds pass the
   `sub_554FF0()` callback through `uintptr_t` into the host-width main-loop
   callback sidecar. The recovered call path previously cast this address to
@@ -238,6 +241,12 @@ After the latest source changes:
 - the map-download window render callback now uses native sidecars for the two
   recovered DWORD line-drawing callback slots; a 40-second bounded native run
   remains alive in the map-download screen after opening `mapdnld.wnd`;
+- the current native transition-callback correction builds on both targets and
+  preserves the direct `CapFlag` map-download checkpoint. The accelerated
+  server macro still returns to repeated `window/MainMenu.wnd` loads after
+  `defaultServerGame`; this is the next gameplay-handoff boundary, not a
+  verified connected-game fix. The i386 comparison still stops earlier at its
+  known `sub_4101D0()` startup fault.
 - native network connection records created by `sub_553000()` now keep their
   recovered four-byte pointer slots valid through low-address allocation, and
   the map-download regression covers constructor/destructor cleanup before

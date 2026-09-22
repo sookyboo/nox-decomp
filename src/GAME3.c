@@ -500,8 +500,10 @@ int sub_4A1C00()
 #if UINTPTR_MAX > UINT32_MAX
       nox_menu_button_left = (_DWORD *)(uintptr_t)(unsigned int)result;
       nox_menu_button_left[0] = 100;
-      nox_menu_button_left[12] = (uintptr_t)sub_4A1D40;
-      nox_menu_button_left[14] = (uintptr_t)sub_4A1D80;
+      nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 48,
+                                          (uintptr_t)sub_4A1D40);
+      nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 56,
+                                          (uintptr_t)sub_4A1D80);
 #else
       *(_DWORD *)result = 100;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 48) = sub_4A1D40;
@@ -558,8 +560,10 @@ int sub_4A1D80()
   int (*v0)(void); // esi
 
 #if UINTPTR_MAX > UINT32_MAX
-  v0 = (int (*)(void))nox_game3_pointer_from_32(
-    *(unsigned int *)((char *)nox_menu_button_left + 52));
+  v0 = (int (*)(void))nox_native_transition_callback_get(
+    (uintptr_t)nox_menu_button_left, 52);
+  nox_native_transition_callback_clear((uintptr_t)nox_menu_button_left);
+  nox_native_transition_callback_clear((uintptr_t)nox_menu_button_right);
   sub_43C570(nox_menu_button_left);
   sub_43C570(nox_menu_button_right);
 #else
@@ -627,12 +631,22 @@ LABEL_32:
             if ( sub_4DC550() )
             {
               sub_4A7A70(1);
+#if UINTPTR_MAX > UINT32_MAX
+              nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 52,
+                                                  (uintptr_t)sub_4A4DB0);
+#else
               *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 52) = sub_4A4DB0;
+#endif
             }
             else
             {
               sub_4A7A70(0);
+#if UINTPTR_MAX > UINT32_MAX
+              nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 52,
+                                                  (uintptr_t)sub_4A4840);
+#else
               *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 52) = sub_4A4840;
+#endif
             }
             sub_452D80(921, 100);
           }
@@ -672,7 +686,12 @@ LABEL_32:
           sub_4A1D40();
           sub_4B0300(v10);
           sub_4B0640(sub_43C0A0);
+#if UINTPTR_MAX > UINT32_MAX
+          nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 52,
+                                              (uintptr_t)sub_4A2200);
+#else
           *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 52) = sub_4A2200;
+#endif
           sub_452D80(921, 100);
           return 1;
         case 122:
@@ -718,10 +737,20 @@ LABEL_32:
 LABEL_26:
 #ifdef __EMSCRIPTEN__
           sub_4AA450();
+#if UINTPTR_MAX > UINT32_MAX
+          nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 52,
+                                              (uintptr_t)sub_4379F0);
+#else
           *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 52) = sub_4379F0;
+#endif
           sub_43AF50(0);
 #else
+#if UINTPTR_MAX > UINT32_MAX
+          nox_native_transition_callback_set((uintptr_t)nox_menu_button_left, 52,
+                                              (uintptr_t)sub_4AA270);
+#else
           *(_DWORD *)(*(_DWORD *)&byte_5D4594[1307308] + 52) = sub_4AA270;
+#endif
 #endif
           sub_452D80(921, 100);
           break;
@@ -6628,8 +6657,10 @@ int sub_4AA270()
     {
 #if UINTPTR_MAX > UINT32_MAX
       *nox_server_transition_left = 400;
-      nox_server_transition_left[48 / sizeof(_DWORD)] = (uintptr_t)sub_4AA450;
-      nox_server_transition_left[56 / sizeof(_DWORD)] = (uintptr_t)sub_4AA490;
+      nox_native_transition_callback_set((uintptr_t)nox_server_transition_left, 48,
+                                          (uintptr_t)sub_4AA450);
+      nox_native_transition_callback_set((uintptr_t)nox_server_transition_left, 56,
+                                          (uintptr_t)sub_4AA490);
 #else
       *(_DWORD *)result = 400;
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 48) = sub_4AA450;
@@ -6702,8 +6733,10 @@ int sub_4AA490()
   int (*v0)(void); // esi
 
 #if UINTPTR_MAX > UINT32_MAX
-  v0 = (int (*)(void))nox_game3_pointer_from_32(
-    *(unsigned int *)((char *)nox_server_transition_left + 52));
+  v0 = (int (*)(void))nox_native_transition_callback_get(
+    (uintptr_t)nox_server_transition_left, 52);
+  nox_native_transition_callback_clear((uintptr_t)nox_server_transition_left);
+  nox_native_transition_callback_clear((uintptr_t)nox_server_transition_right);
 #else
   v0 = *(int (**)(void))(*(_DWORD *)&byte_5D4594[1309708] + 52);
 #endif
@@ -6756,7 +6789,8 @@ LABEL_17:
       }
       sub_4AA450();
 #if UINTPTR_MAX > UINT32_MAX
-      nox_server_transition_left[52 / sizeof(_DWORD)] = (uintptr_t)sub_4379F0;
+      nox_native_transition_callback_set((uintptr_t)nox_server_transition_left, 52,
+                                          (uintptr_t)sub_4379F0);
 #else
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 52) = sub_4379F0;
 #endif
@@ -6782,7 +6816,8 @@ LABEL_17:
       sub_4A1A40(0);
       sub_4AA450();
 #if UINTPTR_MAX > UINT32_MAX
-      nox_server_transition_left[52 / sizeof(_DWORD)] = (uintptr_t)sub_44A560;
+      nox_native_transition_callback_set((uintptr_t)nox_server_transition_left, 52,
+                                          (uintptr_t)sub_44A560);
 #else
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309708] + 52) = sub_44A560;
 #endif
@@ -6852,8 +6887,15 @@ int sub_4AA6B0()
       if ( result )
       {
         *(_DWORD *)result = 300;
+#if UINTPTR_MAX > UINT32_MAX
+        nox_native_transition_callback_set((uintptr_t)result, 48,
+                                            (uintptr_t)sub_4AA9C0);
+        nox_native_transition_callback_set((uintptr_t)result, 56,
+                                            (uintptr_t)sub_4AAA10);
+#else
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309740] + 48) = sub_4AA9C0;
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309740] + 56) = sub_4AAA10;
+#endif
         v1 = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 351);
         *(_DWORD *)(v1[100] + 8) = 24;
         *(_DWORD *)(v1[100] + 12) = 20;
@@ -6934,7 +6976,13 @@ int sub_4AAA10()
 {
   void (*v0)(void); // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v0 = (void (*)(void))nox_native_transition_callback_get(
+    (uintptr_t)*(void **)&byte_5D4594[1309740], 52);
+  nox_native_transition_callback_clear((uintptr_t)*(void **)&byte_5D4594[1309740]);
+#else
   v0 = *(void (**)(void))(*(_DWORD *)&byte_5D4594[1309740] + 52);
+#endif
   sub_43C570(*(LPVOID *)&byte_5D4594[1309740]);
   sub_46C4E0(*(_DWORD **)&byte_5D4594[1309720]);
   sub_4A1A40(1);
@@ -7116,8 +7164,15 @@ int __cdecl sub_4AABE0(int a1, int a2, int *a3, int a4)
       else if ( v4 == 341 )
       {
         sub_4AA9C0();
+#if UINTPTR_MAX > UINT32_MAX
+        nox_native_transition_callback_set(
+          (uintptr_t)*(void **)&byte_5D4594[1309740], 56, (uintptr_t)sub_4AB0C0);
+        nox_native_transition_callback_set(
+          (uintptr_t)*(void **)&byte_5D4594[1309740], 52, (uintptr_t)sub_4CB880);
+#else
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309740] + 56) = sub_4AB0C0;
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309740] + 52) = sub_4CB880;
+#endif
       }
       else
       {
@@ -7318,7 +7373,13 @@ int sub_4AB0C0()
 {
   void (*v0)(void); // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v0 = (void (*)(void))nox_native_transition_callback_get(
+    (uintptr_t)*(void **)&byte_5D4594[1309740], 52);
+  nox_native_transition_callback_clear((uintptr_t)*(void **)&byte_5D4594[1309740]);
+#else
   v0 = *(void (**)(void))(*(_DWORD *)&byte_5D4594[1309740] + 52);
+#endif
   sub_43C570(*(LPVOID *)&byte_5D4594[1309740]);
   sub_46C4E0(*(_DWORD **)&byte_5D4594[1309720]);
   v0();

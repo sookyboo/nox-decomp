@@ -163,6 +163,15 @@ static struct nox_native_list_pointer nox_native_list_pointers[4096];
 static unsigned int nox_native_list_pointer_count;
 static uintptr_t nox_native_pointer_from_32(unsigned int value);
 
+struct nox_native_transition_callback {
+  uintptr_t record;
+  unsigned int offset;
+  uintptr_t callback;
+};
+
+static struct nox_native_transition_callback nox_native_transition_callbacks[256];
+static unsigned int nox_native_transition_callback_count;
+
 void nox_native_list_pointer_remember(uintptr_t native)
 {
   unsigned int encoded;
@@ -223,6 +232,67 @@ uintptr_t nox_native_list_pointer_resolve(unsigned int encoded)
   if ( encoded < 0x01000000u || (encoded >= 0x40000000u && encoded < 0x50000000u) )
     return encoded;
   return 0;
+}
+
+void nox_native_transition_callback_set(uintptr_t record, unsigned int offset,
+                                        uintptr_t callback)
+{
+  unsigned int i;
+
+  if ( !record )
+    return;
+  for ( i = 0; i < nox_native_transition_callback_count; ++i )
+  {
+    if ( nox_native_transition_callbacks[i].record == record
+      && nox_native_transition_callbacks[i].offset == offset )
+    {
+      nox_native_transition_callbacks[i].callback = callback;
+      *(unsigned int *)(record + offset) = (unsigned int)callback;
+      return;
+    }
+  }
+  if ( nox_native_transition_callback_count >=
+       sizeof(nox_native_transition_callbacks) / sizeof(nox_native_transition_callbacks[0]) )
+    return;
+  nox_native_transition_callbacks[nox_native_transition_callback_count].record = record;
+  nox_native_transition_callbacks[nox_native_transition_callback_count].offset = offset;
+  nox_native_transition_callbacks[nox_native_transition_callback_count].callback = callback;
+  ++nox_native_transition_callback_count;
+  *(unsigned int *)(record + offset) = (unsigned int)callback;
+}
+
+uintptr_t nox_native_transition_callback_get(uintptr_t record, unsigned int offset)
+{
+  unsigned int i;
+
+  if ( !record )
+    return 0;
+  for ( i = 0; i < nox_native_transition_callback_count; ++i )
+  {
+    if ( nox_native_transition_callbacks[i].record == record
+      && nox_native_transition_callbacks[i].offset == offset )
+      return nox_native_transition_callbacks[i].callback;
+  }
+  return (uintptr_t)*(unsigned int *)(record + offset);
+}
+
+void nox_native_transition_callback_clear(uintptr_t record)
+{
+  unsigned int i;
+
+  if ( !record )
+    return;
+  i = 0;
+  while ( i < nox_native_transition_callback_count )
+  {
+    if ( nox_native_transition_callbacks[i].record == record )
+    {
+      nox_native_transition_callbacks[i] =
+          nox_native_transition_callbacks[--nox_native_transition_callback_count];
+      continue;
+    }
+    ++i;
+  }
 }
 
 static uintptr_t nox_native_pointer_from_32(unsigned int value)
