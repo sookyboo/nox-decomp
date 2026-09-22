@@ -49704,7 +49704,7 @@ int __cdecl sub_438EF0(_DWORD *a1, int a2, unsigned int a3, int a4)
 }
 
 //----- (00439050) --------------------------------------------------------
-int __cdecl sub_439050(int a1, unsigned int a2, int *a3, unsigned int a4)
+int __cdecl sub_439050(int a1, unsigned int a2, uintptr_t a3, unsigned int a4)
 {
   int v4; // edi
   int v5; // edi
@@ -49715,7 +49715,7 @@ int __cdecl sub_439050(int a1, unsigned int a2, int *a3, unsigned int a4)
   {
     if ( a2 == 16400 )
     {
-      v7 = sub_46B0A0(a3);
+      v7 = sub_46B0A0((_DWORD *)a3);
       if ( v7 >= 10038 && v7 <= 10042 )
       {
         sub_46B490(*(int *)&byte_5D4594[815016], 16403, a4, 0);
@@ -49733,11 +49733,11 @@ int __cdecl sub_439050(int a1, unsigned int a2, int *a3, unsigned int a4)
     }
     else if ( a2 == 16403 || a2 == 16412 )
     {
-      sub_46B490(*(int *)&byte_5D4594[815016], a2, (int)a3, 0);
-      sub_46B490(*(int *)&byte_5D4594[815020], a2, (int)a3, 0);
-      sub_46B490(*(int *)&byte_5D4594[815024], a2, (int)a3, 0);
-      sub_46B490(*(int *)&byte_5D4594[815028], a2, (int)a3, 0);
-      sub_46B490(*(int *)&byte_5D4594[815032], a2, (int)a3, 0);
+      sub_46B490(*(int *)&byte_5D4594[815016], a2, a3, 0);
+      sub_46B490(*(int *)&byte_5D4594[815020], a2, a3, 0);
+      sub_46B490(*(int *)&byte_5D4594[815024], a2, a3, 0);
+      sub_46B490(*(int *)&byte_5D4594[815028], a2, a3, 0);
+      sub_46B490(*(int *)&byte_5D4594[815032], a2, a3, 0);
     }
   }
   else if ( a2 >= 0x400E )
@@ -49755,14 +49755,14 @@ int __cdecl sub_439050(int a1, unsigned int a2, int *a3, unsigned int a4)
       case 0x17u:
         return 1;
       case 0x4000u:
-        if ( a3 == sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10043)
-          || a3 == sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10044) )
+        if ( (_DWORD *)a3 == sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10043)
+          || (_DWORD *)a3 == sub_46B0C0(*(_DWORD **)&byte_5D4594[815012], 10044) )
         {
-          sub_46B490(*(int *)&byte_5D4594[815016], 0x4000, (int)a3, 0);
-          sub_46B490(*(int *)&byte_5D4594[815020], 0x4000, (int)a3, 0);
-          sub_46B490(*(int *)&byte_5D4594[815024], 0x4000, (int)a3, 0);
-          sub_46B490(*(int *)&byte_5D4594[815028], 0x4000, (int)a3, 0);
-          sub_46B490(*(int *)&byte_5D4594[815032], 0x4000, (int)a3, 0);
+          sub_46B490(*(int *)&byte_5D4594[815016], 0x4000, a3, 0);
+          sub_46B490(*(int *)&byte_5D4594[815020], 0x4000, a3, 0);
+          sub_46B490(*(int *)&byte_5D4594[815024], 0x4000, a3, 0);
+          sub_46B490(*(int *)&byte_5D4594[815028], 0x4000, a3, 0);
+          sub_46B490(*(int *)&byte_5D4594[815032], 0x4000, a3, 0);
         }
         break;
       case 0x4009u:
@@ -51165,7 +51165,7 @@ int sub_43B750()
 }
 
 //----- (0043B7C0) --------------------------------------------------------
-_DWORD *__cdecl sub_43B7C0(int a1)
+_DWORD *__cdecl sub_43B7C0(uintptr_t a1)
 {
   int v1; // eax
   __int16 v2; // cx
@@ -51182,22 +51182,26 @@ _DWORD *__cdecl sub_43B7C0(int a1)
   char v13[32]; // [esp+88h] [ebp-16Ch]
   char v14[332]; // [esp+A8h] [ebp-14Ch]
 
+#if UINTPTR_MAX > UINT32_MAX
+  a1 = nox_native_pointer_from_32_value((unsigned int)a1);
+#endif
+
   if ( *(_DWORD *)&byte_587000[87408] )
   {
-    sub_46B490(*(int *)&byte_5D4594[815012], 16397, (int)&byte_587000[91164], 4);
+    sub_46B490(*(int *)&byte_5D4594[815012], 16397, (uintptr_t)&byte_587000[91164], 4);
     strncpy(v14, (const char *)(a1 + 120), 0xFu);
     v14[15] = 0;
     if ( !memcmp(v14, &byte_5D4594[815120], 1u) )
       sub_43BC80(a1 + 12, *(_WORD *)(a1 + 109), v14);
     nox_swprintf(WideCharStr, (const wchar_t *)&byte_587000[91168], v14);
     sub_43BC10(WideCharStr, 0x64u);
-    sub_46B490(*(int *)&byte_5D4594[815016], 16397, (int)WideCharStr, 4);
+    sub_46B490(*(int *)&byte_5D4594[815016], 16397, (uintptr_t)WideCharStr, 4);
     nox_swprintf(
       WideCharStr,
       (const wchar_t *)&byte_587000[91176],
       *(unsigned __int8 *)(a1 + 103),
       *(unsigned __int8 *)(a1 + 104));
-    sub_46B490(*(int *)&byte_5D4594[815020], 16397, (int)WideCharStr, 4);
+    sub_46B490(*(int *)&byte_5D4594[815020], 16397, (uintptr_t)WideCharStr, 4);
     v6 = sub_43BCB0(*(_WORD *)(a1 + 163));
     if ( *(_BYTE *)(a1 + 164) & 0x10 )
     {
@@ -51206,18 +51210,18 @@ _DWORD *__cdecl sub_43B7C0(int a1)
         (const wchar_t *)&byte_587000[91188],
         v6,
         *(unsigned __int16 *)(a1 + 165));
-      sub_46B490(*(int *)&byte_5D4594[815024], 16397, (int)&byte_5D4594[814772], 4);
+      sub_46B490(*(int *)&byte_5D4594[815024], 16397, (uintptr_t)&byte_5D4594[814772], 4);
     }
     else
     {
-      sub_46B490(*(int *)&byte_5D4594[815024], 16397, (int)v6, 4);
+      sub_46B490(*(int *)&byte_5D4594[815024], 16397, (uintptr_t)v6, 4);
     }
     v7 = *(_DWORD *)(a1 + 96);
     if ( v7 == 9999 )
       nox_swprintf(WideCharStr, (const wchar_t *)&byte_587000[91200]);
     else
       _itow(v7, WideCharStr, 10);
-    sub_46B490(*(int *)&byte_5D4594[815028], 16397, (int)WideCharStr, 4);
+    sub_46B490(*(int *)&byte_5D4594[815028], 16397, (uintptr_t)WideCharStr, 4);
     v8 = *(_BYTE *)(a1 + 100);
     WideCharStr[0] = 0;
     if ( v8 & 0x20 )
@@ -51240,7 +51244,7 @@ _DWORD *__cdecl sub_43B7C0(int a1)
         v11 = sub_40F1D0((char *)&byte_587000[91376], 0, (const char *)&byte_587000[91336], 3501);
       nox_wcscat(WideCharStr, v11);
     }
-    result = (_DWORD *)sub_46B490(*(int *)&byte_5D4594[815032], 16397, (int)WideCharStr, 4);
+    result = (_DWORD *)sub_46B490(*(int *)&byte_5D4594[815032], 16397, (uintptr_t)WideCharStr, 4);
   }
   else
   {

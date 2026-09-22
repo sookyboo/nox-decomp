@@ -403,6 +403,11 @@ After the latest source changes:
   platform-specific `sub_40CE60()` path that is unavailable on native Linux.
   With the corrected timing and LAN coordinate, the native trace reaches the
   server-screen `16391` dispatch without selecting WOLAPI or using Windows;
+- `noxworld.wnd` places the local Host Game button 10002 at global rectangle
+  `(40..190,49..81)`, so the macro's `(60,60)` click is intentional. The
+  macro now waits three scaled seconds after `noxworld.wnd` opens before that
+  click, and three more scaled seconds after it, allowing the native host
+  transition to consume the action before the character/map steps begin.
 - `sub_4AA270()` creates the server gameplay screen and stores its root in the
   recovered DWORD slot at `byte_5D4594[1309716]`. On native builds that root is
   a host-width window pointer, so the slot is only a compatibility copy;
@@ -477,6 +482,14 @@ After the latest source changes:
   reconstructed pointer back to `int` caused the duplicate server-name check
   in `sub_4A0410()` to call `strcmp()` on an invalid node. The shared walker
   now returns `uintptr_t`, preserving the original 32-bit result on i386.
+- the native server-list UI had a second pointer-width boundary after
+  discovery: `sub_43B7C0()` passed temporary wide-string buffers to event
+  `16397` through `(int)`, and the callback path (`sub_46B490()` →
+  `sub_439050()` → `sub_4A30D0()`) consequently received an invalid low address
+  on amd64. The native path now preserves that payload, reconstructs the list
+  window's embedded `+8`/`+24` pointers in `sub_4A3AC0()` and `sub_4A3A70()`,
+  and keeps i386's original 32-bit behavior. The GDB smoke reaches live
+  server-info row updates without the former `sub_4A3AC0()` SIGSEGV.
 - this still does not prove a complete peer-supplied map transfer. The
   map-dispatch smoke reaches `map_download_start()` and renders
   `window/mapdnld.wnd`, the deterministic transfer regression verifies the
@@ -491,6 +504,13 @@ OpenGL support, and `gdb`. The comparison command below remains diagnostic
 because a timeout does not prove that the native process entered a game. The
 map-dispatch smoke additionally enables `NOX_TRACE_MAP_DOWNLOAD=1` and checks
 for `map_download_start()` followed by `window/mapdnld.wnd`.
+
+The runtime tests use the checked-in `build-deps/gamefiles/app/nox.cfg`: its
+`VideoMode = 640 480 8` and `Fullscreen = 0` select a windowed 640x480x8 game
+surface. Xvfb is started at 1280x720 only as the host display; it does not make
+the game UI 1280x720. Macro coordinates and UI-button rectangles must therefore
+be interpreted in the game's 640x480 coordinate space, and any test changing
+`nox.cfg` must record the replacement `VideoMode`/`Fullscreen` values.
 
 To compare the focused transfer boundary on both architectures:
 

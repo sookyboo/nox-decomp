@@ -23817,7 +23817,7 @@ uintptr_t __cdecl sub_46B490(int a1, int a2, uintptr_t a3, int a4)
   callback = nox_window_callback_get(a1);
   if ( callback )
   {
-    if ( a2 == 16386 || a2 == 16413 || a2 == 16414 )
+    if ( a2 == 16386 || a2 == 16397 || a2 == 16413 || a2 == 16414 )
       return ((uintptr_t (*)(int, int, uintptr_t, int))callback)(a1, a2, a3, a4);
     return callback(a1, a2, a3, a4);
   }
@@ -23833,7 +23833,7 @@ uintptr_t __cdecl sub_46B490(int a1, int a2, uintptr_t a3, int a4)
 #if UINTPTR_MAX > UINT32_MAX
     native_callback = (int (*)(int, int, int, int))(
       ((uintptr_t)&sub_46B2F0 & ~(uintptr_t)UINT32_MAX) | *(unsigned int *)(a1 + 376));
-    if ( a2 == 16386 || a2 == 16413 || a2 == 16414 )
+    if ( a2 == 16386 || a2 == 16397 || a2 == 16413 || a2 == 16414 )
       result = ((uintptr_t (*)(int, int, uintptr_t, int))native_callback)(a1, a2, a3, a4);
     else
       result = native_callback(a1, a2, a3, a4);
