@@ -34669,9 +34669,16 @@ _DWORD *__cdecl sub_425760(_DWORD *a1)
   _DWORD *result; // eax
 
   result = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_list_pointer_remember((uintptr_t)a1);
+  *a1 = (unsigned int)(uintptr_t)a1;
+  a1[1] = (unsigned int)(uintptr_t)a1;
+  a1[2] = (unsigned int)(uintptr_t)a1;
+#else
   *a1 = a1;
   a1[1] = a1;
   a1[2] = a1;
+#endif
   return result;
 }
 
@@ -34681,9 +34688,16 @@ _DWORD *__cdecl sub_425770(_DWORD *a1)
   _DWORD *result; // eax
 
   result = a1;
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_list_pointer_remember((uintptr_t)a1);
+  *a1 = (unsigned int)(uintptr_t)a1;
+  a1[1] = (unsigned int)(uintptr_t)a1;
+  a1[2] = 0;
+#else
   *a1 = a1;
   a1[1] = a1;
   a1[2] = 0;
+#endif
   return result;
 }
 
@@ -34827,14 +34841,23 @@ _DWORD *__cdecl sub_4258E0(uintptr_t a1, _DWORD *a2)
 
   result = a2;
 #if UINTPTR_MAX > UINT32_MAX
-  uintptr_t native_a1 = nox_native_pointer_from_32((unsigned int)a1);
+  uintptr_t native_a1 = nox_native_list_pointer_resolve((unsigned int)a1);
   if ( !native_a1 )
-    native_a1 = a1;
-  v3 = (uintptr_t)*(unsigned int *)(native_a1 + 4);
+  {
+    if ( a1 > UINT32_MAX )
+      native_a1 = a1;
+    else
+      return result;
+  }
+  uintptr_t previous = nox_native_list_pointer_resolve(*(unsigned int *)(native_a1 + 4));
+  if ( !previous )
+    return result;
+  nox_native_list_pointer_remember((uintptr_t)a2);
+  nox_native_list_pointer_remember(native_a1);
   *a2 = (unsigned int)native_a1;
-  a2[1] = (unsigned int)v3;
+  a2[1] = (unsigned int)previous;
   *(unsigned int *)(native_a1 + 4) = (unsigned int)(uintptr_t)a2;
-  *(unsigned int *)NOX_STATIC_POINTER_FROM_32(a2[1]) = (unsigned int)(uintptr_t)a2;
+  *(unsigned int *)previous = (unsigned int)(uintptr_t)a2;
 #else
   v3 = *(_DWORD *)(a1 + 4);
   *a2 = a1;
@@ -34851,7 +34874,7 @@ _DWORD *__cdecl sub_425900(_DWORD *a1, _DWORD *a2)
   _DWORD *result; // eax
 
 #if UINTPTR_MAX > UINT32_MAX
-  uintptr_t next = nox_native_pointer_from_32(*a1);
+  uintptr_t next = nox_native_list_pointer_resolve(*a1);
   if ( !next )
     next = (uintptr_t)a1;
   result = a2;
@@ -34876,11 +34899,11 @@ _DWORD **__cdecl sub_425920(_DWORD **a1)
   _DWORD **result; // eax
 
 #if UINTPTR_MAX > UINT32_MAX
-  uintptr_t next = nox_native_pointer_from_32(*(unsigned int *)a1);
-  uintptr_t previous = nox_native_pointer_from_32(
+  uintptr_t next = nox_native_list_pointer_resolve(*(unsigned int *)a1);
+  uintptr_t previous = nox_native_list_pointer_resolve(
       *(unsigned int *)((unsigned char *)a1 + sizeof(unsigned int)));
-  if ( !previous )
-    previous = next;
+  if ( !next || !previous )
+    return a1;
   result = a1;
   *(unsigned int *)previous = *(unsigned int *)a1;
   *(unsigned int *)(next + 4) = (unsigned int)(uintptr_t)a1;
@@ -34903,10 +34926,18 @@ uintptr_t __cdecl sub_425940(int *a1)
 {
   uintptr_t result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  result = nox_native_list_pointer_resolve(*(unsigned int *)a1);
+#else
   result = nox_native_pointer_from_32_value(*(unsigned int *)a1);
+#endif
   if ( result )
   {
+#if UINTPTR_MAX > UINT32_MAX
+    if ( result == nox_native_list_pointer_resolve(*(unsigned int *)(result + 8)) )
+#else
     if ( result == nox_native_pointer_from_32_value(*(unsigned int *)(result + 8)) )
+#endif
       result = 0;
   }
   return result;

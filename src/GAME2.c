@@ -154,6 +154,77 @@ static unsigned int nox_window_text_count;
 static struct nox_window_font_entry nox_window_value_pointers[256];
 static unsigned int nox_window_value_pointer_count;
 
+struct nox_native_list_pointer {
+  unsigned int encoded;
+  uintptr_t native;
+};
+
+static struct nox_native_list_pointer nox_native_list_pointers[4096];
+static unsigned int nox_native_list_pointer_count;
+static uintptr_t nox_native_pointer_from_32(unsigned int value);
+
+void nox_native_list_pointer_remember(uintptr_t native)
+{
+  unsigned int encoded;
+  unsigned int i;
+
+  if ( !native )
+    return;
+  encoded = (unsigned int)native;
+  for ( i = 0; i < nox_native_list_pointer_count; ++i )
+  {
+    if ( nox_native_list_pointers[i].encoded == encoded )
+    {
+      nox_native_list_pointers[i].native = native;
+      return;
+    }
+  }
+  if ( nox_native_list_pointer_count < 4096 )
+  {
+    nox_native_list_pointers[nox_native_list_pointer_count].encoded = encoded;
+    nox_native_list_pointers[nox_native_list_pointer_count].native = native;
+    ++nox_native_list_pointer_count;
+  }
+}
+
+void nox_native_list_pointer_forget(uintptr_t native)
+{
+  unsigned int encoded;
+  unsigned int i;
+
+  if ( !native )
+    return;
+  encoded = (unsigned int)native;
+  for ( i = 0; i < nox_native_list_pointer_count; ++i )
+  {
+    if ( nox_native_list_pointers[i].encoded == encoded
+      && nox_native_list_pointers[i].native == native )
+    {
+      nox_native_list_pointers[i] =
+          nox_native_list_pointers[--nox_native_list_pointer_count];
+      return;
+    }
+  }
+}
+
+uintptr_t nox_native_list_pointer_resolve(unsigned int encoded)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_native_list_pointer_count; ++i )
+  {
+    if ( nox_native_list_pointers[i].encoded == encoded )
+      return nox_native_list_pointers[i].native;
+  }
+  /* Unregistered high-half values are not safe to dereference as low
+   * pointers.  List traversal treats an unknown link as the end; genuine
+   * low allocations are retained for recovered structures initialized before
+   * their sidecar registration. */
+  if ( encoded < 0x01000000u || (encoded >= 0x40000000u && encoded < 0x50000000u) )
+    return encoded;
+  return 0;
+}
+
 static uintptr_t nox_native_pointer_from_32(unsigned int value)
 {
   if ( !value )
@@ -64498,6 +64569,9 @@ int *__cdecl sub_49FFA0(int a1)
       sub_425920((_DWORD **)v2);
       if ( a1 )
         sub_46C4E0((_DWORD *)v2[7]);
+#if UINTPTR_MAX > UINT32_MAX
+      nox_native_list_pointer_forget((uintptr_t)v2);
+#endif
       free(v2);
       v2 = v3;
     }
@@ -64530,6 +64604,9 @@ int __cdecl sub_4A0030(const void *a1)
   wchar_t *v9; // eax
 
   v1 = calloc(1u, 0xA9u);
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_list_pointer_remember((uintptr_t)v1);
+#endif
   qmemcpy(v1, a1, 0xA9u);
   v2 = 0;
   switch ( *(_DWORD *)&byte_587000[166704] )
@@ -64702,6 +64779,21 @@ int *sub_4A0390()
   _DWORD *v5; // [esp+4h] [ebp-8h]
 
   sub_425760(&v4);
+#if UINTPTR_MAX > UINT32_MAX
+  uintptr_t first = nox_native_list_pointer_resolve(
+      *(unsigned int *)&byte_5D4594[1305796]);
+  v0 = (_DWORD *)nox_native_list_pointer_resolve(*(unsigned int *)&byte_5D4594[1305800]);
+  v4 = *(_DWORD *)&byte_5D4594[1305796];
+  v5 = (_DWORD *)nox_native_list_pointer_resolve(*(unsigned int *)&byte_5D4594[1305800]);
+  if ( first )
+  {
+    *(unsigned int *)(first + 4) =
+        (unsigned int)(uintptr_t)&v4;
+    v0 = v5;
+  }
+  if ( v0 )
+    *(unsigned int *)v0 = (unsigned int)(uintptr_t)&v4;
+#else
   v0 = *(_DWORD **)&byte_5D4594[1305800];
   v4 = *(_DWORD *)&byte_5D4594[1305796];
   v5 = *(_DWORD **)&byte_5D4594[1305800];
@@ -64712,6 +64804,7 @@ int *sub_4A0390()
   }
   if ( v0 )
     *v0 = &v4;
+#endif
   sub_425760(&byte_5D4594[1305796]);
   v1 = sub_425890(&v4);
   if ( v1 )

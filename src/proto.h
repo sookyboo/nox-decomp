@@ -23,6 +23,9 @@ extern unsigned __int8 byte_5D4594[3844309];
 #if UINTPTR_MAX > UINT32_MAX
 extern const char *nox_damage_type_names[18];
 extern FILE *nox_log_file;
+void nox_native_list_pointer_remember(uintptr_t native);
+void nox_native_list_pointer_forget(uintptr_t native);
+uintptr_t nox_native_list_pointer_resolve(unsigned int encoded);
 #endif
 
 void init_data();

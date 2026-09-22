@@ -491,6 +491,15 @@ After the latest source changes:
   reconstructed pointer back to `int` caused the duplicate server-name check
   in `sub_4A0410()` to call `strcmp()` on an invalid node. The shared walker
   now returns `uintptr_t`, preserving the original 32-bit result on i386.
+- the server-info list retains its recovered two-DWORD link layout on native
+  Linux. `sub_425760()`/`sub_425770()` and the native branch of
+  `sub_4258E0()` write encoded 32-bit links, while a sidecar maps live native
+  node addresses back to those encodings. Insertions resolve both neighbors
+  before changing either link; `sub_425920()` similarly refuses to write when
+  either neighbor is unresolved, and the server-list destructor removes a
+  freed node from the sidecar. This prevents the repeated discovery refresh
+  from corrupting the native heap. The 32-bit branches remain the original
+  direct-pointer implementation.
 - the native server-list UI had a second pointer-width boundary after
   discovery: `sub_43B7C0()` passed temporary wide-string buffers to event
   `16397` through `(int)`, and the callback path (`sub_46B490()` →
@@ -516,10 +525,12 @@ for `map_download_start()` followed by `window/mapdnld.wnd`.
 
 The runtime tests use the checked-in `build-deps/gamefiles/app/nox.cfg`: its
 `VideoMode = 640 480 8` and `Fullscreen = 0` select a windowed 640x480x8 game
-surface. Xvfb is started at 1280x720 only as the host display; it does not make
-the game UI 1280x720. Macro coordinates and UI-button rectangles must therefore
-be interpreted in the game's 640x480 coordinate space, and any test changing
-`nox.cfg` must record the replacement `VideoMode`/`Fullscreen` values.
+surface. The native probe logs the actual video request (`width=640
+height=480 flags=0x8`) and the backbuffer dimensions. Xvfb is started at
+1280x720 only as the host display; it does not make the game UI 1280x720.
+Macro coordinates and UI-button rectangles must therefore be interpreted in the
+game's 640x480 coordinate space, and any test changing `nox.cfg` must record the
+replacement `VideoMode`/`Fullscreen` values.
 
 To compare the focused transfer boundary on both architectures:
 
