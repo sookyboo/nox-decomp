@@ -49073,7 +49073,12 @@ int sub_4379F0()
   {
     *(_DWORD *)&byte_5D4594[815044] = 0;
     *(_BYTE *)(*(_DWORD *)&byte_5D4594[815040] + 64) = 3;
+#if UINTPTR_MAX > UINT32_MAX
+    nox_native_transition_callback_set(
+      (uintptr_t)*(void **)&byte_5D4594[815040], 56, (uintptr_t)sub_438330);
+#else
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[815040] + 56) = sub_438330;
+#endif
     sub_43BE40(3);
     sub_452D80(922, 100);
     sub_46AC00(*(int *)&byte_5D4594[814980], 0);
@@ -49104,8 +49109,15 @@ int sub_4379F0()
       if ( v1 )
       {
         *v1 = 10000;
+#if UINTPTR_MAX > UINT32_MAX
+        nox_native_transition_callback_set((uintptr_t)v1, 48,
+                                            (uintptr_t)sub_438370);
+        nox_native_transition_callback_set((uintptr_t)v1, 56,
+                                            (uintptr_t)sub_438330);
+#else
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[815040] + 48) = sub_438370;
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[815040] + 56) = sub_438330;
+#endif
         *(_DWORD *)&byte_5D4594[814984] = sub_46B0C0(*(_DWORD **)&byte_5D4594[814980], 10020);
         *(_DWORD *)&byte_5D4594[814988] = sub_46B0C0(*(_DWORD **)&byte_5D4594[814980], 10021);
         sub_46B300(*(int *)&byte_5D4594[814984], sub_439D00);
@@ -49278,7 +49290,13 @@ int sub_438330()
 {
   void (*v0)(void); // esi
 
+#if UINTPTR_MAX > UINT32_MAX
+  v0 = (void (*)(void))nox_native_transition_callback_get(
+    (uintptr_t)*(void **)&byte_5D4594[815040], 52);
+  nox_native_transition_callback_clear((uintptr_t)*(void **)&byte_5D4594[815040]);
+#else
   v0 = *(void (**)(void))(*(_DWORD *)&byte_5D4594[815040] + 52);
+#endif
   sub_43C570(*(LPVOID *)&byte_5D4594[815040]);
   if ( !sub_40A5C0(0x10000000) )
     sub_43A9D0();
@@ -51032,7 +51050,12 @@ int sub_43B440()
 int sub_43B460()
 {
   sub_438370();
+#if UINTPTR_MAX > UINT32_MAX
+  nox_native_transition_callback_set((uintptr_t)*(void **)&byte_5D4594[815040], 56,
+                                      (uintptr_t)sub_43B490);
+#else
   *(_DWORD *)(*(_DWORD *)&byte_5D4594[815040] + 56) = sub_43B490;
+#endif
   sub_46C6E0(*(int *)&byte_5D4594[815000]);
   return sub_46ABB0(*(int *)&byte_5D4594[814984], 0);
 }

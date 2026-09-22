@@ -159,6 +159,10 @@ The current branch contains native-width handling for:
   menu and map-download transition records created by `sub_4A1C00()` and
   `sub_4AA6B0()`; `nox_game3_pointer_from_32()` is a data-pointer decoder and
   must not be used to reconstruct host function addresses.
+- the connect/host transition record used by `sub_4379F0()`,
+  `sub_438330()`, and `sub_43B460()`. Its `+48`, `+52`, and `+56` callback
+  fields also use the native transition sidecar; the recovered DWORD slots
+  remain compatibility copies for i386 and low-address consumers.
 - the network callback registration in `sub_554B40()`: native builds pass the
   `sub_554FF0()` callback through `uintptr_t` into the host-width main-loop
   callback sidecar. The recovered call path previously cast this address to
