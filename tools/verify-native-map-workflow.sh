@@ -53,6 +53,13 @@ check_hash "${app_dir}/maps/CapFlag/CapFlag.map" \
 check_hash "${app_dir}/maps/CapFlag/CapFlag.nxz" \
     b00f7ee5488e2a853a0806fa947e14af48758f4377b2916ce8d72bee87bced0c
 
+require_file "${app_dir}/nox.cfg"
+video_mode=$(awk -F= '/^[[:space:]]*VideoMode[[:space:]]*=/{gsub(/[[:space:]]+/, " "); sub(/^ /, "", $2); sub(/ $/, "", $2); print $2; exit}' "${app_dir}/nox.cfg")
+fullscreen=$(awk -F= '/^[[:space:]]*Fullscreen[[:space:]]*=/{gsub(/[[:space:]]+/, " "); sub(/^ /, "", $2); sub(/ $/, "", $2); print $2; exit}' "${app_dir}/nox.cfg")
+[ -n "$video_mode" ] || die "nox.cfg has no VideoMode"
+[ -n "$fullscreen" ] || die "nox.cfg has no Fullscreen"
+printf 'game config: nox.cfg VideoMode=%s Fullscreen=%s\n' "$video_mode" "$fullscreen"
+
 ctest --test-dir "${repo_dir}/build-amd64" -R map_download_dispatch_test --output-on-failure
 ctest --test-dir "${repo_dir}/build-i386" -R map_download_dispatch_test --output-on-failure
 

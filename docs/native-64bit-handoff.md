@@ -546,9 +546,10 @@ tools/verify-native-map-workflow.sh
 ```
 
 It verifies that `build-amd64/src/out` and `build-i386/src/out` are native ELF
-executables (and explicitly rejects PE/Wine output), checks the byte hashes of
-the stock built-in `CapFlag.map`/`CapFlag.nxz` fixture, and runs the focused
-transfer regression on both builds. Run it after any diagnostic that writes
+executables (and explicitly rejects PE/Wine output), prints the checked-in
+`nox.cfg` `VideoMode`/`Fullscreen` values, checks the byte hashes of the stock
+built-in `CapFlag.map`/`CapFlag.nxz` fixture, and runs the focused transfer
+regression on both builds. Run it after any diagnostic that writes
 under `build-deps/gamefiles/app`; a failed hash check means the fixture must be
 restored before interpreting another map result. This workflow deliberately
 does not use maps that require reloaded EUD support.
