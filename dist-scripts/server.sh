@@ -162,7 +162,7 @@ export XDG_DATA_HOME="$CONF_DIR"
 # ------------------------------------------------------------
 # Resolution selection rules:
 #
-# 1) Default is 640x480x16
+# 1) Default is 1024x768x16 fullscreen (unless overridden below or by env)
 #
 # 2) Aspect-ratio based behavior:
 #    - 4:3 displays:

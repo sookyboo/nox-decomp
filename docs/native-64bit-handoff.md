@@ -554,6 +554,12 @@ Macro coordinates and UI-button rectangles must therefore be interpreted in the
 game's 640x480 coordinate space, and any test changing `nox.cfg` must record the
 replacement `VideoMode`/`Fullscreen` values.
 
+This test configuration is separate from the launcher default: `dist-scripts/server.sh`
+starts with `VideoMode = 1024 768 16` and `Fullscreen = 1` when no
+`NOX_GAME_*` overrides or applicable display dimensions are supplied. Its
+resolution-selection comment must stay aligned with those effective defaults;
+do not infer test UI coordinates from the server launcher configuration.
+
 To compare the focused transfer boundary on both architectures:
 
 ```sh
