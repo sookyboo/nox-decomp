@@ -976,10 +976,23 @@ static const NoxCtrlMacro g_macros[] = {
         "# wait for the first main-menu button and let its transition settle\n"
     },
     {
-        "multiplayerHostMenus",
+        "multiplayerHostMenusBeforeGo",
         "macro waitForMultiplay; waitclick \"Network\" 30000; "
         "waitclick \"Host Game\" 60000; waitclick \"New\" 30000; "
-        "# select the warrior portrait and continue from character creation\n"
+        "waitwidget classselect 601 30000; "
+        "waitwidget classselect 610 30000; "
+        "waitwidget charcreate 751 30000; key End; bs16; bs16; "
+        "type \"${NOX_CHARACTER_NAME:NoxWarrior}\"; "
+        "waitwidget charcreate 799 30000; "
+        "waitwidget serveroptions 10101 30000; key End; bs16; "
+        "type \"${NOX_SERVER_NAME:NoxDecompServ}\"; "
+        "# safe probe stops before starting the hosted game\n"
+    },
+    {
+        "multiplayerHostMenus",
+        "macro multiplayerHostMenusBeforeGo; "
+        "waitwidget serveroptions 10145 30000; "
+        "# character and server names may be set with NOX_CHARACTER_NAME and NOX_SERVER_NAME\n"
     },
     {
         "startMultiplayerNetworkHost",
@@ -1281,6 +1294,7 @@ static int key_name_to_scancode(const char *name)
     if (streq_ci(name, "SPACE")) return SDL_SCANCODE_SPACE;
     if (streq_ci(name, "TAB")) return SDL_SCANCODE_TAB;
     if (streq_ci(name, "BACKSPACE")) return SDL_SCANCODE_BACKSPACE;
+    if (streq_ci(name, "END")) return SDL_SCANCODE_END;
 
     // Letters A-Z
     if (strlen(name) == 1 && isalpha((unsigned char)name[0])) {
@@ -1718,6 +1732,12 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
             root_kind = 8;
         else if ((size_t)(word_end - word) == 10 && strncasecmp(word, "charselect", 10) == 0)
             root_kind = 9;
+        else if ((size_t)(word_end - word) == 11 && strncasecmp(word, "classselect", 11) == 0)
+            root_kind = 10;
+        else if ((size_t)(word_end - word) == 10 && strncasecmp(word, "charcreate", 10) == 0)
+            root_kind = 11;
+        else if ((size_t)(word_end - word) == 13 && strncasecmp(word, "serveroptions", 13) == 0)
+            root_kind = 12;
         else if ((size_t)(word_end - word) == 3 && strncasecmp(word, "any", 3) == 0)
             root_kind = 7;
         int widget_id = 0, timeout_ms = 0;

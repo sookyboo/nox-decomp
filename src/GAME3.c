@@ -47,6 +47,21 @@ _DWORD *nox_control_character_select_root_get(void)
   return *(_DWORD **)&byte_5D4594[1307764];
 }
 
+_DWORD *nox_control_class_select_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1307736];
+}
+
+_DWORD *nox_control_character_create_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1308084];
+}
+
+_DWORD *nox_control_server_options_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1046492];
+}
+
 /* sub_46C4E0() releases window records into a pool. Clear any automation
  * handle that names a root before that allocation can be reused. */
 void nox_control_ui_root_clear_if_matches(_DWORD *root)
@@ -69,6 +84,12 @@ void nox_control_ui_root_clear_if_matches(_DWORD *root)
     *(_DWORD *)&byte_5D4594[814980] = 0;
   if ( nox_control_character_select_root_get() == root )
     *(_DWORD *)&byte_5D4594[1307764] = 0;
+  if ( nox_control_class_select_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1307736] = 0;
+  if ( nox_control_character_create_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1308084] = 0;
+  if ( nox_control_server_options_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1046492] = 0;
 }
 
 //----- (004A19D0) --------------------------------------------------------

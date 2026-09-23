@@ -9,7 +9,8 @@ The control server has two main-thread UI wait commands:
   queues a physical mouse click;
 - `waitwidget <root> <id> timeout_ms` performs the same wait for a known widget
   ID under `legal`, `mainmenu`, `window`, `menu`, `servermenu`, `serverscreen`,
-  `noxworld`, `charselect`, or `any`.
+  `noxworld`, `charselect`, `classselect`, `charcreate`, `serveroptions`, or
+  `any`.
 
 These commands do not call widget handlers directly. The resolved click is
 inserted ahead of later commands in its macro batch. If a wait times out, the
@@ -27,6 +28,24 @@ three controls may expose localized resource keys rather than their visible
 English captions, so those root/ID bindings are used as fallbacks. Image-only
 controls such as the Warrior portrait require an ID-based wait.
 
+`multiplayerHostMenus` continues from `New` through host setup: Warrior
+portrait (class-selection widget 601), class Accept (610), character-name field
+(751), character Accept (799), server-name field (10101), and GO (10145). The
+tested i386 path did not show a separate `OK` caption after character Accept;
+the macro waits for the server-options field instead. That wait also defers
+while the `Please wait` modal is visible. The selected character name is
+`NOX_CHARACTER_NAME` (default `NoxWarrior`); the server name is
+`NOX_SERVER_NAME` (default `NoxDecompServ`).
+`multiplayerHostMenusBeforeGo` runs the same flow but stops after filling the
+server-name field, which is useful for safe UI verification. The widget IDs are
+from `SelClass.wnd`, `SelColor.wnd`, and the server-options window. These are
+physical clicks at live widget centers, not direct calls to UI handlers. Before
+typing, the macro moves the caret to the end and clears the existing field
+value. `type` currently supports ASCII letters, digits, and spaces; unsupported
+punctuation is skipped. Accepting the character writes a `.plr` profile under
+`Save/`; use a disposable game-data copy or back up existing profiles before
+running the macro.
+
 The root pointers are non-owning handles to trees loaded by the menu and
 multiplayer setup code. `sub_46C4E0(a1)` receives a window record, marks it for
 teardown, removes it from active lists, recursively releases its child/sibling
@@ -34,32 +53,38 @@ records, and returns the records to the window pool. Before this happens, the
 control-root owner clears any automation handle equal to `a1`; otherwise a
 later caption scan can walk freed pool storage after a menu transition. This
 was observed after dismissing the welcome/legal window and again after
-clicking “Multiplay”.
+clicking “Multiplay”. The additional roots are held at `byte_5D4594` offsets
+1307736 (class selection), 1308084 (character creation/color), and 1046492
+(server options). They are registered by the corresponding UI setup routines
+and cleared by the same `sub_46C4E0()` teardown hook as the existing menu roots.
 
 For a front-end-only manual integration probe, run from
 `build-deps/gamefiles/app` with control logging enabled:
 
 ```sh
 ulimit -c unlimited
-timeout --signal=TERM --kill-after=3s 85s env \
+timeout --signal=TERM --kill-after=3s 150s env \
   ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=1 NOX_CONTROL_SERVER_PASSWORD=secret \
   NOX_CONTROL_SERVER_BIND=127.0.0.1 NOX_CONTROL_SERVER_PORT=2323 \
   NOX_CONTROL_SERVER_SLEEP_SCALE=1 NOX_CONTROL_LOG=1 \
-  'NOX_CONTROL_SERVER_BOOT=sleep 5000; macro multiplayerHostMenus;' \
+  NOX_CHARACTER_NAME=NoxWarrior NOX_SERVER_NAME=NoxDecompServ \
+  'NOX_CONTROL_SERVER_BOOT=sleep 5000; macro multiplayerHostMenusBeforeGo;' \
   xvfb-run -a -s '-screen 0 1280x720x24' \
   ../../../build-i386/src/out
 ```
 
 The game reads `nox.cfg` `VideoMode = 640 480 8` and `Fullscreen = 0` (windowed
-640x480x8); Xvfb's 1280x720x24 is only the host display. This sequence stops
-on the character-select screen and does not load a gameplay map. In particular,
-it does not use maps requiring reloaded EUD support. The current macro ends at
-“New”; portrait selection, character naming, server naming, and “GO!” still
-need implementation and runtime verification. Existing CTest targets do not
-exercise the live SDL window tree or physical mouse input, so this front-end
-check remains an integration test.
+640x480x8); Xvfb's 1280x720x24 is only the host display. The documented probe
+stops before GO, so it does not start a hosted game. The observed trace does
+show server-options initialization reading map resources before GO; it does not
+show whether that reads full gameplay state. This was an i386 macro check, not
+a 64-bit map test. Do not select or start a map requiring reloaded EUD support
+for 64-bit testing. Existing CTest targets do not exercise the live SDL window
+tree or physical mouse input, so this front-end check remains an integration
+test. The final GO click is part of `multiplayerHostMenus` but is intentionally
+omitted from the safe probe.
 
 ## Client host-loss lifecycle
 

@@ -22316,6 +22316,9 @@ extern _DWORD *nox_control_server_menu_root_get(void);
 extern _DWORD *nox_control_server_screen_root_get(void);
 extern _DWORD *nox_control_noxworld_root_get(void);
 extern _DWORD *nox_control_character_select_root_get(void);
+extern _DWORD *nox_control_class_select_root_get(void);
+extern _DWORD *nox_control_character_create_root_get(void);
+extern _DWORD *nox_control_server_options_root_get(void);
 extern void nox_control_ui_root_clear_if_matches(_DWORD *root);
 
 static _DWORD *nox_control_window_root_get(void)
@@ -22336,6 +22339,9 @@ int nox_window_caption_position(const char *caption, int *x, int *y,
   _DWORD *server_screen_root;
   _DWORD *noxworld_root;
   _DWORD *character_select_root;
+  _DWORD *class_select_root;
+  _DWORD *character_create_root;
+  _DWORD *server_options_root;
   _DWORD *legal_root;
   int left, top, root_left, root_top;
 
@@ -22406,6 +22412,24 @@ int nox_window_caption_position(const char *caption, int *x, int *y,
     widget = nox_window_find_caption(character_select_root, wide_caption);
     dispatcher = widget ? character_select_root : 0;
   }
+  if ( !widget )
+  {
+    class_select_root = nox_control_class_select_root_get();
+    widget = nox_window_find_caption(class_select_root, wide_caption);
+    dispatcher = widget ? class_select_root : 0;
+  }
+  if ( !widget )
+  {
+    character_create_root = nox_control_character_create_root_get();
+    widget = nox_window_find_caption(character_create_root, wide_caption);
+    dispatcher = widget ? character_create_root : 0;
+  }
+  if ( !widget )
+  {
+    server_options_root = nox_control_server_options_root_get();
+    widget = nox_window_find_caption(server_options_root, wide_caption);
+    dispatcher = widget ? server_options_root : 0;
+  }
   if ( !widget && strcmp(caption, "Network") == 0 )
   {
     dispatcher = nox_control_server_screen_root_get();
@@ -22459,10 +22483,11 @@ int nox_window_caption_position(const char *caption, int *x, int *y,
 }
 
 /* Root kinds: 1=legal, 2=MainMenu, 3=window, 4=menu, 5=servermenu,
- * 6=serverscreen, 7=search all, 8=NoxWorld, 9=character select. */
+ * 6=serverscreen, 7=search all, 8=NoxWorld, 9=character select,
+ * 10=class select, 11=character create, 12=server options. */
 int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y)
 {
-  _DWORD *roots[8];
+  _DWORD *roots[11];
   _DWORD *root = 0;
   _DWORD *widget;
   int count = 0;
@@ -22478,11 +22503,14 @@ int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y)
   roots[5] = nox_control_server_screen_root_get();
   roots[6] = nox_control_noxworld_root_get();
   roots[7] = nox_control_character_select_root_get();
+  roots[8] = nox_control_class_select_root_get();
+  roots[9] = nox_control_character_create_root_get();
+  roots[10] = nox_control_server_options_root_get();
   if ( root_kind == 7 )
-    count = 8;
+    count = 11;
   else if ( root_kind >= 1 && root_kind <= 6 )
     root = roots[root_kind - 1];
-  else if ( root_kind == 8 || root_kind == 9 )
+  else if ( root_kind >= 8 && root_kind <= 12 )
     root = roots[root_kind - 2];
   else
     return 0;
