@@ -22256,6 +22256,262 @@ int __cdecl sub_46B0A0(int *a1)
   return result;
 }
 
+/* Find a live widget by the caption exposed through the production text
+ * message. Non-text controls can return a small success code instead. */
+static _DWORD *nox_window_find_caption(_DWORD *node, const wchar_t *caption)
+{
+  _DWORD *found;
+  const wchar_t *widget_caption;
+  unsigned int caption_address;
+  size_t i;
+
+  while ( node )
+  {
+    caption_address = (unsigned int)sub_46B490((int)node, 16413, 0, 0);
+    if ( caption_address >= 0x10000u
+        && caption_address % sizeof(wchar_t) == 0 )
+    {
+      widget_caption = (const wchar_t *)caption_address;
+      for ( i = 0; widget_caption[i] && caption[i] && widget_caption[i] == caption[i]; ++i )
+        ;
+      if ( widget_caption[i] == caption[i] )
+        return node;
+    }
+    found = (_DWORD *)node[100];
+    if ( found )
+    {
+      found = nox_window_find_caption(found, caption);
+      if ( found )
+        return found;
+    }
+    node = (_DWORD *)node[97];
+  }
+  return 0;
+}
+
+static _DWORD *nox_window_find_id(_DWORD *node, int widget_id)
+{
+  _DWORD *found;
+
+  while ( node )
+  {
+    if ( node[0] == widget_id )
+      return node;
+    found = (_DWORD *)node[100];
+    if ( found )
+    {
+      found = nox_window_find_id(found, widget_id);
+      if ( found )
+        return found;
+    }
+    node = (_DWORD *)node[97];
+  }
+  return 0;
+}
+
+extern _DWORD *nox_control_legal_root_get(void);
+extern _DWORD *nox_control_menu_root_get(void);
+extern _DWORD *nox_control_main_menu_root_get(void);
+extern _DWORD *nox_control_server_menu_root_get(void);
+extern _DWORD *nox_control_server_screen_root_get(void);
+extern _DWORD *nox_control_noxworld_root_get(void);
+extern _DWORD *nox_control_character_select_root_get(void);
+extern void nox_control_ui_root_clear_if_matches(_DWORD *root);
+
+static _DWORD *nox_control_window_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1064888];
+}
+
+int nox_window_caption_position(const char *caption, int *x, int *y,
+                                int *root_id, int *widget_id)
+{
+  wchar_t wide_caption[128];
+  size_t i;
+  _DWORD *widget;
+  _DWORD *dispatcher;
+  _DWORD *root = nox_control_window_root_get();
+  _DWORD *menu_root;
+  _DWORD *server_menu_root;
+  _DWORD *server_screen_root;
+  _DWORD *noxworld_root;
+  _DWORD *character_select_root;
+  _DWORD *legal_root;
+  int left, top, root_left, root_top;
+
+  if ( root_id )
+    *root_id = 0;
+  if ( widget_id )
+    *widget_id = 0;
+  if ( !caption || !*caption || !x || !y )
+    return 0;
+  for ( i = 0; caption[i] && i + 1 < sizeof(wide_caption) / sizeof(wide_caption[0]); ++i )
+    wide_caption[i] = (unsigned char)caption[i];
+  wide_caption[i] = 0;
+
+  if ( strcmp(caption, "Multiplay") == 0 )
+  {
+    dispatcher = nox_control_main_menu_root_get();
+    widget = dispatcher ? nox_window_find_id(dispatcher, 112) : 0;
+    if ( widget )
+    {
+      sub_46AA60(widget, &left, &top);
+      sub_46AA60(dispatcher, &root_left, &root_top);
+      *x = left - root_left + widget[2] / 2;
+      *y = top - root_top + widget[3] / 2;
+      if ( root_id )
+        *root_id = dispatcher[0];
+      if ( widget_id )
+        *widget_id = widget[0];
+      return *x >= 0 && *y >= 0;
+    }
+    return 0;
+  }
+
+  legal_root = nox_control_legal_root_get();
+  widget = nox_window_find_caption(legal_root, wide_caption);
+  dispatcher = widget ? legal_root : 0;
+  if ( !widget )
+  {
+    widget = root ? nox_window_find_caption(root, wide_caption) : 0;
+    dispatcher = widget ? root : 0;
+  }
+  if ( !widget )
+  {
+    menu_root = nox_control_menu_root_get();
+    widget = nox_window_find_caption(menu_root, wide_caption);
+    dispatcher = widget ? menu_root : 0;
+  }
+  if ( !widget )
+  {
+    server_menu_root = nox_control_server_menu_root_get();
+    widget = nox_window_find_caption(server_menu_root, wide_caption);
+    dispatcher = widget ? server_menu_root : 0;
+  }
+  if ( !widget )
+  {
+    server_screen_root = nox_control_server_screen_root_get();
+    widget = nox_window_find_caption(server_screen_root, wide_caption);
+    dispatcher = widget ? server_screen_root : 0;
+  }
+  if ( !widget )
+  {
+    noxworld_root = nox_control_noxworld_root_get();
+    widget = nox_window_find_caption(noxworld_root, wide_caption);
+    dispatcher = widget ? noxworld_root : 0;
+  }
+  if ( !widget )
+  {
+    character_select_root = nox_control_character_select_root_get();
+    widget = nox_window_find_caption(character_select_root, wide_caption);
+    dispatcher = widget ? character_select_root : 0;
+  }
+  if ( !widget && strcmp(caption, "Network") == 0 )
+  {
+    dispatcher = nox_control_server_screen_root_get();
+    widget = dispatcher ? nox_window_find_id(dispatcher, 421) : 0;
+  }
+  if ( !widget && strcmp(caption, "Host Game") == 0 )
+  {
+    dispatcher = nox_control_noxworld_root_get();
+    widget = dispatcher ? nox_window_find_id(dispatcher, 10002) : 0;
+  }
+  if ( !widget && strcmp(caption, "New") == 0 )
+  {
+    dispatcher = nox_control_character_select_root_get();
+    widget = dispatcher ? nox_window_find_id(dispatcher, 501) : 0;
+    if ( !widget )
+    {
+      dispatcher = root;
+      widget = dispatcher ? nox_window_find_id(dispatcher, 501) : 0;
+    }
+    if ( !widget )
+    {
+      dispatcher = nox_control_server_menu_root_get();
+      widget = dispatcher ? nox_window_find_id(dispatcher, 501) : 0;
+    }
+    if ( !widget )
+    {
+      dispatcher = nox_control_server_screen_root_get();
+      widget = dispatcher ? nox_window_find_id(dispatcher, 501) : 0;
+    }
+  }
+  if ( !widget )
+    return 0;
+  if ( widget[13] )
+    dispatcher = (_DWORD *)widget[13];
+  if ( !dispatcher )
+    return 0;
+  sub_46AA60(widget, &left, &top);
+  if ( dispatcher == nox_control_main_menu_root_get() )
+  {
+    sub_46AA60(dispatcher, &root_left, &root_top);
+    left -= root_left;
+    top -= root_top;
+  }
+  *x = left + widget[2] / 2;
+  *y = top + widget[3] / 2;
+  if ( root_id )
+    *root_id = dispatcher[0];
+  if ( widget_id )
+    *widget_id = widget[0];
+  return *x >= 0 && *y >= 0;
+}
+
+/* Root kinds: 1=legal, 2=MainMenu, 3=window, 4=menu, 5=servermenu,
+ * 6=serverscreen, 7=search all, 8=NoxWorld, 9=character select. */
+int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y)
+{
+  _DWORD *roots[8];
+  _DWORD *root = 0;
+  _DWORD *widget;
+  int count = 0;
+  int i, left, top, root_left, root_top;
+
+  if ( !x || !y || widget_id <= 0 )
+    return 0;
+  roots[0] = nox_control_legal_root_get();
+  roots[1] = nox_control_main_menu_root_get();
+  roots[2] = nox_control_window_root_get();
+  roots[3] = nox_control_menu_root_get();
+  roots[4] = nox_control_server_menu_root_get();
+  roots[5] = nox_control_server_screen_root_get();
+  roots[6] = nox_control_noxworld_root_get();
+  roots[7] = nox_control_character_select_root_get();
+  if ( root_kind == 7 )
+    count = 8;
+  else if ( root_kind >= 1 && root_kind <= 6 )
+    root = roots[root_kind - 1];
+  else if ( root_kind == 8 || root_kind == 9 )
+    root = roots[root_kind - 2];
+  else
+    return 0;
+
+  widget = 0;
+  if ( root_kind == 7 )
+  {
+    for ( i = 0; i < count && !widget; ++i )
+    {
+      root = roots[i];
+      widget = root ? nox_window_find_id(root, widget_id) : 0;
+    }
+  }
+  else
+    widget = root ? nox_window_find_id(root, widget_id) : 0;
+  if ( !widget )
+    return 0;
+  sub_46AA60(widget, &left, &top);
+  if ( root == nox_control_main_menu_root_get() )
+  {
+    sub_46AA60(root, &root_left, &root_top);
+    left -= root_left;
+    top -= root_top;
+  }
+  *x = left + widget[2] / 2;
+  *y = top + widget[3] / 2;
+  return *x >= 0 && *y >= 0;
+}
+
 //----- (0046B0C0) --------------------------------------------------------
 _DWORD *__cdecl sub_46B0C0(_DWORD *a1, int a2)
 {
@@ -23586,6 +23842,7 @@ int __cdecl sub_46C4E0(_DWORD *a1)
   {
     BYTE1(v2) |= 8u;
     a1[1] = v2;
+    nox_control_ui_root_clear_if_matches(a1);
     sub_46AC60((int)a1);
     if ( *(_DWORD **)&byte_5D4594[1064904] == a1 )
       sub_46ADE0((int)a1);

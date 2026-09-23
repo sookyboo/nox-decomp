@@ -448,7 +448,9 @@ typedef enum {
     ACT_HOME,           // slam to top-left
     ACT_TRHOME,         // slam to top-right (best-effort)
     ACT_QUIT_GAME,
-    ACT_LOG
+    ACT_LOG,
+    ACT_WAIT_CLICK_TEXT,  // wait for a live caption, then click its center
+    ACT_WAIT_CLICK_ID     // wait for a known widget under a named UI root
 //    ACT_MACRO_START_SERVER
 } ActionType;
 
@@ -458,6 +460,7 @@ typedef struct {
     ActionType type;
     int a, b;
     int down;
+    uint32_t batch_id;
     char text[256];
 } ControlAction;
 
@@ -465,6 +468,8 @@ enum { QCAP = 1024 };
 static ControlAction g_q[QCAP];
 static int g_qr = 0, g_qw = 0;
 static SDL_mutex *g_qmu = NULL;
+static uint32_t g_macro_batch_id;
+static uint32_t g_next_macro_batch_id = 1;
 
 static int q_push(const ControlAction *in)
 {
@@ -481,9 +486,58 @@ static int q_push(const ControlAction *in)
         return 0;
     }
     g_q[g_qw] = *in;
+    if (!g_q[g_qw].batch_id)
+        g_q[g_qw].batch_id = g_macro_batch_id;
     g_qw = next;
     SDL_UnlockMutex(g_qmu);
     return 1;
+}
+
+/* Place the resolved physical click ahead of dependent macro actions. */
+static int q_push_front_many(const ControlAction *actions, int count)
+{
+    int used, new_read;
+
+    if (!g_qmu || !actions || count <= 0 || count >= QCAP)
+        return 0;
+    SDL_LockMutex(g_qmu);
+    used = (g_qw - g_qr + QCAP) % QCAP;
+    if (used + count >= QCAP) {
+        SDL_UnlockMutex(g_qmu);
+        NOX_CTRL_LOG("q_push_front_many: queue FULL (dropping %d actions)", count);
+        return 0;
+    }
+    new_read = (g_qr - count + QCAP) % QCAP;
+    for (int i = 0; i < count; ++i)
+        g_q[(new_read + i) % QCAP] = actions[i];
+    g_qr = new_read;
+    SDL_UnlockMutex(g_qmu);
+    return 1;
+}
+
+/* A failed UI wait invalidates the rest of its macro's dependent clicks. */
+static int q_remove_batch(uint32_t batch_id)
+{
+    int read_at, write_at, removed = 0;
+
+    if (!g_qmu || !batch_id)
+        return 0;
+    SDL_LockMutex(g_qmu);
+    read_at = write_at = g_qr;
+    while (read_at != g_qw) {
+        ControlAction action = g_q[read_at];
+        read_at = (read_at + 1) % QCAP;
+        if (action.batch_id == batch_id) {
+            ++removed;
+            continue;
+        }
+        if (write_at != (read_at + QCAP - 1) % QCAP)
+            g_q[write_at] = action;
+        write_at = (write_at + 1) % QCAP;
+    }
+    g_qw = write_at;
+    SDL_UnlockMutex(g_qmu);
+    return removed;
 }
 
 static int q_pop(ControlAction *out)
@@ -508,6 +562,9 @@ extern void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel);
 extern void nox_ctrl_inject_mouse_button(int button /*0/1/2*/, int down);
 extern void nox_ctrl_inject_key_scancode(int sdl_scancode, int down);
 extern void nox_ctrl_inject_text_utf8(const char *utf8);
+extern int nox_window_caption_position(const char *caption, int *x, int *y,
+                                       int *root_id, int *widget_id);
+extern int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y);
 
 // Capture hook (we will add in input.c too):
 extern void nox_ctrl_capture_event(const SDL_Event *ev);
@@ -784,6 +841,95 @@ static void enqueue_click_abs(int x, int y, int right)
     g_ctrl_y = y;
 }
 
+static int enqueue_click_abs_before_pending(int x, int y, int right, uint32_t batch_id)
+{
+    ControlAction actions[5];
+    memset(actions, 0, sizeof(actions));
+
+    actions[0].type = ACT_HOME;
+    actions[0].batch_id = batch_id;
+    actions[1].type = ACT_MOVE;
+    actions[1].a = x;
+    actions[1].b = y;
+    actions[1].batch_id = batch_id;
+    actions[2].type = ACT_BTN;
+    actions[2].a = right ? 1 : 0;
+    actions[2].down = 1;
+    actions[2].batch_id = batch_id;
+    actions[3].type = ACT_SLEEP_MS;
+    actions[3].a = 16;
+    actions[3].batch_id = batch_id;
+    actions[4].type = ACT_BTN;
+    actions[4].a = right ? 1 : 0;
+    actions[4].down = 0;
+    actions[4].batch_id = batch_id;
+
+    if (q_push_front_many(actions, 5)) {
+        g_ctrl_x = x;
+        g_ctrl_y = y;
+        return 1;
+    }
+    return 0;
+}
+
+static int control_wait_position_stable(int available, int x, int y, Uint32 now)
+{
+    static int valid;
+    static int last_x, last_y;
+    static Uint32 unchanged_since;
+
+    if (!available) {
+        valid = 0;
+        return 0;
+    }
+    if (!valid || x != last_x || y != last_y) {
+        valid = 1;
+        last_x = x;
+        last_y = y;
+        unchanged_since = now;
+        return 0;
+    }
+    return (Sint32)(now - unchanged_since) >= 5000;
+}
+
+static void control_wait_position_reset(void)
+{
+    (void)control_wait_position_stable(0, 0, 0, 0);
+}
+
+static int g_wait_modal_visible;
+static Uint32 g_wait_modal_visible_since;
+static char g_wait_modal_context[128];
+
+static void control_wait_modal_log_transition(int visible, const char *kind,
+                                               const char *target, int root_id,
+                                               int widget_id, int x, int y, Uint32 now)
+{
+    if (visible && !g_wait_modal_visible) {
+        g_wait_modal_visible = 1;
+        g_wait_modal_visible_since = now;
+        snprintf(g_wait_modal_context, sizeof(g_wait_modal_context),
+                 "%s %s root=%d widget=%d", kind, target, root_id, widget_id);
+        NOX_CTRL_LOG("UI modal appeared: 'Please wait' at %d,%d while %s",
+                     x, y, g_wait_modal_context);
+    } else if (!visible && g_wait_modal_visible) {
+        NOX_CTRL_LOG("UI modal disappeared: 'Please wait' after %u ms while %s",
+                     (unsigned)(now - g_wait_modal_visible_since), g_wait_modal_context);
+        g_wait_modal_visible = 0;
+        g_wait_modal_context[0] = 0;
+    }
+}
+
+static void control_wait_modal_log_tracking_end(const char *reason)
+{
+    if (g_wait_modal_visible) {
+        NOX_CTRL_LOG("UI modal still present when %s ended; disappearance not observed",
+                     reason);
+        g_wait_modal_visible = 0;
+        g_wait_modal_context[0] = 0;
+    }
+}
+
 static void enqueue_home(void)
 {
     ControlAction a;
@@ -824,6 +970,17 @@ typedef struct {
 } NoxCtrlMacro;
 
 static const NoxCtrlMacro g_macros[] = {
+    {
+        "waitForMultiplay",
+        "waitclick \"Multiplay\" 30000; "
+        "# wait for the first main-menu button and let its transition settle\n"
+    },
+    {
+        "multiplayerHostMenus",
+        "macro waitForMultiplay; waitclick \"Network\" 30000; "
+        "waitclick \"Host Game\" 60000; waitclick \"New\" 30000; "
+        "# select the warrior portrait and continue from character creation\n"
+    },
     {
         "startMultiplayerNetworkHost",
         "sleep 1000; c 1 1; sleep 1000; c 1 1; sleep 1000; c 1 1; sleep 1000; "
@@ -1518,6 +1675,71 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         return;
     }
 
+    if (streq_ci(tok, "waitclick")) {
+        char caption[256];
+        const char *ep = NULL;
+        int timeout_ms = 0;
+        if (!parse_quoted(p, caption, sizeof(caption), &ep) ||
+            !parse_int(ep, &timeout_ms, &ep) || timeout_ms <= 0) {
+            send_str_maybe(fd, "ERR waitclick \"caption\" timeout_ms\r\n");
+            return;
+        }
+        ControlAction a;
+        memset(&a, 0, sizeof(a));
+        a.type = ACT_WAIT_CLICK_TEXT;
+        a.a = clamp_int(timeout_ms, 1, 60000);
+        snprintf(a.text, sizeof(a.text), "%s", caption);
+        if (!q_push(&a)) {
+            send_str_maybe(fd, "ERR action queue full\r\n");
+            return;
+        }
+        send_str_maybe(fd, "OK\r\n");
+        return;
+    }
+
+    if (streq_ci(tok, "waitwidget")) {
+        const char *word = skip_ws(p);
+        const char *word_end = word;
+        while (*word_end && !isspace((unsigned char)*word_end)) ++word_end;
+        int root_kind = 0;
+        if ((size_t)(word_end - word) == 5 && strncasecmp(word, "legal", 5) == 0)
+            root_kind = 1;
+        else if ((size_t)(word_end - word) == 8 && strncasecmp(word, "mainmenu", 8) == 0)
+            root_kind = 2;
+        else if ((size_t)(word_end - word) == 6 && strncasecmp(word, "window", 6) == 0)
+            root_kind = 3;
+        else if ((size_t)(word_end - word) == 4 && strncasecmp(word, "menu", 4) == 0)
+            root_kind = 4;
+        else if ((size_t)(word_end - word) == 10 && strncasecmp(word, "servermenu", 10) == 0)
+            root_kind = 5;
+        else if ((size_t)(word_end - word) == 12 && strncasecmp(word, "serverscreen", 12) == 0)
+            root_kind = 6;
+        else if ((size_t)(word_end - word) == 8 && strncasecmp(word, "noxworld", 8) == 0)
+            root_kind = 8;
+        else if ((size_t)(word_end - word) == 10 && strncasecmp(word, "charselect", 10) == 0)
+            root_kind = 9;
+        else if ((size_t)(word_end - word) == 3 && strncasecmp(word, "any", 3) == 0)
+            root_kind = 7;
+        int widget_id = 0, timeout_ms = 0;
+        if (!root_kind || !parse_int(word_end, &widget_id, &word_end) || widget_id <= 0 ||
+            !parse_int(word_end, &timeout_ms, &word_end) || timeout_ms <= 0) {
+            send_str_maybe(fd, "ERR waitwidget root widget_id timeout_ms\r\n");
+            return;
+        }
+        ControlAction a;
+        memset(&a, 0, sizeof(a));
+        a.type = ACT_WAIT_CLICK_ID;
+        a.a = widget_id;
+        a.b = root_kind;
+        a.down = clamp_int(timeout_ms, 1, 60000);
+        if (!q_push(&a)) {
+            send_str_maybe(fd, "ERR action queue full\r\n");
+            return;
+        }
+        send_str_maybe(fd, "OK\r\n");
+        return;
+    }
+
 //    if (streq_ci(tok, "start_server")) {
 //        ControlAction a; memset(&a,0,sizeof(a));
 //        a.type = ACT_MACRO_START_SERVER;
@@ -1536,6 +1758,13 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         const NoxCtrlMacro *m = find_macro(p);
         if (!m) { send_str_maybe(fd, "ERR unknown macro\r\n"); return; }
 
+        uint32_t previous_batch_id = g_macro_batch_id;
+        if (!g_macro_batch_id) {
+            g_macro_batch_id = g_next_macro_batch_id++;
+            if (!g_macro_batch_id)
+                g_macro_batch_id = g_next_macro_batch_id++;
+        }
+
         send_str_maybe(fd, "Running macro: ");
         send_str_maybe(fd, m->name);
         send_str_maybe(fd, "\r\n");
@@ -1549,6 +1778,7 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
 
         snprintf(buf, sizeof(buf), "macro end: %s", m->name);
         enqueue_log(buf);
+        g_macro_batch_id = previous_batch_id;
         return;
     }
 
@@ -1556,8 +1786,15 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
     {
         const NoxCtrlMacro *m = find_macro(tok);
         if (m) {
+            uint32_t previous_batch_id = g_macro_batch_id;
+            if (!g_macro_batch_id) {
+                g_macro_batch_id = g_next_macro_batch_id++;
+                if (!g_macro_batch_id)
+                    g_macro_batch_id = g_next_macro_batch_id++;
+            }
             run_script_as_commands(fd, m->script, authed, pw);
             send_str_maybe(fd, "OK\r\n");
+            g_macro_batch_id = previous_batch_id;
             return;
         }
     }
@@ -1624,6 +1861,17 @@ void nox_control_server_pump(void)
      // IMPORTANT: must never block the game loop. So sleep is implemented as
      // "pause processing actions until SDL_GetTicks() reaches g_sleep_until".
      static Uint32 g_sleep_until = 0;
+     static int wait_click_active = 0;
+     static Uint32 wait_click_deadline = 0;
+     static char wait_click_caption[256];
+     static uint32_t wait_click_batch_id = 0;
+     static int wait_widget_active = 0;
+     static Uint32 wait_widget_deadline = 0;
+     static int wait_widget_id = 0;
+     static int wait_widget_root = 0;
+     static uint32_t wait_widget_batch_id = 0;
+     static int g_home_left = 0;
+     int click_x, click_y;
 
      Uint32 now = SDL_GetTicks();
      if (g_sleep_until && (Sint32)(now - g_sleep_until) < 0) {
@@ -1631,6 +1879,95 @@ void nox_control_server_pump(void)
          return;
      }
      g_sleep_until = 0;
+    if (wait_click_active) {
+        int overlay_x = 0, overlay_y = 0;
+        int overlay_root_id = 0, overlay_widget_id = 0;
+
+        if ((Sint32)(now - wait_click_deadline) >= 0) {
+            NOX_CTRL_LOG("waitclick: timed out waiting for caption '%s'", wait_click_caption);
+            control_wait_modal_log_tracking_end("waitclick timeout");
+            int removed = q_remove_batch(wait_click_batch_id);
+            if (removed)
+                NOX_CTRL_LOG("waitclick: cancelled %d pending action(s) from macro batch %u", removed, wait_click_batch_id);
+            wait_click_active = 0;
+            wait_click_batch_id = 0;
+            control_wait_position_reset();
+            return;
+        }
+        int overlay_visible = nox_window_caption_position("Please wait", &overlay_x,
+            &overlay_y, &overlay_root_id, &overlay_widget_id);
+        control_wait_modal_log_transition(overlay_visible, "waitclick caption",
+            wait_click_caption, overlay_root_id, overlay_widget_id,
+            overlay_x, overlay_y, now);
+        if (overlay_visible) {
+            control_wait_position_reset();
+            g_sleep_until = now + 50;
+            return;
+        }
+        int found = nox_window_caption_position(wait_click_caption, &click_x,
+            &click_y, 0, 0);
+        if (control_wait_position_stable(found, click_x, click_y, now) &&
+            enqueue_click_abs_before_pending(click_x, click_y, 0, wait_click_batch_id)) {
+            NOX_CTRL_LOG("waitclick: mouse-clicked caption '%s' at %d,%d", wait_click_caption, click_x, click_y);
+            control_wait_modal_log_tracking_end("waitclick completed");
+            control_wait_position_reset();
+            wait_click_active = 0;
+            wait_click_batch_id = 0;
+            g_sleep_until = now + 250;
+            return;
+        }
+        g_sleep_until = now + 50;
+        return;
+    }
+    if (wait_widget_active) {
+        int overlay_x = 0, overlay_y = 0;
+        int overlay_root_id = 0, overlay_widget_id = 0;
+
+        if ((Sint32)(now - wait_widget_deadline) >= 0) {
+            NOX_CTRL_LOG("waitwidget: timed out root=%d widget=%d", wait_widget_root, wait_widget_id);
+            control_wait_modal_log_tracking_end("waitwidget timeout");
+            int removed = q_remove_batch(wait_widget_batch_id);
+            if (removed)
+                NOX_CTRL_LOG("waitwidget: cancelled %d pending action(s) from macro batch %u", removed, wait_widget_batch_id);
+            wait_widget_active = 0;
+            wait_widget_batch_id = 0;
+            control_wait_position_reset();
+            return;
+        }
+        int overlay_visible = nox_window_caption_position("Please wait", &overlay_x,
+            &overlay_y, &overlay_root_id, &overlay_widget_id);
+        char widget_target[64];
+        snprintf(widget_target, sizeof(widget_target), "root=%d widget=%d",
+                 wait_widget_root, wait_widget_id);
+        control_wait_modal_log_transition(overlay_visible, "waitwidget",
+            widget_target, overlay_root_id, overlay_widget_id,
+            overlay_x, overlay_y, now);
+        if (overlay_visible) {
+            control_wait_position_reset();
+            g_sleep_until = now + 50;
+            return;
+        }
+        int found = nox_control_window_id_position(wait_widget_root, wait_widget_id, &click_x, &click_y);
+        if (control_wait_position_stable(found, click_x, click_y, now) &&
+            enqueue_click_abs_before_pending(click_x, click_y, 0, wait_widget_batch_id)) {
+            NOX_CTRL_LOG("waitwidget: mouse-clicked root=%d widget=%d at %d,%d", wait_widget_root, wait_widget_id, click_x, click_y);
+            control_wait_modal_log_tracking_end("waitwidget completed");
+            control_wait_position_reset();
+            wait_widget_active = 0;
+            wait_widget_batch_id = 0;
+            g_sleep_until = now + 250;
+            return;
+        }
+        g_sleep_until = now + 50;
+        return;
+    }
+    if (g_home_left > 0) {
+        nox_ctrl_inject_mouse_move(-16384, -16384, 0);
+        g_home_left--;
+        if (g_home_left > 0)
+            g_sleep_until = now + 10;
+        return;
+    }
     // NEW: if we're in the middle of a TRHOME slam, finish it BEFORE processing queue
     if (g_trhome_left > 0) {
         nox_ctrl_inject_mouse_move(+16384, -16384, 0);
@@ -1660,6 +1997,27 @@ void nox_control_server_pump(void)
              nox_ctrl_inject_text_utf8(a.text);
              break;
 
+         case ACT_WAIT_CLICK_TEXT:
+             snprintf(wait_click_caption, sizeof(wait_click_caption), "%s", a.text);
+             wait_click_deadline = SDL_GetTicks() + (Uint32)a.a;
+             wait_click_batch_id = a.batch_id;
+             control_wait_position_reset();
+             wait_click_active = 1;
+             NOX_CTRL_LOG("waitclick: waiting for caption '%s'", wait_click_caption);
+             g_sleep_until = SDL_GetTicks() + 50;
+             return;
+
+         case ACT_WAIT_CLICK_ID:
+             wait_widget_id = a.a;
+             wait_widget_root = a.b;
+             wait_widget_deadline = SDL_GetTicks() + (Uint32)a.down;
+             wait_widget_batch_id = a.batch_id;
+             control_wait_position_reset();
+             wait_widget_active = 1;
+             NOX_CTRL_LOG("waitwidget: waiting for root=%d widget=%d", wait_widget_root, wait_widget_id);
+             g_sleep_until = SDL_GetTicks() + 50;
+             return;
+
          case ACT_SLEEP_MS: {
              // Non-blocking: defer remaining queued actions to future frames.
              int ms = a.a;
@@ -1673,15 +2031,14 @@ void nox_control_server_pump(void)
          }
 
          case ACT_HOME:
-             // slam to top-left using repeated large negative moves WITHOUT blocking
-             // Spread it across frames using short non-blocking sleeps.
-             for (int i = 0; i < 3; i++) {
-                 nox_ctrl_inject_mouse_move(-16384, -16384, 0);
-                 // schedule a tiny delay before continuing remaining actions
+             // Complete the three-step re-anchor across frames before the
+             // queued coordinate move can run.
+             g_home_left = 3;
+             nox_ctrl_inject_mouse_move(-16384, -16384, 0);
+             g_home_left--;
+             if (g_home_left > 0)
                  g_sleep_until = SDL_GetTicks() + 10;
-                 return;
-             }
-             break;
+             return;
         case ACT_TRHOME:
             // NEW: start a 3-step slam to top-right, non-blocking
             g_trhome_left = 3;

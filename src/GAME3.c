@@ -11,6 +11,66 @@ extern int g_fullscreen;
 extern float draw_gamma;
 extern float input_sensitivity;
 
+/* Independently loaded UI trees queried by the control-server macros. */
+_DWORD *nox_control_legal_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1522892];
+}
+
+_DWORD *nox_control_menu_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1307292];
+}
+
+_DWORD *nox_control_main_menu_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1307296];
+}
+
+_DWORD *nox_control_server_menu_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1307300];
+}
+
+_DWORD *nox_control_server_screen_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1309716];
+}
+
+_DWORD *nox_control_noxworld_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[814980];
+}
+
+_DWORD *nox_control_character_select_root_get(void)
+{
+  return *(_DWORD **)&byte_5D4594[1307764];
+}
+
+/* sub_46C4E0() releases window records into a pool. Clear any automation
+ * handle that names a root before that allocation can be reused. */
+void nox_control_ui_root_clear_if_matches(_DWORD *root)
+{
+  if ( !root )
+    return;
+  if ( *(_DWORD **)&byte_5D4594[1064888] == root )
+    *(_DWORD *)&byte_5D4594[1064888] = 0;
+  if ( nox_control_legal_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1522892] = 0;
+  if ( nox_control_menu_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1307292] = 0;
+  if ( nox_control_main_menu_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1307296] = 0;
+  if ( nox_control_server_menu_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1307300] = 0;
+  if ( nox_control_server_screen_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1309716] = 0;
+  if ( nox_control_noxworld_root_get() == root )
+    *(_DWORD *)&byte_5D4594[814980] = 0;
+  if ( nox_control_character_select_root_get() == root )
+    *(_DWORD *)&byte_5D4594[1307764] = 0;
+}
+
 //----- (004A19D0) --------------------------------------------------------
 int sub_4A19D0()
 {
