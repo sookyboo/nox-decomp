@@ -327,17 +327,21 @@ export NOX_SERVER_DEFAULT_MAP:capflag # game type becomes whatever the map defau
 export NOX_CAPTURE_INPUT=0   # prints out real user mouse input but mostly useless too noisy 
 ```
 
-For a front-end-only multiplayer menu probe that does not select or load a
-map, use `NOX_CONTROL_SERVER_BOOT='sleep 5000; macro multiplayerHostMenus;'`
+For a front-end-only multiplayer menu probe that does not load a map, use
+`NOX_CONTROL_SERVER_BOOT='sleep 5000; macro multiplayerHostMenusBeforeGo;'`
 with `NOX_CONTROL_LOG=1`. The `waitclick "Caption" timeout_ms` command waits
 for a visible UI caption and then sends a physical mouse click at its center;
 `waitwidget <root> <id> timeout_ms` does the same for a known widget ID. Both
 wait for moving controls to settle and hold the click while a visible
-“Please wait” modal is present. The current `multiplayerHostMenus` macro stops
-at the character-select “New” button; choosing the Warrior portrait and the
-remaining character/server fields are not automated yet. See
+“Please wait” modal is present. The complete `multiplayerHostMenus` macro
+chooses the Warrior portrait, fills in the character and server names, then
+uses the existing `chatScreenServerName` helper to focus and clear the server
+name field. It presses Escape to cancel server setup, waits one second, and
+runs `defaultServerGame` without clicking GO. Its `load` command starts the
+configured map. See
 [`docs/multiplayer.md`](docs/multiplayer.md#front-end-menu-automation) for the
-root mapping, logs, and headless test configuration.
+root mapping, logs, and headless test configuration. The
+`multiplayerHostMenusBeforeGo` macro is the safe UI-only variant.
 
 # Other env vars
 ```

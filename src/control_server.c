@@ -984,15 +984,17 @@ static const NoxCtrlMacro g_macros[] = {
         "waitwidget charcreate 751 30000; key End; bs16; bs16; "
         "type \"${NOX_CHARACTER_NAME:NoxWarrior}\"; "
         "waitwidget charcreate 799 30000; "
-        "waitwidget serveroptions 10101 30000; key End; bs16; "
-        "type \"${NOX_SERVER_NAME:NoxDecompServ}\"; "
+        "macro chatScreenPopUpClickOk; "
+        "macro chatScreenServerName; "
+        "type \"${NOX_SERVER_NAME:NoxDecompServ}\"; sleep 1000; "
+        "key esc; sleep 1000; "
         "# safe probe stops before starting the hosted game\n"
     },
     {
         "multiplayerHostMenus",
         "macro multiplayerHostMenusBeforeGo; "
-        "waitwidget serveroptions 10145 30000; "
-        "# character and server names may be set with NOX_CHARACTER_NAME and NOX_SERVER_NAME\n"
+        "macro defaultServerGame; "
+        "# load starts the configured map; the server-options GO button is not clicked\n"
     },
     {
         "startMultiplayerNetworkHost",
@@ -1008,11 +1010,11 @@ static const NoxCtrlMacro g_macros[] = {
     },
     {
         "chatScreenPopUpClickOk",
-        "c 530 460; sleep 1000; # chatScreenPopUpClickOk\n"
+        "sleep 2000; c 530 460; sleep 1000; # chatScreenPopUpClickOk at 1024x768\n"
     },
     {
         "chatScreenServerName",
-        "trh; trc 60 40; sleep 1000; bs16; # chatScreenServerName\n"
+        "waitwidget serveroptions 10101 30000; sleep 1000; bs16; # chatScreenServerName\n"
     },
     {
         "chatScreenServerTab",

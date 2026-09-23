@@ -30,21 +30,46 @@ controls such as the Warrior portrait require an ID-based wait.
 
 `multiplayerHostMenus` continues from `New` through host setup: Warrior
 portrait (class-selection widget 601), class Accept (610), character-name field
-(751), character Accept (799), server-name field (10101), and GO (10145). The
-tested i386 path did not show a separate `OK` caption after character Accept;
-the macro waits for the server-options field instead. That wait also defers
-while the `Please wait` modal is visible. The selected character name is
+(751), character Accept (799), the Chat Area popup's OK button, server-name
+field. After character Accept, `chatScreenPopUpClickOk` waits two seconds for
+the Chat Area prompt's transition, then physically clicks its OK button at
+`530,460` in the configured 1024x768 game coordinate space. That modal is not
+exposed to the caption/widget wait scanners. `chatScreenServerName` then waits
+for server-options widget 10101 to settle (deferring while `Please wait` is
+visible), physically clicks its center, and clears the field. The macro types
+the configured name, waits one second, sends `key esc` to cancel server setup
+and release the field's keyboard focus, then waits one second before F1. The
+selected character name is
 `NOX_CHARACTER_NAME` (default `NoxWarrior`); the server name is
 `NOX_SERVER_NAME` (default `NoxDecompServ`).
-`multiplayerHostMenusBeforeGo` runs the same flow but stops after filling the
-server-name field, which is useful for safe UI verification. The widget IDs are
-from `SelClass.wnd`, `SelColor.wnd`, and the server-options window. These are
-physical clicks at live widget centers, not direct calls to UI handlers. Before
-typing, the macro moves the caret to the end and clears the existing field
-value. `type` currently supports ASCII letters, digits, and spaces; unsupported
-punctuation is skipped. Accepting the character writes a `.plr` profile under
-`Save/`; use a disposable game-data copy or back up existing profiles before
-running the macro.
+`multiplayerHostMenusBeforeGo` runs this UI flow and stops after entering the
+server name and pressing Escape, which is useful for safe UI verification.
+`multiplayerHostMenus` then runs `defaultServerGame` without clicking the
+server-options GO button. `defaultServerGame` presses F1 to open the command
+console, sends the server settings and
+`load ${NOX_SERVER_DEFAULT_MAP:capflag}`, then presses F1 to dismiss the
+console. The load command starts the configured map; it does not select a map
+in the server-options field. The widget IDs are from `SelClass.wnd` and
+`SelColor.wnd`; clicks, including those in the legacy chat-screen helpers, are
+physical mouse input rather than direct calls to UI handlers. The character
+field uses End and backspaces to replace its value; `chatScreenServerName`
+waits for server-options widget 10101 and clears it with backspaces after the
+wait's physical click.
+`type` currently supports ASCII letters, digits, and spaces; unsupported
+punctuation is skipped.
+
+The active `nox.cfg` must contain the keyboard bindings in its second section,
+including `F1 = ToggleConsole`. `sub_4317B0` uses a valid `nox.cfg` directly;
+`default.cfg` is a fallback, not an overlay, so its bindings are not merged
+into an existing config. In the test game directory, the valid `nox.cfg` had
+only `MousePickup = Left`, leaving F1 unbound: the injected F1 event reached
+and was consumed by the game's key-event queue, but no console appeared.
+Adding `F1 = ToggleConsole` to the isolated config made the i386 macro open
+CapFlag after `load capflag`. The current local test config now has the full
+standard binding block from `dist-scripts/nox.cfg`.
+
+Accepting the character writes a `.plr` profile under `Save/`; use a disposable
+game-data copy or back up existing profiles before running the macro.
 
 The root pointers are non-owning handles to trees loaded by the menu and
 multiplayer setup code. `sub_46C4E0(a1)` receives a window record, marks it for
@@ -58,7 +83,7 @@ clicking “Multiplay”. The additional roots are held at `byte_5D4594` offsets
 (server options). They are registered by the corresponding UI setup routines
 and cleared by the same `sub_46C4E0()` teardown hook as the existing menu roots.
 
-For a front-end-only manual integration probe, run from
+For an end-to-end manual integration probe, run from
 `build-deps/gamefiles/app` with control logging enabled:
 
 ```sh
@@ -68,23 +93,30 @@ timeout --signal=TERM --kill-after=3s 150s env \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=1 NOX_CONTROL_SERVER_PASSWORD=secret \
   NOX_CONTROL_SERVER_BIND=127.0.0.1 NOX_CONTROL_SERVER_PORT=2323 \
-  NOX_CONTROL_SERVER_SLEEP_SCALE=1 NOX_CONTROL_LOG=1 \
+  NOX_CONTROL_SERVER_SLEEP_SCALE=1 NOX_CONTROL_LOG=1 NOX_CONTROL_INJECT_LOG=1 \
   NOX_CHARACTER_NAME=NoxWarrior NOX_SERVER_NAME=NoxDecompServ \
-  'NOX_CONTROL_SERVER_BOOT=sleep 5000; macro multiplayerHostMenusBeforeGo;' \
-  xvfb-run -a -s '-screen 0 1280x720x24' \
+  NOX_SERVER_DEFAULT_MAP=capflag \
+  'NOX_CONTROL_SERVER_BOOT=sleep 5000; macro multiplayerHostMenus;' \
+  xvfb-run -a -s '-screen 0 1024x768x24' \
   ../../../build-i386/src/out
 ```
 
-The game reads `nox.cfg` `VideoMode = 640 480 8` and `Fullscreen = 0` (windowed
-640x480x8); Xvfb's 1280x720x24 is only the host display. The documented probe
-stops before GO, so it does not start a hosted game. The observed trace does
-show server-options initialization reading map resources before GO; it does not
-show whether that reads full gameplay state. This was an i386 macro check, not
-a 64-bit map test. Do not select or start a map requiring reloaded EUD support
-for 64-bit testing. Existing CTest targets do not exercise the live SDL window
-tree or physical mouse input, so this front-end check remains an integration
-test. The final GO click is part of `multiplayerHostMenus` but is intentionally
-omitted from the safe probe.
+The game reads `nox.cfg` `VideoMode = 1024 768 16`, `Fullscreen = 0`, and
+`VideoSize = 75` (windowed 1024x768x16, rendered at 75% size); Xvfb's
+1024x768x24 is only the host display. This end-to-end probe uses
+`multiplayerHostMenus`, which enters a new character profile and starts
+`capflag` through `defaultServerGame`; use disposable game data because
+accepting a character writes a `.plr` profile. For UI-only checks, replace the
+boot macro with `multiplayerHostMenusBeforeGo`. `load` starts the configured
+map without a separate click on the server-options GO button. Use a standard
+map such as `capflag` for this i386 integration check. Do not select or start a
+map requiring reloaded EUD support for 64-bit testing. Existing CTest targets do
+not exercise the live SDL window tree or physical mouse input, so this remains
+an integration test. The Chat Area popup uses a resolution-specific physical
+click because it is not exposed to the caption/widget wait scanners; Escape
+cancels server-options (equivalent to clicking widget 10146; GO is 10145).
+Require evidence of the Escape input, F1/console commands, and new CapFlag opens
+after `load`; merely completing the macro does not prove the map started.
 
 ## Client host-loss lifecycle
 
