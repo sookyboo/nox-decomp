@@ -173,6 +173,10 @@ endif()
 
 add_executable (out ${NOX_RUNTIME_SOURCES} main.cpp)
 
+if (NOX_TRACE_STARTUP_FLOW)
+    target_compile_definitions(out PRIVATE NOX_TRACE_STARTUP_FLOW)
+endif()
+
 if (NOT WIN32)
     # The 32-bit Linux runtime uses dirent/readdir in compat.c. Keep its
     # large-file directory ABI consistent with the case-folding test targets.
@@ -189,6 +193,9 @@ endif()
 # an archive when that optional feature is enabled.
 if (BUILD_TESTING AND (WIN32 OR USE_EUD_COMPAT))
     add_library(nox_test_runtime STATIC ${NOX_RUNTIME_SOURCES})
+    if (NOX_TRACE_STARTUP_FLOW)
+        target_compile_definitions(nox_test_runtime PRIVATE NOX_TRACE_STARTUP_FLOW)
+    endif()
     if (USE_MANUAL_SPELL_CASTING)
         target_compile_definitions(nox_test_runtime PUBLIC NOX_MANUAL_SPELL_CASTING)
     endif()

@@ -62,6 +62,13 @@ static int low_address_static_link_decode_test(void)
         == image_address + encoded;
 }
 
+static int legacy_pointer_slot_reads_only_one_dword_test(void)
+{
+    const uint32_t slots[2] = {UINT32_C(0x43645738), UINT32_C(0x00200020)};
+
+    return nox_native_pointer_slot32_read(&slots[0]) == slots[0];
+}
+
 static int code_pointer_decode_test(void)
 {
     const uintptr_t image_address = UINT64_C(0x0000001200000000);
@@ -104,6 +111,37 @@ static int image_data_range_test(void)
                                                 first_data_end);
 }
 
+static int low_word_executable_static_data_decode_test(void)
+{
+    /* Mirrors the amd64 core's low-word encoding: the image is above 4 GiB,
+     * but its static string pointer begins with 0x14836530, below the legacy
+     * low-allocation cutoff. */
+    const uintptr_t image_address = UINT64_C(0x000055b01480db60);
+    const uintptr_t first_begin = UINT64_C(0x000055b014836000);
+    const uintptr_t first_end = UINT64_C(0x000055b014860000);
+    const uintptr_t second_begin = UINT64_C(0x000055b014900000);
+    const uintptr_t second_end = UINT64_C(0x000055b014a00000);
+    const uint32_t encoded = UINT32_C(0x14836530);
+
+    return nox_native_static_data_pointer_decode32(
+               encoded, image_address, first_begin, first_end,
+               second_begin, second_end)
+        == UINT64_C(0x000055b014836530);
+}
+
+static int window_field_pointer_decode_test(void)
+{
+    const uintptr_t image_address = UINT64_C(0x000055b41400db60);
+    const uint32_t low_word = UINT32_C(0x173b0cc0);
+
+    return nox_native_window_field_pointer_decode32(
+               low_word, image_address, 0)
+               == UINT64_C(0x000055b4173b0cc0)
+        && nox_native_window_field_pointer_decode32(
+               low_word, image_address, 1)
+               == (uintptr_t)low_word;
+}
+
 static int window_text_value_retains_host_pointer_test(void)
 {
     uintptr_t values[3];
@@ -138,6 +176,10 @@ int main(void)
         fprintf(stderr, "failed to reconstruct a low-address static list link\n");
         return 1;
     }
+    if (!legacy_pointer_slot_reads_only_one_dword_test()) {
+        fprintf(stderr, "legacy pointer slot read consumed its adjacent DWORD\n");
+        return 1;
+    }
     if (!code_pointer_decode_test()) {
         fprintf(stderr, "failed to reconstruct a low-word game-image callback\n");
         return 1;
@@ -148,6 +190,14 @@ int main(void)
     }
     if (!image_data_range_test()) {
         fprintf(stderr, "static image data pointer range was not recognized\n");
+        return 1;
+    }
+    if (!low_word_executable_static_data_decode_test()) {
+        fprintf(stderr, "low-word executable static data was mistaken for a low allocation\n");
+        return 1;
+    }
+    if (!window_field_pointer_decode_test()) {
+        fprintf(stderr, "window data pointer did not preserve low/high address provenance\n");
         return 1;
     }
     if (!window_text_value_retains_host_pointer_test()) {

@@ -3,6 +3,7 @@
 #endif
 
 #include "proto.h"
+#include "startup_flow_trace.h"
 extern void nox_ctrl_capture_event(const SDL_Event *ev);
 
 #if UINTPTR_MAX > UINT32_MAX
@@ -302,6 +303,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         int ww = 0, wh = 0;
         SDL_GetWindowSize(g_window, &ww, &wh);
         NOX_DBG("window flags=0x%08x size=%dx%d", (unsigned)wf, ww, wh);
+        NOX_FLOW_TRACE("SDL window created size=%dx%d flags=0x%08x fullscreen_cfg=%d",
+                       ww, wh, (unsigned)wf, g_fullscreen);
     }
 
 

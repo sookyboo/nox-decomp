@@ -3,6 +3,7 @@ project (nox-port)
 
 option (USE_ASAN "Enable address sanitizer" OFF)
 option (NOX_ALLOW_64BIT "Build the runtime and compatible tests with native 64-bit pointers" OFF)
+option (NOX_TRACE_STARTUP_FLOW "Compile startup, UI input, and map-handoff flow diagnostics" OFF)
 option (USE_EUD_COMPAT "Build and enable Panic EUD/MemoryHack compatibility" OFF)
 option (USE_BOT_SUPPORT "Build native player bot support" OFF)
 option (USE_EUD_MAP_TESTS "Build temporary external EUD map smoke tests" OFF)

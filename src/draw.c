@@ -33,6 +33,7 @@ void nox_palette_lut_free(void *address, size_t size);
 #endif
 
 #include "proto.h"
+#include "startup_flow_trace.h"
 
 #if UINTPTR_MAX > UINT32_MAX
 extern int (*nox_47d5_callback)(int);
@@ -156,6 +157,7 @@ int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
         "[VIDEO REQUEST] width=%d height=%d flags=0x%x\n",
         a2, a3, a4
     );
+    NOX_FLOW_TRACE("video request width=%d height=%d flags=0x%x", a2, a3, a4);
 
 	InitializeCriticalSection((LPCRITICAL_SECTION)&byte_5D4594[3799596]);
 	*(_DWORD *)&byte_5D4594[823780] = 1;
@@ -185,6 +187,8 @@ int __cdecl sub_444AC0(HWND a1, int a2, int a3, int a4, int a5)
         "[VIDEO ALIGN] requested=%d aligned=%d\n",
         a2, v8
     );
+    NOX_FLOW_TRACE("video backbuffer width requested=%d aligned=%d height=%d flags=0x%x",
+                   a2, v8, a3, a4);
 	if (v7 & 4)
 	{
 		v9 = (v7 & 0x17) - 20;

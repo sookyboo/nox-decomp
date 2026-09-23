@@ -4,6 +4,7 @@
 
 #include "proto.h"
 #include "native_pointer.h"
+#include "startup_flow_trace.h"
 #include "mod_hash.h"
 #ifdef NOX_BOT_SUPPORT
 #include "bot_console.h"
@@ -658,10 +659,7 @@ size_t *__cdecl sub_401070(int a1, intptr_t a2)
   #include <stdlib.h>
 
   #ifndef NOX_INIT_LOG
-  #define NOX_INIT_LOG(fmt, ...) do { \
-      fprintf(stderr, "[init] " fmt "\n", ##__VA_ARGS__); \
-      fflush(stderr); \
-  } while (0)
+  #define NOX_INIT_LOG(fmt, ...) NOX_FLOW_TRACE("init: " fmt, ##__VA_ARGS__)
   #endif
 
   NOX_INIT_LOG("sub_401070 enter a1=%d a2=%p", a1, (void*)a2);
@@ -49034,7 +49032,7 @@ int sub_4378B0()
       v1 = sub_40A430();
       sub_554AA0(v1, 0, 0, v4);
       v2 = sub_40F1D0((char *)&byte_587000[88032], 0, (const char *)&byte_587000[87992], 1097);
-      sub_449A10(*(int *)&byte_5D4594[814980], 0, (int)v2, 0, 0, 0);
+      sub_449A10(*(int *)&byte_5D4594[814980], 0, (uintptr_t)v2, 0, 0, 0);
     }
     *(_DWORD *)&byte_5D4594[815104] = 0;
     result = (unsigned __int64)(*(_QWORD *)&byte_5D4594[815076] + (__int64)120000) >> 32;
@@ -49181,14 +49179,14 @@ int sub_4379F0()
           *(_DWORD *)&byte_587000[87412] = -1;
           sub_46AC00(*(int *)&byte_5D4594[814984], 1);
           v7 = sub_40F1D0((char *)&byte_587000[88164], 0, (const char *)&byte_587000[88124], 2530);
-          sub_46B490(*(int *)&byte_5D4594[814996], 16385, (int)v7, 0);
+          sub_46B490(*(int *)&byte_5D4594[814996], 16385, (uintptr_t)v7, 0);
         }
         else
         {
           *(_DWORD *)&byte_587000[87412] = 0;
           sub_46AC00(*(int *)&byte_5D4594[814988], 1);
           v5 = sub_40F1D0((char *)&byte_587000[88112], 0, (const char *)&byte_587000[88072], 2517);
-          sub_46B490(*(int *)&byte_5D4594[814996], 16385, (int)v5, 0);
+          sub_46B490(*(int *)&byte_5D4594[814996], 16385, (uintptr_t)v5, 0);
           sub_46ACE0(*(_DWORD **)&byte_5D4594[814984], 10620, 10631, 1);
           sub_49FDB0(0);
         }
@@ -49264,7 +49262,7 @@ int sub_4379F0()
         {
           v27 = sub_40F1D0((char *)&byte_587000[88552], 0, (const char *)&byte_587000[88512], 2616);
           v17 = sub_40F1D0((char *)&byte_587000[88600], 0, (const char *)&byte_587000[88560], 2616);
-          sub_449A10(0, (int)v17, (int)v27, 33, 0, 0);
+          sub_449A10(0, (uintptr_t)v17, (uintptr_t)v27, 33, 0, 0);
           sub_44A360(1);
           *(_DWORD *)&byte_5D4594[815096] = 0;
         }
@@ -49272,7 +49270,7 @@ int sub_4379F0()
         {
           v28 = sub_40F1D0((char *)&byte_587000[88656], 0, (const char *)&byte_587000[88616], 2623);
           v18 = sub_40F1D0((char *)&byte_587000[88704], 0, (const char *)&byte_587000[88664], 2623);
-          sub_449A10(0, (int)v18, (int)v28, 33, 0, 0);
+          sub_449A10(0, (uintptr_t)v18, (uintptr_t)v28, 33, 0, 0);
           sub_44A360(1);
           *(_DWORD *)&byte_5D4594[815100] = 0;
         }
@@ -49361,7 +49359,7 @@ int sub_4383A0()
   sub_46AD20(*(_DWORD **)&byte_5D4594[814980], 10006, 10007, 1);
   sub_46ACE0(*(_DWORD **)&byte_5D4594[814980], 10047, 10051, 0);
   v0 = sub_40F1D0((char *)&byte_587000[88760], 0, (const char *)&byte_587000[88720], 418);
-  sub_46B490(*(int *)&byte_5D4594[814996], 16385, (int)v0, 0);
+  sub_46B490(*(int *)&byte_5D4594[814996], 16385, (uintptr_t)v0, 0);
   result = *(_DWORD *)&byte_587000[87404];
   *(_DWORD *)&byte_587000[87408] = 1;
   if ( *(_DWORD *)&byte_587000[87404] == 1 )
@@ -49494,15 +49492,15 @@ int sub_438770()
       case 4:
         sub_43AF90(3);
         v2 = sub_40F1D0((char *)&byte_587000[88816], 0, (const char *)&byte_587000[88776], 1343);
-        sub_449E30((int)v2);
+        sub_449E30((uintptr_t)v2);
         *(_QWORD *)&byte_5D4594[814956] = sub_416BB0() + 20000;
         result = 1;
         break;
       case 5:
         v3 = sub_40F1D0((char *)&byte_587000[88864], 0, (const char *)&byte_587000[88824], 1349);
-        sub_449E00((int)v3);
+        sub_449E00((uintptr_t)v3);
         v4 = sub_40F1D0((char *)&byte_587000[88916], 0, (const char *)&byte_587000[88876], 1350);
-        sub_449E30((int)v4);
+        sub_449E30((uintptr_t)v4);
         sub_449EA0(7);
         sub_44A360(0);
         sub_43AF90(6);
@@ -49512,7 +49510,7 @@ int sub_438770()
       case 7:
         sub_44A360(1);
         v5 = sub_40F1D0((char *)&byte_587000[88976], 0, (const char *)&byte_587000[88936], 1364);
-        sub_449E30((int)v5);
+        sub_449E30((uintptr_t)v5);
         sub_449EA0(0);
         sub_43DE20(sub_43B360);
         sub_43AF90(1);
@@ -49617,9 +49615,9 @@ int sub_438A90()
   {
 //    fprintf(stderr, "[join] sub_438A90: NO SERIAL -> showing error dialog path\n");
     v0 = sub_40F1D0((char *)&byte_587000[89028], 0, (const char *)&byte_587000[88988], 541);
-    sub_449E00((int)v0);
+    sub_449E00((uintptr_t)v0);
     v1 = sub_40F1D0((char *)&byte_587000[89076], 0, (const char *)&byte_587000[89036], 542);
-    sub_449E30((int)v1);
+    sub_449E30((uintptr_t)v1);
     sub_449EA0(1);
     sub_43AF90(1);
     result = *(_DWORD *)&byte_587000[87404];
@@ -49644,11 +49642,11 @@ int sub_438BD0()
     && *(_DWORD *)&byte_5D4594[814552] != 10 )
   {
     v1 = sub_40F1D0((char *)&byte_587000[89152], 0, (const char *)&byte_587000[89112], 1262);
-    sub_449E00((int)v1);
+    sub_449E00((uintptr_t)v1);
     v0 = *(_DWORD *)&byte_5D4594[814552];
   }
   v2 = sub_40F1D0(*(char **)&byte_587000[4 * v0 + 87416], 0, (const char *)&byte_587000[89164], 1265);
-  sub_449E30((int)v2);
+  sub_449E30((uintptr_t)v2);
   *(_DWORD *)&byte_5D4594[815044] = 0;
   sub_449EA0(1);
   sub_44A360(1);
@@ -50495,7 +50493,7 @@ LABEL_52:
       v14 = sub_449E60(4);
       nox_sprintf(v35, (const char *)&byte_587000[90452], v14);
       v15 = sub_40F1D0((char *)&byte_587000[90496], 0, (const char *)&byte_587000[90456], 2209);
-      sub_449E30((int)v15);
+      sub_449E30((uintptr_t)v15);
       sub_43AF90(11);
       sub_40D740((int)v34);
       sub_449EA0(0);
@@ -63034,7 +63032,7 @@ int __cdecl sub_4497D0(int a1, int a2, int *a3, int a4)
 }
 
 //----- (00449A10) --------------------------------------------------------
-_DWORD *__cdecl sub_449A10(int a1, int a2, int a3, int a4, int (*a5)(void), int (*a6)(void))
+_DWORD *__cdecl sub_449A10(int a1, uintptr_t a2, uintptr_t a3, int a4, int (*a5)(void), int (*a6)(void))
 {
   int v6; // esi
   _DWORD *result; // eax
@@ -63197,7 +63195,7 @@ int __cdecl sub_449CA0(int a1, int a2, int *a3, int a4)
 }
 
 //----- (00449E00) --------------------------------------------------------
-int __cdecl sub_449E00(int a1)
+int __cdecl sub_449E00(uintptr_t a1)
 {
   _DWORD *v1; // eax
 
@@ -63206,7 +63204,7 @@ int __cdecl sub_449E00(int a1)
 }
 
 //----- (00449E30) --------------------------------------------------------
-int __cdecl sub_449E30(int a1)
+int __cdecl sub_449E30(uintptr_t a1)
 {
   _DWORD *v1; // eax
 

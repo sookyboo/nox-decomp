@@ -15,6 +15,13 @@
 
 static int callback_count;
 static unsigned char callback_payload;
+#if UINTPTR_MAX > UINT32_MAX
+static int window_draw_callback_count;
+static int window_message_destroy_callback_count;
+static uintptr_t window_pointer_message_value;
+static int window_pointer_message_seen;
+static uintptr_t window_caption_query_value;
+#endif
 
 static int ui_event_callback(wchar_t *window, wchar_t *text, int event)
 {
@@ -42,6 +49,170 @@ static int window_event_callback_storage_test(void)
     nox_window_event_callback_clear(object_id);
     return nox_window_event_callback_get(object_id) == 0;
 }
+
+#if UINTPTR_MAX > UINT32_MAX
+static int __cdecl window_draw_callback(int window, int layout)
+{
+    (void)window;
+    (void)layout;
+    ++window_draw_callback_count;
+    return 1;
+}
+
+static int __cdecl window_message_callback(int window, int message,
+                                           int data, int extra)
+{
+    (void)window;
+    (void)data;
+    (void)extra;
+    if (message == 2)
+        ++window_message_destroy_callback_count;
+    return 1;
+}
+
+static uintptr_t __cdecl window_pointer_message_callback(int window,
+                                                          int message,
+                                                          uintptr_t data,
+                                                          int extra)
+{
+    (void)window;
+    (void)extra;
+    if (message == 16385)
+    {
+        window_pointer_message_value = data;
+        window_pointer_message_seen = 1;
+    }
+    if (message == 16413)
+        return window_caption_query_value;
+    return 1;
+}
+
+static int window_pointer_message_transport_test(void)
+{
+    wchar_t text[] = L"wide pointer";
+    _DWORD *window;
+
+    window = sub_46C3E0(0, 0, 0, 0, 1, 1,
+        (int (*)(int, int, int, int))window_pointer_message_callback);
+    if (!window)
+    {
+        fprintf(stderr, "window message pointer test: allocation failed\n");
+        return 0;
+    }
+
+    window_pointer_message_value = 0;
+    window_pointer_message_seen = 0;
+    sub_46B490((int)(uintptr_t)window, 16385, (uintptr_t)text, 0);
+    if (!window_pointer_message_seen ||
+        window_pointer_message_value != (uintptr_t)text)
+    {
+        fprintf(stderr,
+                "window message pointer test: received=%p expected=%p\n",
+                (void *)window_pointer_message_value, (void *)text);
+        sub_46C4E0((int)(uintptr_t)window);
+        sub_46C200();
+        return 0;
+    }
+
+    sub_46C4E0((int)(uintptr_t)window);
+    sub_46C200();
+    return 1;
+}
+
+extern int nox_window_caption_position(const char *caption, int *x, int *y,
+                                      int *root_id, int *widget_id);
+
+static int window_caption_pointer_width_test(void)
+{
+    const uint32_t root_slot = 1064888;
+    wchar_t caption[] = L"Caption";
+    _DWORD *root;
+    uint32_t old_root;
+    int x, y, root_id, widget_id;
+    int found;
+
+    root = sub_46C3E0(0, 0, 0, 20, 20, 0,
+        (int (*)(int, int, int, int))window_pointer_message_callback);
+    if (!root)
+    {
+        fprintf(stderr, "window caption pointer test: allocation failed\n");
+        return 0;
+    }
+
+    old_root = *(uint32_t *)&byte_5D4594[root_slot];
+    *(uint32_t *)&byte_5D4594[root_slot] = (uint32_t)(uintptr_t)root;
+    window_caption_query_value = (uintptr_t)caption;
+    found = nox_window_caption_position("Caption", &x, &y, &root_id,
+                                        &widget_id);
+    *(uint32_t *)&byte_5D4594[root_slot] = old_root;
+    sub_46C4E0((int)(uintptr_t)root);
+    sub_46C200();
+    if (!found)
+    {
+        fprintf(stderr,
+                "window caption pointer test: failed to match a high-address caption\n");
+        return 0;
+    }
+    return 1;
+}
+
+static int window_draw_callback_reuse_test(void)
+{
+    _DWORD *first;
+    _DWORD *reused;
+
+    first = sub_46C3E0(0, 0, 0, 0, 1, 1, 0);
+    if (!first)
+    {
+        fprintf(stderr, "window draw callback test: first allocation failed\n");
+        return 0;
+    }
+    sub_46B340((int)(uintptr_t)first, window_draw_callback);
+    sub_46B2C0((int)(uintptr_t)first, window_message_callback);
+    window_draw_callback_count = 0;
+    window_message_destroy_callback_count = 0;
+    sub_46C370(first);
+    if (window_draw_callback_count != 1)
+    {
+        fprintf(stderr, "window draw callback test: initial dispatch count=%d\n",
+                window_draw_callback_count);
+        return 0;
+    }
+
+    sub_46C4E0((int)(uintptr_t)first);
+    sub_46C200();
+    if (window_message_destroy_callback_count != 1)
+    {
+        fprintf(stderr,
+                "window callback test: final message-2 count=%d\n",
+                window_message_destroy_callback_count);
+        return 0;
+    }
+    reused = sub_46C3E0(0, 0, 0, 0, 1, 1, 0);
+    if (reused != first)
+    {
+        fprintf(stderr, "window draw callback test: pool returned %p, expected %p\n",
+                (void *)reused, (void *)first);
+        return 0;
+    }
+
+    /* The constructor installs the default renderer on this fresh window.
+     * A callback left over in a native sidecar must not override it. */
+    reused[14] = 0x80000000;
+    window_draw_callback_count = 0;
+    sub_46C370(reused);
+    if (window_draw_callback_count != 0)
+    {
+        fprintf(stderr, "window draw callback test: reused dispatch count=%d\n",
+                window_draw_callback_count);
+        return 0;
+    }
+
+    sub_46C4E0((int)(uintptr_t)reused);
+    sub_46C200();
+    return 1;
+}
+#endif
 
 static int gameplay_thing_bucket_storage_test(void)
 {
@@ -290,6 +461,14 @@ int main(void)
         return 1;
     if (!window_event_callback_storage_test())
         return 1;
+#if UINTPTR_MAX > UINT32_MAX
+    if (!window_pointer_message_transport_test())
+        return 1;
+    if (!window_caption_pointer_width_test())
+        return 1;
+    if (!window_draw_callback_reuse_test())
+        return 1;
+#endif
     if (!map_file_transfer_test())
         return 1;
     if (!map_packet_transfer_test())

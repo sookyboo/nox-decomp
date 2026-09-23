@@ -24,6 +24,7 @@
 
 
 #include <SDL2/SDL.h>
+#include "startup_flow_trace.h"
 
 
 static int g_ctrllog(void) {
@@ -900,9 +901,15 @@ static int control_wait_position_stable(int available, int x, int y, Uint32 now)
         last_x = x;
         last_y = y;
         unchanged_since = now;
+        NOX_FLOW_TRACE("wait target position available/moved to %d,%d; stability timer restarted",
+                       x, y);
         return 0;
     }
-    return (Sint32)(now - unchanged_since) >= 5000;
+    if ((Sint32)(now - unchanged_since) >= 5000) {
+        NOX_FLOW_TRACE("wait target position %d,%d stable for at least 5000 ms", x, y);
+        return 1;
+    }
+    return 0;
 }
 
 static void control_wait_position_reset(void)
@@ -925,9 +932,13 @@ static void control_wait_modal_log_transition(int visible, const char *kind,
                  "%s %s root=%d widget=%d", kind, target, root_id, widget_id);
         NOX_CTRL_LOG("UI modal appeared: 'Please wait' at %d,%d while %s",
                      x, y, g_wait_modal_context);
+        NOX_FLOW_TRACE("UI modal appeared: 'Please wait' at %d,%d while %s",
+                       x, y, g_wait_modal_context);
     } else if (!visible && g_wait_modal_visible) {
         NOX_CTRL_LOG("UI modal disappeared: 'Please wait' after %u ms while %s",
                      (unsigned)(now - g_wait_modal_visible_since), g_wait_modal_context);
+        NOX_FLOW_TRACE("UI modal disappeared: 'Please wait' after %u ms while %s",
+                       (unsigned)(now - g_wait_modal_visible_since), g_wait_modal_context);
         g_wait_modal_visible = 0;
         g_wait_modal_context[0] = 0;
     }
@@ -1819,12 +1830,14 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         char buf[300];
         snprintf(buf, sizeof(buf), "macro begin: %s", m->name);
         enqueue_log(buf);
+        NOX_FLOW_TRACE("macro begin '%s' batch=%u", m->name, g_macro_batch_id);
 
         run_script_as_commands(fd, m->script, authed, pw);
         send_str_maybe(fd, "OK\r\n");
 
         snprintf(buf, sizeof(buf), "macro end: %s", m->name);
         enqueue_log(buf);
+        NOX_FLOW_TRACE("macro script queued '%s' batch=%u", m->name, g_macro_batch_id);
         g_macro_batch_id = previous_batch_id;
         return;
     }
@@ -1839,8 +1852,10 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
                 if (!g_macro_batch_id)
                     g_macro_batch_id = g_next_macro_batch_id++;
             }
+            NOX_FLOW_TRACE("macro begin '%s' batch=%u", m->name, g_macro_batch_id);
             run_script_as_commands(fd, m->script, authed, pw);
             send_str_maybe(fd, "OK\r\n");
+            NOX_FLOW_TRACE("macro script queued '%s' batch=%u", m->name, g_macro_batch_id);
             g_macro_batch_id = previous_batch_id;
             return;
         }
@@ -1956,6 +1971,8 @@ void nox_control_server_pump(void)
         if (control_wait_position_stable(found, click_x, click_y, now) &&
             enqueue_click_abs_before_pending(click_x, click_y, 0, wait_click_batch_id)) {
             NOX_CTRL_LOG("waitclick: mouse-clicked caption '%s' at %d,%d", wait_click_caption, click_x, click_y);
+            NOX_FLOW_TRACE("waitclick target '%s' accepted at %d,%d; physical click actions queued before batch %u",
+                           wait_click_caption, click_x, click_y, wait_click_batch_id);
             control_wait_modal_log_tracking_end("waitclick completed");
             control_wait_position_reset();
             wait_click_active = 0;
@@ -1998,6 +2015,9 @@ void nox_control_server_pump(void)
         if (control_wait_position_stable(found, click_x, click_y, now) &&
             enqueue_click_abs_before_pending(click_x, click_y, 0, wait_widget_batch_id)) {
             NOX_CTRL_LOG("waitwidget: mouse-clicked root=%d widget=%d at %d,%d", wait_widget_root, wait_widget_id, click_x, click_y);
+            NOX_FLOW_TRACE("waitwidget root=%d widget=%d accepted at %d,%d; physical click actions queued before batch %u",
+                           wait_widget_root, wait_widget_id, click_x, click_y,
+                           wait_widget_batch_id);
             control_wait_modal_log_tracking_end("waitwidget completed");
             control_wait_position_reset();
             wait_widget_active = 0;
@@ -2030,18 +2050,22 @@ void nox_control_server_pump(void)
      while (q_pop(&a)) {
          switch (a.type) {
          case ACT_MOVE:
+             NOX_FLOW_TRACE("control action: relative mouse move dx=%d dy=%d", a.a, a.b);
              nox_ctrl_inject_mouse_move(a.a, a.b, 0);
              break;
 
          case ACT_BTN:
+             NOX_FLOW_TRACE("control action: mouse button=%d down=%d", a.a, a.down);
              nox_ctrl_inject_mouse_button(a.a, a.down);
              break;
 
          case ACT_KEY:
+             NOX_FLOW_TRACE("control action: key scancode=%d down=%d", a.a, a.down);
              nox_ctrl_inject_key_scancode(a.a, a.down);
              break;
 
          case ACT_TEXT:
+             NOX_FLOW_TRACE("control action: text '%s'", a.text);
              nox_ctrl_inject_text_utf8(a.text);
              break;
 
@@ -2052,6 +2076,8 @@ void nox_control_server_pump(void)
              control_wait_position_reset();
              wait_click_active = 1;
              NOX_CTRL_LOG("waitclick: waiting for caption '%s'", wait_click_caption);
+             NOX_FLOW_TRACE("waitclick begin caption='%s' timeout_ms=%d batch=%u",
+                            wait_click_caption, a.a, wait_click_batch_id);
              g_sleep_until = SDL_GetTicks() + 50;
              return;
 
@@ -2063,6 +2089,9 @@ void nox_control_server_pump(void)
              control_wait_position_reset();
              wait_widget_active = 1;
              NOX_CTRL_LOG("waitwidget: waiting for root=%d widget=%d", wait_widget_root, wait_widget_id);
+             NOX_FLOW_TRACE("waitwidget begin root=%d widget=%d timeout_ms=%d batch=%u",
+                            wait_widget_root, wait_widget_id, a.down,
+                            wait_widget_batch_id);
              g_sleep_until = SDL_GetTicks() + 50;
              return;
 
@@ -2076,7 +2105,10 @@ void nox_control_server_pump(void)
                  command[i] = (wchar_t)(unsigned char)a.text[i];
              command[i] = 0;
              NOX_CTRL_LOG("console: dispatch '%s'", a.text);
-             NOX_CTRL_LOG("console: result=%d", sub_443C80(command, 1));
+             NOX_FLOW_TRACE("console action dispatch '%s'", a.text);
+             int command_result = sub_443C80(command, 1);
+             NOX_CTRL_LOG("console: result=%d", command_result);
+             NOX_FLOW_TRACE("console action result=%d", command_result);
              break;
          }
 

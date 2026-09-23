@@ -4,6 +4,7 @@
 #endif
 
 #include "proto.h"
+#include "startup_flow_trace.h"
 extern void process_textinput_event(const SDL_TextInputEvent *event);
 
 #ifdef USE_SDL
@@ -423,6 +424,9 @@ void nox_ctrl_inject_mouse_move(int dx, int dy, int wheel)
     me->y = (int)lrint(ddy);
     me->z = wheel;
     me->seq = seqnum++;
+    NOX_FLOW_TRACE("input queue push mouse motion dx=%d dy=%d wheel=%d seq=%u widx=%u",
+                   me->x, me->y, me->z, (unsigned)me->seq,
+                   (unsigned)mouse_event_widx);
     mouse_event_widx = (mouse_event_widx + 1) % 256;
 }
 
@@ -478,6 +482,9 @@ void nox_ctrl_inject_mouse_button(int button, int down)
     }
     me->state = down ? 1 : 0;
     me->seq = seqnum++;
+    NOX_FLOW_TRACE("input queue push mouse button=%d down=%d seq=%u widx=%u",
+                   button, down, (unsigned)me->seq,
+                   (unsigned)mouse_event_widx);
     mouse_event_widx = (mouse_event_widx + 1) % 256;
 }
 
@@ -494,12 +501,17 @@ void nox_ctrl_inject_key_scancode(int sdl_scancode, int down)
     ke->code = scanCodeToKeyNum[sdl_scancode];
     ke->state = down ? 1 : 0;
     ke->seq = seqnum++;
+    if (sdl_scancode == SDL_SCANCODE_F1 || sdl_scancode == SDL_SCANCODE_ESCAPE)
+        NOX_FLOW_TRACE("input queue push key scancode=%d code=0x%02x down=%d seq=%u widx=%u",
+                       sdl_scancode, ke->code, down, (unsigned)ke->seq,
+                       (unsigned)keyboard_event_widx);
     keyboard_event_widx = (keyboard_event_widx + 1) % 256;
 }
 
 void nox_ctrl_inject_text_utf8(const char *utf8)
 {
     NOX_CTRL_INJECT_LOG( "[inj] text '%s'\n", utf8 ? utf8 : "(null)");
+    NOX_FLOW_TRACE("input text injection '%s'", utf8 ? utf8 : "(null)");
 //    fflush(stderr);
 
     if (!utf8) return;
@@ -878,6 +890,12 @@ void __cdecl sub_47FA80(uintptr_t a1)
     if (keyboard_event_ridx == keyboard_event_widx)
         return;
 
+    if (ke->code == scanCodeToKeyNum[SDL_SCANCODE_F1] ||
+        ke->code == scanCodeToKeyNum[SDL_SCANCODE_ESCAPE])
+        NOX_FLOW_TRACE("input queue pop key code=0x%02x down=%d seq=%u ridx=%u",
+                       ke->code, ke->state, (unsigned)ke->seq,
+                       (unsigned)keyboard_event_ridx);
+
     *(_BYTE *)a1 = ke->code;
     *(_BYTE *)(a1 + 1) = ke->state + 1;
     *(_BYTE *)(a1 + 2) = 0;
@@ -932,6 +950,11 @@ char __cdecl sub_47DB20(signed int *a1)
 
     if (mouse_event_ridx == mouse_event_widx)
         return 0;
+
+    if (me->type != MOUSE_MOTION)
+        NOX_FLOW_TRACE("input queue pop mouse button type=%u down=%u seq=%u ridx=%u",
+                       me->type, me->state, (unsigned)me->seq,
+                       (unsigned)mouse_event_ridx);
 
     switch (me->type)
     {
@@ -2084,4 +2107,3 @@ LABEL_211:
   }
   return result;
 }
-

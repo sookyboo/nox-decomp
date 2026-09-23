@@ -1,5 +1,6 @@
 #include "proto.h"
 #include "native_pointer.h"
+#include "startup_flow_trace.h"
 
 #if UINTPTR_MAX > UINT32_MAX
 FILE *nox_log_file;
@@ -31,6 +32,18 @@ static int **nox_native_488b_state;
 #include <unistd.h>
 static void *nox_486_low_alloc(size_t size);
 static void nox_486_low_free(void *address, size_t size);
+
+static int nox_native_low_address_is_mapped(uint32_t address)
+{
+  long page_size = sysconf(_SC_PAGESIZE);
+  unsigned char residency;
+  uintptr_t page;
+
+  if ( !address || page_size <= 0 )
+    return 0;
+  page = (uintptr_t)address - (uintptr_t)address % (uintptr_t)page_size;
+  return mincore((void *)page, (size_t)page_size, &residency) == 0;
+}
 #endif
 
 #if UINTPTR_MAX <= UINT32_MAX
@@ -92,6 +105,11 @@ uintptr_t nox_native_indirect_pointer_slot_32(const void *slot)
 
 #if UINTPTR_MAX <= UINT32_MAX
 static uintptr_t nox_native_pointer_from_32(unsigned int value)
+{
+  return value;
+}
+
+static uintptr_t nox_native_static_data_pointer_from_32(unsigned int value)
 {
   return value;
 }
@@ -315,19 +333,12 @@ static uintptr_t nox_native_fixed_pointer_from_32(unsigned int value)
 static uintptr_t nox_native_static_data_pointer_from_32(unsigned int value)
 {
   uintptr_t image_address = (uintptr_t)&byte_587000[0];
-  uintptr_t candidate;
 
-  if ( !value )
-    return 0;
-  candidate = nox_native_image_pointer_decode32(value, image_address);
-  if ( nox_native_image_pointer_in_range32(value, image_address,
-          (uintptr_t)&byte_587000[0],
-          (uintptr_t)&byte_587000[sizeof(byte_587000)])
-      || nox_native_image_pointer_in_range32(value, image_address,
-          (uintptr_t)&byte_5D4594[0],
-          (uintptr_t)&byte_5D4594[sizeof(byte_5D4594)]) )
-    return candidate;
-  return nox_native_pointer_from_32(value);
+  return nox_native_static_data_pointer_decode32(value, image_address,
+      (uintptr_t)&byte_587000[0],
+      (uintptr_t)&byte_587000[sizeof(byte_587000)],
+      (uintptr_t)&byte_5D4594[0],
+      (uintptr_t)&byte_5D4594[sizeof(byte_5D4594)]);
 }
 
 /* Audio/timer callback slots hold 32-bit code addresses from the game image.
@@ -429,6 +440,20 @@ static int (*nox_window_callback_get(int object))(int, int, int, int)
   return 0;
 }
 
+static void nox_window_callback_clear(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_callback_count; ++i )
+  {
+    if ( nox_window_callbacks[i].object == object )
+    {
+      nox_window_callbacks[i] = nox_window_callbacks[--nox_window_callback_count];
+      return;
+    }
+  }
+}
+
 static void nox_window_message_callback_set(int object, int (*callback)(int, int, int, int))
 {
   unsigned int i;
@@ -459,6 +484,20 @@ static int (*nox_window_message_callback_get(int object))(int, int, int, int)
       return nox_window_message_callbacks[i].callback;
   }
   return 0;
+}
+
+static void nox_window_message_callback_clear(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_message_callback_count; ++i )
+  {
+    if ( nox_window_message_callbacks[i].object == object )
+    {
+      nox_window_message_callbacks[i] = nox_window_message_callbacks[--nox_window_message_callback_count];
+      return;
+    }
+  }
 }
 
 void nox_window_event_callback_set(int object, uintptr_t callback)
@@ -632,9 +671,19 @@ uintptr_t nox_native_pointer_from_32_value(unsigned int value)
 uintptr_t nox_native_window_field_32(unsigned int object)
 {
   uintptr_t native_object = nox_native_pointer_from_32(object);
+  unsigned int encoded;
+
   if ( !native_object )
     return 0;
-  return nox_native_pointer_from_32(*(unsigned int *)(native_object + 32));
+  encoded = *(unsigned int *)(native_object + 32);
+#if defined(__linux__)
+  return nox_native_window_field_pointer_decode32(encoded,
+      (uintptr_t)&byte_587000[0],
+      encoded < 0x50000000u
+          && nox_native_low_address_is_mapped(encoded));
+#else
+  return nox_native_pointer_from_32(encoded);
+#endif
 }
 
 uintptr_t nox_native_window_text_field_32(unsigned int object, unsigned int offset)
@@ -754,6 +803,20 @@ static int (*nox_window_draw_callback_get(int object))(int, int)
       return nox_window_draw_callbacks[i].callback;
   }
   return 0;
+}
+
+static void nox_window_draw_callback_clear(int object)
+{
+  unsigned int i;
+
+  for ( i = 0; i < nox_window_draw_callback_count; ++i )
+  {
+    if ( nox_window_draw_callbacks[i].object == object )
+    {
+      nox_window_draw_callbacks[i] = nox_window_draw_callbacks[--nox_window_draw_callback_count];
+      return;
+    }
+  }
 }
 #if UINTPTR_MAX > UINT32_MAX
 static wchar_t *nox_window_wrap_buffer;
@@ -23371,12 +23434,12 @@ static _DWORD *nox_window_find_caption(_DWORD *node, const wchar_t *caption)
 {
   _DWORD *found;
   const wchar_t *widget_caption;
-  unsigned int caption_address;
+  uintptr_t caption_address;
   size_t i;
 
   while ( node )
   {
-    caption_address = (unsigned int)sub_46B490((int)node, 16413, 0, 0);
+    caption_address = sub_46B490((int)(uintptr_t)node, 16413, 0, 0);
     if ( caption_address >= 0x10000u
         && caption_address % sizeof(wchar_t) == 0 )
     {
@@ -23432,7 +23495,7 @@ extern void nox_control_ui_root_clear_if_matches(_DWORD *root);
 
 static _DWORD *nox_control_window_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1064888];
+  return nox_window_root_get();
 }
 
 int nox_window_caption_position(const char *caption, int *x, int *y,
@@ -23478,8 +23541,12 @@ int nox_window_caption_position(const char *caption, int *x, int *y,
         *root_id = dispatcher[0];
       if ( widget_id )
         *widget_id = widget[0];
+      NOX_FLOW_TRACE("caption target '%s' resolved root=%p widget=%p id=%d center=%d,%d",
+                     caption, (void *)dispatcher, (void *)widget, widget[0], *x, *y);
       return *x >= 0 && *y >= 0;
     }
+    NOX_FLOW_TRACE("caption target '%s' not found in MainMenu root=%p",
+                   caption, (void *)dispatcher);
     return 0;
   }
 
@@ -23570,11 +23637,37 @@ int nox_window_caption_position(const char *caption, int *x, int *y,
     }
   }
   if ( !widget )
+  {
+#ifdef NOX_TRACE_STARTUP_FLOW
+    static Uint32 last_miss_tick;
+    static char last_miss_caption[128];
+    Uint32 now = SDL_GetTicks();
+
+    if ( strcmp(caption, "Please wait") != 0 &&
+         (strcmp(caption, last_miss_caption) != 0 ||
+          (Sint32)(now - last_miss_tick) >= 1000) )
+    {
+      snprintf(last_miss_caption, sizeof(last_miss_caption), "%s", caption);
+      last_miss_tick = now;
+      NOX_FLOW_TRACE("caption miss '%s': roots legal=%p mainmenu=%p window=%p menu=%p servermenu=%p serverscreen=%p noxworld=%p charselect=%p classselect=%p charcreate=%p serveroptions=%p",
+                     caption, (void *)legal_root,
+                     (void *)nox_control_main_menu_root_get(), (void *)root,
+                     (void *)menu_root, (void *)server_menu_root,
+                     (void *)server_screen_root, (void *)noxworld_root,
+                     (void *)character_select_root, (void *)class_select_root,
+                     (void *)character_create_root, (void *)server_options_root);
+    }
+#endif
     return 0;
+  }
   if ( widget[13] )
     dispatcher = (_DWORD *)widget[13];
   if ( !dispatcher )
+  {
+    NOX_FLOW_TRACE("caption target '%s' found widget=%p id=%d without dispatcher",
+                   caption, (void *)widget, widget[0]);
     return 0;
+  }
   sub_46AA60(widget, &left, &top);
   if ( dispatcher == nox_control_main_menu_root_get() )
   {
@@ -23588,6 +23681,9 @@ int nox_window_caption_position(const char *caption, int *x, int *y,
     *root_id = dispatcher[0];
   if ( widget_id )
     *widget_id = widget[0];
+  NOX_FLOW_TRACE("caption target '%s' resolved root=%p root_id=%d widget=%p widget_id=%d center=%d,%d",
+                 caption, (void *)dispatcher, dispatcher[0], (void *)widget,
+                 widget[0], *x, *y);
   return *x >= 0 && *y >= 0;
 }
 
@@ -23636,7 +23732,16 @@ int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y)
   else
     widget = root ? nox_window_find_id(root, widget_id) : 0;
   if ( !widget )
+  {
+    if ( root_kind == 8 || root_kind == 7 )
+      NOX_FLOW_TRACE("widget target miss root_kind=%d widget_id=%d roots noxworld=%p serverscreen=%p mainmenu=%p window=%p",
+                     root_kind, widget_id,
+                     (void *)nox_control_noxworld_root_get(),
+                     (void *)nox_control_server_screen_root_get(),
+                     (void *)nox_control_main_menu_root_get(),
+                     (void *)nox_control_window_root_get());
     return 0;
+  }
   sub_46AA60(widget, &left, &top);
   if ( root == nox_control_main_menu_root_get() )
   {
@@ -23646,6 +23751,8 @@ int nox_control_window_id_position(int root_kind, int widget_id, int *x, int *y)
   }
   *x = left + widget[2] / 2;
   *y = top + widget[3] / 2;
+  NOX_FLOW_TRACE("widget target resolved root_kind=%d root=%p widget=%p id=%d center=%d,%d",
+                 root_kind, (void *)root, (void *)widget, widget[0], *x, *y);
   return *x >= 0 && *y >= 0;
 }
 
@@ -24914,6 +25021,14 @@ void sub_46C200()
         *(_DWORD *)&byte_5D4594[1064916] = 0;
       sub_46B490(v0, 2, 0, 0);
 #if UINTPTR_MAX > UINT32_MAX
+      /* Message 2 is the final window callback (it releases widget-owned
+       * sidecars such as the STATIC_TEXT value array). Keep callback transport
+       * alive through that dispatch, then discard every association before
+       * this pool record can be reused. */
+      nox_window_callback_clear((int)(uintptr_t)v0);
+      nox_window_message_callback_clear((int)(uintptr_t)v0);
+      nox_window_draw_callback_clear((int)(uintptr_t)v0);
+      nox_window_event_callback_clear((int)(uintptr_t)v0);
       sub_414330((unsigned int *)nox_window_pool, (_QWORD *)v0);
 #else
       sub_414330(*(unsigned int **)&byte_5D4594[1064884], (_QWORD *)v0);
@@ -25146,9 +25261,6 @@ int __cdecl sub_46C4E0(int a1_raw)
       sub_46B180(a1);
     else
       sub_46A960((int)a1);
-#if UINTPTR_MAX > UINT32_MAX
-    nox_window_event_callback_clear((int)(uintptr_t)a1);
-#endif
     a1[98] = 0;
     a1[97] = *(_DWORD *)&byte_5D4594[1064896];
     *(_DWORD *)&byte_5D4594[1064896] = a1;
@@ -64574,7 +64686,7 @@ void __cdecl sub_49FDB0(int a1)
             v6 = 8 * (12 * a1 + (char)v4[i + 1]);
             sub_420DA0(*(float *)&byte_587000[v6 + 165360], *(float *)&byte_587000[v6 + 165364]);
           }
-          strcpy(&v8[4], (const char *)nox_native_pointer_from_32(
+          strcpy(&v8[4], (const char *)nox_native_static_data_pointer_from_32(
             *(unsigned int *)(v4 + 12)));
           sub_4211D0((uintptr_t)v8);
           sub_4214D0();
@@ -64594,7 +64706,7 @@ void __cdecl sub_49FDB0(int a1)
           v3 = 8 * (char)v1[j + 1];
           sub_420DA0(*(float *)&byte_587000[v3 + 165104], *(float *)&byte_587000[v3 + 165108]);
         }
-        strcpy(&v8[4], (const char *)nox_native_pointer_from_32(
+        strcpy(&v8[4], (const char *)nox_native_static_data_pointer_from_32(
           *(unsigned int *)(v1 + 12)));
         sub_4211D0((uintptr_t)v8);
         sub_4214D0();

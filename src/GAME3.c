@@ -298,54 +298,64 @@ extern float draw_gamma;
 extern float input_sensitivity;
 
 /* Independently loaded UI trees queried by the control-server macros. */
+static _DWORD *nox_control_root_from_legacy_slot(unsigned int offset)
+{
+  unsigned int encoded = nox_native_pointer_slot32_read(&byte_5D4594[offset]);
+  return (_DWORD *)nox_native_pointer_from_32_value(encoded);
+}
+
 _DWORD *nox_control_legal_root_get(void)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  return nox_legal_window;
+#else
   return *(_DWORD **)&byte_5D4594[1522892];
+#endif
 }
 
 _DWORD *nox_control_menu_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1307292];
+  return nox_menu_root_get();
 }
 
 _DWORD *nox_control_main_menu_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1307296];
+  return nox_control_root_from_legacy_slot(1307296);
 }
 
 _DWORD *nox_control_server_menu_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1307300];
+  return nox_server_menu_root_get();
 }
 
 _DWORD *nox_control_server_screen_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1309716];
+  return nox_server_screen_root_get();
 }
 
 _DWORD *nox_control_noxworld_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[814980];
+  return nox_control_root_from_legacy_slot(814980);
 }
 
 _DWORD *nox_control_character_select_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1307764];
+  return nox_control_root_from_legacy_slot(1307764);
 }
 
 _DWORD *nox_control_class_select_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1307736];
+  return nox_control_root_from_legacy_slot(1307736);
 }
 
 _DWORD *nox_control_character_create_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1308084];
+  return nox_control_root_from_legacy_slot(1308084);
 }
 
 _DWORD *nox_control_server_options_root_get(void)
 {
-  return *(_DWORD **)&byte_5D4594[1046492];
+  return nox_control_root_from_legacy_slot(1046492);
 }
 
 /* sub_46C4E0() releases window records into a pool. Clear any automation
@@ -354,7 +364,7 @@ void nox_control_ui_root_clear_if_matches(_DWORD *root)
 {
   if ( !root )
     return;
-  if ( *(_DWORD **)&byte_5D4594[1064888] == root )
+  if ( nox_control_root_from_legacy_slot(1064888) == root )
     *(_DWORD *)&byte_5D4594[1064888] = 0;
   if ( nox_control_legal_root_get() == root )
     *(_DWORD *)&byte_5D4594[1522892] = 0;

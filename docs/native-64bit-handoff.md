@@ -152,7 +152,13 @@ The current branch contains native-width handling for:
   the main loop. Native builds keep this temporary cursor in a host-width
   sidecar instead of writing its pointer into the recovered 32-bit image slot.
 - the native `nox_legal_window` sidecar lifecycle: `sub_46C4E0()` clears the
-  host-width global when the corresponding recovered window record is freed;
+  host-width global when the corresponding recovered window record is freed.
+  Control-server caption scans use this sidecar on native builds, but must use
+  the recovered DWORD slot at `byte_5D4594[1522892]` on i386: that slot is
+  cleared by the shared root-teardown hook, while the native-global cleanup is
+  intentionally compiled only for host-width builds. Reading the i386 global
+  after teardown retained a freed pool record and dispatched through its
+  `0xAC` fill pattern during the next caption scan;
 - the transition records used by `sub_4AA270()`/`sub_4AA490()`, which retain
   their host pointers in sidecars, and the 32-bit transition callbacks are
   reconstructed before invocation. The same callback sidecar applies to the
@@ -163,6 +169,27 @@ The current branch contains native-width handling for:
   `sub_438330()`, and `sub_43B460()`. Its `+48`, `+52`, and `+56` callback
   fields also use the native transition sidecar; the recovered DWORD slots
   remain compatibility copies for i386 and low-address consumers.
+- `sub_4379F0()` builds the NoxWorld server-browser window during the
+  `sub_4AA490()` transition, initializes its controls, and sets the status
+  text on widget 10011 from a localized string returned by `sub_40F1D0()`.
+  Message 16385 routes that string through `sub_46B490()` to the static-text
+  callback and ultimately the `sub_488D00()` renderer. The text argument must
+  remain `uintptr_t` on native builds in both `sub_4379F0()` and the later
+  status update in `sub_4383A0()`: casting it to `int` truncated the localized
+  pointer and caused `sub_43F840()` to fault while rendering the
+  server-browser transition. The cast remains ABI-equivalent on i386.
+- the control-server caption scanner receives the result of message 16413
+  (`get text`) as a host-width pointer from `sub_46B490()`. Keeping this result
+  in `uintptr_t` is required while scanning the animated `Please wait` dialog;
+  truncating it to `unsigned int` can make the scanner dereference an unrelated
+  low address before the next menu caption becomes available.
+- `sub_449A10()` creates or updates the modal dialog, records the active dialog
+  root/callback state, and sends its optional title/body strings to widgets
+  4005 and 4004 through message 16385. Its `a2` and `a3` inputs are text
+  pointers, not integers; callers such as `sub_4378B0()` must preserve them as
+  `uintptr_t` so the visible `Please wait` body remains valid during the host
+  transition. The `a4` mode is forwarded to `sub_449EA0()`; its exact meanings
+  remain reverse-engineered.
 - the network callback registration in `sub_554B40()`: native builds pass the
   `sub_554FF0()` callback through `uintptr_t` into the host-width main-loop
   callback sidecar. The recovered call path previously cast this address to
@@ -194,6 +221,35 @@ recovered 32-bit object layout; it is not a map-transfer or reloaded/EUD-map
 failure.
 
 ## Validation status
+
+Current multiplayer-menu probe (2026-09-23): both `build-amd64` and
+`build-i386` compile, and the focused `map_download_dispatch_test` and
+`native_fixed_pointer_test` pass on amd64 while `map_download_dispatch_test`
+passes on i386. The native `multiplayerHostMenusBeforeGo` probe currently
+reaches the Host Game transition, then faults while opening `Save/N00.plr`,
+before the `New` control is reached. This is the remaining live-runtime
+boundary; it is not yet a verified end-to-end menu fix. The probe stops before
+`defaultServerGame` and does not load a map. Its disposable game directory's
+`nox.cfg` requests `VideoMode = 1024 768 16`, `Fullscreen = 0`, and
+`VideoSize = 75`; Xvfb is `1024x768x24`, which is only the host display.
+
+The path changes found earlier are distinct: on native builds, a freed window
+record could be reused while its draw/message/event callback sidecars still
+pointed at the old callbacks. The final message-2 teardown dispatch now runs
+before all sidecars for that record are cleared and the record is returned to
+the pool. The regression creates, destroys, and reuses a real window-pool
+record, checking that its stale draw callback is not called. Other focused
+regressions verify pointer-width preservation through window messages and
+caption lookup. The UI-only runtime probe remains necessary because these
+tests do not cover the SDL event loop, animation timing, or profile-file path.
+
+For temporary startup/UI/input tracing, configure with
+`-DNOX_TRACE_STARTUP_FLOW=ON`. It enables `[flow]` stderr records for the
+effective video request/window size, macro wait/click and modal transitions,
+injected input queue events, and the console-command dispatch. The option is
+off by default, so ordinary builds compile these diagnostic call sites out.
+`NOX_CONTROL_LOG=1` remains useful without this option for the control server's
+concise `Please wait` modal appear/disappear records.
 
 Confirmed before the latest startup changes:
 
