@@ -70,6 +70,20 @@ change to the game record schema.
 records. This keeps native SDL structs such as `SDL_Surface` at their platform
 ABI offsets; only the recovered game records remain packed.
 
+At startup, `sub_401070()` calls `sub_4101D0()` after loading the thing data.
+The no-argument initializer allocates an 8192-entry recovered bucket-head
+table, a 256-entry auxiliary table, and 8192 pool nodes, then calls
+`sub_410160()` to prepare the free list and clear the table entries. The first
+table is newly allocated storage, so its bucket heads must be zero before
+`sub_410160()` follows any existing chains. Native x86_64's low-address
+allocator happened to return zero-filled pages, but i386's `malloc()` could
+reuse dirty memory; two startup cores followed one such stale chain to address
+`0x0c`. `sub_4101D0()` now explicitly initializes all 8192 bucket heads before
+the traversal. The focused `mod_hash_bucket_init_test` fills the table with a
+nonzero pattern first and verifies that initialization clears exactly the
+requested range. The externally visible effect is successful continuation to
+the following `sub_410F60()` startup stage on both architectures.
+
 The font/resource setup at `sub_43F1C0()` selects one of two five-entry
 dispatch tables. Each recovered entry is a fixed 12-byte record with pointer
 values in 4-byte slots. Native builds use a host-width sidecar for the two
@@ -80,6 +94,107 @@ resource pointer. `sub_440900()` likewise treats the graphics row table as an
 array of 4-byte pointer values and explicitly converts each value before
 accessing the pixel row.
 
+## Startup pointer lookups confirmed by native traces
+
+The generic legacy-pointer decoder deliberately preserves values below its
+low-allocation threshold. That is correct for `MAP_32BIT` objects but
+ambiguous when ASLR places the game image at an address whose low 32 bits also
+fall below that threshold. Static-data slots therefore need a separate
+range-checked path: reconstruct the candidate address, accept it only when it
+falls inside `byte_587000` or `byte_5D4594`, and otherwise use the generic
+decoder. Function-pointer slots use code-address reconstruction, not either
+data-pointer path.
+
+`sub_4117E0(const char *name)` searches the static name chain rooted at
+`byte_587000[26488]` and returns whether the input string matches an entry.
+`sub_411540()` calls it while parsing `thing.bin`; a match sets a flag in the
+current recovered thing record. The input is a pointer to the just-parsed
+name, while the chain entries are pointers into the static image. Treating a
+low-word static address as an allocation caused an intermittent `strcmp`
+fault during `thing.bin` loading. The native static-pointer conversion now
+recognizes both static data arrays before falling back to low-pointer
+handling; i386 continues to read its original DWORD pointers directly.
+
+`sub_4BD720(audio_state)` allocates and initializes a recovered 0x138-byte
+audio/timer record, obtains its driver descriptor from `audio_state + 256`,
+and invokes the descriptor's initialization callback at `+4`. A zero callback
+result returns the initialized record; a nonzero result invokes
+`sub_4BD7A0()` to call the descriptor's shutdown callback at `+8` and release
+the record. The audio startup path reaches this through `sub_487750()` and
+`sub_487790()`. The descriptor itself is static image data, while its `+4`
+and `+8` fields are code pointers; native code now decodes those two pointer
+kinds separately. The related driver callback table at audio-record offset
+`+172` uses the same static-data resolution before dispatch. These fixes
+preserve the recovered DWORD fields and leave the i386 path unchanged.
+
+`sub_4A2210()` is called from the initial presentation/menu callback
+`sub_43C060()`. It marks the menu state initialized, attaches handlers to the
+server-menu root, then walks the static name list beginning at
+`byte_587000[168832]`, looks up each name with `sub_42F970()`, and stores the
+result in the corresponding 48-byte list record. Its observable effect is
+that the menu/resource entries are ready before the first menu frame. Both
+the first name and the linked names are static-image pointers; the native
+path now validates them against the static data ranges instead of treating
+low-word values as heap allocations.
+
+`sub_4519C0()` runs from `mainloop()` to update the SoundSet playback list.
+Its root at `byte_5D4594[840612]` is a recovered DWORD circular-list
+sentinel; initialization makes its next/previous links point back to itself.
+The native walk decodes the root and each link with the fixed-image resolver,
+then obtains a playback record's SoundSet source through the host-width
+sidecar maintained by `sub_452300()`. It advances the sample generation,
+updates/removes completed records, and adjusts the shared audio timer. Treating
+the sentinel's low word as an allocation made an empty list appear nonempty
+under some ASLR layouts and faulted on the first playback lookup.
+
+`sub_43D6C0(music_entry)` receives a recovered four-DWORD music entry from
+`sub_43D440()`. The first DWORD indexes a static string-pointer table at
+`byte_587000[92792]`; the function builds a `music\\` path, opens the stream,
+seeks to the entry's stored position, and starts playback. The table contains
+static image strings, so the native path now uses static-range decoding for
+the name. The returned `HSTREAM` is also copied into a local host-width
+variable before seeking and starting. That copy was previously compiled only
+for native x86_64, leaving i386 to use an uninitialized local; a core showed
+that it had become a pointer into the function's stack buffer and was passed
+to `AIL_set_stream_position()`. The assignment is now unconditional, with the
+same pointer-sized representation as `HSTREAM` on i386. `audio_compat_test`
+now opens its synthetic PCM fixture through the production AIL stream API,
+sets its position, and reads the position back. The adjacent stream callback
+path keeps its distinct pointer contracts: `sub_43ED00()` registers
+`sub_43EDB0()` as the sample EOS callback
+and feeds samples through `sub_43EE00()`, which refills sample buffers using
+the callbacks at the owning audio record's `+276`/`+280` fields. Those are
+code pointers and are reconstructed as code addresses; their sample buffers
+remain recovered DWORD data pointers. `sub_43EFD0()` performs the matching
+sample teardown and invokes the owner callback at `+284` once. These entry
+points are reached as music and sound streams begin, after initial window
+creation.
+
+The `.wnd` resource path reaches `sub_4A0D80(FILE *input, char *line,
+callback)` from `sub_4A0AD0()`. It parses the window definition, dispatches
+property records, and creates the described widgets through `sub_4A1440()`
+and `sub_4A1510()`. For a static-text record, `sub_4A10A0()` resolves the
+localized text and returns the address of a recovered three-DWORD record:
+text pointer, enabled flag, and wrapping flag. The parser forwards those
+values when it creates the static-text widget with `sub_489300()`.
+
+On x86_64, the localized string pointer can be above 4 GiB, so `sub_4A10A0()`
+keeps a host-width copy while preserving the original low-DWORD image field.
+`sub_4A0D80()` snapshots that pointer and the two flags into a native-width
+three-value array before widget creation. `sub_489300()` associates the array
+with the widget in a sidecar; its `sub_489390()` callback reads the text for
+message `16386`, replaces it for message `16385`, and frees the array during
+widget destruction. The `16385` dispatch in `sub_46B490()` must therefore
+retain a pointer-width third argument on native builds. The legal-screen
+setup in `sub_4CC4E0()` uses this setter for the localized welcome text and
+the formatted server/version text. Two startup cores faulted in `sub_43F840()`
+while rendering those strings: first the static-text value array had only
+DWORD slots, then the formatted-text setter argument had been truncated
+through `int`. The native path now preserves both values end to end; i386
+retains the original three-DWORD array and callback ABI. The visible result is
+that initial legal-screen text can be measured and rendered without
+dereferencing a truncated string pointer.
+
 ## Diagnostics
 
 Build the native executable with the opt-in 64-bit configuration described in
@@ -87,28 +202,41 @@ Build the native executable with the opt-in 64-bit configuration described in
 then run from the game data directory:
 
 ```sh
-timeout --signal=TERM 20s env \
+../../../tools/run-native-probe.sh 15 env \
   ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=0 NOX_SKIP_INTRO_MOVIES=1 \
   xvfb-run -a -s '-screen 0 1280x720x24' \
-  ../../../build-amd64/src/out -serveronly CapFlag
+  ../../../build-amd64/src/out
 ```
 
-`CapFlag` is the stock built-in map selected for this smoke test. Startup still
-scans the complete map catalog before selecting the requested map, so a crash
-before the config path completes does not yet establish that `CapFlag.map` was
-opened for gameplay.
+Run this from `build-deps/gamefiles/app`. The game reads `nox.cfg` with
+`VideoMode = 640 480 8` and `Fullscreen = 0`, so the game surface is windowed
+640x480x8; Xvfb's 1280x720x24 setting is only the host display. The probe has
+no map or server-mode arguments: startup scans the map catalog but does not
+load a gameplay map. Its expected result is to survive until the wrapper's
+15-second timeout (status 124); any earlier exit is a failure to investigate.
+`run-native-probe.sh` enables core dumps and refuses to start if a plain `core`
+would overwrite an existing dump. The workflow guard
+[`verify-native-map-workflow.sh`](../tools/verify-native-map-workflow.sh)
+checks both native ELF targets, unchanged hashes of the stock built-in CapFlag
+files, the configured resolution, and focused transfer regressions; it does
+not launch a map. No map requiring reloaded EUD support is used by these
+startup checks. On the latest rebuilt source, both x86_64 and i386 survived
+five consecutive 15-second no-map startup probes; each ended with the expected
+wrapper timeout status `124` and produced no new core. The runtime probes are
+needed because the unit tests cannot observe the complete SDL/window startup
+path.
 
 The native window parser keeps recovered DWORD pointer fields decoded at the
 boundary. Window records and their legacy arrays use low-address allocations
 when existing consumers still read a 32-bit slot; callback and persistent
 window handles use native-width sidecars. The shared pointer decoder preserves
 low `MAP_32BIT` addresses and reconstructs high heap addresses from their
-32-bit slot value. This gets native startup through parsing
-`MainMenu.wnd`, `noxworld.wnd`, and `filter.wnd`; later window teardown and
-ownership paths still need the same audit before native multiplayer startup is
-considered stable.
+32-bit slot value. Repeated bounded no-map startup probes currently survive
+through parsing the initial window resources. This validates idle startup
+stability only; it does not establish successful multiplayer entry, map load,
+or gameplay initialization.
 
 With the control-server `server` macro enabled and
 `NOX_SERVER_DEFAULT_MAP=CapFlag`, native startup reaches the host setup and

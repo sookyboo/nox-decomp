@@ -3271,8 +3271,8 @@ int sub_488BA0();
 void __cdecl sub_488BD0(unsigned __int16 a1);
 int __cdecl sub_488D00(int, int xLeft); // idb
 wchar_t *__cdecl sub_4892D0(int a1);
-_DWORD *__cdecl sub_489300(int a1, int a2, int a3, int a4, int a5, int a6, _DWORD *a7, _DWORD *a8);
-uintptr_t __cdecl sub_489390(int a1, int a2, int a3, int a4);
+_DWORD *__cdecl sub_489300(int a1, int a2, int a3, int a4, int a5, int a6, _DWORD *a7, uintptr_t *a8);
+uintptr_t __cdecl sub_489390(int a1, int a2, uintptr_t a3, int a4);
 int __cdecl sub_4893E0(int a1);
 int __cdecl sub_489420(int a1, int a2, int a3, int a4);
 int __cdecl sub_489550(_DWORD *a1, _DWORD *a2);

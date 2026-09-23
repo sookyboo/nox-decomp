@@ -13,6 +13,7 @@ unsigned int nox_test_decode_adpcm(int16_t *out, const unsigned char *data,
 int nox_test_decode_pcm_stream(const char *filename, int16_t *out,
                                unsigned int max_samples);
 int nox_test_pcm_stream_file_size(const char *filename);
+int nox_test_pcm_stream_seek(const char *filename, unsigned int position);
 int nox_test_mp3_seek_resets_state(unsigned int *buffered,
                                    unsigned int *chunk_pos,
                                    unsigned int *chunk_size);
@@ -96,6 +97,10 @@ static int test_pcm_stream_at_riff_boundary(void)
 
     samples = nox_test_decode_pcm_stream(filename, decoded, 2);
     file_size = nox_test_pcm_stream_file_size(filename);
+    if (!nox_test_pcm_stream_seek(filename, 0)) {
+        unlink(filename);
+        return 0;
+    }
     unlink(filename);
     return samples == 0 && file_size == (int)sizeof(wav);
 }

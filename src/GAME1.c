@@ -3,6 +3,8 @@
 #endif
 
 #include "proto.h"
+#include "native_pointer.h"
+#include "mod_hash.h"
 #ifdef NOX_BOT_SUPPORT
 #include "bot_console.h"
 #endif
@@ -360,7 +362,31 @@ static const void *nox_native_pointer_from_32(unsigned int value)
   return (const void *)(((uintptr_t)&byte_587000[0] & ~(uintptr_t)UINT32_MAX) | value);
 }
 
-#define NOX_STATIC_POINTER_FROM_32(value) nox_native_pointer_from_32(value)
+static const void *nox_native_static_pointer_from_32(unsigned int value)
+{
+  uintptr_t image_address = (uintptr_t)&byte_587000[0];
+  uintptr_t candidate;
+
+  if ( !value )
+    return 0;
+  candidate = nox_native_image_pointer_decode32(value, image_address);
+  if ( nox_native_image_pointer_in_range32(value, image_address,
+          (uintptr_t)&byte_587000[0],
+          (uintptr_t)&byte_587000[sizeof(byte_587000)])
+      || nox_native_image_pointer_in_range32(value, image_address,
+          (uintptr_t)&byte_5D4594[0],
+          (uintptr_t)&byte_5D4594[sizeof(byte_5D4594)]) )
+    return (const void *)candidate;
+  return nox_native_pointer_from_32(value);
+}
+
+static uintptr_t nox_native_code_pointer_from_32(unsigned int value)
+{
+  return nox_native_image_pointer_decode32(value,
+      (uintptr_t)&byte_587000[0]);
+}
+
+#define NOX_STATIC_POINTER_FROM_32(value) nox_native_static_pointer_from_32(value)
 
 #define NOX_INPUT_EVENT_CURSOR nox_input_event_cursor
 #else
@@ -15223,6 +15249,8 @@ int sub_4101D0()
   *(_DWORD *)&byte_5D4594[251544] = result;
   if ( result )
   {
+    nox_mod_hash_bucket_heads_init(
+        (uint32_t *)(uintptr_t)(unsigned int)result, 0x2000u);
     *(_DWORD *)&byte_5D4594[251556] = (int)NOX_MOD_ALLOC(0x100u * 4u);
     if ( *(_DWORD *)&byte_5D4594[251556] )
     {
@@ -43255,8 +43283,8 @@ LABEL_19:
       }
       v3[1] = *(_DWORD *)&byte_5D4594[2598000];
 #if UINTPTR_MAX > UINT32_MAX
-      *(_DWORD *)(nox_native_pointer_from_32_value(*(unsigned int *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28)) + 32) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32);
-      *(_DWORD *)(nox_native_pointer_from_32_value(*(unsigned int *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32)) + 28) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28);
+      *(_DWORD *)((uintptr_t)nox_native_static_pointer_from_32(*(unsigned int *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28)) + 32) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32);
+      *(_DWORD *)((uintptr_t)nox_native_static_pointer_from_32(*(unsigned int *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32)) + 28) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28);
 #else
       *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28) + 32) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32);
       *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 32) + 28) = *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 28);
@@ -43270,7 +43298,7 @@ LABEL_19:
         ++*(_DWORD *)&byte_5D4594[787220];
         v6 = (_DWORD *)(*(_DWORD *)&byte_5D4594[754136] + 28);
 #if UINTPTR_MAX > UINT32_MAX
-        *(_DWORD *)(nox_native_pointer_from_32_value(*(unsigned int *)(*(_DWORD *)&byte_5D4594[754136] + 28)) + 32) = (unsigned int)(uintptr_t)&byte_5D4594[754108];
+        *(_DWORD *)((uintptr_t)nox_native_static_pointer_from_32(*(unsigned int *)(*(_DWORD *)&byte_5D4594[754136] + 28)) + 32) = (unsigned int)(uintptr_t)&byte_5D4594[754108];
 #else
         *(_DWORD *)(*(_DWORD *)(*(_DWORD *)&byte_5D4594[754136] + 28) + 32) = &byte_5D4594[754108];
 #endif
@@ -43278,7 +43306,7 @@ LABEL_19:
         *v6 = 0;
         v5[8] = 0;
 #if UINTPTR_MAX > UINT32_MAX
-        *(_DWORD *)(nox_native_pointer_from_32_value(*(unsigned int *)&byte_5D4594[787140]) + 28) = *(_DWORD *)&byte_5D4594[787148]
+        *(_DWORD *)((uintptr_t)nox_native_static_pointer_from_32(*(unsigned int *)&byte_5D4594[787140]) + 28) = *(_DWORD *)&byte_5D4594[787148]
 #else
         *(_DWORD *)(*(_DWORD *)&byte_5D4594[787140] + 28) = *(_DWORD *)&byte_5D4594[787148]
 #endif
@@ -43300,7 +43328,7 @@ LABEL_19:
       *(_DWORD *)(*(_DWORD *)&byte_5D4594[787148] + 36 * *(unsigned __int16 *)(a1 + 8) + 4) = *(_DWORD *)&byte_5D4594[2598000];
     }
 #if UINTPTR_MAX > UINT32_MAX
-    *(_DWORD *)(nox_native_pointer_from_32_value(*(unsigned int *)&byte_5D4594[787140]) + 28) = *(_DWORD *)&byte_5D4594[787148]
+    *(_DWORD *)((uintptr_t)nox_native_static_pointer_from_32(*(unsigned int *)&byte_5D4594[787140]) + 28) = *(_DWORD *)&byte_5D4594[787148]
 #else
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[787140] + 28) = *(_DWORD *)&byte_5D4594[787148]
 #endif
@@ -53015,7 +53043,8 @@ int __cdecl sub_43D6C0(int *a1)
 
   v1 =
 #if UINTPTR_MAX > UINT32_MAX
-    (const char *)nox_native_pointer_from_32(*(unsigned int *)&byte_587000[4 * *a1 + 92792]);
+    (const char *)nox_native_static_pointer_from_32(
+        *(unsigned int *)&byte_587000[4 * *a1 + 92792]);
 #else
     *(const char **)&byte_587000[4 * *a1 + 92792];
 #endif
@@ -53039,9 +53068,7 @@ int __cdecl sub_43D6C0(int *a1)
     *(_DWORD *)&byte_5D4594[816376],
 #endif
     v8, 204800);
-#if UINTPTR_MAX > UINT32_MAX
   v4 = (uintptr_t)nox_mss_music_stream;
-#endif
   if ( !v4 )
   {
     if ( *(_DWORD *)&byte_587000[122856] && sub_44D930() )
@@ -53063,9 +53090,7 @@ int __cdecl sub_43D6C0(int *a1)
       *(_DWORD *)&byte_5D4594[816376],
 #endif
       &v8[40], 204800);
-#if UINTPTR_MAX > UINT32_MAX
     v4 = (uintptr_t)nox_mss_music_stream;
-#endif
     if ( !v4 )
       return 0;
   }
@@ -54496,7 +54521,8 @@ int __stdcall sub_43EDB0(int a1)
   {
 #if UINTPTR_MAX > UINT32_MAX
     uintptr_t owner = nox_native_pointer_from_32(*(unsigned int *)(v2 + 4));
-    uintptr_t callback = nox_native_pointer_from_32(*(unsigned int *)(owner + 284));
+    uintptr_t callback = nox_native_code_pointer_from_32(
+        *(unsigned int *)(owner + 284));
     result = ((int (__cdecl *)(_DWORD))callback)((_DWORD)owner);
 #else
     result = (*(int (__cdecl **)(_DWORD))(*(_DWORD *)(v2 + 4) + 284))(*(_DWORD *)(v2 + 4));
@@ -54589,7 +54615,8 @@ LABEL_27:
       if ( !v8 )
       {
 #if UINTPTR_MAX > UINT32_MAX
-        ((void (__cdecl *)(int))nox_native_pointer_from_32(*(unsigned int *)(v3 + 276)))(v3);
+        ((void (__cdecl *)(int))nox_native_code_pointer_from_32(
+            *(unsigned int *)(v3 + 276)))(v3);
 #else
         (*(void (__cdecl **)(int))(v3 + 276))(v3);
 #endif
@@ -54597,7 +54624,8 @@ LABEL_27:
         if ( !v8 )
         {
 #if UINTPTR_MAX > UINT32_MAX
-          ((void (__cdecl *)(int))nox_native_pointer_from_32(*(unsigned int *)(v3 + 280)))(v3);
+          ((void (__cdecl *)(int))nox_native_code_pointer_from_32(
+              *(unsigned int *)(v3 + 280)))(v3);
 #else
           (*(void (__cdecl **)(int))(v3 + 280))(v3);
 #endif
@@ -54697,7 +54725,8 @@ int __cdecl sub_43EFD0(int a1)
   {
 #if UINTPTR_MAX > UINT32_MAX
     uintptr_t owner = nox_native_pointer_from_32((unsigned int)v1[1]);
-    uintptr_t callback = nox_native_pointer_from_32(*(unsigned int *)(owner + 284));
+    uintptr_t callback = nox_native_code_pointer_from_32(
+        *(unsigned int *)(owner + 284));
     ((void (__cdecl *)(_DWORD))callback)((_DWORD)owner);
 #else
     (*(void (__cdecl **)(_DWORD))(v1[1] + 284))(v1[1]);

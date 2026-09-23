@@ -13,6 +13,22 @@ case "$duration" in
 esac
 [ "$duration" -gt 0 ] || { printf 'SECONDS must be greater than zero\n' >&2; exit 2; }
 
+# Keep a postmortem core when the probed process crashes.  The hard limit on
+# this host permits an unlimited soft limit; fail rather than silently running
+# a diagnostic with core dumps disabled.
+ulimit -c unlimited
+if [[ "$(ulimit -c)" != unlimited ]]; then
+    printf 'could not enable core dumps for native probe\n' >&2
+    exit 2
+fi
+
+core_pattern=$(< /proc/sys/kernel/core_pattern)
+if [[ "$core_pattern" == core && ( -e core || -L core ) ]]; then
+    printf 'refusing probe: existing core file would be overwritten: %s/core\n' "$PWD" >&2
+    exit 2
+fi
+printf 'native probe core limit: unlimited (kernel core_pattern: %s)\n' "$core_pattern" >&2
+
 setsid --wait "$@" &
 probe_pid=$!
 cleanup() {

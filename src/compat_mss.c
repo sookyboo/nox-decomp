@@ -320,6 +320,24 @@ int nox_test_pcm_stream_file_size(const char *filename)
     return (int)file_size;
 }
 
+int nox_test_pcm_stream_seek(const char *filename, unsigned int position)
+{
+    struct _DIG_DRIVER dig = {0};
+    HSTREAM stream;
+    unsigned int actual_position;
+
+    dig.mutex = (SDL_mutex *)1;
+    stream = AIL_open_stream(&dig, filename, 0);
+    if (!stream)
+        return 0;
+
+    AIL_set_stream_position(stream, (S32)position);
+    actual_position = AIL_stream_position(stream);
+    fclose(stream->file);
+    free(stream);
+    return actual_position == position;
+}
+
 int nox_test_mp3_seek_resets_state(unsigned int *buffered,
                                    unsigned int *chunk_pos,
                                    unsigned int *chunk_size)
