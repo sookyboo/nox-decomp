@@ -420,9 +420,17 @@ shapes. The native UI trace passed the settings aggregation after this fix.
 
 That trace currently stops in `sub_4EFC30()`'s call to `sub_4E5390()`. The
 nine-byte packet is assembled in a stack buffer, but the call passes it through
-`(int)v3`; GDB shows `sub_4E5030()` receiving the sign-extended low word as its
-source address. Widening this call-site pointer is the next required fix. The
-Chat Area and server-name UI stages remain unreached.
+`(int)v3`; GDB showed `sub_4E5030()` receiving the sign-extended low word as
+its source address. Passing the buffer as `uintptr_t` lets the trace pass this
+queue-copy path.
+
+The current trace stops later in `sub_4EF7D0()` while rebuilding the player's
+default status/property entries. It looks up the name at
+`byte_587000 + 206400` with `sub_413290()`, receives the not-found sentinel
+`255`, and passes that to `sub_413330()`, which returns null for index 255.
+The next access at `v11 + 4` faults. GDB confirmed `v10 == 255` and `v11 == 0`
+at this boundary. The property-list lookup and initialization path is the next
+unresolved failure; the Chat Area and server-name UI stages remain unreached.
 
 ## Compatibility rule
 

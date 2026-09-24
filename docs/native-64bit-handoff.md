@@ -231,11 +231,13 @@ passes player-list traversal and meter reset in `sub_4D22B0()` /
 `sub_4E5030()`. It also passes `sub_4D88C0()` after resolving player-info
 through the auxiliary record's DWORD slot. The settings lookup in
 `sub_4EF580()` now passes after correcting its 12-byte and 24-byte fixed-record
-key reads. The current failure is later in `sub_4EFC30()`: its nine-byte stack
-packet is passed through `(int)v3` to `sub_4E5390()`, and GDB shows
-`sub_4E5030()` receives the sign-extended low word as the packet source. This
-is the next unresolved failure. The Chat Area popup and server-name/Escape
-steps are not reached, and the macro has not completed.
+key reads. The nine-byte stack packet from `sub_4EFC30()` now reaches
+`sub_4E5030()` without pointer truncation. The current failure is later in
+`sub_4EF7D0()`: `sub_413290()` returns not-found sentinel 255 for the property
+name at `byte_587000 + 206400`, `sub_413330(255)` returns null, and the caller
+faults reading offset `+4`. This is the next unresolved failure. The Chat Area
+popup and server-name/Escape steps are not reached, and the macro has not
+completed.
 
 The trace has verified progression through the preceding boundaries:
 `sub_422140()` receives the full player-info pointer; reliable-update queue
@@ -250,8 +252,8 @@ truncation now, and `sub_4D88C0()` resolves player-info via its pointer helper.
 The `sub_415840()` and `sub_415CD0()` setting lookups also compare their
 recovered DWORD fields rather than using host pointer arithmetic. These are
 verified partial startup fixes, not a verified end-to-end menu or map-start
-fix. The immediate failing path is the stack-buffer pointer passed by
-`sub_4EFC30()`.
+fix. The immediate failing path is a missing property-name lookup in
+`sub_4EF7D0()` followed by a null-node dereference.
 
 The earlier i386 `multiplayerHostMenusBeforeGo` reference run completed
 through server-name entry and Escape. That binary predates the latest native

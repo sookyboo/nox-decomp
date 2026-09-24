@@ -127,12 +127,14 @@ reset (`sub_4D22B0()` / `sub_4EF7D0()`), and the meter update through
 player-info through its DWORD slot. The 12-byte and 24-byte setting lookups
 used by `sub_4EF580()` now read their recovered DWORD keys and the trace passes
 that aggregation. It currently stops later in `sub_4EFC30()` because its
-nine-byte stack packet is passed through an `(int)` cast to `sub_4E5390()`,
-truncating the source address on x86_64. The Chat Area popup and server-name
-steps are not reached yet. An earlier i386 reference run completed the macro
-through server-name entry and Escape, but used a binary from before the latest
-native changes; rebuild and rerun i386 for same-revision comparison. Both
-probes use
+nine-byte stack packet used to be passed through an `(int)` cast; that pointer
+is now preserved through `sub_4E5390()` / `sub_4E5030()`. The current stop is
+in `sub_4EF7D0()`: its property-name lookup through `sub_413290()` returns
+sentinel 255, then `sub_413330(255)` returns null before a `+4` read. The Chat
+Area popup and server-name steps are not reached yet. An earlier i386
+reference run completed the macro through server-name entry and Escape, but
+used a binary from before the latest native changes; rebuild and rerun i386 for
+same-revision comparison. Both probes use
 `VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb's
 `1024x768x24` is the host display, not the game's configured mode. Do not use
 maps that require reloaded EUD support for native 64-bit testing.
