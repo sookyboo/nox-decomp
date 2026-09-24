@@ -41988,7 +41988,7 @@ int __cdecl sub_4D85C0(int a1, _DWORD *a2)
     v3 = (_WORD *)a2[139];
     *(_WORD *)&v4[3] = *v3;
     *(_WORD *)&v4[5] = v3[2];
-    result = sub_4E5390(a1, (int)v4, 7, 0, 1);
+    result = sub_4E5390(a1, (uintptr_t)v4, 7, 0, 1);
   }
   return result;
 }

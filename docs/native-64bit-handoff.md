@@ -227,12 +227,12 @@ builds and the guarded `multiplayerHostMenusBeforeGo` run now gets past the
 earlier profile-file and host-player initialization faults. The trace reaches
 the `New` control, selects Warrior, accepts class and character setup, then
 passes player-list traversal and meter reset in `sub_4D22B0()` /
-`sub_4EF7D0()`. It currently crashes later during `CONNECT_RESULT` in
-`sub_4E5030()`: `sub_4D85C0()` constructs a seven-byte meter update on the
-stack, but passes its buffer through `(int)` to the pointer-width
-`sub_4E5390()` parameter. The resulting sign-extended low-word address is
-invalid on x86_64. This is the next unresolved failure. The Chat Area popup and
-server-name/Escape steps are not reached, and the macro has not completed.
+`sub_4EF7D0()`, and the seven-byte meter update through `sub_4D85C0()` /
+`sub_4E5030()`. The current failure is later during `CONNECT_RESULT` in
+`sub_4D88C0()`: it reads player-info offset 2251 through the auxiliary
+record's raw DWORD pointer at `+276`, invalid as a host pointer on x86_64. This
+is the next unresolved failure. The Chat Area popup and server-name/Escape
+steps are not reached, and the macro has not completed.
 
 The trace has verified progression through the preceding boundaries:
 `sub_422140()` receives the full player-info pointer; reliable-update queue
@@ -242,9 +242,10 @@ cursor host-width through `sub_4C9BF0()`; and `sub_519830()` receives its
 48-byte player-update record without pointer truncation. The `sub_4D22B0()`
 list cursor and thing/auxiliary pointers are host-width, and the thing's `+556`
 meter slot is decoded before its words are accessed in the player reset path.
-These are verified partial startup fixes, not a verified end-to-end menu or
-map-start fix. The immediate failing path is the stack-buffer pointer passed
-from `sub_4D85C0()` through `sub_4E5390()`.
+The stack buffer from `sub_4D85C0()` is also passed to `sub_4E5390()` without
+truncation now. These are verified partial startup fixes, not a verified
+end-to-end menu or map-start fix. The immediate failing path is the player-info
+pointer read in `sub_4D88C0()`.
 
 The earlier i386 `multiplayerHostMenusBeforeGo` reference run completed
 through server-name entry and Escape. That binary predates the latest native

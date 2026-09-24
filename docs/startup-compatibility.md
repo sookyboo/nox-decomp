@@ -382,14 +382,23 @@ handles a thing's 20-byte meter record at `+556`, `sub_4EF7D0()`,
 writing the meter words. The trace passed both pointer boundaries after these
 fixes.
 
-The reset next reports meter state through `sub_4D85C0()`, which builds a
-seven-byte update in a stack buffer and submits it with `sub_4E5390()`.
-`sub_4E5030()` copies this payload into the reliable-update queue. On native
-x86_64, the decompiled `(int)v4` call-site cast truncated the stack address
-before it reached the pointer-width `sub_4E5390()` argument; the latest trace
-stopped in `sub_4E5030()` with the sign-extended low word as its source. This is
-the next unresolved startup failure. The i386 call-site representation is
-valid and remains unchanged.
+The reset reports meter state through `sub_4D85C0()`, which builds a seven-byte
+update in a stack buffer and submits it with `sub_4E5390()`. `sub_4E5030()`
+copies this payload into the reliable-update queue. On native x86_64, the
+decompiled `(int)v4` call-site cast truncated the stack address before it
+reached the pointer-width `sub_4E5390()` argument. Widening this call-site
+conversion lets the trace pass the queue copy; i386 retains its original
+32-bit-compatible representation.
+
+`sub_4D88C0(slot, thing)` is called by the player reset after the meter update.
+When the thing has the relevant state bit set and player-info offset 2251 is
+enabled, it builds a seven-byte update (opcode `0xDE`, thing identifier, and
+two auxiliary-record words at `+4` and `+8`) and submits it through
+`sub_4E5450()`. Its player-info pointer comes from the auxiliary record's DWORD
+at `+276` and must use `nox_game3_thing_player_info()` on native x86_64. The
+latest trace stops here because the existing code dereferences that DWORD as a
+host pointer. This is the next unresolved startup failure; the Chat Area and
+server-name UI stages are still not reached.
 
 ## Compatibility rule
 
