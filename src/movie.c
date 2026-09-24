@@ -4500,7 +4500,7 @@ char __thiscall sub_559AF0(char *this, LPCSTR lpFileName, int a3)
 	*(_DWORD *)v3 = v4;
 	if (!v4)
 		return 0;
-	_stat(lpFileName, (int)(v3 + 4));
+	_stat(lpFileName, (struct _stat *)(v3 + 4));
 	v6 = strlen(lpFileName) + 1;
 	qmemcpy(v3 + 40, lpFileName, 4 * (v6 >> 2));
 	v8 = &lpFileName[4 * (v6 >> 2)];

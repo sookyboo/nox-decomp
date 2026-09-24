@@ -163,9 +163,9 @@ int sub_52F8A0(void *p)
  * Keep it if you rely on the symbol existing in the wrapper archive.
  * ============================================================ */
  // nox_xxx_netOnPacketRecvCli_48EA70
-int sub_48EA70__abi_raw(int a1, unsigned int a2, int a3);
+int sub_48EA70__abi_raw(int a1, uintptr_t a2, int a3);
 
-int sub_48EA70(int a1, unsigned int a2, int a3)
+int sub_48EA70(int a1, uintptr_t a2, int a3)
 {
     /* a2 is really a pointer, a3 is length (left here as a hint for future hooks) */
     (void)a1; (void)a2; (void)a3;

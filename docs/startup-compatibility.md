@@ -341,6 +341,41 @@ DWORD slots. The stock `CapFlag` transfer probe now reaches the existing
 loader fatal-error path without the former native invalid-pointer crashes;
 i386 retains the original layout and allocator behavior.
 
+## Native multiplayer host initialization pointer boundaries
+
+`sub_4DD320(slot, packet)` creates a player object from an incoming host
+slot/packet, initializes the associated player-info record, links it through
+the object's auxiliary record, and applies the initial position/state. Its
+caller `CONNECT_PREPARE` uses slot 31 for the local host. The trailing
+`sub_422140(player_info)` writes sentinel values at player-info offsets 3660
+and 3664; its pointer argument must remain host-width even though the record's
+fields stay DWORD-sized.
+
+The reliable-update reader `sub_40ED60()` removes chunks through
+`sub_420A90()`. Queue managers and nodes use their recovered four-byte fields:
+head/tail at offsets 0/4, previous/next links at 8/12, and count/queued-byte
+totals at 16/20. `sub_420A90()` returns the chunk payload, unlinks its node,
+updates those totals, then passes the node to `sub_4209C0()`. The pool-manager
+handle stored at queue offset 12 is also one DWORD. Native code must decode
+that slot and must not use host-pointer indexing for either the queue links or
+the payload cursor; i386 keeps the original layout.
+
+`sub_48EA70(player, packet, length)` consumes received multiplayer packet
+records. The packet cursor and end address are host pointers on native x64,
+while the packet bytes and lengths retain their protocol representation.
+Opcode `0xA9` delegates to `sub_4C9BF0(packet_record)`, which reads the record
+type/fields and returns the number of bytes consumed. Both interfaces must
+preserve the packet pointer rather than carrying its low DWORD into the
+parser.
+
+During `CONNECT_RESULT`, `sub_4D17F0()` invokes `sub_519870()`, which resets
+the fixed 48-byte player-update records through `sub_519830(record, slot)`.
+The record fields remain at their original offsets; only the record address
+passed between routines is pointer-sized. The 2026-09-24 native trace passed
+these boundaries and then stopped in `sub_4D22B0()`: that routine still stores
+the `sub_416EA0()` result in an `int` before reading the object's `+2056`
+field. This is the next unresolved startup failure, not a confirmed fix.
+
 ## Compatibility rule
 
 When fixing another startup failure, first classify the value:

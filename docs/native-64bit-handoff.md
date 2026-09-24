@@ -222,16 +222,33 @@ failure.
 
 ## Validation status
 
-Current multiplayer-menu probe (2026-09-23): both `build-amd64` and
-`build-i386` compile, and the focused `map_download_dispatch_test` and
-`native_fixed_pointer_test` pass on amd64 while `map_download_dispatch_test`
-passes on i386. The native `multiplayerHostMenusBeforeGo` probe currently
-reaches the Host Game transition, then faults while opening `Save/N00.plr`,
-before the `New` control is reached. This is the remaining live-runtime
-boundary; it is not yet a verified end-to-end menu fix. The probe stops before
-`defaultServerGame` and does not load a map. Its disposable game directory's
-`nox.cfg` requests `VideoMode = 1024 768 16`, `Fullscreen = 0`, and
-`VideoSize = 75`; Xvfb is `1024x768x24`, which is only the host display.
+Multiplayer setup probe (2026-09-24): the native `build-amd64/src/out` binary
+builds and the guarded `multiplayerHostMenusBeforeGo` run now gets past the
+earlier profile-file and host-player initialization faults. The trace reaches
+the `New` control, selects Warrior, accepts class and character setup, then
+crashes during `CONNECT_RESULT` in `sub_4D22B0()` at its dereference of
+`i + 2056`. `i` is assigned from the `sub_416EA0()` result through an `int`,
+so the current failure is another truncated native pointer; it remains
+unfixed. The Chat Area popup and server-name/Escape steps were therefore not
+reached in this amd64 run, and the macro did not complete.
+
+The trace has verified progression through the preceding boundaries:
+`sub_422140()` receives the full player-info pointer; reliable-update queue
+removal in `sub_420A90()` uses its recovered DWORD node layout and
+`sub_4209C0()` decodes the pool-manager slot; `sub_48EA70()` keeps the packet
+cursor host-width through `sub_4C9BF0()`; and `sub_519830()` receives its
+48-byte player-update record without pointer truncation. This is a verified
+partial startup fix, not a verified end-to-end menu or map-start fix.
+
+The earlier i386 `multiplayerHostMenusBeforeGo` reference run completed
+through server-name entry and Escape. That binary predates the latest native
+pointer fixes; rebuild and rerun i386 before claiming same-revision parity.
+Neither run invokes `defaultServerGame` or loads a map. The disposable game
+directory's `nox.cfg` requests `VideoMode = 1024 768 16`,
+`Fullscreen = 0`, and `VideoSize = 75` (windowed 1024x768x16 game mode,
+rendered at 75% size); Xvfb is `1024x768x24`, only the host display. The
+64-bit probe uses the native Linux executable under GDB, not the Windows
+version. No map requiring reloaded EUD support is used.
 
 The path changes found earlier are distinct: on native builds, a freed window
 record could be reused while its draw/message/event callback sidecars still

@@ -183,7 +183,7 @@ void CONNECT_PREPARE (sm_args_t *args)
   if ( sub_40A5C0(1) )
   {
     sub_4D3860(Data);
-    *(_DWORD *)&byte_5D4594[2616328] = sub_4DD320(31, Data);
+    *(_DWORD *)&byte_5D4594[2616328] = sub_4DD320(31, (uintptr_t)Data);
     sub_409AE0(66458);
     sub_494E90(31);
     *(_DWORD *)&byte_5D4594[811372] = 2;

@@ -14010,7 +14010,7 @@ int __cdecl sub_56FCE0(int a1, int a2, int a3)
 // 560840: using guessed type void __cdecl nullsub_31(_DWORD);
 
 //----- (0056FD50) --------------------------------------------------------
-int __cdecl sub_56FD50(int a1, int a2, int a3)
+int __cdecl sub_56FD50(int a1, uintptr_t a2, int a3)
 {
   int v3; // ebp
   _DWORD *v4; // eax

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "../src/windows.h"
 
 int compat_open(const char *filename, int oflag, ...);
 FILE *compat_fopen(const char *path, const char *mode);
@@ -19,6 +20,31 @@ static int read_file(FILE *file)
     char contents[32] = {0};
     return fgets(contents, sizeof(contents), file) != NULL &&
            strcmp(contents, "fixture\n") == 0;
+}
+
+static int find_handle_width_test(void)
+{
+    WIN32_FIND_DATAA find_data;
+    intptr_t handle;
+
+    handle = FindFirstFileA("N00.plr", &find_data);
+    if (handle == (intptr_t)-1)
+        return 0;
+#if UINTPTR_MAX > UINT32_MAX
+    if ((uintptr_t)handle <= UINT32_MAX) {
+        FindClose(handle);
+        return 0;
+    }
+#endif
+    if (strcmp(find_data.cFileName, "N00.plr") != 0) {
+        FindClose(handle);
+        return 0;
+    }
+    if (FindNextFileA(handle, &find_data)) {
+        FindClose(handle);
+        return 0;
+    }
+    return FindClose(handle);
 }
 
 int main(void)
@@ -50,6 +76,19 @@ int main(void)
     if (!file)
         goto cleanup;
     if (fputs("fixture\n", file) == EOF || fclose(file) != 0) {
+        file = NULL;
+        goto cleanup;
+    }
+    file = NULL;
+
+    snprintf(path, sizeof(path), "%s/PrimaryInstall/Save", root);
+    if (mkdir(path, 0700) != 0)
+        goto cleanup;
+    snprintf(path, sizeof(path), "%s/PrimaryInstall/Save/N00.plr", root);
+    file = fopen(path, "wb");
+    if (!file)
+        goto cleanup;
+    if (fputs("profile fixture\n", file) == EOF || fclose(file) != 0) {
         file = NULL;
         goto cleanup;
     }
@@ -91,6 +130,11 @@ int main(void)
     }
     file = NULL;
 
+    if (chdir("PrimaryInstall/Save") != 0 || !find_handle_width_test())
+        goto cleanup;
+    if (chdir(root) != 0)
+        goto cleanup;
+
     /* This covers lower-level asset reads that use the open wrapper. */
     fd = compat_open("primaryinstall\\datafiles\\mixed.dat", O_RDONLY);
     if (fd < 0)
@@ -114,6 +158,10 @@ cleanup:
     unlink(path);
     snprintf(path, sizeof(path), "%s/soundset.bin", root);
     unlink(path);
+    snprintf(path, sizeof(path), "%s/PrimaryInstall/Save/N00.plr", root);
+    unlink(path);
+    snprintf(path, sizeof(path), "%s/PrimaryInstall/Save", root);
+    rmdir(path);
     snprintf(path, sizeof(path), "%s/PrimaryInstall/DataFiles", root);
     rmdir(path);
     snprintf(path, sizeof(path), "%s/PrimaryInstall", root);

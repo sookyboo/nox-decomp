@@ -30,6 +30,32 @@ static int ui_event_callback(wchar_t *window, wchar_t *text, int event)
     return event;
 }
 
+#if UINTPTR_MAX > UINT32_MAX
+static int transition_pointer_callback(void)
+{
+    return 1;
+}
+
+static int transition_callback_legacy_slot_test(void)
+{
+    uint32_t transition[16] = {0};
+    uintptr_t expected = (uintptr_t)transition_pointer_callback;
+    uintptr_t actual;
+
+    nox_native_transition_callback_clear((uintptr_t)transition);
+    *(uint32_t *)((unsigned char *)transition + 56) = (uint32_t)expected;
+    actual = nox_native_transition_callback_get((uintptr_t)transition, 56);
+    if (actual != expected)
+    {
+        fprintf(stderr,
+                "transition callback slot: decoded=%p expected=%p\n",
+                (void *)actual, (void *)expected);
+        return 0;
+    }
+    return 1;
+}
+#endif
+
 static int window_event_callback_storage_test(void)
 {
     _DWORD *object = nox_test_legacy_alloc(400);
@@ -108,6 +134,20 @@ static int window_pointer_message_transport_test(void)
     {
         fprintf(stderr,
                 "window message pointer test: received=%p expected=%p\n",
+                (void *)window_pointer_message_value, (void *)text);
+        sub_46C4E0((int)(uintptr_t)window);
+        sub_46C200();
+        return 0;
+    }
+
+    window_pointer_message_value = 0;
+    window_pointer_message_seen = 0;
+    sub_46AEE0((int)(uintptr_t)window, (uintptr_t)text);
+    if (!window_pointer_message_seen ||
+        window_pointer_message_value != (uintptr_t)text)
+    {
+        fprintf(stderr,
+                "window text setter test: received=%p expected=%p\n",
                 (void *)window_pointer_message_value, (void *)text);
         sub_46C4E0((int)(uintptr_t)window);
         sub_46C200();
@@ -437,6 +477,94 @@ cleanup:
     return success;
 }
 
+static int profile_callback_legacy_slot_test(void)
+{
+    uint32_t encoded;
+    uintptr_t callback;
+
+    nox_profile_callback_table_init();
+    encoded = *(uint32_t *)&byte_587000[55956];
+    callback = nox_profile_callback_from_legacy_slot(55956);
+    if (encoded != (uint32_t)(uintptr_t)sub_41C3B0 ||
+        callback != (uintptr_t)sub_41C3B0)
+    {
+        fprintf(stderr,
+                "profile callback slot: encoded=0x%08x decoded=%p expected=%p\n",
+                encoded, (void *)callback, (void *)(uintptr_t)sub_41C3B0);
+        return 0;
+    }
+    return 1;
+}
+
+static int profile_list_legacy_storage_test(void)
+{
+    unsigned char *records = nox_profile_list_alloc(1);
+    size_t i;
+
+    if (!records)
+    {
+        fprintf(stderr, "profile list storage: allocation failed\n");
+        return 0;
+    }
+    if ((uintptr_t)records > UINT32_MAX)
+    {
+        fprintf(stderr, "profile list storage: pointer %p does not fit DWORD\n",
+                (void *)records);
+        nox_profile_list_free(records);
+        return 0;
+    }
+    for (i = 0; i < 0x4FEu; ++i)
+    {
+        if (records[i] != 0)
+        {
+            fprintf(stderr, "profile list storage: record byte %zu not zeroed\n",
+                    i);
+            nox_profile_list_free(records);
+            return 0;
+        }
+    }
+    nox_profile_list_free(records);
+    return 1;
+}
+
+static int character_class_name_pointer_test(void)
+{
+    const char *name = nox_character_class_name_from_index(0);
+#if UINTPTR_MAX > UINT32_MAX
+    const char *image_begin = (const char *)&byte_587000[0];
+    const char *image_end = image_begin + sizeof(byte_587000);
+    const char *state_begin = (const char *)&byte_5D4594[0];
+    const char *state_end = state_begin + sizeof(byte_5D4594);
+
+    if (!name || !((name >= image_begin && name < image_end) ||
+                   (name >= state_begin && name < state_end)))
+    {
+        fprintf(stderr, "character class name: invalid decoded pointer %p\n",
+                (const void *)name);
+        return 0;
+    }
+    if (!memchr(name, '\0', (size_t)((name >= image_begin && name < image_end)
+                                       ? image_end - name
+                                       : state_end - name)))
+    {
+        fprintf(stderr, "character class name: unterminated string %p\n",
+                (const void *)name);
+        return 0;
+    }
+#else
+    const char *legacy_value = (const char *)(uintptr_t)
+        *(uint32_t *)&byte_587000[29456];
+    if (name != legacy_value)
+    {
+        fprintf(stderr,
+                "character class name: i386 pointer=%p legacy=%p\n",
+                (const void *)name, (const void *)legacy_value);
+        return 0;
+    }
+#endif
+    return 1;
+}
+
 int main(void)
 {
     size_t network_record_args[10] = {0};
@@ -546,6 +674,17 @@ int main(void)
         return 1;
     if (transfer[1] != 0x81)
         return 1;
+
+    if (!profile_callback_legacy_slot_test())
+        return 1;
+    if (!profile_list_legacy_storage_test())
+        return 1;
+    if (!character_class_name_pointer_test())
+        return 1;
+#if UINTPTR_MAX > UINT32_MAX
+    if (!transition_callback_legacy_slot_test())
+        return 1;
+#endif
 
     return 0;
 }

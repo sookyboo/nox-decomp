@@ -118,6 +118,18 @@ cancels server-options (equivalent to clicking widget 10146; GO is 10145).
 Require evidence of the Escape input, F1/console commands, and new CapFlag opens
 after `load`; merely completing the macro does not prove the map started.
 
+The separate UI-only probe `multiplayerHostMenusBeforeGo` is the safe choice
+while validating native startup pointer changes: it stops before
+`defaultServerGame`, so it does not load a gameplay map. On 2026-09-24 the
+amd64 run passed the profile and host-player setup boundaries but crashed in
+`sub_4D22B0()` during `CONNECT_RESULT`, before the Chat Area popup and
+server-name steps. An earlier i386 reference run completed the macro through
+server-name entry and Escape, but used a binary from before the latest native
+changes; rebuild and rerun i386 for same-revision comparison. Both probes use
+`VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb's
+`1024x768x24` is the host display, not the game's configured mode. Do not use
+maps that require reloaded EUD support for native 64-bit testing.
+
 ## Client host-loss lifecycle
 
 `sub_43CCA0()` is the client-side network pump used while joined to a multiplayer

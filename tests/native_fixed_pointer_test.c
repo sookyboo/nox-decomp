@@ -1,6 +1,10 @@
 #include "../src/native_pointer.h"
 
 #include <stdio.h>
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 static int fixed_image_pointer_decode_test(void)
 {
@@ -69,6 +73,56 @@ static int legacy_pointer_slot_reads_only_one_dword_test(void)
     return nox_native_pointer_slot32_read(&slots[0]) == slots[0];
 }
 
+static int file_reader_cursor_uses_dword_field_test(void)
+{
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__) && defined(MAP_32BIT)
+    const long page_size = sysconf(_SC_PAGESIZE);
+    uint32_t *reader;
+    unsigned char *cursor;
+    int passed;
+
+    if (page_size <= 0)
+        return 0;
+    reader = mmap(NULL, (size_t)page_size, PROT_READ | PROT_WRITE,
+                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+    if (reader == MAP_FAILED)
+        return 0;
+    cursor = (unsigned char *)reader + 32;
+    reader[2] = (uint32_t)(uintptr_t)cursor;
+    reader[3] = UINT32_C(0x00200020);
+    passed = nox_native_file_reader_cursor32(reader) == cursor;
+    munmap(reader, (size_t)page_size);
+    return passed;
+#else
+    uint32_t reader[4] = {0};
+    unsigned char data[8] = {0};
+
+    reader[2] = (uint32_t)(uintptr_t)data;
+    return nox_native_file_reader_cursor32(reader) == data;
+#endif
+}
+
+static int legacy_pointer_slot_write_preserves_neighbor_test(void)
+{
+    uint32_t slots[2] = {0, 0};
+    const uintptr_t pointer = (uintptr_t)UINT64_C(0x12345678abcdef01);
+
+    nox_native_pointer_slot32_write(&slots[0], pointer);
+    return slots[0] == (uint32_t)pointer && slots[1] == 0;
+}
+
+static int polygon_name_pointer_preserves_next_vertex_count_test(void)
+{
+    uint32_t descriptors[8] = {0};
+    const uintptr_t name = (uintptr_t)UINT64_C(0x12345678abcdef01);
+
+    /* Each recovered polygon descriptor is 16 bytes; its name pointer at
+     * +12 is adjacent to the next descriptor's vertex count. */
+    descriptors[4] = 5;
+    nox_native_pointer_slot32_write(&descriptors[3], name);
+    return descriptors[3] == (uint32_t)name && descriptors[4] == 5;
+}
+
 static int code_pointer_decode_test(void)
 {
     const uintptr_t image_address = UINT64_C(0x0000001200000000);
@@ -129,6 +183,21 @@ static int low_word_executable_static_data_decode_test(void)
         == UINT64_C(0x000055b014836530);
 }
 
+static int class_selection_state_pointer_decode_test(void)
+{
+    const uintptr_t image_address = UINT64_C(0x00005555558c9b60);
+    const uintptr_t data_begin = UINT64_C(0x0000555555800000);
+    const uintptr_t data_end = UINT64_C(0x0000555555b00000);
+    const uintptr_t state_begin = UINT64_C(0x0000555555900000);
+    const uintptr_t state_end = UINT64_C(0x0000555556000000);
+    const uint32_t encoded = UINT32_C(0x55a39da4);
+
+    return nox_native_static_data_pointer_decode32(
+               encoded, image_address, data_begin, data_end,
+               state_begin, state_end)
+        == UINT64_C(0x0000555555a39da4);
+}
+
 static int window_field_pointer_decode_test(void)
 {
     const uintptr_t image_address = UINT64_C(0x000055b41400db60);
@@ -140,6 +209,29 @@ static int window_field_pointer_decode_test(void)
         && nox_native_window_field_pointer_decode32(
                low_word, image_address, 1)
                == (uintptr_t)low_word;
+}
+
+static int map32_upper_range_pointer_decode_test(void)
+{
+    const uintptr_t image_address = UINT64_C(0x00005555558c9b60);
+    const uint32_t encoded = UINT32_C(0x72445c74);
+    const uintptr_t reconstructed = UINT64_C(0x0000555572445c74);
+
+    return nox_native_pointer_decode32(encoded, image_address, 0)
+               == reconstructed
+        && nox_native_pointer_decode32(encoded, image_address, 1)
+               == (uintptr_t)encoded
+        && nox_native_window_field_pointer_decode32(
+               encoded, image_address, 1) == (uintptr_t)encoded;
+}
+
+static int indexed_legacy_record_pointer_test(void)
+{
+    const uintptr_t native_base = UINT64_C(0x0000555555a39da4);
+    const uint32_t selected_index = 3;
+
+    return nox_native_legacy_indexed_record(native_base, selected_index, 40)
+        == native_base + 120;
 }
 
 static int window_text_value_retains_host_pointer_test(void)
@@ -180,6 +272,18 @@ int main(void)
         fprintf(stderr, "legacy pointer slot read consumed its adjacent DWORD\n");
         return 1;
     }
+    if (!file_reader_cursor_uses_dword_field_test()) {
+        fprintf(stderr, "file-reader cursor overlapped the adjacent end field\n");
+        return 1;
+    }
+    if (!legacy_pointer_slot_write_preserves_neighbor_test()) {
+        fprintf(stderr, "legacy pointer slot write overwrote its adjacent DWORD\n");
+        return 1;
+    }
+    if (!polygon_name_pointer_preserves_next_vertex_count_test()) {
+        fprintf(stderr, "polygon name pointer overwrote the next vertex count\n");
+        return 1;
+    }
     if (!code_pointer_decode_test()) {
         fprintf(stderr, "failed to reconstruct a low-word game-image callback\n");
         return 1;
@@ -196,8 +300,20 @@ int main(void)
         fprintf(stderr, "low-word executable static data was mistaken for a low allocation\n");
         return 1;
     }
+    if (!class_selection_state_pointer_decode_test()) {
+        fprintf(stderr, "class-selection data pointer was not rebuilt from its legacy slot\n");
+        return 1;
+    }
     if (!window_field_pointer_decode_test()) {
         fprintf(stderr, "window data pointer did not preserve low/high address provenance\n");
+        return 1;
+    }
+    if (!map32_upper_range_pointer_decode_test()) {
+        fprintf(stderr, "valid upper-range MAP_32BIT pointer was widened\n");
+        return 1;
+    }
+    if (!indexed_legacy_record_pointer_test()) {
+        fprintf(stderr, "indexed legacy record was not derived without a pointer slot\n");
         return 1;
     }
     if (!window_text_value_retains_host_pointer_test()) {

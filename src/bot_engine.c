@@ -379,7 +379,7 @@ int nox_bot_engine_spawn_player_attempt(
      * otherwise unconnected remote slot.
      */
     nox_bot_trace_set_spawn_join(1);
-    join_result = (int)sub_4DD320(player_slot, (int)packet);
+    join_result = (int)sub_4DD320(player_slot, (uintptr_t)packet);
     nox_bot_trace_set_spawn_join(0);
     info = sub_417090(player_slot);
     object = info ? *(int *)(info + NOX_PLAYER_INFO_OBJECT_OFFSET) : 0;
