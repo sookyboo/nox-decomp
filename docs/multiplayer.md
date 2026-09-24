@@ -121,13 +121,14 @@ after `load`; merely completing the macro does not prove the map started.
 The separate UI-only probe `multiplayerHostMenusBeforeGo` is the safe choice
 while validating native startup pointer changes: it stops before
 `defaultServerGame`, so it does not load a gameplay map. On 2026-09-24 the
-amd64 run passed the profile and host-player setup boundaries, then passed
-player-list traversal and meter reset in `sub_4D22B0()` / `sub_4EF7D0()`. It
-and passes the meter update through `sub_4D85C0()` / `sub_4E5030()`. The current
-trace passes `sub_4D88C0()` after resolving player-info through its DWORD slot.
-It currently stops in `sub_4E3BA0(0)`, which reads a per-entry value from the
-table rooted at `byte_5D4594 + 1563456`; GDB has not yet isolated whether the
-root or its selected entry is invalid. The Chat Area popup and server-name
+amd64 run passed profile and host-player setup, player-list traversal and meter
+reset (`sub_4D22B0()` / `sub_4EF7D0()`), and the meter update through
+`sub_4D85C0()` / `sub_4E5030()`. It also passed `sub_4D88C0()` after resolving
+player-info through its DWORD slot. The 12-byte and 24-byte setting lookups
+used by `sub_4EF580()` now read their recovered DWORD keys and the trace passes
+that aggregation. It currently stops later in `sub_4EFC30()` because its
+nine-byte stack packet is passed through an `(int)` cast to `sub_4E5390()`,
+truncating the source address on x86_64. The Chat Area popup and server-name
 steps are not reached yet. An earlier i386 reference run completed the macro
 through server-name entry and Escape, but used a binary from before the latest
 native changes; rebuild and rerun i386 for same-revision comparison. Both

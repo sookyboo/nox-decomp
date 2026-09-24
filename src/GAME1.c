@@ -4,6 +4,7 @@
 
 #include "proto.h"
 #include "native_pointer.h"
+#include "legacy_table.h"
 #include "startup_flow_trace.h"
 #include "mod_hash.h"
 #ifdef NOX_BOT_SUPPORT
@@ -20746,21 +20747,10 @@ int __cdecl sub_415820(int a1)
 //----- (00415840) --------------------------------------------------------
 int __cdecl sub_415840(char *a1)
 {
-  int v1; // ecx
-  unsigned __int8 *i; // eax
-  int v3; // esi
-
-  v1 = 0;
   if ( !*(_DWORD *)&byte_587000[33064] )
     return 0;
-  for ( i = &byte_587000[33064]; *((char **)i + 2) != a1; i += 12 )
-  {
-    v3 = *((_DWORD *)i + 3);
-    ++v1;
-    if ( !v3 )
-      return 0;
-  }
-  return *(_DWORD *)&byte_587000[12 * v1 + 33068];
+  return (int)nox_legacy_table_value_by_key32(&byte_587000[33064],
+      (uint32_t)(uintptr_t)a1, 12, 8, 4, 12);
 }
 
 //----- (00415880) --------------------------------------------------------
@@ -21107,21 +21097,10 @@ int __cdecl sub_415C90(int a1)
 //----- (00415CD0) --------------------------------------------------------
 int __cdecl sub_415CD0(char *a1)
 {
-  int v1; // ecx
-  unsigned __int8 *i; // eax
-  int v3; // esi
-
-  v1 = 0;
   if ( !*(_DWORD *)&byte_587000[34848] )
     return 0;
-  for ( i = &byte_587000[34848]; a1 != *((char **)i + 3); i += 24 )
-  {
-    v3 = *((_DWORD *)i + 6);
-    ++v1;
-    if ( !v3 )
-      return 0;
-  }
-  return *(_DWORD *)&byte_587000[24 * v1 + 34856];
+  return (int)nox_legacy_table_value_by_key32(&byte_587000[34848],
+      (uint32_t)(uintptr_t)a1, 24, 12, 8, 24);
 }
 
 //----- (00415D10) --------------------------------------------------------

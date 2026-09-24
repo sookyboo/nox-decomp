@@ -1,4 +1,5 @@
 #include "../src/native_pointer.h"
+#include "../src/legacy_table.h"
 
 #include <stdio.h>
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
@@ -71,6 +72,31 @@ static int legacy_pointer_slot_reads_only_one_dword_test(void)
     const uint32_t slots[2] = {UINT32_C(0x43645738), UINT32_C(0x00200020)};
 
     return nox_native_pointer_slot32_read(&slots[0]) == slots[0];
+}
+
+static int legacy_table_key_lookup_uses_dword_records_test(void)
+{
+    const uint32_t twelve_byte_records[] = {
+        UINT32_C(0x1000), UINT32_C(0x1111), UINT32_C(0x47d),
+        UINT32_C(0x2000), UINT32_C(0x2222), UINT32_C(0x400),
+        0, 0, 0,
+    };
+    const uint32_t twenty_four_byte_records[] = {
+        UINT32_C(0x1000), UINT32_C(0x1100), UINT32_C(0x47e),
+        UINT32_C(0x8000), UINT32_C(0x1200), UINT32_C(0x47d),
+        UINT32_C(0x2000), UINT32_C(0x2100), UINT32_C(0x1234),
+        UINT32_C(0x400), UINT32_C(0x2200), UINT32_C(0x5678),
+        0, 0, 0, 0, 0, 0,
+    };
+
+    return nox_legacy_table_value_by_key32(twelve_byte_records,
+               UINT32_C(0x400), 12, 8, 4, 12) == UINT32_C(0x2222)
+        && nox_legacy_table_value_by_key32(twelve_byte_records,
+               UINT32_C(0xffff), 12, 8, 4, 12) == 0
+        && nox_legacy_table_value_by_key32(twenty_four_byte_records,
+               UINT32_C(0x400), 24, 12, 8, 24) == UINT32_C(0x1234)
+        && nox_legacy_table_value_by_key32(twenty_four_byte_records,
+               UINT32_C(0xffff), 24, 12, 8, 24) == 0;
 }
 
 static int file_reader_cursor_uses_dword_field_test(void)
@@ -270,6 +296,10 @@ int main(void)
     }
     if (!legacy_pointer_slot_reads_only_one_dword_test()) {
         fprintf(stderr, "legacy pointer slot read consumed its adjacent DWORD\n");
+        return 1;
+    }
+    if (!legacy_table_key_lookup_uses_dword_records_test()) {
+        fprintf(stderr, "legacy table lookup used host pointer width for DWORD records\n");
         return 1;
     }
     if (!file_reader_cursor_uses_dword_field_test()) {

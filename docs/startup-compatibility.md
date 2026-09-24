@@ -407,10 +407,22 @@ all clients through `sub_4E5390()`. `sub_4EF580()` obtains eight setting
 indices through `sub_415CD0()` / `sub_415840()` and reads their values using
 `sub_4E3BA0(index)`. That accessor indexes the table rooted at
 `byte_5D4594 + 1563456` and returns the selected entry's DWORD at `+16`. The
-latest trace stops in `sub_4E3BA0(0)` during this query. The table root and
-indexed entry both use recovered DWORD pointers; GDB has not yet established
-which dereference is invalid. The Chat Area and server-name UI stages remain
-unreached.
+option lookup tables are fixed-width records: `sub_415840()` searches 12-byte
+records at `byte_587000 + 33064`, comparing the DWORD at `+8` and returning the
+DWORD at `+4`; `sub_415CD0()` searches 24-byte records at
+`byte_587000 + 34848`, comparing the DWORD at `+12` and returning the DWORD at
+`+8`. Their sentinels are the first DWORD of the following record. Reading
+these keys through `char **` used eight-byte pointer arithmetic on x86_64,
+missed a valid setting, and returned reserved index 0. `sub_4E3BA0(0)` then
+dereferenced its intentionally empty entry. Both lookups now compare the
+recovered DWORD fields, and a focused regression test covers both record
+shapes. The native UI trace passed the settings aggregation after this fix.
+
+That trace currently stops in `sub_4EFC30()`'s call to `sub_4E5390()`. The
+nine-byte packet is assembled in a stack buffer, but the call passes it through
+`(int)v3`; GDB shows `sub_4E5030()` receiving the sign-extended low word as its
+source address. Widening this call-site pointer is the next required fix. The
+Chat Area and server-name UI stages remain unreached.
 
 ## Compatibility rule
 
