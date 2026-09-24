@@ -134,13 +134,14 @@ pool-manager handles without changing the i386 layout. The six fixed-width
 `init_data()` pointer-table writes preserve adjacent `UserColor1`; the key
 continues to resolve as property ID 179.
 
-The remaining difference is after the Chat Area popup is dismissed. i386 sets
+The remaining difference occurs at the Chat Area popup transition. i386 sets
 the setup-flow flag `0x800000`, dispatches event 31 through
 `sub_4DD180()`, creates `window/ServOpts.wnd` via `sub_457500()`, and completes
-the macro through server-name entry and Escape. On x64, the macro reaches the
-Chat Area popup but `window/ServOpts.wnd` never opens; `sub_43DEB0()` does not
-enter its `0x800000`-gated validation/event path, and the wait for server
-options widget 10101 times out. The source has flag-setting paths in local
+the macro through server-name entry and Escape. On x64, the macro injects its
+configured popup click, but the trace does not independently confirm that the
+modal closes; `window/ServOpts.wnd` never opens, `sub_43DEB0()` does not enter
+its `0x800000`-gated validation/event path, and the wait for server options
+widget 10101 times out. The source has flag-setting paths in local
 multiplayer setup (`sub_435CC0()`) and packet type `0x2B`; which expected path
 is missed on x64 is not yet established. Do not inject the flag or event to
 bypass this state transition.

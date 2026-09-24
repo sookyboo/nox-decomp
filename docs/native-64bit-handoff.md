@@ -236,8 +236,9 @@ The UI-only macro comparison is still not complete on x64. With identical
 native Linux binaries' inputs and `nox.cfg`, i386 raises setup-flow flag
 `0x800000`, dispatches event 31 via `sub_4DD180()`, creates
 `window/ServOpts.wnd` through `sub_457500()`, and reaches server-name entry and
-Escape. x64 reaches and dismisses the Chat Area popup but does not raise that
-flag or open `ServOpts.wnd`; `sub_43DEB0()` therefore skips its gated
+Escape. x64 injects its configured Chat Area popup click, but the trace does
+not independently confirm that the modal closes; it does not raise that flag
+or open `ServOpts.wnd`. `sub_43DEB0()` therefore skips its gated
 validation/event path and the wait for widget 10101 times out. Source has
 candidate flag setters in local setup `sub_435CC0()` and network packet case
 `0x2B`, but the expected missing x64 path is not yet identified. Do not force
