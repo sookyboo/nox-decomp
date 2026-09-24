@@ -120,30 +120,40 @@ after `load`; merely completing the macro does not prove the map started.
 
 The separate UI-only probe `multiplayerHostMenusBeforeGo` is the safe choice
 while validating native startup pointer changes: it stops before
-`defaultServerGame`, so it does not load a gameplay map. On 2026-09-24 the
-amd64 run passed profile and host-player setup, player-list traversal and meter
-reset (`sub_4D22B0()` / `sub_4EF7D0()`), and the meter update through
-`sub_4D85C0()` / `sub_4E5030()`. It also passed `sub_4D88C0()` after resolving
-player-info through its DWORD slot. The 12-byte and 24-byte setting lookups
-used by `sub_4EF580()` now read their recovered DWORD keys and the trace passes
-that aggregation. It also passes the nine-byte stack packet from
-`sub_4EFC30()` through `sub_4E5390()` / `sub_4E5030()` without truncation.
-The next failure was an x64-width overwrite in `init_data()`: a pointer slot at
-`byte_587000 + 206396` damaged the adjacent `UserColor1` string at `+206400`.
-The six table entries now use DWORD stores, and `sub_4EF7D0()` decodes each
-selected DWORD pointer. GDB confirms `sub_413290("UserColor1")` returns ID
-179. The current stop is a separate segmentation fault in `sub_413270()` as
-`sub_4EF750()` resolves `StreetPants` through `sub_4E3810()`; the lookup still
-reads its property-list head from the recovered slot at
-`byte_5D4594 + 251608`. The Chat Area popup and server-name steps remain
-unreached on x64. The rebuilt i386 executable completed the same UI-only macro
-through server-name entry and Escape. At the `sub_413270(1133)` breakpoint,
-i386 returned a valid property node where x64 faults, isolating the next issue
-to this fixed-width list access. Neither run invokes `defaultServerGame` or
-loads a map. Both probes use
-`VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb's
-`1024x768x24` is the host display, not the game's configured mode. Do not use
-maps that require reloaded EUD support for native 64-bit testing.
+`defaultServerGame`, so it does not select or start the configured gameplay
+map. The current comparison uses the native Linux `build-amd64/src/out` and
+`build-i386/src/out` executables with the same disposable game-data copy and
+macro.
+
+On 2026-09-24, both builds passed profile creation, host-player setup, player
+list/meter initialization (`sub_4D22B0()`, `sub_4EF7D0()`, `sub_4D85C0()`,
+`sub_4D88C0()`), setting-key lookups in `sub_4EF580()`, and the packet path from
+`sub_4EFC30()` through `sub_4E5390()` / `sub_4E5030()`. The x64 fixes preserve
+the recovered DWORD property-list links, pointer slots, packet addresses, and
+pool-manager handles without changing the i386 layout. The six fixed-width
+`init_data()` pointer-table writes preserve adjacent `UserColor1`; the key
+continues to resolve as property ID 179.
+
+The remaining difference is after the Chat Area popup is dismissed. i386 sets
+the setup-flow flag `0x800000`, dispatches event 31 through
+`sub_4DD180()`, creates `window/ServOpts.wnd` via `sub_457500()`, and completes
+the macro through server-name entry and Escape. On x64, the macro reaches the
+Chat Area popup but `window/ServOpts.wnd` never opens; `sub_43DEB0()` does not
+enter its `0x800000`-gated validation/event path, and the wait for server
+options widget 10101 times out. The source has flag-setting paths in local
+multiplayer setup (`sub_435CC0()`) and packet type `0x2B`; which expected path
+is missed on x64 is not yet established. Do not inject the flag or event to
+bypass this state transition.
+
+The bounded x64 probe stayed alive until its 120-second timeout and did not
+raise SIGSEGV; timeout is not macro success. The engine's ordinary host setup
+also opens its built-in `So_Druid` data as an initialization step, but neither
+architecture invokes `defaultServerGame`, enters the console, or explicitly
+selects a target gameplay map in this comparison. The test `nox.cfg` requests
+`VideoMode = 1024 768 16`, `Fullscreen = 0`, and `VideoSize = 75` (windowed
+1024x768x16 game mode, rendered at 75% size); Xvfb's `1024x768x24` is only the
+host display. Do not test maps requiring reloaded EUD support for native 64-bit
+changes.
 
 ## Client host-loss lifecycle
 

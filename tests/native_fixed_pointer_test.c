@@ -70,9 +70,16 @@ static int low_address_static_link_decode_test(void)
 
 static int legacy_pointer_slot_reads_only_one_dword_test(void)
 {
-    const uint32_t slots[2] = {UINT32_C(0x43645738), UINT32_C(0x00200020)};
+    /* Mirrors the property-state pointer at thing +692 followed by the next
+     * field. A native-width read would combine these into a bogus address. */
+    const uint32_t slots[2] = {
+        UINT32_C(0x45a1f008), UINT32_C(0x5571ef86)
+    };
 
-    return nox_native_pointer_slot32_read(&slots[0]) == slots[0];
+    return nox_native_pointer_slot32_read(&slots[0]) == slots[0]
+        && nox_native_pointer_decode32(
+               nox_native_pointer_slot32_read(&slots[0]), 0, 0)
+               == (uintptr_t)slots[0];
 }
 
 static int legacy_table_key_lookup_uses_dword_records_test(void)

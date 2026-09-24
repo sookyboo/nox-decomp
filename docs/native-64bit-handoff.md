@@ -1,8 +1,8 @@
 # Native 64-bit compatibility handoff
 
 This document is the continuation point for the native Linux x86_64 porting
-work. It records the current implementation boundary and the next confirmed
-failure so a new session can resume without repeating the startup investigation.
+work. The current validated boundary is recorded first; older checkpoints
+below are historical and are superseded where they disagree with that status.
 
 ## Repository state
 
@@ -20,8 +20,8 @@ Relevant commits:
 - the current checkpoint fixes native window callbacks, font/text resource
   transport, executable metadata parsing, and the startup callback tables.
 
-The untracked file `0001-bot-native-player-bot-combined.patch` is user-owned and
-must not be modified, staged, or deleted.
+The untracked patch and GDB scripts in the current worktree are local/user-owned
+artifacts; keep them out of source commits unless explicitly requested.
 
 ## Current objective
 
@@ -210,17 +210,68 @@ The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
 pointer-sized types; those changes would alter the compatibility ABI.
 
-The latest verified native startup batch preserves the fixed 16-byte
+## Current native pointer and menu-flow status (2026-09-24)
+
+The native Linux x86_64 build now passes the previously reproduced setup
+crashes in property lookup, map-rule parsing, multiplayer-root lookup, and
+legacy pool-manager access. The fixed-width property/modifier lists used by
+`sub_413250()` / `sub_413270()` retain their DWORD links while native builds
+keep authoritative list heads at host width; traversal decodes each recovered
+link. `sub_415C00()` likewise decodes the thing's `+692` property-state slot
+and its recovered callback address before use. `init_data()` writes the six
+pointer-table entries as DWORDs, preserving the adjacent `UserColor1` key.
+
+During host setup, `sub_428CD0()` consumes map/rule section data and passes
+addresses of in-memory fields and decoded string pointers to
+`sub_4F5580()`. Those are process addresses, not serialized 32-bit values, so
+the callee's field-address parameter and these call sites now use `uintptr_t`;
+the string pointer stored in the legacy parser record is decoded from one
+DWORD. The fixed-width pool-manager globals used by `GAME4.c` and `GAME5.c`
+are similarly decoded before calling the pool allocation, release, and list
+operations. These changes preserve the recovered record/global layout on
+i386. The packet-send helper `sub_4E5390()` also receives stack-buffer
+addresses at host width, including from its callers in `GAME3.c`.
+
+The UI-only macro comparison is still not complete on x64. With identical
+native Linux binaries' inputs and `nox.cfg`, i386 raises setup-flow flag
+`0x800000`, dispatches event 31 via `sub_4DD180()`, creates
+`window/ServOpts.wnd` through `sub_457500()`, and reaches server-name entry and
+Escape. x64 reaches and dismisses the Chat Area popup but does not raise that
+flag or open `ServOpts.wnd`; `sub_43DEB0()` therefore skips its gated
+validation/event path and the wait for widget 10101 times out. Source has
+candidate flag setters in local setup `sub_435CC0()` and network packet case
+`0x2B`, but the expected missing x64 path is not yet identified. Do not force
+the flag or event as a workaround.
+
+Both probes use Linux executables (`build-amd64/src/out` and
+`build-i386/src/out`), a disposable game-data copy, and
+`VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb is
+`1024x768x24` and describes only the host display. The bounded x64 run remains
+alive without SIGSEGV until its 120-second timeout, but does not complete the
+macro. `defaultServerGame`, F1/console commands, and explicit target-map
+selection are not part of this comparison. The engine's routine host setup
+opens built-in `So_Druid` data; this is incidental initialization, not a
+selected gameplay test map. Do not use a map requiring reloaded EUD support
+for native 64-bit testing.
+
+Both native targets build successfully. Full CTest passes on amd64 (30/30) and
+i386 (41/41). The focused `native_fixed_pointer_test` checks that a recovered
+pointer slot reads exactly one DWORD and decodes independently of the adjacent
+DWORD.
+
+An earlier standalone startup checkpoint (separate from the current menu-flow
+comparison) preserved the fixed 16-byte
 `sub_40ABF0()` file-reader record (four DWORD fields), reconstructs its cursor
 fields during the `thing.bin` family parsers, and keeps related fixed-width
 tables and video parser state below 4 GiB or in native sidecars. With stock
 `CapFlag`, native startup now completes `sub_415470()`, `sub_430190()`,
 `sub_4101D0()`, `sub_410F60()`, and `sub_431390()`, then enters the first
-gameplay tick. The remaining divergence is later in the video/bag parser's
+gameplay tick in that diagnostic run. Its remaining divergence was later in
+the video/bag parser's
 recovered 32-bit object layout; it is not a map-transfer or reloaded/EUD-map
 failure.
 
-## Validation status
+## Validation status (historical checkpoints below are superseded above)
 
 Multiplayer setup probe (2026-09-24): the native `build-amd64/src/out` binary
 builds and the guarded `multiplayerHostMenusBeforeGo` run now gets past the

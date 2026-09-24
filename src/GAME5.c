@@ -17105,12 +17105,18 @@ char *sub_57BFB0()
   return result;
 }
 
+static uintptr_t nox_game5_pool_manager(unsigned int offset)
+{
+  return nox_game3_pointer_from_32(
+      *(unsigned int *)&byte_5D4594[offset]);
+}
+
 //----- (0057C000) --------------------------------------------------------
 void sub_57C000()
 {
   *(_DWORD *)&byte_5D4594[2523904] = 0;
-  sub_4144D0(*(_DWORD **)&byte_5D4594[2523896]);
-  sub_4144D0(*(_DWORD **)&byte_5D4594[2523892]);
+  sub_4144D0((_DWORD *)nox_game5_pool_manager(2523896));
+  sub_4144D0((_DWORD *)nox_game5_pool_manager(2523892));
   *(_DWORD *)&byte_5D4594[2523900] = 0;
 }
 
@@ -17120,12 +17126,12 @@ int sub_57C030()
   *(_DWORD *)&byte_5D4594[2523904] = 0;
   if ( *(_DWORD *)&byte_5D4594[2523892] )
   {
-    sub_414100(*(LPVOID *)&byte_5D4594[2523892]);
+    sub_414100((LPVOID)nox_game5_pool_manager(2523892));
     *(_DWORD *)&byte_5D4594[2523892] = 0;
   }
   if ( *(_DWORD *)&byte_5D4594[2523896] )
   {
-    sub_414100(*(LPVOID *)&byte_5D4594[2523896]);
+    sub_414100((LPVOID)nox_game5_pool_manager(2523896));
     *(_DWORD *)&byte_5D4594[2523896] = 0;
   }
   *(_DWORD *)&byte_5D4594[2523900] = 0;
@@ -17205,7 +17211,7 @@ int __cdecl sub_57C130(_DWORD *a1, int a2)
 
   if ( !a1 )
     return 0;
-  v3 = *(char **)&byte_5D4594[2523900];
+  v3 = (char *)nox_game5_pool_manager(2523900);
   if ( !*(_DWORD *)&byte_5D4594[2523900] )
     return 0;
   while ( *((_DWORD *)v3 + 1) != a2 )
@@ -17224,7 +17230,8 @@ int __cdecl sub_57C130(_DWORD *a1, int a2)
     {
       if ( v4 != 2 )
       {
-        sub_414330(*(unsigned int **)&byte_5D4594[2523896], (_QWORD *)result);
+        sub_414330((unsigned int *)nox_game5_pool_manager(2523896),
+                   (_QWORD *)result);
         return 0;
       }
       *(_DWORD *)result = *a1;
@@ -17256,7 +17263,7 @@ int __cdecl sub_57C1E0(_DWORD *a1, int a2)
   int v7; // eax
 
   v2 = 0;
-  v3 = *(char **)&byte_5D4594[2523900];
+  v3 = (char *)nox_game5_pool_manager(2523900);
   if ( !*(_DWORD *)&byte_5D4594[2523900] )
     return 0;
   while ( *(_DWORD *)(*(_DWORD *)&byte_5D4594[2523900] + 4) != a2 )
@@ -17338,7 +17345,7 @@ void *sub_57C330()
   void *result; // eax
 
   v0 = 0;
-  if ( !sub_40A5C0(2097153) || (result = sub_4142F0(*(_DWORD **)&byte_5D4594[2523892]), (v0 = result) != 0) )
+  if ( !sub_40A5C0(2097153) || (result = sub_4142F0((_DWORD *)nox_game5_pool_manager(2523892)), (v0 = result) != 0) )
     result = v0;
   return result;
 }
@@ -17346,19 +17353,19 @@ void *sub_57C330()
 //----- (0057C360) --------------------------------------------------------
 void *sub_57C360()
 {
-  return sub_4142F0(*(_DWORD **)&byte_5D4594[2523896]);
+  return sub_4142F0((_DWORD *)nox_game5_pool_manager(2523896));
 }
 
 //----- (0057C370) --------------------------------------------------------
 void __cdecl sub_57C370(_QWORD *a1)
 {
-  sub_414330(*(unsigned int **)&byte_5D4594[2523892], a1);
+  sub_414330((unsigned int *)nox_game5_pool_manager(2523892), a1);
 }
 
 //----- (0057C390) --------------------------------------------------------
 void __cdecl sub_57C390(_QWORD *a1)
 {
-  sub_414330(*(unsigned int **)&byte_5D4594[2523896], a1);
+  sub_414330((unsigned int *)nox_game5_pool_manager(2523896), a1);
 }
 
 //----- (0057C3B0) --------------------------------------------------------
