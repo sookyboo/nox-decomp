@@ -394,11 +394,23 @@ conversion lets the trace pass the queue copy; i386 retains its original
 When the thing has the relevant state bit set and player-info offset 2251 is
 enabled, it builds a seven-byte update (opcode `0xDE`, thing identifier, and
 two auxiliary-record words at `+4` and `+8`) and submits it through
-`sub_4E5450()`. Its player-info pointer comes from the auxiliary record's DWORD
-at `+276` and must use `nox_game3_thing_player_info()` on native x86_64. The
-latest trace stops here because the existing code dereferences that DWORD as a
-host pointer. This is the next unresolved startup failure; the Chat Area and
-server-name UI stages are still not reached.
+`sub_4E5450()`. Its thing argument and auxiliary record are now kept
+pointer-width, and player-info is resolved through
+`nox_game3_thing_player_info()` rather than dereferencing the auxiliary record's
+DWORD at `+276` as a host pointer. The trace passed this packet path after the
+fix.
+
+The next reset step calls `sub_4EFC30(thing, flag)`, which constructs a
+nine-byte update (opcode `0xE9`, thing type at `+36`, current game tick, the
+mode/status mask from `sub_4EF580()`, and the caller's flag) and sends it to
+all clients through `sub_4E5390()`. `sub_4EF580()` obtains eight setting
+indices through `sub_415CD0()` / `sub_415840()` and reads their values using
+`sub_4E3BA0(index)`. That accessor indexes the table rooted at
+`byte_5D4594 + 1563456` and returns the selected entry's DWORD at `+16`. The
+latest trace stops in `sub_4E3BA0(0)` during this query. The table root and
+indexed entry both use recovered DWORD pointers; GDB has not yet established
+which dereference is invalid. The Chat Area and server-name UI stages remain
+unreached.
 
 ## Compatibility rule
 

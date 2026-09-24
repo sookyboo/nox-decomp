@@ -4647,7 +4647,7 @@ int __cdecl sub_4D87A0(int a1, _DWORD *a2);
 int __cdecl sub_4D8800(int a1, int a2);
 int __cdecl sub_4D8840(int a1, int a2);
 int __cdecl sub_4D8870(int a1, int a2);
-int __cdecl sub_4D88C0(int a1, int a2);
+int __cdecl sub_4D88C0(int a1, uintptr_t a2);
 int __cdecl sub_4D8930(int a1, int a2);
 char __cdecl sub_4D8990(int a1, int a2, char a3);
 int __cdecl sub_4D8A30(int a1, int a2);

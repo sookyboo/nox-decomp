@@ -124,12 +124,14 @@ while validating native startup pointer changes: it stops before
 amd64 run passed the profile and host-player setup boundaries, then passed
 player-list traversal and meter reset in `sub_4D22B0()` / `sub_4EF7D0()`. It
 and passes the meter update through `sub_4D85C0()` / `sub_4E5030()`. The current
-failure is later in `sub_4D88C0()`, which reads player-info offset 2251 through
-the auxiliary record's raw DWORD pointer at `+276`; that pointer is truncated
-on x86_64. The Chat Area popup and server-name steps are not reached yet. An
-earlier i386 reference run completed the macro through server-name entry and
-Escape, but used a binary from before the latest native changes; rebuild and
-rerun i386 for same-revision comparison. Both probes use
+trace passes `sub_4D88C0()` after resolving player-info through its DWORD slot.
+It currently stops in `sub_4E3BA0(0)`, which reads a per-entry value from the
+table rooted at `byte_5D4594 + 1563456`; GDB has not yet isolated whether the
+root or its selected entry is invalid. The Chat Area popup and server-name
+steps are not reached yet. An earlier i386 reference run completed the macro
+through server-name entry and Escape, but used a binary from before the latest
+native changes; rebuild and rerun i386 for same-revision comparison. Both
+probes use
 `VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb's
 `1024x768x24` is the host display, not the game's configured mode. Do not use
 maps that require reloaded EUD support for native 64-bit testing.

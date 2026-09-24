@@ -42155,15 +42155,17 @@ int __cdecl sub_4D8870(int a1, int a2)
 }
 
 //----- (004D88C0) --------------------------------------------------------
-int __cdecl sub_4D88C0(int a1, int a2)
+int __cdecl sub_4D88C0(int a1, uintptr_t a2)
 {
   int result; // eax
-  int v3; // esi
+  uintptr_t v3; // esi
+  uintptr_t player_info;
   char v4[7]; // [esp+4h] [ebp-8h]
 
   result = a2;
-  v3 = *(_DWORD *)(a2 + 748);
-  if ( *(_BYTE *)(a2 + 8) & 4 && (!v3 || *(_BYTE *)(*(_DWORD *)(v3 + 276) + 2251)) )
+  v3 = nox_game3_pointer_from_32(*(unsigned int *)(a2 + 748));
+  player_info = nox_game3_thing_player_info(a2);
+  if ( *(_BYTE *)(a2 + 8) & 4 && (!v3 || *(_BYTE *)(player_info + 2251)) )
   {
     v4[0] = -34;
     *(_WORD *)&v4[1] = sub_578AC0((_DWORD *)a2);

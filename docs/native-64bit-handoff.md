@@ -228,11 +228,13 @@ earlier profile-file and host-player initialization faults. The trace reaches
 the `New` control, selects Warrior, accepts class and character setup, then
 passes player-list traversal and meter reset in `sub_4D22B0()` /
 `sub_4EF7D0()`, and the seven-byte meter update through `sub_4D85C0()` /
-`sub_4E5030()`. The current failure is later during `CONNECT_RESULT` in
-`sub_4D88C0()`: it reads player-info offset 2251 through the auxiliary
-record's raw DWORD pointer at `+276`, invalid as a host pointer on x86_64. This
-is the next unresolved failure. The Chat Area popup and server-name/Escape
-steps are not reached, and the macro has not completed.
+`sub_4E5030()`. It also passes `sub_4D88C0()` after resolving player-info
+through the auxiliary record's DWORD slot. The current failure is later during
+`CONNECT_RESULT` in `sub_4E3BA0(0)`, which indexes a per-entry table rooted at
+`byte_5D4594 + 1563456`; GDB has not yet distinguished an invalid table root
+from an invalid entry pointer. This is the next unresolved failure. The Chat
+Area popup and server-name/Escape steps are not reached, and the macro has not
+completed.
 
 The trace has verified progression through the preceding boundaries:
 `sub_422140()` receives the full player-info pointer; reliable-update queue
@@ -243,9 +245,10 @@ cursor host-width through `sub_4C9BF0()`; and `sub_519830()` receives its
 list cursor and thing/auxiliary pointers are host-width, and the thing's `+556`
 meter slot is decoded before its words are accessed in the player reset path.
 The stack buffer from `sub_4D85C0()` is also passed to `sub_4E5390()` without
-truncation now. These are verified partial startup fixes, not a verified
-end-to-end menu or map-start fix. The immediate failing path is the player-info
-pointer read in `sub_4D88C0()`.
+truncation now, and `sub_4D88C0()` resolves player-info via its pointer helper.
+These are verified partial startup fixes, not a verified end-to-end menu or
+map-start fix. The immediate failing path is the indexed table lookup in
+`sub_4E3BA0()`.
 
 The earlier i386 `multiplayerHostMenusBeforeGo` reference run completed
 through server-name entry and Escape. That binary predates the latest native
