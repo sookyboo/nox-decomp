@@ -232,12 +232,18 @@ passes player-list traversal and meter reset in `sub_4D22B0()` /
 through the auxiliary record's DWORD slot. The settings lookup in
 `sub_4EF580()` now passes after correcting its 12-byte and 24-byte fixed-record
 key reads. The nine-byte stack packet from `sub_4EFC30()` now reaches
-`sub_4E5030()` without pointer truncation. The current failure is later in
-`sub_4EF7D0()`: `sub_413290()` returns not-found sentinel 255 for the property
-name at `byte_587000 + 206400`, `sub_413330(255)` returns null, and the caller
-faults reading offset `+4`. This is the next unresolved failure. The Chat Area
-popup and server-name/Escape steps are not reached, and the macro has not
-completed.
+`sub_4E5030()` without pointer truncation. The next failure was an x64-width
+overwrite in `init_data()`: a native pointer store at `byte_587000 + 206396`
+changed the adjacent `UserColor1` text at `+206400` to `UU`, so
+`sub_413290()` returned sentinel 255. The six recovered DWORD pointer slots
+are now written at their original width, and `sub_4EF7D0()` reads the selected
+name through a fixed-width image-pointer decode. The regression test passes,
+and GDB confirms the intact key resolves to property ID 179. The trace then
+advances to a distinct segmentation fault in `sub_413270()` while resolving
+`StreetPants` through `sub_4E3810()`; that lookup reads the property-list head
+from `byte_5D4594 + 251608` and follows the recovered `+80` link. The exact
+native head/link decode remains under investigation. The Chat Area popup and
+server-name/Escape steps are not reached, and the macro has not completed.
 
 The trace has verified progression through the preceding boundaries:
 `sub_422140()` receives the full player-info pointer; reliable-update queue
@@ -252,14 +258,17 @@ truncation now, and `sub_4D88C0()` resolves player-info via its pointer helper.
 The `sub_415840()` and `sub_415CD0()` setting lookups also compare their
 recovered DWORD fields rather than using host pointer arithmetic. These are
 verified partial startup fixes, not a verified end-to-end menu or map-start
-fix. The immediate failing path is a missing property-name lookup in
-`sub_4EF7D0()` followed by a null-node dereference.
+fix. `init_data()` now preserves the `UserColor1` text adjacent to the six
+fixed DWORD pointer slots, and the `sub_4EF7D0()` lookup resolves it as property
+ID 179. The immediate failing path is the property-list traversal in
+`sub_413270()` during the `StreetPants` reset.
 
-The earlier i386 `multiplayerHostMenusBeforeGo` reference run completed
-through server-name entry and Escape. That binary predates the latest native
-pointer fixes; rebuild and rerun i386 before claiming same-revision parity.
-Neither run invokes `defaultServerGame` or loads a map. The disposable game
-directory's `nox.cfg` requests `VideoMode = 1024 768 16`,
+The rebuilt i386 executable completed `multiplayerHostMenusBeforeGo` through
+server-name entry and Escape. Its `sub_413270(1133)` breakpoint returned a
+valid property node, while the x64 probe faults at the same lookup. This is a
+same-source architecture comparison and points to the fixed-width list access
+as the next x64 issue. Neither run invokes `defaultServerGame` or loads a map.
+The disposable game directory's `nox.cfg` requests `VideoMode = 1024 768 16`,
 `Fullscreen = 0`, and `VideoSize = 75` (windowed 1024x768x16 game mode,
 rendered at 75% size); Xvfb is `1024x768x24`, only the host display. The
 64-bit probe uses the native Linux executable under GDB, not the Windows

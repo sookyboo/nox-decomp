@@ -101,6 +101,12 @@ static uintptr_t nox_game3_thing_meter_state(uintptr_t thing)
       *(unsigned int *)(thing + 556));
 }
 
+static const char *nox_game3_player_reset_property_name(unsigned int index)
+{
+  return (const char *)nox_game3_fixed_data_pointer_from_32(
+      nox_native_pointer_slot32_read(&byte_587000[206376 + 4 * index]));
+}
+
 static _DWORD *nox_menu_root_get(void)
 {
 #if UINTPTR_MAX > UINT32_MAX
@@ -61608,8 +61614,8 @@ char __cdecl sub_4EF7D0(int a1, int a2, int a3)
         }
         LOBYTE(v7) = (unsigned int)sub_4EF750(
                                      v3,
-                                     *(CHAR **)&byte_587000[4 * *(unsigned __int8 *)(player_info + 2251)
-                                                          + 206376],
+                                     (CHAR *)nox_game3_player_reset_property_name(
+                                         *(unsigned __int8 *)(player_info + 2251)),
                                      (int *)v18,
                                      1,
                                      0);
@@ -61627,8 +61633,8 @@ char __cdecl sub_4EF7D0(int a1, int a2, int a3)
         }
         LOBYTE(v7) = (unsigned int)sub_4EF750(
                                      v3,
-                                     *(CHAR **)&byte_587000[4 * *(unsigned __int8 *)(player_info + 2251)
-                                                          + 206388],
+                                     (CHAR *)nox_game3_player_reset_property_name(
+                                         3 + *(unsigned __int8 *)(player_info + 2251)),
                                      (int *)v18,
                                      1,
                                      0);

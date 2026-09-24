@@ -418,19 +418,34 @@ dereferenced its intentionally empty entry. Both lookups now compare the
 recovered DWORD fields, and a focused regression test covers both record
 shapes. The native UI trace passed the settings aggregation after this fix.
 
-That trace currently stops in `sub_4EFC30()`'s call to `sub_4E5390()`. The
-nine-byte packet is assembled in a stack buffer, but the call passes it through
-`(int)v3`; GDB showed `sub_4E5030()` receiving the sign-extended low word as
-its source address. Passing the buffer as `uintptr_t` lets the trace pass this
-queue-copy path.
+The nine-byte status packet in `sub_4EFC30()` is assembled in a stack buffer
+and sent through `sub_4E5390()`. Its original `(int)v3` argument truncated the
+source address on x86_64; passing it as `uintptr_t` lets the native trace pass
+the queue-copy path.
 
-The current trace stops later in `sub_4EF7D0()` while rebuilding the player's
-default status/property entries. It looks up the name at
-`byte_587000 + 206400` with `sub_413290()`, receives the not-found sentinel
-`255`, and passes that to `sub_413330()`, which returns null for index 255.
-The next access at `v11 + 4` faults. GDB confirmed `v10 == 255` and `v11 == 0`
-at this boundary. The property-list lookup and initialization path is the next
-unresolved failure; the Chat Area and server-name UI stages remain unreached.
+`sub_4EF7D0(thing, reset, send_update)` is reached from the connect-result
+player setup path through `sub_4D22B0()`. The observed reset branch clears
+player runtime state, restores default status/property entries through
+`sub_4EF750()`, and marks player-info offset `+4700` complete; `send_update`
+selects the packet-send branch instead of local default-property construction.
+The six name pointers used by that property setup occupy DWORD slots at
+`byte_587000 + 206376..206399`, immediately before the `UserColor1` string at
+`+206400`. Native `void *` stores at four-byte intervals had overwritten the
+first DWORD of that string (`init_data()` changed it from `User` to `UU`). The
+slots are now written as DWORDs and decoded as image pointers when read.
+`native_fixed_pointer_test` covers the adjacent-string overwrite, and the UI
+trace now confirms `sub_413290("UserColor1")` returns property ID 179.
+
+The trace advances to a separate fault while `sub_4EF750()` resolves
+`StreetPants` through `sub_4E3810()` / `sub_413270()`. The crash is in
+`sub_413270()` while reading the property-list head from
+`byte_5D4594 + 251608` and following the recovered `+80` link. The native
+property-list sidecar exists, but this lookup still starts from the legacy
+slot. On the rebuilt i386 trace, `sub_413270(1133)` reads the DWORD head and
+returns a valid property node; native x64 faults on this same lookup. This
+points to a host-width read of the recovered head/link fields, which is the
+next investigation. The i386 macro continued through server-name entry and
+Escape, while the native Chat Area and server-name UI stages remain unreached.
 
 ## Compatibility rule
 

@@ -2,6 +2,7 @@
 #include "../src/legacy_table.h"
 
 #include <stdio.h>
+#include <string.h>
 #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
 #include <sys/mman.h>
 #include <unistd.h>
@@ -130,11 +131,15 @@ static int file_reader_cursor_uses_dword_field_test(void)
 
 static int legacy_pointer_slot_write_preserves_neighbor_test(void)
 {
-    uint32_t slots[2] = {0, 0};
-    const uintptr_t pointer = (uintptr_t)UINT64_C(0x12345678abcdef01);
+    struct {
+        uint32_t names[6];
+        char user_color[12];
+    } image = {{0}, "UserColor1"};
 
-    nox_native_pointer_slot32_write(&slots[0], pointer);
-    return slots[0] == (uint32_t)pointer && slots[1] == 0;
+    nox_native_pointer_slot32_write(&image.names[5],
+                                    (uintptr_t)image.user_color);
+    return image.names[5] == (uint32_t)(uintptr_t)image.user_color
+        && strcmp(image.user_color, "UserColor1") == 0;
 }
 
 static int polygon_name_pointer_preserves_next_vertex_count_test(void)
@@ -307,7 +312,7 @@ int main(void)
         return 1;
     }
     if (!legacy_pointer_slot_write_preserves_neighbor_test()) {
-        fprintf(stderr, "legacy pointer slot write overwrote its adjacent DWORD\n");
+        fprintf(stderr, "legacy pointer slot write overwrote adjacent UserColor1 text\n");
         return 1;
     }
     if (!polygon_name_pointer_preserves_next_vertex_count_test()) {

@@ -126,15 +126,21 @@ reset (`sub_4D22B0()` / `sub_4EF7D0()`), and the meter update through
 `sub_4D85C0()` / `sub_4E5030()`. It also passed `sub_4D88C0()` after resolving
 player-info through its DWORD slot. The 12-byte and 24-byte setting lookups
 used by `sub_4EF580()` now read their recovered DWORD keys and the trace passes
-that aggregation. It currently stops later in `sub_4EFC30()` because its
-nine-byte stack packet used to be passed through an `(int)` cast; that pointer
-is now preserved through `sub_4E5390()` / `sub_4E5030()`. The current stop is
-in `sub_4EF7D0()`: its property-name lookup through `sub_413290()` returns
-sentinel 255, then `sub_413330(255)` returns null before a `+4` read. The Chat
-Area popup and server-name steps are not reached yet. An earlier i386
-reference run completed the macro through server-name entry and Escape, but
-used a binary from before the latest native changes; rebuild and rerun i386 for
-same-revision comparison. Both probes use
+that aggregation. It also passes the nine-byte stack packet from
+`sub_4EFC30()` through `sub_4E5390()` / `sub_4E5030()` without truncation.
+The next failure was an x64-width overwrite in `init_data()`: a pointer slot at
+`byte_587000 + 206396` damaged the adjacent `UserColor1` string at `+206400`.
+The six table entries now use DWORD stores, and `sub_4EF7D0()` decodes each
+selected DWORD pointer. GDB confirms `sub_413290("UserColor1")` returns ID
+179. The current stop is a separate segmentation fault in `sub_413270()` as
+`sub_4EF750()` resolves `StreetPants` through `sub_4E3810()`; the lookup still
+reads its property-list head from the recovered slot at
+`byte_5D4594 + 251608`. The Chat Area popup and server-name steps remain
+unreached on x64. The rebuilt i386 executable completed the same UI-only macro
+through server-name entry and Escape. At the `sub_413270(1133)` breakpoint,
+i386 returned a valid property node where x64 faults, isolating the next issue
+to this fixed-width list access. Neither run invokes `defaultServerGame` or
+loads a map. Both probes use
 `VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb's
 `1024x768x24` is the host display, not the game's configured mode. Do not use
 maps that require reloaded EUD support for native 64-bit testing.
