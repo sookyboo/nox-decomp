@@ -22576,11 +22576,15 @@ int __cdecl sub_4174F0(int a1, int a2)
 }
 
 //----- (00417530) --------------------------------------------------------
-char __cdecl sub_417530(int a1, int a2)
+char __cdecl sub_417530(uintptr_t a1, int a2)
 {
   int v2; // eax
   __int16 v3; // ax
 
+#if UINTPTR_MAX > UINT32_MAX
+  if ( a1 <= UINT32_MAX )
+    a1 = (uintptr_t)NOX_STATIC_POINTER_FROM_32((unsigned int)a1);
+#endif
   *(_DWORD *)(a1 + 3680) &= ~a2;
   v2 = sub_40A5C0(1);
   if ( v2 )

@@ -226,19 +226,25 @@ Multiplayer setup probe (2026-09-24): the native `build-amd64/src/out` binary
 builds and the guarded `multiplayerHostMenusBeforeGo` run now gets past the
 earlier profile-file and host-player initialization faults. The trace reaches
 the `New` control, selects Warrior, accepts class and character setup, then
-crashes during `CONNECT_RESULT` in `sub_4D22B0()` at its dereference of
-`i + 2056`. `i` is assigned from the `sub_416EA0()` result through an `int`,
-so the current failure is another truncated native pointer; it remains
-unfixed. The Chat Area popup and server-name/Escape steps were therefore not
-reached in this amd64 run, and the macro did not complete.
+passes player-list traversal and meter reset in `sub_4D22B0()` /
+`sub_4EF7D0()`. It currently crashes later during `CONNECT_RESULT` in
+`sub_4E5030()`: `sub_4D85C0()` constructs a seven-byte meter update on the
+stack, but passes its buffer through `(int)` to the pointer-width
+`sub_4E5390()` parameter. The resulting sign-extended low-word address is
+invalid on x86_64. This is the next unresolved failure. The Chat Area popup and
+server-name/Escape steps are not reached, and the macro has not completed.
 
 The trace has verified progression through the preceding boundaries:
 `sub_422140()` receives the full player-info pointer; reliable-update queue
 removal in `sub_420A90()` uses its recovered DWORD node layout and
 `sub_4209C0()` decodes the pool-manager slot; `sub_48EA70()` keeps the packet
 cursor host-width through `sub_4C9BF0()`; and `sub_519830()` receives its
-48-byte player-update record without pointer truncation. This is a verified
-partial startup fix, not a verified end-to-end menu or map-start fix.
+48-byte player-update record without pointer truncation. The `sub_4D22B0()`
+list cursor and thing/auxiliary pointers are host-width, and the thing's `+556`
+meter slot is decoded before its words are accessed in the player reset path.
+These are verified partial startup fixes, not a verified end-to-end menu or
+map-start fix. The immediate failing path is the stack-buffer pointer passed
+from `sub_4D85C0()` through `sub_4E5390()`.
 
 The earlier i386 `multiplayerHostMenusBeforeGo` reference run completed
 through server-name entry and Escape. That binary predates the latest native

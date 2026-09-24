@@ -121,11 +121,15 @@ after `load`; merely completing the macro does not prove the map started.
 The separate UI-only probe `multiplayerHostMenusBeforeGo` is the safe choice
 while validating native startup pointer changes: it stops before
 `defaultServerGame`, so it does not load a gameplay map. On 2026-09-24 the
-amd64 run passed the profile and host-player setup boundaries but crashed in
-`sub_4D22B0()` during `CONNECT_RESULT`, before the Chat Area popup and
-server-name steps. An earlier i386 reference run completed the macro through
-server-name entry and Escape, but used a binary from before the latest native
-changes; rebuild and rerun i386 for same-revision comparison. Both probes use
+amd64 run passed the profile and host-player setup boundaries, then passed
+player-list traversal and meter reset in `sub_4D22B0()` / `sub_4EF7D0()`. It
+currently crashes later in `sub_4E5030()` during `CONNECT_RESULT`: the
+seven-byte player meter update built by `sub_4D85C0()` passes a stack buffer
+through an `(int)` cast to `sub_4E5390()`, truncating its address on x86_64.
+The Chat Area popup and server-name steps are not reached yet. An earlier i386
+reference run completed the macro through server-name entry and Escape, but
+used a binary from before the latest native changes; rebuild and rerun i386 for
+same-revision comparison. Both probes use
 `VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb's
 `1024x768x24` is the host display, not the game's configured mode. Do not use
 maps that require reloaded EUD support for native 64-bit testing.

@@ -371,10 +371,25 @@ parser.
 During `CONNECT_RESULT`, `sub_4D17F0()` invokes `sub_519870()`, which resets
 the fixed 48-byte player-update records through `sub_519830(record, slot)`.
 The record fields remain at their original offsets; only the record address
-passed between routines is pointer-sized. The 2026-09-24 native trace passed
-these boundaries and then stopped in `sub_4D22B0()`: that routine still stores
-the `sub_416EA0()` result in an `int` before reading the object's `+2056`
-field. This is the next unresolved startup failure, not a confirmed fix.
+passed between routines is pointer-sized. `sub_4D22B0()` then walks the
+player-update records returned by `sub_416EA0()`, resolves the thing at record
+offset `+2056` and its auxiliary record at thing offset `+748`, clears a
+transient auxiliary pointer at `+280`, and resets each player's per-tick state
+through `sub_4EF7D0()`. Its list cursor and decoded thing/auxiliary pointers
+must be host-width; the fields in the records remain DWORDs. When that reset
+handles a thing's 20-byte meter record at `+556`, `sub_4EF7D0()`,
+`sub_4EE6F0()`, and `sub_4E4560()` must decode the DWORD slot before reading or
+writing the meter words. The trace passed both pointer boundaries after these
+fixes.
+
+The reset next reports meter state through `sub_4D85C0()`, which builds a
+seven-byte update in a stack buffer and submits it with `sub_4E5390()`.
+`sub_4E5030()` copies this payload into the reliable-update queue. On native
+x86_64, the decompiled `(int)v4` call-site cast truncated the stack address
+before it reached the pointer-width `sub_4E5390()` argument; the latest trace
+stopped in `sub_4E5030()` with the sign-extended low word as its source. This is
+the next unresolved startup failure. The i386 call-site representation is
+valid and remains unchanged.
 
 ## Compatibility rule
 

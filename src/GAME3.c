@@ -95,6 +95,12 @@ uintptr_t nox_game3_thing_player_info(uintptr_t thing)
       *(unsigned int *)(auxiliary + 276));
 }
 
+static uintptr_t nox_game3_thing_meter_state(uintptr_t thing)
+{
+  return nox_game3_pointer_from_32(
+      *(unsigned int *)(thing + 556));
+}
+
 static _DWORD *nox_menu_root_get(void)
 {
 #if UINTPTR_MAX > UINT32_MAX
@@ -37104,22 +37110,23 @@ void sub_4D2230()
 char *sub_4D22B0()
 {
   char *result; // eax
-  int i; // esi
-  int v2; // eax
-  int v3; // edi
+  uintptr_t i; // esi
+  uintptr_t v2; // eax
+  uintptr_t v3; // edi
   int v4; // ecx
   int v5; // eax
   int v6; // [esp-8h] [ebp-10h]
 
   result = sub_416EA0();
-  for ( i = (int)result; result; i = (int)result )
+  for ( i = (uintptr_t)result; result; i = (uintptr_t)result )
   {
-    v2 = *(_DWORD *)(i + 2056);
+    v2 = nox_game3_pointer_from_32(*(unsigned int *)(i + 2056));
     if ( v2 )
     {
-      v3 = *(_DWORD *)(v2 + 748);
-      if ( *(_DWORD *)(v3 + 280) )
-        sub_510DC0(*(_DWORD **)(v3 + 280));
+      v3 = nox_game3_pointer_from_32(*(unsigned int *)(v2 + 748));
+      if ( nox_game3_pointer_from_32(*(unsigned int *)(v3 + 280)) )
+        sub_510DC0((_DWORD *)nox_game3_pointer_from_32(
+            *(unsigned int *)(v3 + 280)));
       *(_DWORD *)(v3 + 280) = 0;
       sub_51AC30(*(unsigned __int8 *)(i + 2064));
       if ( sub_40A5C0(4096) )
@@ -37128,19 +37135,19 @@ char *sub_4D22B0()
         *(_DWORD *)(i + 4676) = 0;
         *(_DWORD *)(i + 4680) = v4;
       }
-      if ( !sub_4FA020(*(_DWORD **)(i + 2056), 13) || !sub_40A5C0(512) )
+      if ( !sub_4FA020((_DWORD *)v2, 13) || !sub_40A5C0(512) )
       {
         *(_DWORD *)(i + 4700) = 0;
         v6 = ((unsigned int)sub_4CFE00() >> 1) & 1;
         v5 = sub_4DB240();
-        sub_4EF7D0(*(_DWORD *)(i + 2056), v5 == 0, v6);
+        sub_4EF7D0((int)v2, v5 == 0, v6);
       }
       if ( *(_BYTE *)(i + 3680) & 0x20 )
       {
         sub_4E6AA0(i);
-        sub_4E6040(*(_DWORD *)(i + 2056));
+        sub_4E6040((int)v2);
       }
-      *(_DWORD *)(*(_DWORD *)(i + 2056) + 136) = *(_DWORD *)&byte_5D4594[2598000];
+      *(_DWORD *)(v2 + 136) = *(_DWORD *)&byte_5D4594[2598000];
     }
     result = sub_416EE0(i);
   }
@@ -51852,6 +51859,7 @@ int __cdecl sub_4E4560(int a1, unsigned __int16 a2)
 {
   int result; // eax
   uintptr_t v3; // eax
+  uintptr_t meter_state;
   uintptr_t player_info;
   int v4; // eax
   int *v5; // eax
@@ -51862,6 +51870,7 @@ int __cdecl sub_4E4560(int a1, unsigned __int16 a2)
   result = *(_DWORD *)(a1 + 556);
   if ( result )
   {
+    meter_state = nox_game3_thing_meter_state((uintptr_t)a1);
     sub_4E44F0(a1);
     v3 = nox_game3_pointer_from_32(*(unsigned int *)(a1 + 492));
     if ( v3 && *(_BYTE *)(v3 + 8) & 4 )
@@ -51869,7 +51878,7 @@ int __cdecl sub_4E4560(int a1, unsigned __int16 a2)
       player_info = nox_game3_thing_player_info(v3);
       sub_56FC50(*(_DWORD *)(player_info + 4632), (int *)a1);
     }
-    **(_WORD **)(a1 + 556) = a2;
+    *(_WORD *)meter_state = a2;
     if ( *(_BYTE *)(a1 + 8) & 4 )
     {
       player_info = nox_game3_thing_player_info((uintptr_t)a1);
@@ -54000,19 +54009,24 @@ int __cdecl sub_4E6860(int a1, int a2, int a3)
 // 4E69DB: variable 'v11' is possibly undefined
 
 //----- (004E6AA0) --------------------------------------------------------
-void __cdecl sub_4E6AA0(int a1)
+void __cdecl sub_4E6AA0(uintptr_t a1)
 {
-  int v1; // esi
+  uintptr_t v1; // esi
   int v2; // edx
   int v3; // eax
   _DWORD *i; // esi
 
   if ( a1 )
   {
-    v1 = *(_DWORD *)(a1 + 2056);
+#if UINTPTR_MAX > UINT32_MAX
+    if ( a1 <= UINT32_MAX )
+      a1 = nox_game3_fixed_data_pointer_from_32((unsigned int)a1);
+#endif
+    v1 = nox_game3_pointer_from_32(*(unsigned int *)(a1 + 2056));
     if ( v1 )
     {
-      if ( *(int (__cdecl **)(_DWORD *))(v1 + 744) != sub_4FAB20 )
+      if ( nox_game3_code_pointer_from_32(
+               *(unsigned int *)(v1 + 744)) != (uintptr_t)&sub_4FAB20 )
       {
         sub_417530(a1, 289);
         sub_4FF5B0(v1, 0);
@@ -60571,15 +60585,15 @@ void __cdecl sub_4EE5E0(int a1, int a2)
 //----- (004EE6F0) --------------------------------------------------------
 void __cdecl sub_4EE6F0(int a1)
 {
-  int v1; // eax
+  uintptr_t v1; // eax
 
   if ( a1 )
   {
-    v1 = *(_DWORD *)(a1 + 556);
+    v1 = nox_game3_thing_meter_state((uintptr_t)a1);
     if ( v1 )
     {
       sub_4E4560(a1, *(_WORD *)(v1 + 4));
-      *(_WORD *)(*(_DWORD *)(a1 + 556) + 2) = **(_WORD **)(a1 + 556);
+      *(_WORD *)(v1 + 2) = *(_WORD *)v1;
       if ( *(_BYTE *)(a1 + 8) & 2 )
         sub_4EE4C0((_DWORD *)a1);
     }
@@ -61470,6 +61484,7 @@ char __cdecl sub_4EF7D0(int a1, int a2, int a3)
   int v15; // eax
   uintptr_t v16;
   uintptr_t player_info;
+  uintptr_t meter_state;
   unsigned __int8 v18[20]; // [esp+10h] [ebp-14h]
   unsigned __int8 *v19; // [esp+28h] [ebp+4h]
   _DWORD *v20; // [esp+2Ch] [ebp+8h]
@@ -61477,6 +61492,7 @@ char __cdecl sub_4EF7D0(int a1, int a2, int a3)
   v3 = a1;
   v4 = *(_DWORD *)(a1 + 748);
   player_info = nox_game3_thing_player_info((uintptr_t)a1);
+  meter_state = nox_game3_thing_meter_state((uintptr_t)a1);
   v19 = (unsigned __int8 *)(player_info + 2185);
   if ( a2 )
   {
@@ -61498,7 +61514,7 @@ char __cdecl sub_4EF7D0(int a1, int a2, int a3)
   {
     v5 += 2;
     --v6;
-    *(_WORD *)(v5 - 2) = **(_WORD **)(v3 + 556);
+    *(_WORD *)(v5 - 2) = *(_WORD *)meter_state;
   }
   while ( v6 );
   *(_DWORD *)(v3 + 16) &= 0xFFEB3FE7;

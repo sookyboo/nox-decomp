@@ -673,7 +673,7 @@ char *__cdecl sub_417430(int a1);
 char *__cdecl sub_417470(int a1, int a2);
 char *__cdecl sub_4174B0(int a1, int a2);
 int __cdecl sub_4174F0(int a1, int a2);
-char __cdecl sub_417530(int a1, int a2);
+char __cdecl sub_417530(uintptr_t a1, int a2);
 char *__cdecl sub_4175C0(int a1);
 int __cdecl sub_417630(int a1);
 void __cdecl sub_417680(int a1, char a2);
@@ -5061,7 +5061,7 @@ int __cdecl sub_4E6280(int a1);
 unsigned __int8 *__cdecl sub_4E62F0(int a1);
 void __cdecl sub_4E6800(float *, int); // idb
 int __cdecl sub_4E6860(int a1, int a2, int a3);
-void __cdecl sub_4E6AA0(int a1);
+void __cdecl sub_4E6AA0(uintptr_t a1);
 BOOL __cdecl sub_4E6BD0(int a1);
 long double __cdecl sub_4E6C00(int a1, int a2);
 int __cdecl sub_4E6CE0(float2 *a1, float2 *a2); // idb
