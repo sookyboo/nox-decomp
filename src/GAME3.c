@@ -23,6 +23,16 @@ static _DWORD *nox_legal_window;
 #endif
 #if UINTPTR_MAX > UINT32_MAX
 extern int (*nox_47d5_callback)(int);
+static _DWORD *nox_game3_video_mode_state(void)
+{
+  return nox_native_video_mode_state;
+}
+
+static _DWORD *nox_game3_video_config_state(unsigned int index)
+{
+  return nox_native_video_config_state_get(index);
+}
+
 static char *nox_native_profile_state;
 static _DWORD *nox_menu_button_left;
 static _DWORD *nox_menu_button_right;
@@ -67,7 +77,27 @@ static uintptr_t nox_game3_fixed_data_pointer_from_32(unsigned int value)
     return candidate;
   return nox_game3_pointer_from_32(value);
 }
+
+static _DWORD *nox_game3_pointer_slot32_get(const void *slot)
+{
+  return (_DWORD *)nox_game3_pointer_from_32(
+      nox_native_pointer_slot32_read(slot));
+}
 #else
+static _DWORD *nox_game3_video_mode_state(void)
+{
+  return *(_DWORD **)&byte_587000[127004];
+}
+
+static _DWORD *nox_game3_video_config_state(unsigned int index)
+{
+  if ( index == 0 )
+    return *(_DWORD **)&byte_587000[93164];
+  if ( index == 1 )
+    return *(_DWORD **)&byte_587000[122852];
+  return 0;
+}
+
 uintptr_t nox_game3_pointer_from_32(unsigned int value)
 {
   return value;
@@ -81,6 +111,11 @@ static uintptr_t nox_game3_code_pointer_from_32(unsigned int value)
 static uintptr_t nox_game3_fixed_data_pointer_from_32(unsigned int value)
 {
   return value;
+}
+
+static _DWORD *nox_game3_pointer_slot32_get(const void *slot)
+{
+  return (_DWORD *)(uintptr_t)nox_native_pointer_slot32_read(slot);
 }
 #endif
 
@@ -7160,7 +7195,7 @@ int sub_4AA6B0()
         v2 = sub_42F970((const char *)&byte_587000[173080]);
         sub_4B5700((int)v1, 0, 0, (int)v2, (int)v16, (int)v19);
         sub_46B490((int)v1, 16395, 0, 0x4000);
-        sub_46B490((int)v1, 16394, *(_DWORD *)(*(_DWORD *)&byte_587000[127004] + 4) >> 16, 0);
+        sub_46B490((int)v1, 16394, nox_game3_video_mode_state()[1] >> 16, 0);
         *(_DWORD *)&byte_5D4594[1309728] = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 361);
         v3 = sub_453070();
         v4 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309728] + 36);
@@ -7177,7 +7212,7 @@ int sub_4AA6B0()
         v7 = sub_42F970((const char *)&byte_587000[173148]);
         sub_4B5700((int)v6, 0, 0, (int)v7, (int)v17, (int)v20);
         sub_46B490((int)v6, 16395, 0, 0x4000);
-        sub_46B490((int)v6, 16394, *(_DWORD *)(*(_DWORD *)&byte_587000[122852] + 4) >> 16, 0);
+        sub_46B490((int)v6, 16394, nox_game3_video_config_state(1)[1] >> 16, 0);
         *(_DWORD *)&byte_5D4594[1309732] = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 362);
         v8 = sub_44D990();
         v9 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309732] + 36);
@@ -7194,7 +7229,7 @@ int sub_4AA6B0()
         v12 = sub_42F970((const char *)&byte_587000[173216]);
         sub_4B5700((int)v11, 0, 0, (int)v12, (int)v18, (int)v21);
         sub_46B490((int)v11, 16395, 0, 0x4000);
-        sub_46B490((int)v11, 16394, *(_DWORD *)(*(_DWORD *)&byte_587000[93164] + 4) >> 16, 0);
+        sub_46B490((int)v11, 16394, nox_game3_video_config_state(0)[1] >> 16, 0);
         *(_DWORD *)&byte_5D4594[1309736] = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309720], 363);
         v13 = sub_43DC30();
         v14 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309736] + 36);
@@ -7391,7 +7426,7 @@ int __cdecl sub_4AABE0(int a1, int a2, int *a3, int a4)
           else
           {
             sub_43DC10();
-            sub_486320(*(_DWORD **)&byte_587000[93164], *(_DWORD *)(*(_DWORD *)&byte_587000[93164] + 4) >> 16);
+            sub_486320(nox_game3_video_config_state(0), nox_game3_video_config_state(0)[1] >> 16);
           }
         }
         else
@@ -7483,7 +7518,7 @@ int __cdecl sub_4AABE0(int a1, int a2, int *a3, int a4)
       switch ( v7 )
       {
         case 351:
-          sub_486320(*(_DWORD **)&byte_587000[127004], a4);
+          sub_486320(nox_game3_video_mode_state(), a4);
           if ( v8 && *(int **)(v8 + 396) == a3 )
             goto LABEL_76;
           if ( a4 )
@@ -7505,7 +7540,7 @@ int __cdecl sub_4AABE0(int a1, int a2, int *a3, int a4)
           result = 0;
           break;
         case 352:
-          sub_486320(*(_DWORD **)&byte_587000[122852], a4);
+          sub_486320(nox_game3_video_config_state(1), a4);
           if ( a4 )
           {
             if ( sub_44D990() )
@@ -7525,7 +7560,7 @@ int __cdecl sub_4AABE0(int a1, int a2, int *a3, int a4)
           result = 0;
           break;
         case 353:
-          sub_486320(*(_DWORD **)&byte_587000[93164], a4);
+          sub_486320(nox_game3_video_config_state(0), a4);
           if ( a4 )
           {
             if ( sub_43DC30() )
@@ -7563,7 +7598,7 @@ int __cdecl sub_4AABE0(int a1, int a2, int *a3, int a4)
       {
         if ( v17 != 1 )
           goto LABEL_76;
-        sub_486320(*(_DWORD **)&byte_587000[122852], a4);
+        sub_486320(nox_game3_video_config_state(1), a4);
         if ( a4 )
         {
           if ( !sub_44D990() )
@@ -7591,7 +7626,7 @@ LABEL_49:
       }
       else
       {
-        sub_486320(*(_DWORD **)&byte_587000[127004], a4);
+        sub_486320(nox_game3_video_mode_state(), a4);
         if ( a4 )
         {
           if ( !sub_453070() )
@@ -7733,7 +7768,7 @@ int sub_4AB260()
                                        50,
                                        0);
   sub_46AE60(*(int *)&byte_5D4594[1309756], *(int *)&byte_5D4594[1309752]);
-  sub_46B430(*(_DWORD **)&byte_5D4594[1309756], 0, sub_4AB420, 0);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1309756]), 0, sub_4AB420, 0);
   *(_DWORD *)&byte_5D4594[1309748] = sub_4A0AD0((const char *)&byte_587000[173316], sub_4AB390);
   sub_46B300(*(int *)&byte_5D4594[1309748], sub_4AB340);
   sub_46B120(*(_DWORD **)&byte_5D4594[1309748], 0);
@@ -9535,7 +9570,7 @@ int sub_4ADAD0()
       v2 = sub_42F970((const char *)&byte_587000[174192]);
       sub_4B5700((int)v1, 0, 0, (int)v2, (int)v25, (int)v28);
       sub_46B490((int)v1, 16395, 0, 0x4000);
-      sub_46B490((int)v1, 16394, *(_DWORD *)(*(_DWORD *)&byte_587000[127004] + 4) >> 16, 0);
+      sub_46B490((int)v1, 16394, nox_game3_video_mode_state()[1] >> 16, 0);
       *(_DWORD *)&byte_5D4594[1309828] = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309820], 361);
       v3 = sub_453070();
       v4 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309828] + 36);
@@ -9552,7 +9587,7 @@ int sub_4ADAD0()
       v7 = sub_42F970((const char *)&byte_587000[174260]);
       sub_4B5700((int)v6, 0, 0, (int)v7, (int)v26, (int)v29);
       sub_46B490((int)v6, 16395, 0, 0x4000);
-      sub_46B490((int)v6, 16394, *(_DWORD *)(*(_DWORD *)&byte_587000[122852] + 4) >> 16, 0);
+      sub_46B490((int)v6, 16394, nox_game3_video_config_state(1)[1] >> 16, 0);
       *(_DWORD *)&byte_5D4594[1309836] = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309820], 362);
       v8 = sub_44D990();
       v9 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309836] + 36);
@@ -9569,7 +9604,7 @@ int sub_4ADAD0()
       v12 = sub_42F970((const char *)&byte_587000[174328]);
       sub_4B5700((int)v11, 0, 0, (int)v12, (int)v27, (int)v30);
       sub_46B490((int)v11, 16395, 0, 0x4000);
-      sub_46B490((int)v11, 16394, *(_DWORD *)(*(_DWORD *)&byte_587000[93164] + 4) >> 16, 0);
+      sub_46B490((int)v11, 16394, nox_game3_video_config_state(0)[1] >> 16, 0);
       *(_DWORD *)&byte_5D4594[1309832] = sub_46B0C0(*(_DWORD **)&byte_5D4594[1309820], 363);
       v13 = sub_43DC30();
       v14 = *(_DWORD *)(*(_DWORD *)&byte_5D4594[1309832] + 36);
@@ -9706,7 +9741,7 @@ int __cdecl sub_4ADF30(int a1, int a2, int *a3, int a4)
           else
           {
             sub_43DC10();
-            sub_486320(*(_DWORD **)&byte_587000[93164], *(_DWORD *)(*(_DWORD *)&byte_587000[93164] + 4) >> 16);
+            sub_486320(nox_game3_video_config_state(0), nox_game3_video_config_state(0)[1] >> 16);
           }
           break;
         case 371:
@@ -9724,7 +9759,7 @@ int __cdecl sub_4ADF30(int a1, int a2, int *a3, int a4)
       switch ( v5 )
       {
         case 351:
-          sub_486320(*(_DWORD **)&byte_587000[127004], a4);
+          sub_486320(nox_game3_video_mode_state(), a4);
           if ( v6 && *(int **)(v6 + 396) == a3 )
             goto LABEL_64;
           if ( a4 )
@@ -9746,7 +9781,7 @@ int __cdecl sub_4ADF30(int a1, int a2, int *a3, int a4)
           result = 0;
           break;
         case 352:
-          sub_486320(*(_DWORD **)&byte_587000[122852], a4);
+          sub_486320(nox_game3_video_config_state(1), a4);
           if ( a4 )
           {
             if ( sub_44D990() )
@@ -9766,7 +9801,7 @@ int __cdecl sub_4ADF30(int a1, int a2, int *a3, int a4)
           result = 0;
           break;
         case 353:
-          sub_486320(*(_DWORD **)&byte_587000[93164], a4);
+          sub_486320(nox_game3_video_config_state(0), a4);
           if ( a4 )
           {
             if ( sub_43DC30() )
@@ -9804,7 +9839,7 @@ int __cdecl sub_4ADF30(int a1, int a2, int *a3, int a4)
       {
         if ( v15 != 1 )
           goto LABEL_64;
-        sub_486320(*(_DWORD **)&byte_587000[122852], a4);
+        sub_486320(nox_game3_video_config_state(1), a4);
         if ( a4 )
         {
           if ( !sub_44D990() )
@@ -9832,7 +9867,7 @@ LABEL_37:
       }
       else
       {
-        sub_486320(*(_DWORD **)&byte_587000[127004], a4);
+        sub_486320(nox_game3_video_mode_state(), a4);
         if ( a4 )
         {
           if ( !sub_453070() )
@@ -14948,11 +14983,31 @@ void sub_4B5BF0()
 int __cdecl sub_4B5C40(int a1, int a2, char *a3)
 {
   char *v3; // eax
+#if UINTPTR_MAX <= UINT32_MAX
   const char *v4; // ecx
   int v5; // ebp
   unsigned __int8 *v6; // edi
+#endif
 
   v3 = strtok(a3, (const char *)&byte_587000[175852]);
+#if UINTPTR_MAX > UINT32_MAX
+  {
+    const uint32_t *entry = (const uint32_t *)&byte_587000[175072];
+
+    while ( entry[0] )
+    {
+      const char *name = (const char *)nox_game3_fixed_data_pointer_from_32(entry[0]);
+
+      if ( !strcmp(name, v3) )
+      {
+        *(_DWORD *)(a1 + 100) = entry[1];
+        return 1;
+      }
+      entry += 2;
+    }
+    return 0;
+  }
+#else
   v4 = *(const char **)&byte_587000[175072];
   v5 = 0;
   if ( *(_DWORD *)&byte_587000[175072] )
@@ -14972,6 +15027,7 @@ int __cdecl sub_4B5C40(int a1, int a2, char *a3)
     return 0;
   *(_DWORD *)(a1 + 100) = *(_DWORD *)&byte_587000[8 * v5 + 175076];
   return 1;
+#endif
 }
 
 //----- (004B5CD0) --------------------------------------------------------
@@ -24393,9 +24449,9 @@ int sub_4C1D80()
   *(_DWORD *)&byte_5D4594[1320988] = *(_DWORD *)&byte_5D4594[3805496] - 95;
   *(_DWORD *)&byte_5D4594[1320992] = -145;
   *(_DWORD *)&byte_5D4594[1321032] = sub_46C3E0(0, 8, *(_DWORD *)&byte_5D4594[3805496] - 95, -145, 87, 115, 0);
-  sub_46B430(*(_DWORD **)&byte_5D4594[1321032], sub_4C2BD0, sub_4C24A0, 0);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1321032]), sub_4C2BD0, sub_4C24A0, 0);
   *(_DWORD *)&byte_5D4594[1321036] = sub_46C3E0(*(int *)&byte_5D4594[1321032], 136, 5, 38, 76, 76, 0);
-  sub_46B430(*(_DWORD **)&byte_5D4594[1321036], sub_4C2B10, sub_4C1FE0, sub_4C2C20);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1321036]), sub_4C2B10, sub_4C1FE0, sub_4C2C20);
   v0 = sub_40F1D0((char *)&byte_587000[184592], 0, (const char *)&byte_587000[184556], 818);
   sub_46B000((wchar_t *)(*(_DWORD *)&byte_5D4594[1321036] + 36), v0);
   *(_DWORD *)&byte_5D4594[1320996] = sub_42F970((const char *)&byte_587000[184608]);
@@ -24416,7 +24472,7 @@ int sub_4C1D80()
   v5 = v4[11];
   BYTE1(v5) |= 1u;
   v4[11] = v5;
-  sub_46B430(*(_DWORD **)&byte_5D4594[1321040], sub_4C24B0, 0, sub_4C2CE0);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1321040]), sub_4C24B0, 0, sub_4C2CE0);
   sub_46AE60(*(int *)&byte_5D4594[1321040], *(int *)&byte_5D4594[1321028]);
   sub_46AEC0(*(int *)&byte_5D4594[1321040], *(int *)&byte_5D4594[1321024]);
   sub_46AEA0(*(int *)&byte_5D4594[1321040], *(int *)&byte_5D4594[1321024]);
@@ -24758,7 +24814,7 @@ LABEL_15:
   }
 LABEL_16:
   *(_DWORD *)&byte_5D4594[1321044] = sub_46C3E0(0, 40, v5, v7, *(int *)&byte_587000[184452], 5 * v3 + 12, 0);
-  sub_46B430(*(_DWORD **)&byte_5D4594[1321044], 0, sub_4C26F0, 0);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1321044]), 0, sub_4C26F0, 0);
   sub_46A8C0(*(int *)&byte_5D4594[1321044]);
   v8 = 0;
   for ( i = 0; i < 6; ++i )
@@ -25503,7 +25559,8 @@ int sub_4C3390()
                                        50,
                                        0);
   sub_46AE60(*(int *)&byte_5D4594[1321216], *(int *)&byte_5D4594[1321220]);
-  sub_46B430(*(_DWORD **)&byte_5D4594[1321216], 0, sub_4C3410, 0);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1321216]),
+      0, sub_4C3410, 0);
   sub_46AC00(*(int *)&byte_5D4594[1321216], 1);
   return 1;
 }
@@ -25664,7 +25721,7 @@ char *sub_4C3620()
 int sub_4C3760()
 {
   int result; // eax
-  _DWORD **v1; // eax
+  _DWORD *v1; // eax
   _DWORD *v2; // esi
   _DWORD *v3; // esi
   int v4; // esi
@@ -25675,6 +25732,7 @@ int sub_4C3760()
   _DWORD *v9; // eax
   _DWORD *v10; // esi
   wchar_t *v11; // eax
+  uintptr_t list_control;
 
   result = sub_4A0AD0((const char *)&byte_587000[185260], sub_4C3A90);
   *(_DWORD *)&byte_5D4594[1321228] = result;
@@ -25687,10 +25745,13 @@ int sub_4C3760()
     result = *(_DWORD *)&byte_5D4594[1321236];
     if ( *(_DWORD *)&byte_5D4594[1321236] )
     {
-      v1 = *(_DWORD ***)(*(_DWORD *)&byte_5D4594[1321236] + 32);
-      *v1[7] = 921;
-      *v1[8] = 922;
-      *v1[9] = 920;
+      list_control = (uintptr_t)nox_game3_pointer_slot32_get(
+          &byte_5D4594[1321236]);
+      v1 = (_DWORD *)nox_game3_pointer_slot32_get(
+          (const void *)(list_control + 32));
+      *nox_game3_pointer_slot32_get(&v1[7]) = 921;
+      *nox_game3_pointer_slot32_get(&v1[8]) = 922;
+      *nox_game3_pointer_slot32_get(&v1[9]) = 920;
       sub_46B2C0(*(int *)&byte_5D4594[1321236], sub_4C3CD0);
       sub_46B120(*(_DWORD **)&byte_5D4594[1321240], *(int *)&byte_5D4594[1321236]);
       sub_46B120(*(_DWORD **)&byte_5D4594[1321244], *(int *)&byte_5D4594[1321236]);
@@ -32325,7 +32386,7 @@ LABEL_23:
 int sub_4CB880()
 {
   int result; // eax
-  _DWORD **v1; // eax
+  _DWORD *v1; // eax
   _DWORD *v2; // esi
   _DWORD *v3; // esi
   int v4; // esi
@@ -32334,6 +32395,7 @@ int sub_4CB880()
   int v7; // eax
   _DWORD *v8; // eax
   _DWORD *v9; // eax
+  uintptr_t list_control;
 
   sub_43BDD0(900);
   result = sub_4A0AD0((const char *)&byte_587000[187520], sub_4CBE70);
@@ -32355,10 +32417,13 @@ int sub_4CB880()
       result = *(_DWORD *)&byte_5D4594[1522616];
       if ( *(_DWORD *)&byte_5D4594[1522616] )
       {
-        v1 = *(_DWORD ***)(*(_DWORD *)&byte_5D4594[1522616] + 32);
-        *v1[7] = 921;
-        *v1[8] = 922;
-        *v1[9] = 920;
+        list_control = (uintptr_t)nox_game3_pointer_slot32_get(
+            &byte_5D4594[1522616]);
+        v1 = (_DWORD *)nox_game3_pointer_slot32_get(
+            (const void *)(list_control + 32));
+        *nox_game3_pointer_slot32_get(&v1[7]) = 921;
+        *nox_game3_pointer_slot32_get(&v1[8]) = 922;
+        *nox_game3_pointer_slot32_get(&v1[9]) = 920;
         sub_46B2C0(*(int *)&byte_5D4594[1522616], sub_4CBF60);
         sub_46B120(*(_DWORD **)&byte_5D4594[1522620], *(int *)&byte_5D4594[1522616]);
         sub_46B120(*(_DWORD **)&byte_5D4594[1522624], *(int *)&byte_5D4594[1522616]);
@@ -32922,7 +32987,7 @@ int sub_4CC770()
   int v7; // [esp+10h] [ebp-4h]
 
   *(_DWORD *)&byte_5D4594[1522932] = sub_4A0AD0((const char *)&byte_587000[187868], sub_4CC890);
-  sub_46B430(*(_DWORD **)&byte_5D4594[1522932], sub_4CC830, 0, 0);
+  sub_46B430(nox_game3_pointer_slot32_get(&byte_5D4594[1522932]), sub_4CC830, 0, 0);
   sub_43BEB0(&v3, &v4, &v7);
   sub_430C50(&v5, &v6);
   v0 = v3;
@@ -34948,7 +35013,7 @@ char sub_4CF990()
   v1 = sub_409B40();
   if ( sub_4CFE10(v1) )
   {
-    v2 = sub_4CFFA0((int)&byte_5D4594[3801836]);
+        v2 = sub_4CFFA0((uintptr_t)&byte_5D4594[3801836]);
     if ( byte_5D4594[3803228] & 1 )
     {
       sub_40A540(6128);
@@ -34966,7 +35031,7 @@ char sub_4CF990()
     else if ( (int)*(_DWORD *)&byte_5D4594[3803228] >= 0 )
     {
       if ( !(*((_WORD *)v0 + 26) & v2) )
-        *((_WORD *)v0 + 26) = sub_4CFC90((int)&byte_5D4594[3801836]) | *((_WORD *)v0 + 26) & 0xE80F;
+        *((_WORD *)v0 + 26) = sub_4CFC90((uintptr_t)&byte_5D4594[3801836]) | *((_WORD *)v0 + 26) & 0xE80F;
       if ( !(v0[52] & 0x10) )
         sub_4CFC30();
       v5 = *((_WORD *)v0 + 26);
@@ -35071,7 +35136,7 @@ void sub_4CFC30()
 }
 
 //----- (004CFC90) --------------------------------------------------------
-int __cdecl sub_4CFC90(int a1)
+int __cdecl sub_4CFC90(uintptr_t a1)
 {
   int v1; // eax
 
@@ -35226,7 +35291,7 @@ int __cdecl sub_4CFF50(int a1)
 }
 
 //----- (004CFFA0) --------------------------------------------------------
-int __cdecl sub_4CFFA0(int a1)
+int __cdecl sub_4CFFA0(uintptr_t a1)
 {
   return sub_4CFF50(*(_DWORD *)(a1 + 1392));
 }
@@ -35834,7 +35899,7 @@ FILE *sub_4D0A30()
             v12 = strtok(v17, (const char *)&byte_587000[191996]);
             if ( sub_4CFE10(v12) )
             {
-              v13 = sub_4CFFA0((int)&byte_5D4594[3801836]);
+              v13 = sub_4CFFA0((uintptr_t)&byte_5D4594[3801836]);
               if ( v13 & v11 )
               {
                 v14 = *(_DWORD *)&byte_5D4594[4 * v0 + 1548428];
@@ -36700,7 +36765,8 @@ int sub_4D1860()
   int *v14; // eax
   int k; // esi
   char *v17; // eax
-  int v18; // eax
+  uintptr_t v18; // eax
+  uintptr_t player_info;
   int v19; // esi
   int v20; // edi
   int v21; // ebx
@@ -36846,10 +36912,12 @@ int sub_4D1860()
     sub_4E7010(k, &v61);
     if ( !sub_40A5C0(512) )
     {
-      v18 = *(_DWORD *)(k + 748);
-      *(_DWORD *)(*(_DWORD *)(v18 + 276) + 2136) = 0;
-      *(_DWORD *)(*(_DWORD *)(v18 + 276) + 2140) = 0;
-      *(_DWORD *)(*(_DWORD *)(v18 + 276) + 2144) = *(_DWORD *)&byte_5D4594[2598000];
+      v18 = nox_game3_pointer_from_32(*(uint32_t *)(k + 748));
+      player_info = nox_game3_fixed_data_pointer_from_32(
+          *(uint32_t *)(v18 + 276));
+      *(_DWORD *)(player_info + 2136) = 0;
+      *(_DWORD *)(player_info + 2140) = 0;
+      *(_DWORD *)(player_info + 2144) = *(_DWORD *)&byte_5D4594[2598000];
       sub_4D8EF0(k);
     }
   }
@@ -42473,44 +42541,44 @@ LABEL_22:
 }
 
 //----- (004D8E90) --------------------------------------------------------
-int __cdecl sub_4D8E90(int a1, int a2)
+uintptr_t __cdecl sub_4D8E90(uintptr_t a1, int a2)
 {
-  int result; // eax
+  uintptr_t result;
 
   result = a1;
   if ( *(_BYTE *)(a1 + 8) & 4 )
   {
-    result = *(_DWORD *)(*(_DWORD *)(a1 + 748) + 276);
+    result = nox_game3_thing_player_info(a1);
     *(_DWORD *)(result + 2136) += a2;
   }
   return result;
 }
 
 //----- (004D8EC0) --------------------------------------------------------
-int __cdecl sub_4D8EC0(int a1, int a2)
+uintptr_t __cdecl sub_4D8EC0(uintptr_t a1, int a2)
 {
-  int result; // eax
+  uintptr_t result;
 
   result = a1;
   if ( *(_BYTE *)(a1 + 8) & 4 )
   {
-    result = *(_DWORD *)(*(_DWORD *)(a1 + 748) + 276);
+    result = nox_game3_thing_player_info(a1);
     *(_DWORD *)(result + 2136) -= a2;
   }
   return result;
 }
 
 //----- (004D8EF0) --------------------------------------------------------
-int __cdecl sub_4D8EF0(int a1)
+int __cdecl sub_4D8EF0(uintptr_t a1)
 {
-  int v1; // eax
+  uintptr_t player_info;
   char v3[11]; // [esp+0h] [ebp-Ch]
 
   v3[0] = 78;
-  v1 = *(_DWORD *)(a1 + 748);
+  player_info = nox_game3_thing_player_info(a1);
   *(_WORD *)&v3[1] = *(_WORD *)(a1 + 36);
-  *(_DWORD *)&v3[3] = *(_DWORD *)(*(_DWORD *)(v1 + 276) + 2136);
-  *(_DWORD *)&v3[7] = *(_DWORD *)(*(_DWORD *)(v1 + 276) + 2140);
+  *(_DWORD *)&v3[3] = *(_DWORD *)(player_info + 2136);
+  *(_DWORD *)&v3[7] = *(_DWORD *)(player_info + 2140);
   return sub_4E5390(255, (uintptr_t)v3, 11, 0, 1);
 }
 
@@ -44202,8 +44270,8 @@ void sub_4DAF10()
   int v8; // edx
   _DWORD *v9; // eax
 
-  v0 = *(_DWORD **)&byte_5D4594[1556860];
-  v1 = *(_DWORD **)&byte_5D4594[1556860];
+  v0 = (_DWORD *)(uintptr_t)(unsigned int)sub_4DA870();
+  v1 = v0;
   if ( *(_DWORD *)&byte_5D4594[1556860] )
   {
     do
@@ -44230,7 +44298,7 @@ void sub_4DAF10()
           }
           *(_DWORD *)(v3 + 4) = v4;
           *(_DWORD *)(v6 + 4) = v1;
-          v0 = *(_DWORD **)&byte_5D4594[1556860];
+          v0 = (_DWORD *)(uintptr_t)(unsigned int)sub_4DA870();
         }
       }
 LABEL_9:
@@ -44239,10 +44307,10 @@ LABEL_9:
         v7 = v1[187];
         v8 = *(_DWORD *)(v7 + 16);
         *(_DWORD *)(v7 + 12) = 0;
-        v0 = *(_DWORD **)&byte_5D4594[1556860];
+        v0 = (_DWORD *)(uintptr_t)(unsigned int)sub_4DA870();
         if ( v8 )
         {
-          v9 = *(_DWORD **)&byte_5D4594[1556860];
+          v9 = (_DWORD *)(uintptr_t)(unsigned int)sub_4DA870();
           if ( *(_DWORD *)&byte_5D4594[1556860] )
           {
             while ( !(v9[2] & 0x400) || v8 != v9[10] )
@@ -44252,7 +44320,7 @@ LABEL_9:
                 goto LABEL_17;
             }
             *(_DWORD *)(v7 + 12) = v9;
-            v0 = *(_DWORD **)&byte_5D4594[1556860];
+            v0 = (_DWORD *)(uintptr_t)(unsigned int)sub_4DA870();
           }
         }
       }
@@ -45948,7 +46016,7 @@ char *__cdecl sub_4DD180(int a1)
   v2 = result;
   if ( result )
   {
-    sub_4174F0((int)result, 16);
+    sub_4174F0((uintptr_t)result, 16);
     if ( sub_40A5C0(0x2000) && !sub_40A5C0(128) )
     {
       v3 = *((_DWORD *)v2 + 514);
@@ -46564,7 +46632,7 @@ int __cdecl sub_4DDF60(int a1)
       sub_4D95A0(v1, *v10, v10[2], v10[1], *((_WORD *)v10 + 2));
     }
   }
-  sub_4175C0((int)v2);
+  sub_4175C0((uintptr_t)v2);
   if ( sub_409F40(0x2000) )
     sub_4DE270((int)v2);
   if ( sub_40A5C0(4096) )
@@ -47221,12 +47289,16 @@ char *sub_4DF020()
 }
 
 //----- (004DF0A0) --------------------------------------------------------
-int __cdecl sub_4DF0A0(int a1, int a2)
+int __cdecl sub_4DF0A0(uintptr_t a1, int a2)
 {
   int result; // eax
   int i; // esi
   char v4[3]; // [esp+4h] [ebp-4h]
 
+#if UINTPTR_MAX > UINT32_MAX
+  if ( a1 <= UINT32_MAX )
+    a1 = nox_game3_fixed_data_pointer_from_32((unsigned int)a1);
+#endif
   v4[0] = 58;
   *(_WORD *)&v4[1] = *(_WORD *)(a1 + 10);
   if ( a2 != 32 )
@@ -47279,16 +47351,17 @@ int __cdecl sub_4DF180(int a1)
 //----- (004DF1E0) --------------------------------------------------------
 int __cdecl sub_4DF1E0(int a1)
 {
-  int *i; // esi
-  int v2; // eax
+  uintptr_t i; // esi
+  uintptr_t v2; // eax
   int result; // eax
   int j; // esi
   char v5; // al
 
-  for ( i = (int *)sub_410870(); i; i = (int *)sub_410880(i) )
+  for ( i = (uintptr_t)sub_410870(); i; i = sub_410880(i) )
   {
-    v2 = i[1];
-    if ( *(_BYTE *)(v2 + 4) & 0x20 )
+    v2 = nox_native_pointer_from_32_value(
+        nox_native_pointer_slot32_read((void *)(i + 4)));
+    if ( v2 && (*(_BYTE *)(v2 + 4) & 0x20) )
       sub_4DF0A0(v2, a1);
   }
   sub_4DF2A0(a1);
@@ -59445,9 +59518,9 @@ void __cdecl sub_4ED0C0(int a1, int *a2)
   int v5; // eax
   int v6; // eax
   int v7; // eax
-  int v8; // esi
   int i; // ecx
   int v10; // edx
+  uintptr_t player_state;
 
   v2 = 1;
   if ( a1 && a2 )
@@ -59456,21 +59529,27 @@ void __cdecl sub_4ED0C0(int a1, int *a2)
     if ( v3 & 4 )
     {
       v4 = *(_DWORD *)(a1 + 748);
+#if UINTPTR_MAX > UINT32_MAX
+      player_state = nox_game3_pointer_from_32(
+          *(uint32_t *)(v4 + 276));
+#else
+      player_state = *(uint32_t *)(v4 + 276);
+#endif
       if ( !sub_40A5C0(4096) && (*(_DWORD *)(a1 + 16) & 0x8000) == 0x8000 && a2[2] & 0x13001000 )
         v2 = 0;
       if ( a2[2] & 0x10000000 )
       {
         if ( sub_40A5C0(32) )
         {
-          *(_DWORD *)(*(_DWORD *)(v4 + 276) + 4) &= 0xFFFFFFFE;
+          *(_DWORD *)(player_state + 4) &= 0xFFFFFFFE;
           if ( v2 == 1 )
             sub_4D84C0(255, (int)a2);
         }
       }
       sub_53E430((_DWORD *)a1, (int)a2, 0, v2);
       sub_53A140((_DWORD *)a1, (int)a2, 0, v2);
-      sub_4D8B50(*(unsigned __int8 *)(*(_DWORD *)(v4 + 276) + 2064), (int)a2);
-      sub_56FC50(*(_DWORD *)(*(_DWORD *)(v4 + 276) + 4632), a2);
+      sub_4D8B50(*(unsigned __int8 *)(player_state + 2064), (int)a2);
+      sub_56FC50(*(_DWORD *)(player_state + 4632), a2);
     }
     else if ( v3 & 2 )
     {
@@ -59492,13 +59571,12 @@ void __cdecl sub_4ED0C0(int a1, int *a2)
     if ( *(_BYTE *)(a1 + 8) & 4 )
     {
       v7 = *(_DWORD *)(a1 + 504);
-      v8 = *(_DWORD *)(a1 + 748);
       for ( i = 0; v7; i += v10 )
       {
         v10 = *(unsigned __int8 *)(v7 + 488);
         v7 = *(_DWORD *)(v7 + 496);
       }
-      *(_DWORD *)(*(_DWORD *)(v8 + 276) + 3656) = i > *(unsigned __int16 *)(a1 + 490);
+      *(_DWORD *)(player_state + 3656) = i > *(unsigned __int16 *)(a1 + 490);
     }
   }
 }
@@ -61428,22 +61506,24 @@ char sub_4EF580()
 //----- (004EF660) --------------------------------------------------------
 int __cdecl sub_4EF660(int a1)
 {
-  int v1; // esi
+  uintptr_t v1; // esi
+  uintptr_t v2;
   int i; // eax
 
-  v1 = *(_DWORD *)(a1 + 748);
+  v1 = nox_game3_pointer_from_32(*(uint32_t *)(a1 + 748));
+  v2 = nox_game3_fixed_data_pointer_from_32(*(uint32_t *)(v1 + 276));
   *(_DWORD *)(v1 + 116) = 0;
   *(_DWORD *)(v1 + 120) = 0;
   *(_DWORD *)(v1 + 124) = 0;
   *(_DWORD *)(v1 + 128) = 0;
   *(_DWORD *)(v1 + 308) = 0;
-  for ( i = 4796; i < 4816; *(_DWORD *)(*(_DWORD *)(v1 + 276) + i - 4) = 0 )
+  for ( i = 4796; i < 4816; *(_DWORD *)(v2 + i - 4) = 0 )
     i += 4;
   if ( !sub_40A5C0(2048) )
     *(_BYTE *)(v1 + 244) = sub_4EF6F0(a1);
   *(_DWORD *)(v1 + 264) = 0;
   *(_DWORD *)(a1 + 520) = 0;
-  return sub_422140(*(_DWORD *)(v1 + 276));
+  return sub_422140(v2);
 }
 
 //----- (004EF6F0) --------------------------------------------------------
@@ -66613,7 +66693,7 @@ int __cdecl sub_4F5580(uintptr_t a1, char *a2)
 {
   bool v3; // zf
   int v4; // eax
-  size_t v5; // [esp+Ch] [ebp-408h]
+  uint32_t v5; // [esp+Ch] [ebp-408h] - serialized 32-bit string length
   int v6; // [esp+10h] [ebp-404h]
   char v7[1024]; // [esp+14h] [ebp-400h]
 

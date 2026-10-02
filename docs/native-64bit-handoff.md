@@ -210,7 +210,7 @@ The 32-bit branches retain the original fixed offsets and pointer-slot
 layouts. Do not globally change `HANDLE` or convert all `_DWORD` fields to
 pointer-sized types; those changes would alter the compatibility ABI.
 
-## Current native pointer and menu-flow status (2026-09-24)
+## Current native pointer and menu-flow status (2026-09-29)
 
 The native Linux x86_64 build now passes the previously reproduced setup
 crashes in property lookup, map-rule parsing, multiplayer-root lookup, and
@@ -232,33 +232,71 @@ operations. These changes preserve the recovered record/global layout on
 i386. The packet-send helper `sub_4E5390()` also receives stack-buffer
 addresses at host width, including from its callers in `GAME3.c`.
 
-The UI-only macro comparison is still not complete on x64. With identical
-native Linux binaries' inputs and `nox.cfg`, i386 raises setup-flow flag
-`0x800000`, dispatches event 31 via `sub_4DD180()`, creates
-`window/ServOpts.wnd` through `sub_457500()`, and reaches server-name entry and
-Escape. x64 injects its configured Chat Area popup click, but the trace does
-not independently confirm that the modal closes; it does not raise that flag
-or open `ServOpts.wnd`. `sub_43DEB0()` therefore skips its gated
-validation/event path and the wait for widget 10101 times out. Source has
-candidate flag setters in local setup `sub_435CC0()` and network packet case
-`0x2B`, but the expected missing x64 path is not yet identified. Do not force
-the flag or event as a workaround.
+`GAME4.c` keeps its legacy pool-manager decoder local and uses the shared
+`native_pointer.h` primitives. Focused GAME4 tests compile that translation
+unit without `GAME3.c`, so the decoder must not introduce a link dependency on
+`nox_game3_pointer_from_32()`. On i386 it returns the recovered DWORD unchanged;
+native builds decode that DWORD using the game-image base and low-allocation
+mapping check.
+
+The UI-only macro comparison is still not complete on x64. The 2026-09-29
+guarded probe used a disposable copy and chose `Save/N02.plr`; character
+acceptance saved that profile and ran `sub_4A6890()`. The profile-slot guard
+prevented the run from approaching `N99.plr`. This confirms the earlier
+SelColor stop came from the reused copy exhausting its profile slots. The
+accepted character then reaches local setup through `sub_435CC0()` and
+`sub_473680()`. The earlier `sub_465E00()` crash in `sub_46B430()` is cleared:
+the second sibling handle at `byte_5D4594[1062468]` is now read as a recovered
+DWORD pointer slot, independently of the occupied adjacent slot at `1062472`.
+
+An earlier rebuilt x64 probe proceeded through the local-session initializer,
+then loads several window resources including `window/Options.wnd` before
+taking SIGSEGV in `sub_4ADAD0()` at `GAME3.c:9538`. The faulting statement
+reads the DWORD at `byte_587000[127004]` as a pointer while setting widget
+event 16394; the stack is `sub_4ADAD0()` → `sub_473680()` → `sub_435CC0()`.
+At that checkpoint x64 had not reached server-options widget 10101 or the
+macro's Escape step.
+The i386 comparison logs do reach and click widget 10101 and complete the
+macro, so that remains the reference behavior to restore on x64. Do not force
+the setup flag or event as a workaround.
 
 Both probes use Linux executables (`build-amd64/src/out` and
 `build-i386/src/out`), a disposable game-data copy, and
 `VideoMode = 1024 768 16`, `Fullscreen = 0`, `VideoSize = 75`; Xvfb is
-`1024x768x24` and describes only the host display. The bounded x64 run remains
-alive without SIGSEGV until its 120-second timeout, but does not complete the
-macro. `defaultServerGame`, F1/console commands, and explicit target-map
-selection are not part of this comparison. The engine's routine host setup
-opens built-in `So_Druid` data; this is incidental initialization, not a
-selected gameplay test map. Do not use a map requiring reloaded EUD support
-for native 64-bit testing.
+`1024x768x24` and describes only the host display. Both native targets rebuilt
+successfully on 2026-09-29. `defaultServerGame`, F1/console commands, and
+explicit target-map selection are not part of this comparison. The engine's
+routine host setup opens built-in `So_Druid` data; this is incidental
+initialization, not a selected gameplay test map. Do not use a map requiring
+reloaded EUD support for native 64-bit testing.
 
 Both native targets build successfully. Full CTest passes on amd64 (30/30) and
 i386 (41/41). The focused `native_fixed_pointer_test` checks that a recovered
 pointer slot reads exactly one DWORD and decodes independently of the adjacent
 DWORD.
+
+Build and menu-flow check (2026-09-29): the full amd64 and i386 builds
+complete after `map_download_dispatch_test.c` was aligned with the production
+`uintptr_t` packet argument for `sub_48EA70()`. The focused map-download test
+passes on both targets. An earlier fresh guarded amd64
+`multiplayerHostMenusBeforeGo` run reached character acceptance and wrote
+`Save/N01.plr`; after `chatScreenPopUpClickOk` began, it aborted on the
+stack-canary check while returning from `sub_4DEBC0(a1=18590)`, called by
+`sub_4D1660()` during main-loop dispatch. That run did not finish the Chat Area
+popup step or reach server-name entry or Escape.
+
+Paired fresh-copy UI comparison (2026-09-29): both native executables used the
+same guarded `multiplayerHostMenusBeforeGo` macro, video settings, and clean
+game-data copies. The i386 run accepted the character, completed the Chat Area
+popup, entered the server name, sent Escape, and ended the macro; it then
+remained alive until the 150-second probe timeout. The amd64 run also accepted
+the character and wrote `Save/N01.plr`, but segfaulted after
+`chatScreenPopUpClickOk` began. Its core shows an invalid string pointer passed
+as `a1` to `sub_4A0AD0()` (`GAME2.c:65707`), called through `sub_49C560()` →
+`sub_4DD180(31)` → `sub_43DEB0()` in `CONNECT_RESULT`. This paired run did not
+reproduce the earlier `sub_4DEBC0()` stack-canary failure. The UI-only macro
+does not select a gameplay map; routine host initialization opens built-in
+`So_Druid` data.
 
 An earlier standalone startup checkpoint (separate from the current menu-flow
 comparison) preserved the fixed 16-byte

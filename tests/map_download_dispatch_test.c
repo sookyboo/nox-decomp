@@ -308,7 +308,7 @@ static int gameplay_thing_callback_storage_test(void)
     return nox_game3_thing_callback_get(object) == callback;
 }
 
-int __cdecl sub_48EA70(int channel, unsigned int packet, int length);
+int __cdecl sub_48EA70(int channel, uintptr_t packet, int length);
 
 static void __cdecl receive_callback(unsigned int channel,
                                      int payload,
@@ -388,7 +388,7 @@ static int map_packet_transfer_test(void)
     packet[0] = 0xB8;
     *(uint32_t *)(packet + 4) = sizeof(output);
     memcpy(packet + 8, "maps\\Fixture\\Fixture.nxz", 24);
-    if (sub_48EA70(31, (unsigned int)(uintptr_t)packet, 88) < 0)
+    if (sub_48EA70(31, (uintptr_t)packet, 88) < 0)
         goto cleanup;
 
     /* Keep completion/UI callbacks out of this focused parser fixture. */
@@ -401,7 +401,7 @@ static int map_packet_transfer_test(void)
         *(uint16_t *)(packet + 4) = chunk_size;
         /* Arrival is 3,2,1, so the payloads must be C,B,A to write A,B,C. */
         memset(packet + 6, (int)('A' + (chunk_count - 1 - i)), chunk_size);
-        if (sub_48EA70(31, (unsigned int)(uintptr_t)packet,
+        if (sub_48EA70(31, (uintptr_t)packet,
                        chunk_size + 6) < 0)
             goto cleanup;
     }

@@ -269,6 +269,19 @@ struct nox_cmd_localized_entry {
 static struct nox_cmd_localized_entry nox_cmd_localized_entries[256];
 static int nox_cmd_localized_count;
 
+#if UINTPTR_MAX > UINT32_MAX
+/* Native command rows keep one host-width name pointer followed by the
+ * recovered DWORD fields.  In particular, flags, child-table addresses, and
+ * callbacks must not be widened across adjacent rows. */
+struct nox_native_console_command_entry {
+  const wchar_t *name;
+  uint32_t help_pointer;
+  uint32_t flags;
+  uint32_t children_pointer;
+  uint32_t callback_pointer;
+};
+#endif
+
 struct nox_font_dispatch_entry {
   const char *source_name;
   const char *display_name;
@@ -283,6 +296,14 @@ static int (*nox_font_dispatch)(int, int, int, int);
 uintptr_t nox_native_window_pool_manager;
 _DWORD *nox_native_video_mode_state;
 static _DWORD *nox_native_video_config_states[2];
+
+_DWORD *nox_native_video_config_state_get(unsigned int index)
+{
+  if ( index >= sizeof(nox_native_video_config_states)
+                   / sizeof(nox_native_video_config_states[0]) )
+    return 0;
+  return nox_native_video_config_states[index];
+}
 #endif
 
 #if defined(__linux__)
@@ -399,6 +420,10 @@ static uintptr_t nox_native_code_pointer_from_32(unsigned int value)
 #define NOX_INPUT_EVENT_CURSOR nox_input_event_cursor
 #else
 #define NOX_STATIC_POINTER_FROM_32(value) ((const void *)(uintptr_t)(value))
+static uintptr_t nox_native_code_pointer_from_32(unsigned int value)
+{
+  return value;
+}
 #define NOX_INPUT_EVENT_CURSOR (*(char **)&byte_5D4594[2618912])
 #endif
 
@@ -454,6 +479,12 @@ static size_t nox_csf_utf16_length(const uint16_t *string)
 #define NOX_MOUSE_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #define NOX_CMD_TOKEN_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
 #define NOX_CONFIG_PTR(slot, target) (*(void **)&byte_587000[(slot)] = &byte_587000[(target)])
+#if UINTPTR_MAX <= UINT32_MAX
+static uintptr_t nox_native_code_pointer_from_32(unsigned int value)
+{
+  return value;
+}
+#endif
 #endif
 #define NOX_LEGACY_PTR_INIT(slot, value) \
   nox_native_pointer_slot32_write(&byte_587000[(slot)], (uintptr_t)(value))
@@ -1397,22 +1428,22 @@ void init_data()
 *(void **)&byte_587000[74568] = &byte_587000[77392];
 *(void **)&byte_587000[94028] = &byte_587000[93952];
 
-*(void **)&byte_587000[98228] = &sub_441CE0;
-*(void **)&byte_587000[116612] = &sub_44B390;
-*(void **)&byte_587000[116820] = &sub_44B390;
-*(void **)&byte_587000[116836] = &sub_44B390;
-*(void **)&byte_587000[116852] = &sub_44B390;
-*(void **)&byte_587000[116900] = &sub_44B390;
-*(void **)&byte_587000[116916] = &sub_44B390;
-*(void **)&byte_587000[116132] = &sub_44B560;
-*(void **)&byte_587000[116932] = &sub_44BF60;
-*(void **)&byte_587000[116628] = &sub_44C120;
-*(void **)&byte_587000[116964] = &sub_44C120;
-*(void **)&byte_587000[116980] = &sub_44C120;
-*(void **)&byte_587000[117092] = &sub_44C120;
-*(void **)&byte_587000[116788] = &sub_44C160;
-*(void **)&byte_587000[116804] = &sub_44C160;
-*(void **)&byte_587000[116868] = &sub_44C160;
+NOX_LEGACY_PTR_INIT(98228, &sub_441CE0);
+NOX_LEGACY_PTR_INIT(116612, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116820, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116836, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116852, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116900, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116916, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116132, &sub_44B560);
+NOX_LEGACY_PTR_INIT(116932, &sub_44BF60);
+NOX_LEGACY_PTR_INIT(116628, &sub_44C120);
+NOX_LEGACY_PTR_INIT(116964, &sub_44C120);
+NOX_LEGACY_PTR_INIT(116980, &sub_44C120);
+NOX_LEGACY_PTR_INIT(117092, &sub_44C120);
+NOX_LEGACY_PTR_INIT(116788, &sub_44C160);
+NOX_LEGACY_PTR_INIT(116804, &sub_44C160);
+NOX_LEGACY_PTR_INIT(116868, &sub_44C160);
 
 *(void **)&byte_587000[32600] = &byte_5D4594[338468];
 
@@ -3832,47 +3863,47 @@ NOX_LEGACY_PTR_INIT(62124, &byte_587000[64412]);
 *(void **)&byte_587000[70288] = &byte_587000[70488];
 *(void **)&byte_587000[70292] = &sub_504CF0;
 #endif
-*(void **)&byte_587000[70500] = &byte_587000[70664];
-*(void **)&byte_587000[70504] = &byte_587000[70680];
-*(void **)&byte_587000[70508] = &byte_587000[70684];
-*(void **)&byte_587000[70512] = &byte_587000[70696];
-*(void **)&byte_587000[70516] = &byte_587000[70704];
-*(void **)&byte_587000[70520] = &byte_587000[70716];
-*(void **)&byte_587000[70524] = &byte_587000[70724];
-*(void **)&byte_587000[70528] = &byte_587000[70744];
-*(void **)&byte_587000[70532] = &byte_587000[70760];
-*(void **)&byte_587000[70536] = &byte_587000[70780];
-*(void **)&byte_587000[70540] = &byte_587000[70792];
-*(void **)&byte_587000[70544] = &byte_587000[70804];
-*(void **)&byte_587000[70548] = &byte_587000[70812];
-*(void **)&byte_587000[70552] = &byte_587000[70824];
-*(void **)&byte_587000[70556] = &byte_587000[70828];
-*(void **)&byte_587000[70560] = &byte_587000[70840];
-*(void **)&byte_587000[70564] = &byte_587000[70856];
-*(void **)&byte_587000[70568] = &byte_587000[70864];
-*(void **)&byte_587000[70572] = &byte_587000[70876];
-*(void **)&byte_587000[70576] = &byte_587000[70888];
-*(void **)&byte_587000[70580] = &byte_587000[70900];
-*(void **)&byte_587000[70584] = &byte_587000[70912];
-*(void **)&byte_587000[70588] = &byte_587000[70920];
-*(void **)&byte_587000[70592] = &byte_587000[70932];
-*(void **)&byte_587000[70596] = &byte_587000[70948];
-*(void **)&byte_587000[70600] = &byte_587000[70956];
-*(void **)&byte_587000[70604] = &byte_587000[70968];
-*(void **)&byte_587000[70608] = &byte_587000[70984];
-*(void **)&byte_587000[70612] = &byte_587000[70996];
-*(void **)&byte_587000[70616] = &byte_587000[71004];
-*(void **)&byte_587000[70620] = &byte_587000[71012];
-*(void **)&byte_587000[70624] = &byte_587000[71020];
-*(void **)&byte_587000[70628] = &byte_587000[71032];
-*(void **)&byte_587000[70632] = &byte_587000[71040];
-*(void **)&byte_587000[70636] = &byte_587000[71052];
-*(void **)&byte_587000[70640] = &byte_587000[71064];
-*(void **)&byte_587000[70644] = &byte_587000[71072];
-*(void **)&byte_587000[70648] = &byte_587000[71084];
-*(void **)&byte_587000[70652] = &byte_587000[71092];
-*(void **)&byte_587000[70656] = &byte_587000[71100];
-*(void **)&byte_587000[70660] = &byte_587000[71112];
+NOX_LEGACY_PTR_INIT(70500, &byte_587000[70664]);
+NOX_LEGACY_PTR_INIT(70504, &byte_587000[70680]);
+NOX_LEGACY_PTR_INIT(70508, &byte_587000[70684]);
+NOX_LEGACY_PTR_INIT(70512, &byte_587000[70696]);
+NOX_LEGACY_PTR_INIT(70516, &byte_587000[70704]);
+NOX_LEGACY_PTR_INIT(70520, &byte_587000[70716]);
+NOX_LEGACY_PTR_INIT(70524, &byte_587000[70724]);
+NOX_LEGACY_PTR_INIT(70528, &byte_587000[70744]);
+NOX_LEGACY_PTR_INIT(70532, &byte_587000[70760]);
+NOX_LEGACY_PTR_INIT(70536, &byte_587000[70780]);
+NOX_LEGACY_PTR_INIT(70540, &byte_587000[70792]);
+NOX_LEGACY_PTR_INIT(70544, &byte_587000[70804]);
+NOX_LEGACY_PTR_INIT(70548, &byte_587000[70812]);
+NOX_LEGACY_PTR_INIT(70552, &byte_587000[70824]);
+NOX_LEGACY_PTR_INIT(70556, &byte_587000[70828]);
+NOX_LEGACY_PTR_INIT(70560, &byte_587000[70840]);
+NOX_LEGACY_PTR_INIT(70564, &byte_587000[70856]);
+NOX_LEGACY_PTR_INIT(70568, &byte_587000[70864]);
+NOX_LEGACY_PTR_INIT(70572, &byte_587000[70876]);
+NOX_LEGACY_PTR_INIT(70576, &byte_587000[70888]);
+NOX_LEGACY_PTR_INIT(70580, &byte_587000[70900]);
+NOX_LEGACY_PTR_INIT(70584, &byte_587000[70912]);
+NOX_LEGACY_PTR_INIT(70588, &byte_587000[70920]);
+NOX_LEGACY_PTR_INIT(70592, &byte_587000[70932]);
+NOX_LEGACY_PTR_INIT(70596, &byte_587000[70948]);
+NOX_LEGACY_PTR_INIT(70600, &byte_587000[70956]);
+NOX_LEGACY_PTR_INIT(70604, &byte_587000[70968]);
+NOX_LEGACY_PTR_INIT(70608, &byte_587000[70984]);
+NOX_LEGACY_PTR_INIT(70612, &byte_587000[70996]);
+NOX_LEGACY_PTR_INIT(70616, &byte_587000[71004]);
+NOX_LEGACY_PTR_INIT(70620, &byte_587000[71012]);
+NOX_LEGACY_PTR_INIT(70624, &byte_587000[71020]);
+NOX_LEGACY_PTR_INIT(70628, &byte_587000[71032]);
+NOX_LEGACY_PTR_INIT(70632, &byte_587000[71040]);
+NOX_LEGACY_PTR_INIT(70636, &byte_587000[71052]);
+NOX_LEGACY_PTR_INIT(70640, &byte_587000[71064]);
+NOX_LEGACY_PTR_INIT(70644, &byte_587000[71072]);
+NOX_LEGACY_PTR_INIT(70648, &byte_587000[71084]);
+NOX_LEGACY_PTR_INIT(70652, &byte_587000[71092]);
+NOX_LEGACY_PTR_INIT(70656, &byte_587000[71100]);
+NOX_LEGACY_PTR_INIT(70660, &byte_587000[71112]);
 *(void **)&byte_587000[72016] = &byte_587000[72688];
 *(void **)&byte_587000[72028] = &byte_587000[72696];
 *(void **)&byte_587000[72040] = &byte_587000[72712];
@@ -4585,113 +4616,120 @@ NOX_CMD_TOKEN_PTR(94496, 98460);
 *(void **)&byte_587000[97320] = &byte_587000[100572];
 *(void **)&byte_587000[97328] = &byte_587000[100580];
 *(void **)&byte_587000[97352] = &byte_5D4594[823756];
-*(void **)&byte_587000[97484] = &sub_440A50;
-*(void **)&byte_587000[98108] = &sub_440B00;
-*(void **)&byte_587000[97508] = &sub_440B50;
-*(void **)&byte_587000[97940] = &sub_440C90;
-*(void **)&byte_587000[97388] = &sub_440D70;
-*(void **)&byte_587000[97772] = &sub_440D80;
-*(void **)&byte_587000[98132] = &sub_440DD0;
-*(void **)&byte_587000[97796] = &sub_441910;
-*(void **)&byte_587000[97676] = &sub_441CE0;
-*(void **)&byte_587000[97436] = &sub_441D20;
-*(void **)&byte_587000[97700] = &sub_442120;
-*(void **)&byte_587000[97916] = &sub_442130;
-*(void **)&byte_587000[97628] = &sub_442140;
-*(void **)&byte_587000[98156] = &sub_442210;
-*(void **)&byte_587000[97652] = &sub_4422D0;
-*(void **)&byte_587000[98180] = &sub_442340;
-*(void **)&byte_587000[98204] = &sub_4423A0;
-*(void **)&byte_587000[97460] = &sub_443160;
-*(void **)&byte_587000[97724] = &sub_4432B0;
-*(void **)&byte_587000[97556] = &sub_4435C0;
-*(void **)&byte_587000[98084] = &sub_443610;
-*(void **)&byte_587000[97892] = &sub_4436E0;
-*(void **)&byte_587000[97580] = &sub_4437B0;
-*(void **)&byte_587000[97604] = &sub_443810;
-*(void **)&byte_587000[98012] = &sub_4439B0;
-*(void **)&byte_587000[98056] = &byte_587000[95568];
-*(void **)&byte_587000[97960] = &byte_587000[95688];
-*(void **)&byte_587000[97984] = &byte_587000[96264];
-*(void **)&byte_587000[97408] = &byte_587000[96600];
-*(void **)&byte_587000[97744] = &byte_587000[96672];
-*(void **)&byte_587000[97864] = &byte_587000[96840];
-*(void **)&byte_587000[97816] = &byte_587000[96912];
-*(void **)&byte_587000[97528] = &byte_587000[97008];
-*(void **)&byte_587000[97840] = &byte_587000[97224];
-*(void **)&byte_587000[98032] = &byte_587000[97296];
+NOX_LEGACY_PTR_INIT(97484, &sub_440A50);
+NOX_LEGACY_PTR_INIT(98108, &sub_440B00);
+NOX_LEGACY_PTR_INIT(97508, &sub_440B50);
+NOX_LEGACY_PTR_INIT(97940, &sub_440C90);
+NOX_LEGACY_PTR_INIT(97388, &sub_440D70);
+NOX_LEGACY_PTR_INIT(97772, &sub_440D80);
+NOX_LEGACY_PTR_INIT(98132, &sub_440DD0);
+NOX_LEGACY_PTR_INIT(97796, &sub_441910);
+NOX_LEGACY_PTR_INIT(97676, &sub_441CE0);
+NOX_LEGACY_PTR_INIT(97436, &sub_441D20);
+NOX_LEGACY_PTR_INIT(97700, &sub_442120);
+NOX_LEGACY_PTR_INIT(97916, &sub_442130);
+NOX_LEGACY_PTR_INIT(97628, &sub_442140);
+NOX_LEGACY_PTR_INIT(98156, &sub_442210);
+NOX_LEGACY_PTR_INIT(97652, &sub_4422D0);
+NOX_LEGACY_PTR_INIT(98180, &sub_442340);
+NOX_LEGACY_PTR_INIT(98204, &sub_4423A0);
+NOX_LEGACY_PTR_INIT(97460, &sub_443160);
+NOX_LEGACY_PTR_INIT(97724, &sub_4432B0);
+NOX_LEGACY_PTR_INIT(97556, &sub_4435C0);
+NOX_LEGACY_PTR_INIT(98084, &sub_443610);
+NOX_LEGACY_PTR_INIT(97892, &sub_4436E0);
+NOX_LEGACY_PTR_INIT(97580, &sub_4437B0);
+NOX_LEGACY_PTR_INIT(97604, &sub_443810);
+NOX_LEGACY_PTR_INIT(98012, &sub_4439B0);
+NOX_LEGACY_PTR_INIT(98056, &byte_587000[95568]);
+NOX_LEGACY_PTR_INIT(97960, &byte_587000[95688]);
+NOX_LEGACY_PTR_INIT(97984, &byte_587000[96264]);
+NOX_LEGACY_PTR_INIT(97408, &byte_587000[96600]);
+NOX_LEGACY_PTR_INIT(97744, &byte_587000[96672]);
+NOX_LEGACY_PTR_INIT(97864, &byte_587000[96840]);
+NOX_LEGACY_PTR_INIT(97816, &byte_587000[96912]);
+NOX_LEGACY_PTR_INIT(97528, &byte_587000[97008]);
+NOX_LEGACY_PTR_INIT(97840, &byte_587000[97224]);
+NOX_LEGACY_PTR_INIT(98032, &byte_587000[97296]);
 *(void **)&byte_587000[97368] = &byte_587000[100596];
-*(void **)&byte_587000[97376] = &byte_587000[100616];
+NOX_LEGACY_PTR_INIT(97376, &byte_587000[100616]);
 *(void **)&byte_587000[97392] = &byte_587000[100624];
-*(void **)&byte_587000[97400] = &byte_587000[100636];
+NOX_LEGACY_PTR_INIT(97400, &byte_587000[100636]);
 *(void **)&byte_587000[97416] = &byte_587000[100648];
-*(void **)&byte_587000[97424] = &byte_587000[100664];
+NOX_LEGACY_PTR_INIT(97424, &byte_587000[100664]);
 *(void **)&byte_587000[97440] = &byte_587000[100672];
-*(void **)&byte_587000[97448] = &byte_587000[100680];
+NOX_LEGACY_PTR_INIT(97448, &byte_587000[100680]);
 *(void **)&byte_587000[97464] = &byte_587000[100688];
-*(void **)&byte_587000[97472] = &byte_587000[100700];
+NOX_LEGACY_PTR_INIT(97472, &byte_587000[100700]);
 *(void **)&byte_587000[97488] = &byte_587000[100712];
-*(void **)&byte_587000[97496] = &byte_587000[100732];
+NOX_LEGACY_PTR_INIT(97496, &byte_587000[100732]);
 *(void **)&byte_587000[97512] = &byte_587000[100748];
-*(void **)&byte_587000[97520] = &byte_587000[100760];
+NOX_LEGACY_PTR_INIT(97520, &byte_587000[100760]);
 *(void **)&byte_587000[97536] = &byte_587000[100772];
-*(void **)&byte_587000[97544] = &byte_587000[100784];
+NOX_LEGACY_PTR_INIT(97544, &byte_587000[100784]);
 *(void **)&byte_587000[97560] = &byte_587000[100796];
-*(void **)&byte_587000[97568] = &byte_587000[100808];
+NOX_LEGACY_PTR_INIT(97568, &byte_587000[100808]);
 *(void **)&byte_587000[97584] = &byte_587000[100820];
-*(void **)&byte_587000[97592] = &byte_587000[100836];
+NOX_LEGACY_PTR_INIT(97592, &byte_587000[100836]);
 *(void **)&byte_587000[97608] = &byte_587000[100848];
-*(void **)&byte_587000[97616] = &byte_587000[100860];
+NOX_LEGACY_PTR_INIT(97616, &byte_587000[100860]);
 *(void **)&byte_587000[97632] = &byte_587000[100872];
-*(void **)&byte_587000[97640] = &byte_587000[100884];
+NOX_LEGACY_PTR_INIT(97640, &byte_587000[100884]);
 *(void **)&byte_587000[97656] = &byte_587000[100896];
-*(void **)&byte_587000[97664] = &byte_587000[100908];
+NOX_LEGACY_PTR_INIT(97664, &byte_587000[100908]);
 *(void **)&byte_587000[97680] = &byte_587000[100920];
-*(void **)&byte_587000[97688] = &byte_587000[100932];
+NOX_LEGACY_PTR_INIT(97688, &byte_587000[100932]);
 *(void **)&byte_587000[97704] = &byte_587000[100944];
-*(void **)&byte_587000[97712] = &byte_587000[100956];
+NOX_LEGACY_PTR_INIT(97712, &byte_587000[100956]);
 *(void **)&byte_587000[97728] = &byte_587000[100968];
-*(void **)&byte_587000[97736] = &byte_587000[100980];
+NOX_LEGACY_PTR_INIT(97736, &byte_587000[100980]);
 *(void **)&byte_587000[97752] = &byte_587000[100992];
-*(void **)&byte_587000[97760] = &byte_587000[101004];
+NOX_LEGACY_PTR_INIT(97760, &byte_587000[101004]);
 *(void **)&byte_587000[97776] = &byte_587000[101016];
-*(void **)&byte_587000[97784] = &byte_587000[101028];
+NOX_LEGACY_PTR_INIT(97784, &byte_587000[101028]);
 *(void **)&byte_587000[97800] = &byte_587000[101040];
-*(void **)&byte_587000[97808] = &byte_587000[101048];
+NOX_LEGACY_PTR_INIT(97808, &byte_587000[101048]);
 *(void **)&byte_587000[97824] = &byte_587000[101056];
-*(void **)&byte_587000[97832] = &byte_587000[101072];
+NOX_LEGACY_PTR_INIT(97832, &byte_587000[101072]);
 *(void **)&byte_587000[97848] = &byte_587000[101084];
-*(void **)&byte_587000[97856] = &byte_587000[101096];
+NOX_LEGACY_PTR_INIT(97856, &byte_587000[101096]);
 *(void **)&byte_587000[97872] = &byte_587000[101108];
-*(void **)&byte_587000[97880] = &byte_587000[101120];
+NOX_LEGACY_PTR_INIT(97880, &byte_587000[101120]);
 *(void **)&byte_587000[97896] = &byte_587000[101132];
-*(void **)&byte_587000[97904] = &byte_587000[101144];
+NOX_LEGACY_PTR_INIT(97904, &byte_587000[101144]);
 *(void **)&byte_587000[97920] = &byte_587000[101156];
-*(void **)&byte_587000[97928] = &byte_587000[101164];
+NOX_LEGACY_PTR_INIT(97928, &byte_587000[101164]);
 *(void **)&byte_587000[97944] = &byte_587000[101172];
-*(void **)&byte_587000[97952] = &byte_587000[101180];
+NOX_LEGACY_PTR_INIT(97952, &byte_587000[101180]);
 *(void **)&byte_587000[97968] = &byte_587000[101188];
-*(void **)&byte_587000[97976] = &byte_587000[101200];
+NOX_LEGACY_PTR_INIT(97976, &byte_587000[101200]);
 *(void **)&byte_587000[97992] = &byte_587000[101212];
-*(void **)&byte_587000[98000] = &byte_587000[101224];
+NOX_LEGACY_PTR_INIT(98000, &byte_587000[101224]);
 *(void **)&byte_587000[98016] = &byte_587000[101232];
-*(void **)&byte_587000[98024] = &byte_587000[101248];
+NOX_LEGACY_PTR_INIT(98024, &byte_587000[101248]);
 *(void **)&byte_587000[98040] = &byte_587000[101260];
-*(void **)&byte_587000[98048] = &byte_587000[101272];
+NOX_LEGACY_PTR_INIT(98048, &byte_587000[101272]);
 *(void **)&byte_587000[98064] = &byte_587000[101284];
-*(void **)&byte_587000[98072] = &byte_587000[101300];
+NOX_LEGACY_PTR_INIT(98072, &byte_587000[101300]);
 *(void **)&byte_587000[98088] = &byte_587000[101312];
-*(void **)&byte_587000[98096] = &byte_587000[101328];
+NOX_LEGACY_PTR_INIT(98096, &byte_587000[101328]);
 *(void **)&byte_587000[98112] = &byte_587000[101340];
-*(void **)&byte_587000[98120] = &byte_587000[101356];
+NOX_LEGACY_PTR_INIT(98120, &byte_587000[101356]);
 *(void **)&byte_587000[98136] = &byte_587000[101368];
-*(void **)&byte_587000[98144] = &byte_587000[101380];
+NOX_LEGACY_PTR_INIT(98144, &byte_587000[101380]);
 *(void **)&byte_587000[98160] = &byte_587000[101392];
-*(void **)&byte_587000[98168] = &byte_587000[101408];
+NOX_LEGACY_PTR_INIT(98168, &byte_587000[101408]);
 *(void **)&byte_587000[98184] = &byte_587000[101420];
-*(void **)&byte_587000[98192] = &byte_587000[101452];
+NOX_LEGACY_PTR_INIT(98192, &byte_587000[101452]);
 *(void **)&byte_587000[98208] = &byte_587000[101460];
-*(void **)&byte_587000[98216] = &byte_587000[101472];
+NOX_LEGACY_PTR_INIT(98216, &byte_587000[101472]);
+#if UINTPTR_MAX > UINT32_MAX
+/* The recovered root command list ends after 18 rows.  Its next-row marker is
+ * followed by unrelated static data, so establish the native-width null
+ * sentinel instead of letting the parser treat the adjacent "UU" bytes as a
+ * command pointer. */
+*(uintptr_t *)&byte_587000[98232] = 0;
+#endif
 *(void **)&byte_587000[98240] = &byte_5D4594[823760];
 *(void **)&byte_587000[98256] = &byte_587000[101484];
 *(void **)&byte_587000[108828] = &byte_587000[109320];
@@ -4763,503 +4801,503 @@ NOX_CMD_TOKEN_PTR(94496, 98460);
 *(void **)&byte_587000[113148] = &byte_587000[113228];
 *(void **)&byte_587000[113156] = &byte_587000[113276];
 *(void **)&byte_587000[113164] = &byte_587000[113332];
-*(void **)&byte_587000[113856] = &byte_587000[117128];
-*(void **)&byte_587000[113860] = &byte_587000[117144];
-*(void **)&byte_587000[113864] = &byte_587000[117160];
-*(void **)&byte_587000[113868] = &byte_587000[117176];
-*(void **)&byte_587000[113872] = &byte_587000[117192];
-*(void **)&byte_587000[113876] = &byte_587000[117212];
-*(void **)&byte_587000[113880] = &byte_587000[117228];
-*(void **)&byte_587000[113884] = &byte_587000[117244];
-*(void **)&byte_587000[113888] = &byte_587000[117268];
-*(void **)&byte_587000[113892] = &byte_587000[117280];
-*(void **)&byte_587000[113896] = &byte_587000[117296];
-*(void **)&byte_587000[113900] = &byte_587000[117312];
-*(void **)&byte_587000[113904] = &byte_587000[117328];
-*(void **)&byte_587000[113908] = &byte_587000[117348];
-*(void **)&byte_587000[113912] = &byte_587000[117360];
-*(void **)&byte_587000[113916] = &byte_587000[117372];
-*(void **)&byte_587000[113920] = &byte_587000[117388];
-*(void **)&byte_587000[113924] = &byte_587000[117400];
-*(void **)&byte_587000[113928] = &byte_587000[117416];
-*(void **)&byte_587000[113932] = &byte_587000[117428];
-*(void **)&byte_587000[113936] = &byte_587000[117440];
-*(void **)&byte_587000[113940] = &byte_587000[117456];
-*(void **)&byte_587000[113944] = &byte_587000[117472];
-*(void **)&byte_587000[113948] = &byte_587000[117484];
-*(void **)&byte_587000[113952] = &byte_587000[117496];
-*(void **)&byte_587000[113956] = &byte_587000[117512];
-*(void **)&byte_587000[113964] = &byte_587000[117524];
-*(void **)&byte_587000[113968] = &byte_587000[117532];
-*(void **)&byte_587000[113972] = &byte_587000[117540];
-*(void **)&byte_587000[113976] = &byte_587000[117544];
-*(void **)&byte_587000[113980] = &byte_587000[117556];
-*(void **)&byte_587000[113984] = &byte_587000[117564];
-*(void **)&byte_587000[113988] = &byte_587000[117572];
-*(void **)&byte_587000[113992] = &byte_587000[117580];
-*(void **)&byte_587000[113996] = &byte_587000[117592];
-*(void **)&byte_587000[114000] = &byte_587000[117600];
-*(void **)&byte_587000[114004] = &byte_587000[117612];
-*(void **)&byte_587000[114008] = &byte_587000[117624];
-*(void **)&byte_587000[114012] = &byte_587000[117632];
-*(void **)&byte_587000[114016] = &byte_587000[117636];
-*(void **)&byte_587000[114020] = &byte_587000[117648];
-*(void **)&byte_587000[114024] = &byte_587000[117656];
-*(void **)&byte_587000[114028] = &byte_587000[117664];
-*(void **)&byte_587000[114032] = &byte_587000[117688];
-*(void **)&byte_587000[114036] = &byte_587000[117712];
-*(void **)&byte_587000[114040] = &byte_587000[117728];
-*(void **)&byte_587000[114044] = &byte_587000[117744];
-*(void **)&byte_587000[114048] = &byte_587000[117768];
-*(void **)&byte_587000[114052] = &byte_587000[117792];
-*(void **)&byte_587000[114056] = &byte_587000[117808];
-*(void **)&byte_587000[114060] = &byte_587000[117832];
-*(void **)&byte_587000[114064] = &byte_587000[117856];
-*(void **)&byte_587000[114068] = &byte_587000[117884];
-*(void **)&byte_587000[114076] = &byte_587000[117904];
-*(void **)&byte_587000[114080] = &byte_587000[117912];
-*(void **)&byte_587000[114084] = &byte_587000[117924];
-*(void **)&byte_587000[114088] = &byte_587000[117932];
-*(void **)&byte_587000[114092] = &byte_587000[117948];
-*(void **)&byte_587000[114096] = &byte_587000[117956];
-*(void **)&byte_587000[114100] = &byte_587000[117968];
-*(void **)&byte_587000[114104] = &byte_587000[117980];
-*(void **)&byte_587000[114108] = &byte_587000[117992];
-*(void **)&byte_587000[114112] = &byte_587000[118004];
-*(void **)&byte_587000[114116] = &byte_587000[118016];
-*(void **)&byte_587000[114120] = &byte_587000[118036];
-*(void **)&byte_587000[114124] = &byte_587000[118052];
-*(void **)&byte_587000[114128] = &byte_587000[118068];
-*(void **)&byte_587000[114132] = &byte_587000[118088];
-*(void **)&byte_587000[114136] = &byte_587000[118100];
-*(void **)&byte_587000[114140] = &byte_587000[118108];
-*(void **)&byte_587000[114144] = &byte_587000[118116];
-*(void **)&byte_587000[114148] = &byte_587000[118124];
-*(void **)&byte_587000[114152] = &byte_587000[118132];
-*(void **)&byte_587000[114156] = &byte_587000[118140];
-*(void **)&byte_587000[114160] = &byte_587000[118152];
-*(void **)&byte_587000[114164] = &byte_587000[118168];
-*(void **)&byte_587000[114168] = &byte_587000[118180];
-*(void **)&byte_587000[114172] = &byte_587000[118188];
-*(void **)&byte_587000[114176] = &byte_587000[118196];
-*(void **)&byte_587000[114180] = &byte_587000[118204];
-*(void **)&byte_587000[114184] = &byte_587000[118216];
-*(void **)&byte_587000[114188] = &byte_587000[118224];
-*(void **)&byte_587000[114192] = &byte_587000[118240];
-*(void **)&byte_587000[114196] = &byte_587000[118248];
-*(void **)&byte_587000[114200] = &byte_587000[118260];
-*(void **)&byte_587000[114208] = &byte_587000[118268];
-*(void **)&byte_587000[114212] = &byte_587000[118276];
-*(void **)&byte_587000[114216] = &byte_587000[118284];
-*(void **)&byte_587000[114220] = &byte_587000[118292];
-*(void **)&byte_587000[114224] = &byte_587000[118304];
-*(void **)&byte_587000[114228] = &byte_587000[118312];
-*(void **)&byte_587000[114232] = &byte_587000[118320];
-*(void **)&byte_587000[114236] = &byte_587000[118324];
-*(void **)&byte_587000[114240] = &byte_587000[118332];
-*(void **)&byte_587000[114244] = &byte_587000[118344];
-*(void **)&byte_587000[114248] = &byte_587000[118352];
-*(void **)&byte_587000[114252] = &byte_587000[118364];
-*(void **)&byte_587000[114256] = &byte_587000[118372];
-*(void **)&byte_587000[114260] = &byte_587000[118380];
-*(void **)&byte_587000[114264] = &byte_587000[118388];
-*(void **)&byte_587000[114268] = &byte_587000[118400];
-*(void **)&byte_587000[114272] = &byte_587000[118416];
-*(void **)&byte_587000[114276] = &byte_587000[118428];
-*(void **)&byte_587000[114280] = &byte_587000[118448];
-*(void **)&byte_587000[114284] = &byte_587000[118460];
-*(void **)&byte_587000[114288] = &byte_587000[118468];
-*(void **)&byte_587000[114292] = &byte_587000[118476];
-*(void **)&byte_587000[114296] = &byte_587000[118484];
-*(void **)&byte_587000[114300] = &byte_587000[118496];
-*(void **)&byte_587000[114304] = &byte_587000[118512];
-*(void **)&byte_587000[114308] = &byte_587000[118520];
-*(void **)&byte_587000[114312] = &byte_587000[118528];
-*(void **)&byte_587000[114316] = &byte_587000[118544];
-*(void **)&byte_587000[114320] = &byte_587000[118556];
-*(void **)&byte_587000[114324] = &byte_587000[118564];
-*(void **)&byte_587000[114328] = &byte_587000[118580];
-*(void **)&byte_587000[114332] = &byte_587000[118596];
-*(void **)&byte_587000[114344] = &byte_587000[118604];
-*(void **)&byte_587000[114348] = &byte_587000[118612];
-*(void **)&byte_587000[114352] = &byte_587000[118620];
-*(void **)&byte_587000[114356] = &byte_587000[118632];
-*(void **)&byte_587000[114360] = &byte_587000[118644];
-*(void **)&byte_587000[114364] = &byte_587000[118652];
-*(void **)&byte_587000[114368] = &byte_587000[118660];
-*(void **)&byte_587000[114372] = &byte_587000[118668];
-*(void **)&byte_587000[114376] = &byte_587000[118680];
-*(void **)&byte_587000[114472] = &byte_587000[118688];
-*(void **)&byte_587000[114476] = &byte_587000[118696];
-*(void **)&byte_587000[114480] = &byte_587000[118704];
-*(void **)&byte_587000[114484] = &byte_587000[118708];
-*(void **)&byte_587000[114488] = &byte_587000[118720];
-*(void **)&byte_587000[114492] = &byte_587000[118728];
-*(void **)&byte_587000[114496] = &byte_587000[118736];
-*(void **)&byte_587000[114500] = &byte_587000[118744];
-*(void **)&byte_587000[114504] = &byte_587000[118756];
-*(void **)&byte_587000[114508] = &byte_587000[118764];
-*(void **)&byte_587000[114512] = &byte_587000[118776];
-*(void **)&byte_587000[114516] = &byte_587000[118788];
-*(void **)&byte_587000[114520] = &byte_587000[118796];
-*(void **)&byte_587000[114524] = &byte_587000[118800];
-*(void **)&byte_587000[114528] = &byte_587000[118812];
-*(void **)&byte_587000[114532] = &byte_587000[118820];
-*(void **)&byte_587000[114536] = &byte_587000[118828];
-*(void **)&byte_587000[114540] = &byte_587000[118852];
-*(void **)&byte_587000[114544] = &byte_587000[118876];
-*(void **)&byte_587000[114548] = &byte_587000[118892];
-*(void **)&byte_587000[114552] = &byte_587000[118908];
-*(void **)&byte_587000[114556] = &byte_587000[118932];
-*(void **)&byte_587000[114560] = &byte_587000[118956];
-*(void **)&byte_587000[114564] = &byte_587000[118972];
-*(void **)&byte_587000[114568] = &byte_587000[118996];
-*(void **)&byte_587000[114572] = &byte_587000[119020];
-*(void **)&byte_587000[114576] = &byte_587000[119048];
-*(void **)&byte_587000[114600] = &byte_587000[119068];
-*(void **)&byte_587000[114604] = &byte_587000[119084];
-*(void **)&byte_587000[114608] = &byte_587000[119100];
-*(void **)&byte_587000[114612] = &byte_587000[119116];
-*(void **)&byte_587000[114616] = &byte_587000[119128];
-*(void **)&byte_587000[114620] = &byte_587000[119132];
-*(void **)&byte_587000[114624] = &byte_587000[119144];
-*(void **)&byte_587000[114628] = &byte_587000[119152];
-*(void **)&byte_587000[114632] = &byte_587000[119160];
-*(void **)&byte_587000[114636] = &byte_587000[119168];
-*(void **)&byte_587000[114640] = &byte_587000[119184];
-*(void **)&byte_587000[114644] = &byte_587000[119196];
-*(void **)&byte_587000[114648] = &byte_587000[119216];
-*(void **)&byte_587000[114652] = &byte_587000[119228];
-*(void **)&byte_587000[114656] = &byte_587000[119236];
-*(void **)&byte_587000[114660] = &byte_587000[119248];
-*(void **)&byte_587000[114664] = &byte_587000[119264];
-*(void **)&byte_587000[114668] = &byte_587000[119276];
-*(void **)&byte_587000[114672] = &byte_587000[119288];
-*(void **)&byte_587000[114676] = &byte_587000[119300];
-*(void **)&byte_587000[114728] = &byte_587000[119312];
-*(void **)&byte_587000[114732] = &byte_587000[119320];
-*(void **)&byte_587000[114736] = &byte_587000[119328];
-*(void **)&byte_587000[114740] = &byte_587000[119332];
-*(void **)&byte_587000[114744] = &byte_587000[119340];
-*(void **)&byte_587000[114748] = &byte_587000[119356];
-*(void **)&byte_587000[114752] = &byte_587000[119368];
-*(void **)&byte_587000[114756] = &byte_587000[119388];
-*(void **)&byte_587000[114760] = &byte_587000[119400];
-*(void **)&byte_587000[114764] = &byte_587000[119416];
-*(void **)&byte_587000[114768] = &byte_587000[119436];
-*(void **)&byte_587000[114772] = &byte_587000[119452];
-*(void **)&byte_587000[114776] = &byte_587000[119472];
-*(void **)&byte_587000[114780] = &byte_587000[119496];
-*(void **)&byte_587000[114784] = &byte_587000[119520];
-*(void **)&byte_587000[114788] = &byte_587000[119544];
-*(void **)&byte_587000[114792] = &byte_587000[119564];
-*(void **)&byte_587000[114856] = &byte_587000[119584];
-*(void **)&byte_587000[114860] = &byte_587000[119592];
-*(void **)&byte_587000[114864] = &byte_587000[119600];
-*(void **)&byte_587000[114868] = &byte_587000[119608];
-*(void **)&byte_587000[114872] = &byte_587000[119624];
-*(void **)&byte_587000[114876] = &byte_587000[119644];
-*(void **)&byte_587000[114880] = &byte_587000[119652];
-*(void **)&byte_587000[114884] = &byte_587000[119660];
-*(void **)&byte_587000[114888] = &byte_587000[119668];
-*(void **)&byte_587000[114892] = &byte_587000[119680];
-*(void **)&byte_587000[114896] = &byte_587000[119692];
-*(void **)&byte_587000[114900] = &byte_587000[119704];
-*(void **)&byte_587000[114904] = &byte_587000[119716];
-*(void **)&byte_587000[114984] = &byte_587000[119728];
-*(void **)&byte_587000[114988] = &byte_587000[119740];
-*(void **)&byte_587000[114992] = &byte_587000[119752];
-*(void **)&byte_587000[115112] = &byte_587000[119768];
-*(void **)&byte_587000[115116] = &byte_587000[119792];
-*(void **)&byte_587000[115240] = &byte_587000[119800];
-*(void **)&byte_587000[115244] = &byte_587000[119816];
-*(void **)&byte_587000[115248] = &byte_587000[119832];
-*(void **)&byte_587000[115252] = &byte_587000[119848];
-*(void **)&byte_587000[115368] = &byte_587000[119864];
-*(void **)&byte_587000[115372] = &byte_587000[119876];
-*(void **)&byte_587000[115624] = &byte_587000[119892];
-*(void **)&byte_587000[115628] = &byte_587000[119900];
-*(void **)&byte_587000[115632] = &byte_587000[119908];
-*(void **)&byte_587000[115636] = &byte_587000[119920];
-*(void **)&byte_587000[115640] = &byte_587000[119928];
-*(void **)&byte_587000[115644] = &byte_587000[119936];
-*(void **)&byte_587000[115648] = &byte_587000[119944];
-*(void **)&byte_587000[115652] = &byte_587000[119952];
-*(void **)&byte_587000[115656] = &byte_587000[119960];
-*(void **)&byte_587000[115660] = &byte_587000[119968];
-*(void **)&byte_587000[115664] = &byte_587000[119976];
-*(void **)&byte_587000[115668] = &byte_587000[119984];
-*(void **)&byte_587000[115672] = &byte_587000[119988];
-*(void **)&byte_587000[115676] = &byte_587000[119996];
-*(void **)&byte_587000[115680] = &byte_587000[120004];
-*(void **)&byte_587000[115688] = &byte_587000[120012];
-*(void **)&byte_587000[115692] = &byte_587000[120020];
-*(void **)&byte_587000[115696] = &byte_587000[120024];
-*(void **)&byte_587000[115700] = &byte_587000[120032];
-*(void **)&byte_587000[115704] = &byte_587000[120040];
-*(void **)&byte_587000[115708] = &byte_587000[120048];
-*(void **)&byte_587000[115712] = &byte_587000[120064];
-*(void **)&byte_587000[115716] = &byte_587000[120068];
-*(void **)&byte_587000[115720] = &byte_587000[120084];
-*(void **)&byte_587000[115724] = &byte_587000[120092];
-*(void **)&byte_587000[115728] = &byte_587000[120104];
-*(void **)&byte_587000[115732] = &byte_587000[120116];
-*(void **)&byte_587000[115736] = &byte_587000[120132];
-*(void **)&byte_587000[115740] = &byte_587000[120140];
-*(void **)&byte_587000[115744] = &byte_587000[120148];
-*(void **)&byte_587000[115748] = &byte_587000[120156];
-*(void **)&byte_587000[115752] = &byte_587000[120164];
-*(void **)&byte_587000[115756] = &byte_587000[120172];
-*(void **)&byte_587000[115760] = &byte_587000[120176];
-*(void **)&byte_587000[115764] = &byte_587000[120184];
-*(void **)&byte_587000[115768] = &byte_587000[120192];
-*(void **)&byte_587000[115772] = &byte_587000[120200];
-*(void **)&byte_587000[115776] = &byte_587000[120212];
-*(void **)&byte_587000[115780] = &byte_587000[120224];
-*(void **)&byte_587000[115784] = &byte_587000[120236];
-*(void **)&byte_587000[115788] = &byte_587000[120248];
-*(void **)&byte_587000[115792] = &byte_587000[120268];
-*(void **)&byte_587000[115796] = &byte_587000[120280];
-*(void **)&byte_587000[115800] = &byte_587000[120296];
-*(void **)&byte_587000[115804] = &byte_587000[120316];
-*(void **)&byte_587000[115808] = &byte_587000[120332];
-*(void **)&byte_587000[115812] = &byte_587000[120344];
-*(void **)&byte_587000[115816] = &byte_587000[120364];
-*(void **)&byte_587000[115820] = &byte_587000[120380];
-*(void **)&byte_587000[115824] = &byte_587000[120392];
-*(void **)&byte_587000[115828] = &byte_587000[120408];
-*(void **)&byte_587000[115832] = &byte_587000[120420];
-*(void **)&byte_587000[115836] = &byte_587000[120440];
-*(void **)&byte_587000[115840] = &byte_587000[120460];
-*(void **)&byte_587000[115844] = &byte_587000[120480];
-*(void **)&byte_587000[115848] = &byte_587000[120496];
-*(void **)&byte_587000[115852] = &byte_587000[120512];
-*(void **)&byte_587000[115856] = &byte_587000[120528];
-*(void **)&byte_587000[115860] = &byte_587000[120544];
-*(void **)&byte_587000[115864] = &byte_587000[120560];
-*(void **)&byte_587000[115868] = &byte_587000[120576];
-*(void **)&byte_587000[115872] = &byte_587000[120596];
-*(void **)&byte_587000[115876] = &byte_587000[120604];
-*(void **)&byte_587000[115880] = &byte_587000[120628];
-*(void **)&byte_587000[115884] = &byte_587000[120652];
-*(void **)&byte_587000[115888] = &byte_587000[120676];
-*(void **)&byte_587000[115892] = &byte_587000[120692];
-*(void **)&byte_587000[115896] = &byte_587000[120700];
-*(void **)&byte_587000[115900] = &byte_587000[120708];
-*(void **)&byte_587000[115904] = &byte_587000[120716];
-*(void **)&byte_587000[115912] = &byte_587000[120732];
-*(void **)&byte_587000[115916] = &byte_587000[120744];
-*(void **)&byte_587000[115920] = &byte_587000[120764];
-*(void **)&byte_587000[115924] = &byte_587000[120780];
-*(void **)&byte_587000[115928] = &byte_587000[120792];
-*(void **)&byte_587000[115932] = &byte_587000[120808];
-*(void **)&byte_587000[115936] = &byte_587000[120820];
-*(void **)&byte_587000[115944] = &byte_587000[120832];
-*(void **)&byte_587000[115948] = &byte_587000[120844];
-*(void **)&byte_587000[115952] = &byte_587000[120852];
-*(void **)&byte_587000[115956] = &byte_587000[120868];
-*(void **)&byte_587000[115960] = &byte_587000[120880];
-*(void **)&byte_587000[115964] = &byte_587000[120900];
-*(void **)&byte_587000[115968] = &byte_587000[120908];
-*(void **)&byte_587000[115972] = &byte_587000[120924];
-*(void **)&byte_587000[115976] = &byte_587000[120936];
-*(void **)&byte_587000[115980] = &byte_587000[120944];
-*(void **)&byte_587000[115984] = &byte_587000[120948];
-*(void **)&byte_587000[115988] = &byte_587000[120956];
-*(void **)&byte_587000[115992] = &byte_587000[120964];
-*(void **)&byte_587000[115996] = &byte_587000[120972];
-*(void **)&byte_587000[116000] = &byte_587000[120980];
-*(void **)&byte_587000[116004] = &byte_587000[120992];
-*(void **)&byte_587000[116100] = &sub_44B390;
-*(void **)&byte_587000[116116] = &sub_44B560;
-*(void **)&byte_587000[116212] = &sub_44B700;
-*(void **)&byte_587000[116164] = &sub_44BB80;
-*(void **)&byte_587000[116180] = &sub_44BD60;
-*(void **)&byte_587000[116196] = &sub_44BD90;
-*(void **)&byte_587000[116148] = &sub_44BF60;
-*(void **)&byte_587000[116068] = &sub_44BFD0;
-*(void **)&byte_587000[116084] = &sub_44C0F0;
-*(void **)&byte_587000[116228] = &sub_44C120;
-*(void **)&byte_587000[116052] = &sub_44C160;
-*(void **)&byte_587000[116524] = &sub_4AFE80;
-*(void **)&byte_587000[116716] = &sub_4B5E10;
-*(void **)&byte_587000[116732] = &sub_4B5F30;
-*(void **)&byte_587000[116988] = &sub_4B6050;
-*(void **)&byte_587000[117004] = &sub_4B6120;
+NOX_LEGACY_PTR_INIT(113856, &byte_587000[117128]);
+NOX_LEGACY_PTR_INIT(113860, &byte_587000[117144]);
+NOX_LEGACY_PTR_INIT(113864, &byte_587000[117160]);
+NOX_LEGACY_PTR_INIT(113868, &byte_587000[117176]);
+NOX_LEGACY_PTR_INIT(113872, &byte_587000[117192]);
+NOX_LEGACY_PTR_INIT(113876, &byte_587000[117212]);
+NOX_LEGACY_PTR_INIT(113880, &byte_587000[117228]);
+NOX_LEGACY_PTR_INIT(113884, &byte_587000[117244]);
+NOX_LEGACY_PTR_INIT(113888, &byte_587000[117268]);
+NOX_LEGACY_PTR_INIT(113892, &byte_587000[117280]);
+NOX_LEGACY_PTR_INIT(113896, &byte_587000[117296]);
+NOX_LEGACY_PTR_INIT(113900, &byte_587000[117312]);
+NOX_LEGACY_PTR_INIT(113904, &byte_587000[117328]);
+NOX_LEGACY_PTR_INIT(113908, &byte_587000[117348]);
+NOX_LEGACY_PTR_INIT(113912, &byte_587000[117360]);
+NOX_LEGACY_PTR_INIT(113916, &byte_587000[117372]);
+NOX_LEGACY_PTR_INIT(113920, &byte_587000[117388]);
+NOX_LEGACY_PTR_INIT(113924, &byte_587000[117400]);
+NOX_LEGACY_PTR_INIT(113928, &byte_587000[117416]);
+NOX_LEGACY_PTR_INIT(113932, &byte_587000[117428]);
+NOX_LEGACY_PTR_INIT(113936, &byte_587000[117440]);
+NOX_LEGACY_PTR_INIT(113940, &byte_587000[117456]);
+NOX_LEGACY_PTR_INIT(113944, &byte_587000[117472]);
+NOX_LEGACY_PTR_INIT(113948, &byte_587000[117484]);
+NOX_LEGACY_PTR_INIT(113952, &byte_587000[117496]);
+NOX_LEGACY_PTR_INIT(113956, &byte_587000[117512]);
+NOX_LEGACY_PTR_INIT(113964, &byte_587000[117524]);
+NOX_LEGACY_PTR_INIT(113968, &byte_587000[117532]);
+NOX_LEGACY_PTR_INIT(113972, &byte_587000[117540]);
+NOX_LEGACY_PTR_INIT(113976, &byte_587000[117544]);
+NOX_LEGACY_PTR_INIT(113980, &byte_587000[117556]);
+NOX_LEGACY_PTR_INIT(113984, &byte_587000[117564]);
+NOX_LEGACY_PTR_INIT(113988, &byte_587000[117572]);
+NOX_LEGACY_PTR_INIT(113992, &byte_587000[117580]);
+NOX_LEGACY_PTR_INIT(113996, &byte_587000[117592]);
+NOX_LEGACY_PTR_INIT(114000, &byte_587000[117600]);
+NOX_LEGACY_PTR_INIT(114004, &byte_587000[117612]);
+NOX_LEGACY_PTR_INIT(114008, &byte_587000[117624]);
+NOX_LEGACY_PTR_INIT(114012, &byte_587000[117632]);
+NOX_LEGACY_PTR_INIT(114016, &byte_587000[117636]);
+NOX_LEGACY_PTR_INIT(114020, &byte_587000[117648]);
+NOX_LEGACY_PTR_INIT(114024, &byte_587000[117656]);
+NOX_LEGACY_PTR_INIT(114028, &byte_587000[117664]);
+NOX_LEGACY_PTR_INIT(114032, &byte_587000[117688]);
+NOX_LEGACY_PTR_INIT(114036, &byte_587000[117712]);
+NOX_LEGACY_PTR_INIT(114040, &byte_587000[117728]);
+NOX_LEGACY_PTR_INIT(114044, &byte_587000[117744]);
+NOX_LEGACY_PTR_INIT(114048, &byte_587000[117768]);
+NOX_LEGACY_PTR_INIT(114052, &byte_587000[117792]);
+NOX_LEGACY_PTR_INIT(114056, &byte_587000[117808]);
+NOX_LEGACY_PTR_INIT(114060, &byte_587000[117832]);
+NOX_LEGACY_PTR_INIT(114064, &byte_587000[117856]);
+NOX_LEGACY_PTR_INIT(114068, &byte_587000[117884]);
+NOX_LEGACY_PTR_INIT(114076, &byte_587000[117904]);
+NOX_LEGACY_PTR_INIT(114080, &byte_587000[117912]);
+NOX_LEGACY_PTR_INIT(114084, &byte_587000[117924]);
+NOX_LEGACY_PTR_INIT(114088, &byte_587000[117932]);
+NOX_LEGACY_PTR_INIT(114092, &byte_587000[117948]);
+NOX_LEGACY_PTR_INIT(114096, &byte_587000[117956]);
+NOX_LEGACY_PTR_INIT(114100, &byte_587000[117968]);
+NOX_LEGACY_PTR_INIT(114104, &byte_587000[117980]);
+NOX_LEGACY_PTR_INIT(114108, &byte_587000[117992]);
+NOX_LEGACY_PTR_INIT(114112, &byte_587000[118004]);
+NOX_LEGACY_PTR_INIT(114116, &byte_587000[118016]);
+NOX_LEGACY_PTR_INIT(114120, &byte_587000[118036]);
+NOX_LEGACY_PTR_INIT(114124, &byte_587000[118052]);
+NOX_LEGACY_PTR_INIT(114128, &byte_587000[118068]);
+NOX_LEGACY_PTR_INIT(114132, &byte_587000[118088]);
+NOX_LEGACY_PTR_INIT(114136, &byte_587000[118100]);
+NOX_LEGACY_PTR_INIT(114140, &byte_587000[118108]);
+NOX_LEGACY_PTR_INIT(114144, &byte_587000[118116]);
+NOX_LEGACY_PTR_INIT(114148, &byte_587000[118124]);
+NOX_LEGACY_PTR_INIT(114152, &byte_587000[118132]);
+NOX_LEGACY_PTR_INIT(114156, &byte_587000[118140]);
+NOX_LEGACY_PTR_INIT(114160, &byte_587000[118152]);
+NOX_LEGACY_PTR_INIT(114164, &byte_587000[118168]);
+NOX_LEGACY_PTR_INIT(114168, &byte_587000[118180]);
+NOX_LEGACY_PTR_INIT(114172, &byte_587000[118188]);
+NOX_LEGACY_PTR_INIT(114176, &byte_587000[118196]);
+NOX_LEGACY_PTR_INIT(114180, &byte_587000[118204]);
+NOX_LEGACY_PTR_INIT(114184, &byte_587000[118216]);
+NOX_LEGACY_PTR_INIT(114188, &byte_587000[118224]);
+NOX_LEGACY_PTR_INIT(114192, &byte_587000[118240]);
+NOX_LEGACY_PTR_INIT(114196, &byte_587000[118248]);
+NOX_LEGACY_PTR_INIT(114200, &byte_587000[118260]);
+NOX_LEGACY_PTR_INIT(114208, &byte_587000[118268]);
+NOX_LEGACY_PTR_INIT(114212, &byte_587000[118276]);
+NOX_LEGACY_PTR_INIT(114216, &byte_587000[118284]);
+NOX_LEGACY_PTR_INIT(114220, &byte_587000[118292]);
+NOX_LEGACY_PTR_INIT(114224, &byte_587000[118304]);
+NOX_LEGACY_PTR_INIT(114228, &byte_587000[118312]);
+NOX_LEGACY_PTR_INIT(114232, &byte_587000[118320]);
+NOX_LEGACY_PTR_INIT(114236, &byte_587000[118324]);
+NOX_LEGACY_PTR_INIT(114240, &byte_587000[118332]);
+NOX_LEGACY_PTR_INIT(114244, &byte_587000[118344]);
+NOX_LEGACY_PTR_INIT(114248, &byte_587000[118352]);
+NOX_LEGACY_PTR_INIT(114252, &byte_587000[118364]);
+NOX_LEGACY_PTR_INIT(114256, &byte_587000[118372]);
+NOX_LEGACY_PTR_INIT(114260, &byte_587000[118380]);
+NOX_LEGACY_PTR_INIT(114264, &byte_587000[118388]);
+NOX_LEGACY_PTR_INIT(114268, &byte_587000[118400]);
+NOX_LEGACY_PTR_INIT(114272, &byte_587000[118416]);
+NOX_LEGACY_PTR_INIT(114276, &byte_587000[118428]);
+NOX_LEGACY_PTR_INIT(114280, &byte_587000[118448]);
+NOX_LEGACY_PTR_INIT(114284, &byte_587000[118460]);
+NOX_LEGACY_PTR_INIT(114288, &byte_587000[118468]);
+NOX_LEGACY_PTR_INIT(114292, &byte_587000[118476]);
+NOX_LEGACY_PTR_INIT(114296, &byte_587000[118484]);
+NOX_LEGACY_PTR_INIT(114300, &byte_587000[118496]);
+NOX_LEGACY_PTR_INIT(114304, &byte_587000[118512]);
+NOX_LEGACY_PTR_INIT(114308, &byte_587000[118520]);
+NOX_LEGACY_PTR_INIT(114312, &byte_587000[118528]);
+NOX_LEGACY_PTR_INIT(114316, &byte_587000[118544]);
+NOX_LEGACY_PTR_INIT(114320, &byte_587000[118556]);
+NOX_LEGACY_PTR_INIT(114324, &byte_587000[118564]);
+NOX_LEGACY_PTR_INIT(114328, &byte_587000[118580]);
+NOX_LEGACY_PTR_INIT(114332, &byte_587000[118596]);
+NOX_LEGACY_PTR_INIT(114344, &byte_587000[118604]);
+NOX_LEGACY_PTR_INIT(114348, &byte_587000[118612]);
+NOX_LEGACY_PTR_INIT(114352, &byte_587000[118620]);
+NOX_LEGACY_PTR_INIT(114356, &byte_587000[118632]);
+NOX_LEGACY_PTR_INIT(114360, &byte_587000[118644]);
+NOX_LEGACY_PTR_INIT(114364, &byte_587000[118652]);
+NOX_LEGACY_PTR_INIT(114368, &byte_587000[118660]);
+NOX_LEGACY_PTR_INIT(114372, &byte_587000[118668]);
+NOX_LEGACY_PTR_INIT(114376, &byte_587000[118680]);
+NOX_LEGACY_PTR_INIT(114472, &byte_587000[118688]);
+NOX_LEGACY_PTR_INIT(114476, &byte_587000[118696]);
+NOX_LEGACY_PTR_INIT(114480, &byte_587000[118704]);
+NOX_LEGACY_PTR_INIT(114484, &byte_587000[118708]);
+NOX_LEGACY_PTR_INIT(114488, &byte_587000[118720]);
+NOX_LEGACY_PTR_INIT(114492, &byte_587000[118728]);
+NOX_LEGACY_PTR_INIT(114496, &byte_587000[118736]);
+NOX_LEGACY_PTR_INIT(114500, &byte_587000[118744]);
+NOX_LEGACY_PTR_INIT(114504, &byte_587000[118756]);
+NOX_LEGACY_PTR_INIT(114508, &byte_587000[118764]);
+NOX_LEGACY_PTR_INIT(114512, &byte_587000[118776]);
+NOX_LEGACY_PTR_INIT(114516, &byte_587000[118788]);
+NOX_LEGACY_PTR_INIT(114520, &byte_587000[118796]);
+NOX_LEGACY_PTR_INIT(114524, &byte_587000[118800]);
+NOX_LEGACY_PTR_INIT(114528, &byte_587000[118812]);
+NOX_LEGACY_PTR_INIT(114532, &byte_587000[118820]);
+NOX_LEGACY_PTR_INIT(114536, &byte_587000[118828]);
+NOX_LEGACY_PTR_INIT(114540, &byte_587000[118852]);
+NOX_LEGACY_PTR_INIT(114544, &byte_587000[118876]);
+NOX_LEGACY_PTR_INIT(114548, &byte_587000[118892]);
+NOX_LEGACY_PTR_INIT(114552, &byte_587000[118908]);
+NOX_LEGACY_PTR_INIT(114556, &byte_587000[118932]);
+NOX_LEGACY_PTR_INIT(114560, &byte_587000[118956]);
+NOX_LEGACY_PTR_INIT(114564, &byte_587000[118972]);
+NOX_LEGACY_PTR_INIT(114568, &byte_587000[118996]);
+NOX_LEGACY_PTR_INIT(114572, &byte_587000[119020]);
+NOX_LEGACY_PTR_INIT(114576, &byte_587000[119048]);
+NOX_LEGACY_PTR_INIT(114600, &byte_587000[119068]);
+NOX_LEGACY_PTR_INIT(114604, &byte_587000[119084]);
+NOX_LEGACY_PTR_INIT(114608, &byte_587000[119100]);
+NOX_LEGACY_PTR_INIT(114612, &byte_587000[119116]);
+NOX_LEGACY_PTR_INIT(114616, &byte_587000[119128]);
+NOX_LEGACY_PTR_INIT(114620, &byte_587000[119132]);
+NOX_LEGACY_PTR_INIT(114624, &byte_587000[119144]);
+NOX_LEGACY_PTR_INIT(114628, &byte_587000[119152]);
+NOX_LEGACY_PTR_INIT(114632, &byte_587000[119160]);
+NOX_LEGACY_PTR_INIT(114636, &byte_587000[119168]);
+NOX_LEGACY_PTR_INIT(114640, &byte_587000[119184]);
+NOX_LEGACY_PTR_INIT(114644, &byte_587000[119196]);
+NOX_LEGACY_PTR_INIT(114648, &byte_587000[119216]);
+NOX_LEGACY_PTR_INIT(114652, &byte_587000[119228]);
+NOX_LEGACY_PTR_INIT(114656, &byte_587000[119236]);
+NOX_LEGACY_PTR_INIT(114660, &byte_587000[119248]);
+NOX_LEGACY_PTR_INIT(114664, &byte_587000[119264]);
+NOX_LEGACY_PTR_INIT(114668, &byte_587000[119276]);
+NOX_LEGACY_PTR_INIT(114672, &byte_587000[119288]);
+NOX_LEGACY_PTR_INIT(114676, &byte_587000[119300]);
+NOX_LEGACY_PTR_INIT(114728, &byte_587000[119312]);
+NOX_LEGACY_PTR_INIT(114732, &byte_587000[119320]);
+NOX_LEGACY_PTR_INIT(114736, &byte_587000[119328]);
+NOX_LEGACY_PTR_INIT(114740, &byte_587000[119332]);
+NOX_LEGACY_PTR_INIT(114744, &byte_587000[119340]);
+NOX_LEGACY_PTR_INIT(114748, &byte_587000[119356]);
+NOX_LEGACY_PTR_INIT(114752, &byte_587000[119368]);
+NOX_LEGACY_PTR_INIT(114756, &byte_587000[119388]);
+NOX_LEGACY_PTR_INIT(114760, &byte_587000[119400]);
+NOX_LEGACY_PTR_INIT(114764, &byte_587000[119416]);
+NOX_LEGACY_PTR_INIT(114768, &byte_587000[119436]);
+NOX_LEGACY_PTR_INIT(114772, &byte_587000[119452]);
+NOX_LEGACY_PTR_INIT(114776, &byte_587000[119472]);
+NOX_LEGACY_PTR_INIT(114780, &byte_587000[119496]);
+NOX_LEGACY_PTR_INIT(114784, &byte_587000[119520]);
+NOX_LEGACY_PTR_INIT(114788, &byte_587000[119544]);
+NOX_LEGACY_PTR_INIT(114792, &byte_587000[119564]);
+NOX_LEGACY_PTR_INIT(114856, &byte_587000[119584]);
+NOX_LEGACY_PTR_INIT(114860, &byte_587000[119592]);
+NOX_LEGACY_PTR_INIT(114864, &byte_587000[119600]);
+NOX_LEGACY_PTR_INIT(114868, &byte_587000[119608]);
+NOX_LEGACY_PTR_INIT(114872, &byte_587000[119624]);
+NOX_LEGACY_PTR_INIT(114876, &byte_587000[119644]);
+NOX_LEGACY_PTR_INIT(114880, &byte_587000[119652]);
+NOX_LEGACY_PTR_INIT(114884, &byte_587000[119660]);
+NOX_LEGACY_PTR_INIT(114888, &byte_587000[119668]);
+NOX_LEGACY_PTR_INIT(114892, &byte_587000[119680]);
+NOX_LEGACY_PTR_INIT(114896, &byte_587000[119692]);
+NOX_LEGACY_PTR_INIT(114900, &byte_587000[119704]);
+NOX_LEGACY_PTR_INIT(114904, &byte_587000[119716]);
+NOX_LEGACY_PTR_INIT(114984, &byte_587000[119728]);
+NOX_LEGACY_PTR_INIT(114988, &byte_587000[119740]);
+NOX_LEGACY_PTR_INIT(114992, &byte_587000[119752]);
+NOX_LEGACY_PTR_INIT(115112, &byte_587000[119768]);
+NOX_LEGACY_PTR_INIT(115116, &byte_587000[119792]);
+NOX_LEGACY_PTR_INIT(115240, &byte_587000[119800]);
+NOX_LEGACY_PTR_INIT(115244, &byte_587000[119816]);
+NOX_LEGACY_PTR_INIT(115248, &byte_587000[119832]);
+NOX_LEGACY_PTR_INIT(115252, &byte_587000[119848]);
+NOX_LEGACY_PTR_INIT(115368, &byte_587000[119864]);
+NOX_LEGACY_PTR_INIT(115372, &byte_587000[119876]);
+NOX_LEGACY_PTR_INIT(115624, &byte_587000[119892]);
+NOX_LEGACY_PTR_INIT(115628, &byte_587000[119900]);
+NOX_LEGACY_PTR_INIT(115632, &byte_587000[119908]);
+NOX_LEGACY_PTR_INIT(115636, &byte_587000[119920]);
+NOX_LEGACY_PTR_INIT(115640, &byte_587000[119928]);
+NOX_LEGACY_PTR_INIT(115644, &byte_587000[119936]);
+NOX_LEGACY_PTR_INIT(115648, &byte_587000[119944]);
+NOX_LEGACY_PTR_INIT(115652, &byte_587000[119952]);
+NOX_LEGACY_PTR_INIT(115656, &byte_587000[119960]);
+NOX_LEGACY_PTR_INIT(115660, &byte_587000[119968]);
+NOX_LEGACY_PTR_INIT(115664, &byte_587000[119976]);
+NOX_LEGACY_PTR_INIT(115668, &byte_587000[119984]);
+NOX_LEGACY_PTR_INIT(115672, &byte_587000[119988]);
+NOX_LEGACY_PTR_INIT(115676, &byte_587000[119996]);
+NOX_LEGACY_PTR_INIT(115680, &byte_587000[120004]);
+NOX_LEGACY_PTR_INIT(115688, &byte_587000[120012]);
+NOX_LEGACY_PTR_INIT(115692, &byte_587000[120020]);
+NOX_LEGACY_PTR_INIT(115696, &byte_587000[120024]);
+NOX_LEGACY_PTR_INIT(115700, &byte_587000[120032]);
+NOX_LEGACY_PTR_INIT(115704, &byte_587000[120040]);
+NOX_LEGACY_PTR_INIT(115708, &byte_587000[120048]);
+NOX_LEGACY_PTR_INIT(115712, &byte_587000[120064]);
+NOX_LEGACY_PTR_INIT(115716, &byte_587000[120068]);
+NOX_LEGACY_PTR_INIT(115720, &byte_587000[120084]);
+NOX_LEGACY_PTR_INIT(115724, &byte_587000[120092]);
+NOX_LEGACY_PTR_INIT(115728, &byte_587000[120104]);
+NOX_LEGACY_PTR_INIT(115732, &byte_587000[120116]);
+NOX_LEGACY_PTR_INIT(115736, &byte_587000[120132]);
+NOX_LEGACY_PTR_INIT(115740, &byte_587000[120140]);
+NOX_LEGACY_PTR_INIT(115744, &byte_587000[120148]);
+NOX_LEGACY_PTR_INIT(115748, &byte_587000[120156]);
+NOX_LEGACY_PTR_INIT(115752, &byte_587000[120164]);
+NOX_LEGACY_PTR_INIT(115756, &byte_587000[120172]);
+NOX_LEGACY_PTR_INIT(115760, &byte_587000[120176]);
+NOX_LEGACY_PTR_INIT(115764, &byte_587000[120184]);
+NOX_LEGACY_PTR_INIT(115768, &byte_587000[120192]);
+NOX_LEGACY_PTR_INIT(115772, &byte_587000[120200]);
+NOX_LEGACY_PTR_INIT(115776, &byte_587000[120212]);
+NOX_LEGACY_PTR_INIT(115780, &byte_587000[120224]);
+NOX_LEGACY_PTR_INIT(115784, &byte_587000[120236]);
+NOX_LEGACY_PTR_INIT(115788, &byte_587000[120248]);
+NOX_LEGACY_PTR_INIT(115792, &byte_587000[120268]);
+NOX_LEGACY_PTR_INIT(115796, &byte_587000[120280]);
+NOX_LEGACY_PTR_INIT(115800, &byte_587000[120296]);
+NOX_LEGACY_PTR_INIT(115804, &byte_587000[120316]);
+NOX_LEGACY_PTR_INIT(115808, &byte_587000[120332]);
+NOX_LEGACY_PTR_INIT(115812, &byte_587000[120344]);
+NOX_LEGACY_PTR_INIT(115816, &byte_587000[120364]);
+NOX_LEGACY_PTR_INIT(115820, &byte_587000[120380]);
+NOX_LEGACY_PTR_INIT(115824, &byte_587000[120392]);
+NOX_LEGACY_PTR_INIT(115828, &byte_587000[120408]);
+NOX_LEGACY_PTR_INIT(115832, &byte_587000[120420]);
+NOX_LEGACY_PTR_INIT(115836, &byte_587000[120440]);
+NOX_LEGACY_PTR_INIT(115840, &byte_587000[120460]);
+NOX_LEGACY_PTR_INIT(115844, &byte_587000[120480]);
+NOX_LEGACY_PTR_INIT(115848, &byte_587000[120496]);
+NOX_LEGACY_PTR_INIT(115852, &byte_587000[120512]);
+NOX_LEGACY_PTR_INIT(115856, &byte_587000[120528]);
+NOX_LEGACY_PTR_INIT(115860, &byte_587000[120544]);
+NOX_LEGACY_PTR_INIT(115864, &byte_587000[120560]);
+NOX_LEGACY_PTR_INIT(115868, &byte_587000[120576]);
+NOX_LEGACY_PTR_INIT(115872, &byte_587000[120596]);
+NOX_LEGACY_PTR_INIT(115876, &byte_587000[120604]);
+NOX_LEGACY_PTR_INIT(115880, &byte_587000[120628]);
+NOX_LEGACY_PTR_INIT(115884, &byte_587000[120652]);
+NOX_LEGACY_PTR_INIT(115888, &byte_587000[120676]);
+NOX_LEGACY_PTR_INIT(115892, &byte_587000[120692]);
+NOX_LEGACY_PTR_INIT(115896, &byte_587000[120700]);
+NOX_LEGACY_PTR_INIT(115900, &byte_587000[120708]);
+NOX_LEGACY_PTR_INIT(115904, &byte_587000[120716]);
+NOX_LEGACY_PTR_INIT(115912, &byte_587000[120732]);
+NOX_LEGACY_PTR_INIT(115916, &byte_587000[120744]);
+NOX_LEGACY_PTR_INIT(115920, &byte_587000[120764]);
+NOX_LEGACY_PTR_INIT(115924, &byte_587000[120780]);
+NOX_LEGACY_PTR_INIT(115928, &byte_587000[120792]);
+NOX_LEGACY_PTR_INIT(115932, &byte_587000[120808]);
+NOX_LEGACY_PTR_INIT(115936, &byte_587000[120820]);
+NOX_LEGACY_PTR_INIT(115944, &byte_587000[120832]);
+NOX_LEGACY_PTR_INIT(115948, &byte_587000[120844]);
+NOX_LEGACY_PTR_INIT(115952, &byte_587000[120852]);
+NOX_LEGACY_PTR_INIT(115956, &byte_587000[120868]);
+NOX_LEGACY_PTR_INIT(115960, &byte_587000[120880]);
+NOX_LEGACY_PTR_INIT(115964, &byte_587000[120900]);
+NOX_LEGACY_PTR_INIT(115968, &byte_587000[120908]);
+NOX_LEGACY_PTR_INIT(115972, &byte_587000[120924]);
+NOX_LEGACY_PTR_INIT(115976, &byte_587000[120936]);
+NOX_LEGACY_PTR_INIT(115980, &byte_587000[120944]);
+NOX_LEGACY_PTR_INIT(115984, &byte_587000[120948]);
+NOX_LEGACY_PTR_INIT(115988, &byte_587000[120956]);
+NOX_LEGACY_PTR_INIT(115992, &byte_587000[120964]);
+NOX_LEGACY_PTR_INIT(115996, &byte_587000[120972]);
+NOX_LEGACY_PTR_INIT(116000, &byte_587000[120980]);
+NOX_LEGACY_PTR_INIT(116004, &byte_587000[120992]);
+NOX_LEGACY_PTR_INIT(116100, &sub_44B390);
+NOX_LEGACY_PTR_INIT(116116, &sub_44B560);
+NOX_LEGACY_PTR_INIT(116212, &sub_44B700);
+NOX_LEGACY_PTR_INIT(116164, &sub_44BB80);
+NOX_LEGACY_PTR_INIT(116180, &sub_44BD60);
+NOX_LEGACY_PTR_INIT(116196, &sub_44BD90);
+NOX_LEGACY_PTR_INIT(116148, &sub_44BF60);
+NOX_LEGACY_PTR_INIT(116068, &sub_44BFD0);
+NOX_LEGACY_PTR_INIT(116084, &sub_44C0F0);
+NOX_LEGACY_PTR_INIT(116228, &sub_44C120);
+NOX_LEGACY_PTR_INIT(116052, &sub_44C160);
+NOX_LEGACY_PTR_INIT(116524, &sub_4AFE80);
+NOX_LEGACY_PTR_INIT(116716, &sub_4B5E10);
+NOX_LEGACY_PTR_INIT(116732, &sub_4B5F30);
+NOX_LEGACY_PTR_INIT(116988, &sub_4B6050);
+NOX_LEGACY_PTR_INIT(117004, &sub_4B6120);
 *(void **)&byte_587000[117100] = &sub_4B61F0;
-*(void **)&byte_587000[117084] = &sub_4B64A0;
-*(void **)&byte_587000[116364] = &sub_4B6A60;
-*(void **)&byte_587000[116380] = &sub_4B6A80;
-*(void **)&byte_587000[116396] = &sub_4B6AA0;
-*(void **)&byte_587000[116412] = &sub_4B6AC0;
-*(void **)&byte_587000[116348] = &sub_4B6AE0;
-*(void **)&byte_587000[116748] = &sub_4B6B00;
-*(void **)&byte_587000[116652] = &sub_4B6B60;
-*(void **)&byte_587000[116668] = &sub_4B6E20;
-*(void **)&byte_587000[116428] = &sub_4B6E40;
-*(void **)&byte_587000[116476] = &sub_4B6E60;
-*(void **)&byte_587000[116492] = &sub_4B6E80;
-*(void **)&byte_587000[116508] = &sub_4B6FE0;
-*(void **)&byte_587000[116444] = &sub_4B7040;
-*(void **)&byte_587000[116460] = &sub_4B7060;
-*(void **)&byte_587000[117068] = &sub_4B7310;
-*(void **)&byte_587000[116540] = &sub_4B7540;
-*(void **)&byte_587000[117036] = &sub_4B7700;
-*(void **)&byte_587000[117052] = &sub_4B77D0;
-*(void **)&byte_587000[117020] = &sub_4B7810;
-*(void **)&byte_587000[116956] = &sub_4B7920;
-*(void **)&byte_587000[116972] = &sub_4B79D0;
-*(void **)&byte_587000[116940] = &sub_4B7A80;
-*(void **)&byte_587000[116924] = &sub_4B7C20;
-*(void **)&byte_587000[116908] = &sub_4B7D00;
-*(void **)&byte_587000[116892] = &sub_4B8020;
-*(void **)&byte_587000[116204] = &sub_4B8270;
-*(void **)&byte_587000[116876] = &sub_4B9050;
-*(void **)&byte_587000[116844] = &sub_4B9500;
-*(void **)&byte_587000[116860] = &sub_4B95B0;
-*(void **)&byte_587000[116780] = &sub_4B9690;
-*(void **)&byte_587000[116812] = &sub_4B96B0;
-*(void **)&byte_587000[116796] = &sub_4B96D0;
-*(void **)&byte_587000[116828] = &sub_4B9770;
-*(void **)&byte_587000[116764] = &sub_4B9790;
-*(void **)&byte_587000[116684] = &sub_4B98A0;
-*(void **)&byte_587000[116700] = &sub_4B99F0;
-*(void **)&byte_587000[116636] = &sub_4B9B40;
-*(void **)&byte_587000[116620] = &sub_4B9B50;
-*(void **)&byte_587000[116604] = &sub_4B9C70;
-*(void **)&byte_587000[116588] = &sub_4B9D70;
-*(void **)&byte_587000[116572] = &sub_4B9ED0;
-*(void **)&byte_587000[116556] = &sub_4B9F50;
-*(void **)&byte_587000[116332] = &sub_4BA980;
-*(void **)&byte_587000[116268] = &sub_4BAC80;
-*(void **)&byte_587000[116284] = &sub_4BB3F0;
-*(void **)&byte_587000[116300] = &sub_4BB5D0;
-*(void **)&byte_587000[116316] = &sub_4BB7B0;
-*(void **)&byte_587000[116236] = &sub_4BB9D0;
-*(void **)&byte_587000[116252] = &sub_4BBB30;
-*(void **)&byte_587000[116220] = &sub_4BBD30;
-*(void **)&byte_587000[116092] = &sub_4BBD60;
-*(void **)&byte_587000[116188] = &sub_4BBF10;
-*(void **)&byte_587000[116172] = &sub_4BBF90;
-*(void **)&byte_587000[116156] = &sub_4BC180;
-*(void **)&byte_587000[116140] = &sub_4BC700;
-*(void **)&byte_587000[116124] = &sub_4BC750;
-*(void **)&byte_587000[116108] = &sub_4BC930;
-*(void **)&byte_587000[116076] = &sub_4BC9E0;
-*(void **)&byte_587000[116044] = &sub_4BCC20;
-*(void **)&byte_587000[116060] = &sub_4BCC60;
-*(void **)&byte_587000[116028] = &sub_4BCC90;
-*(void **)&byte_587000[116008] = &byte_587000[121004];
-*(void **)&byte_587000[116024] = &byte_587000[121012];
-*(void **)&byte_587000[116040] = &byte_587000[121024];
-*(void **)&byte_587000[116056] = &byte_587000[121036];
-*(void **)&byte_587000[116072] = &byte_587000[121056];
-*(void **)&byte_587000[116088] = &byte_587000[121068];
-*(void **)&byte_587000[116104] = &byte_587000[121080];
-*(void **)&byte_587000[116120] = &byte_587000[121104];
-*(void **)&byte_587000[116136] = &byte_587000[121128];
-*(void **)&byte_587000[116152] = &byte_587000[121148];
-*(void **)&byte_587000[116168] = &byte_587000[121160];
-*(void **)&byte_587000[116184] = &byte_587000[121172];
-*(void **)&byte_587000[116200] = &byte_587000[121192];
-*(void **)&byte_587000[116216] = &byte_587000[121204];
-*(void **)&byte_587000[116232] = &byte_587000[121216];
-*(void **)&byte_587000[116248] = &byte_587000[121228];
-*(void **)&byte_587000[116264] = &byte_587000[121248];
-*(void **)&byte_587000[116280] = &byte_587000[121264];
-*(void **)&byte_587000[116296] = &byte_587000[121288];
-*(void **)&byte_587000[116312] = &byte_587000[121304];
-*(void **)&byte_587000[116328] = &byte_587000[121320];
-*(void **)&byte_587000[116344] = &byte_587000[121332];
-*(void **)&byte_587000[116360] = &byte_587000[121348];
-*(void **)&byte_587000[116376] = &byte_587000[121364];
-*(void **)&byte_587000[116392] = &byte_587000[121380];
-*(void **)&byte_587000[116408] = &byte_587000[121396];
-*(void **)&byte_587000[116424] = &byte_587000[121412];
-*(void **)&byte_587000[116440] = &byte_587000[121428];
-*(void **)&byte_587000[116456] = &byte_587000[121444];
-*(void **)&byte_587000[116472] = &byte_587000[121464];
-*(void **)&byte_587000[116488] = &byte_587000[121484];
-*(void **)&byte_587000[116504] = &byte_587000[121496];
-*(void **)&byte_587000[116520] = &byte_587000[121512];
-*(void **)&byte_587000[116536] = &byte_587000[121528];
-*(void **)&byte_587000[116552] = &byte_587000[121540];
-*(void **)&byte_587000[116568] = &byte_587000[121552];
-*(void **)&byte_587000[116584] = &byte_587000[121568];
-*(void **)&byte_587000[116600] = &byte_587000[121584];
-*(void **)&byte_587000[116616] = &byte_587000[121596];
-*(void **)&byte_587000[116632] = &byte_587000[121608];
-*(void **)&byte_587000[116648] = &byte_587000[121624];
-*(void **)&byte_587000[116664] = &byte_587000[121636];
-*(void **)&byte_587000[116680] = &byte_587000[121652];
-*(void **)&byte_587000[116696] = &byte_587000[121664];
-*(void **)&byte_587000[116712] = &byte_587000[121684];
-*(void **)&byte_587000[116728] = &byte_587000[121704];
-*(void **)&byte_587000[116744] = &byte_587000[121732];
-*(void **)&byte_587000[116760] = &byte_587000[121752];
-*(void **)&byte_587000[116776] = &byte_587000[121772];
-*(void **)&byte_587000[116792] = &byte_587000[121784];
-*(void **)&byte_587000[116808] = &byte_587000[121796];
-*(void **)&byte_587000[116824] = &byte_587000[121816];
-*(void **)&byte_587000[116840] = &byte_587000[121836];
-*(void **)&byte_587000[116856] = &byte_587000[121848];
-*(void **)&byte_587000[116872] = &byte_587000[121860];
-*(void **)&byte_587000[116888] = &byte_587000[121868];
-*(void **)&byte_587000[116904] = &byte_587000[121888];
-*(void **)&byte_587000[116920] = &byte_587000[121908];
-*(void **)&byte_587000[116936] = &byte_587000[121928];
-*(void **)&byte_587000[116952] = &byte_587000[121948];
-*(void **)&byte_587000[116968] = &byte_587000[121960];
-*(void **)&byte_587000[116984] = &byte_587000[121976];
-*(void **)&byte_587000[117000] = &byte_587000[121996];
-*(void **)&byte_587000[117016] = &byte_587000[122020];
-*(void **)&byte_587000[117032] = &byte_587000[122036];
-*(void **)&byte_587000[117048] = &byte_587000[122048];
-*(void **)&byte_587000[117064] = &byte_587000[122064];
-*(void **)&byte_587000[117080] = &byte_587000[122076];
-*(void **)&byte_587000[117096] = &byte_587000[122088];
-*(void **)&byte_587000[122104] = &byte_587000[122280];
-*(void **)&byte_587000[122108] = &sub_44B160;
-*(void **)&byte_587000[122112] = &byte_587000[122288];
-*(void **)&byte_587000[122116] = &sub_44B190;
-*(void **)&byte_587000[122120] = &byte_587000[122296];
-*(void **)&byte_587000[122124] = &sub_44B1C0;
-*(void **)&byte_587000[122128] = &byte_587000[122308];
-*(void **)&byte_587000[122132] = &sub_44B1F0;
-*(void **)&byte_587000[122136] = &byte_587000[122316];
-*(void **)&byte_587000[122140] = &sub_44B230;
-*(void **)&byte_587000[122144] = &byte_587000[122332];
-*(void **)&byte_587000[122148] = &sub_44C200;
-*(void **)&byte_587000[122152] = &byte_587000[122340];
-*(void **)&byte_587000[122156] = &sub_44C2F0;
-*(void **)&byte_587000[122160] = &byte_587000[122344];
-*(void **)&byte_587000[122164] = &sub_44C320;
-*(void **)&byte_587000[122168] = &byte_587000[122352];
-*(void **)&byte_587000[122172] = &sub_44C370;
-*(void **)&byte_587000[122176] = &byte_587000[122360];
-*(void **)&byte_587000[122180] = &sub_44C3B0;
-*(void **)&byte_587000[122184] = &byte_587000[122372];
-*(void **)&byte_587000[122188] = &sub_44B250;
-*(void **)&byte_587000[122192] = &byte_587000[122384];
-*(void **)&byte_587000[122196] = &sub_44B2D0;
-*(void **)&byte_587000[122200] = &byte_587000[122400];
-*(void **)&byte_587000[122204] = &sub_44B330;
-*(void **)&byte_587000[122208] = &byte_587000[122416];
-*(void **)&byte_587000[122212] = &sub_44C3F0;
-*(void **)&byte_587000[122216] = &byte_587000[122428];
-*(void **)&byte_587000[122220] = &sub_4B5C40;
-*(void **)&byte_587000[122224] = &byte_587000[122444];
-*(void **)&byte_587000[122228] = &sub_44C410;
-*(void **)&byte_587000[122232] = &byte_587000[122456];
-*(void **)&byte_587000[122236] = &sub_44C440;
-*(void **)&byte_587000[122240] = &byte_587000[122464];
-*(void **)&byte_587000[122244] = &sub_44C480;
-*(void **)&byte_587000[122248] = &byte_587000[122476];
-*(void **)&byte_587000[122252] = &sub_44C4B0;
-*(void **)&byte_587000[122256] = &byte_587000[122488];
-*(void **)&byte_587000[122260] = &sub_44C500;
-*(void **)&byte_587000[122264] = &byte_587000[122500];
-*(void **)&byte_587000[122268] = &sub_44C4E0;
+NOX_LEGACY_PTR_INIT(117084, &sub_4B64A0);
+NOX_LEGACY_PTR_INIT(116364, &sub_4B6A60);
+NOX_LEGACY_PTR_INIT(116380, &sub_4B6A80);
+NOX_LEGACY_PTR_INIT(116396, &sub_4B6AA0);
+NOX_LEGACY_PTR_INIT(116412, &sub_4B6AC0);
+NOX_LEGACY_PTR_INIT(116348, &sub_4B6AE0);
+NOX_LEGACY_PTR_INIT(116748, &sub_4B6B00);
+NOX_LEGACY_PTR_INIT(116652, &sub_4B6B60);
+NOX_LEGACY_PTR_INIT(116668, &sub_4B6E20);
+NOX_LEGACY_PTR_INIT(116428, &sub_4B6E40);
+NOX_LEGACY_PTR_INIT(116476, &sub_4B6E60);
+NOX_LEGACY_PTR_INIT(116492, &sub_4B6E80);
+NOX_LEGACY_PTR_INIT(116508, &sub_4B6FE0);
+NOX_LEGACY_PTR_INIT(116444, &sub_4B7040);
+NOX_LEGACY_PTR_INIT(116460, &sub_4B7060);
+NOX_LEGACY_PTR_INIT(117068, &sub_4B7310);
+NOX_LEGACY_PTR_INIT(116540, &sub_4B7540);
+NOX_LEGACY_PTR_INIT(117036, &sub_4B7700);
+NOX_LEGACY_PTR_INIT(117052, &sub_4B77D0);
+NOX_LEGACY_PTR_INIT(117020, &sub_4B7810);
+NOX_LEGACY_PTR_INIT(116956, &sub_4B7920);
+NOX_LEGACY_PTR_INIT(116972, &sub_4B79D0);
+NOX_LEGACY_PTR_INIT(116940, &sub_4B7A80);
+NOX_LEGACY_PTR_INIT(116924, &sub_4B7C20);
+NOX_LEGACY_PTR_INIT(116908, &sub_4B7D00);
+NOX_LEGACY_PTR_INIT(116892, &sub_4B8020);
+NOX_LEGACY_PTR_INIT(116204, &sub_4B8270);
+NOX_LEGACY_PTR_INIT(116876, &sub_4B9050);
+NOX_LEGACY_PTR_INIT(116844, &sub_4B9500);
+NOX_LEGACY_PTR_INIT(116860, &sub_4B95B0);
+NOX_LEGACY_PTR_INIT(116780, &sub_4B9690);
+NOX_LEGACY_PTR_INIT(116812, &sub_4B96B0);
+NOX_LEGACY_PTR_INIT(116796, &sub_4B96D0);
+NOX_LEGACY_PTR_INIT(116828, &sub_4B9770);
+NOX_LEGACY_PTR_INIT(116764, &sub_4B9790);
+NOX_LEGACY_PTR_INIT(116684, &sub_4B98A0);
+NOX_LEGACY_PTR_INIT(116700, &sub_4B99F0);
+NOX_LEGACY_PTR_INIT(116636, &sub_4B9B40);
+NOX_LEGACY_PTR_INIT(116620, &sub_4B9B50);
+NOX_LEGACY_PTR_INIT(116604, &sub_4B9C70);
+NOX_LEGACY_PTR_INIT(116588, &sub_4B9D70);
+NOX_LEGACY_PTR_INIT(116572, &sub_4B9ED0);
+NOX_LEGACY_PTR_INIT(116556, &sub_4B9F50);
+NOX_LEGACY_PTR_INIT(116332, &sub_4BA980);
+NOX_LEGACY_PTR_INIT(116268, &sub_4BAC80);
+NOX_LEGACY_PTR_INIT(116284, &sub_4BB3F0);
+NOX_LEGACY_PTR_INIT(116300, &sub_4BB5D0);
+NOX_LEGACY_PTR_INIT(116316, &sub_4BB7B0);
+NOX_LEGACY_PTR_INIT(116236, &sub_4BB9D0);
+NOX_LEGACY_PTR_INIT(116252, &sub_4BBB30);
+NOX_LEGACY_PTR_INIT(116220, &sub_4BBD30);
+NOX_LEGACY_PTR_INIT(116092, &sub_4BBD60);
+NOX_LEGACY_PTR_INIT(116188, &sub_4BBF10);
+NOX_LEGACY_PTR_INIT(116172, &sub_4BBF90);
+NOX_LEGACY_PTR_INIT(116156, &sub_4BC180);
+NOX_LEGACY_PTR_INIT(116140, &sub_4BC700);
+NOX_LEGACY_PTR_INIT(116124, &sub_4BC750);
+NOX_LEGACY_PTR_INIT(116108, &sub_4BC930);
+NOX_LEGACY_PTR_INIT(116076, &sub_4BC9E0);
+NOX_LEGACY_PTR_INIT(116044, &sub_4BCC20);
+NOX_LEGACY_PTR_INIT(116060, &sub_4BCC60);
+NOX_LEGACY_PTR_INIT(116028, &sub_4BCC90);
+NOX_LEGACY_PTR_INIT(116008, &byte_587000[121004]);
+NOX_LEGACY_PTR_INIT(116024, &byte_587000[121012]);
+NOX_LEGACY_PTR_INIT(116040, &byte_587000[121024]);
+NOX_LEGACY_PTR_INIT(116056, &byte_587000[121036]);
+NOX_LEGACY_PTR_INIT(116072, &byte_587000[121056]);
+NOX_LEGACY_PTR_INIT(116088, &byte_587000[121068]);
+NOX_LEGACY_PTR_INIT(116104, &byte_587000[121080]);
+NOX_LEGACY_PTR_INIT(116120, &byte_587000[121104]);
+NOX_LEGACY_PTR_INIT(116136, &byte_587000[121128]);
+NOX_LEGACY_PTR_INIT(116152, &byte_587000[121148]);
+NOX_LEGACY_PTR_INIT(116168, &byte_587000[121160]);
+NOX_LEGACY_PTR_INIT(116184, &byte_587000[121172]);
+NOX_LEGACY_PTR_INIT(116200, &byte_587000[121192]);
+NOX_LEGACY_PTR_INIT(116216, &byte_587000[121204]);
+NOX_LEGACY_PTR_INIT(116232, &byte_587000[121216]);
+NOX_LEGACY_PTR_INIT(116248, &byte_587000[121228]);
+NOX_LEGACY_PTR_INIT(116264, &byte_587000[121248]);
+NOX_LEGACY_PTR_INIT(116280, &byte_587000[121264]);
+NOX_LEGACY_PTR_INIT(116296, &byte_587000[121288]);
+NOX_LEGACY_PTR_INIT(116312, &byte_587000[121304]);
+NOX_LEGACY_PTR_INIT(116328, &byte_587000[121320]);
+NOX_LEGACY_PTR_INIT(116344, &byte_587000[121332]);
+NOX_LEGACY_PTR_INIT(116360, &byte_587000[121348]);
+NOX_LEGACY_PTR_INIT(116376, &byte_587000[121364]);
+NOX_LEGACY_PTR_INIT(116392, &byte_587000[121380]);
+NOX_LEGACY_PTR_INIT(116408, &byte_587000[121396]);
+NOX_LEGACY_PTR_INIT(116424, &byte_587000[121412]);
+NOX_LEGACY_PTR_INIT(116440, &byte_587000[121428]);
+NOX_LEGACY_PTR_INIT(116456, &byte_587000[121444]);
+NOX_LEGACY_PTR_INIT(116472, &byte_587000[121464]);
+NOX_LEGACY_PTR_INIT(116488, &byte_587000[121484]);
+NOX_LEGACY_PTR_INIT(116504, &byte_587000[121496]);
+NOX_LEGACY_PTR_INIT(116520, &byte_587000[121512]);
+NOX_LEGACY_PTR_INIT(116536, &byte_587000[121528]);
+NOX_LEGACY_PTR_INIT(116552, &byte_587000[121540]);
+NOX_LEGACY_PTR_INIT(116568, &byte_587000[121552]);
+NOX_LEGACY_PTR_INIT(116584, &byte_587000[121568]);
+NOX_LEGACY_PTR_INIT(116600, &byte_587000[121584]);
+NOX_LEGACY_PTR_INIT(116616, &byte_587000[121596]);
+NOX_LEGACY_PTR_INIT(116632, &byte_587000[121608]);
+NOX_LEGACY_PTR_INIT(116648, &byte_587000[121624]);
+NOX_LEGACY_PTR_INIT(116664, &byte_587000[121636]);
+NOX_LEGACY_PTR_INIT(116680, &byte_587000[121652]);
+NOX_LEGACY_PTR_INIT(116696, &byte_587000[121664]);
+NOX_LEGACY_PTR_INIT(116712, &byte_587000[121684]);
+NOX_LEGACY_PTR_INIT(116728, &byte_587000[121704]);
+NOX_LEGACY_PTR_INIT(116744, &byte_587000[121732]);
+NOX_LEGACY_PTR_INIT(116760, &byte_587000[121752]);
+NOX_LEGACY_PTR_INIT(116776, &byte_587000[121772]);
+NOX_LEGACY_PTR_INIT(116792, &byte_587000[121784]);
+NOX_LEGACY_PTR_INIT(116808, &byte_587000[121796]);
+NOX_LEGACY_PTR_INIT(116824, &byte_587000[121816]);
+NOX_LEGACY_PTR_INIT(116840, &byte_587000[121836]);
+NOX_LEGACY_PTR_INIT(116856, &byte_587000[121848]);
+NOX_LEGACY_PTR_INIT(116872, &byte_587000[121860]);
+NOX_LEGACY_PTR_INIT(116888, &byte_587000[121868]);
+NOX_LEGACY_PTR_INIT(116904, &byte_587000[121888]);
+NOX_LEGACY_PTR_INIT(116920, &byte_587000[121908]);
+NOX_LEGACY_PTR_INIT(116936, &byte_587000[121928]);
+NOX_LEGACY_PTR_INIT(116952, &byte_587000[121948]);
+NOX_LEGACY_PTR_INIT(116968, &byte_587000[121960]);
+NOX_LEGACY_PTR_INIT(116984, &byte_587000[121976]);
+NOX_LEGACY_PTR_INIT(117000, &byte_587000[121996]);
+NOX_LEGACY_PTR_INIT(117016, &byte_587000[122020]);
+NOX_LEGACY_PTR_INIT(117032, &byte_587000[122036]);
+NOX_LEGACY_PTR_INIT(117048, &byte_587000[122048]);
+NOX_LEGACY_PTR_INIT(117064, &byte_587000[122064]);
+NOX_LEGACY_PTR_INIT(117080, &byte_587000[122076]);
+NOX_LEGACY_PTR_INIT(117096, &byte_587000[122088]);
+NOX_LEGACY_PTR_INIT(122104, &byte_587000[122280]);
+NOX_LEGACY_PTR_INIT(122108, &sub_44B160);
+NOX_LEGACY_PTR_INIT(122112, &byte_587000[122288]);
+NOX_LEGACY_PTR_INIT(122116, &sub_44B190);
+NOX_LEGACY_PTR_INIT(122120, &byte_587000[122296]);
+NOX_LEGACY_PTR_INIT(122124, &sub_44B1C0);
+NOX_LEGACY_PTR_INIT(122128, &byte_587000[122308]);
+NOX_LEGACY_PTR_INIT(122132, &sub_44B1F0);
+NOX_LEGACY_PTR_INIT(122136, &byte_587000[122316]);
+NOX_LEGACY_PTR_INIT(122140, &sub_44B230);
+NOX_LEGACY_PTR_INIT(122144, &byte_587000[122332]);
+NOX_LEGACY_PTR_INIT(122148, &sub_44C200);
+NOX_LEGACY_PTR_INIT(122152, &byte_587000[122340]);
+NOX_LEGACY_PTR_INIT(122156, &sub_44C2F0);
+NOX_LEGACY_PTR_INIT(122160, &byte_587000[122344]);
+NOX_LEGACY_PTR_INIT(122164, &sub_44C320);
+NOX_LEGACY_PTR_INIT(122168, &byte_587000[122352]);
+NOX_LEGACY_PTR_INIT(122172, &sub_44C370);
+NOX_LEGACY_PTR_INIT(122176, &byte_587000[122360]);
+NOX_LEGACY_PTR_INIT(122180, &sub_44C3B0);
+NOX_LEGACY_PTR_INIT(122184, &byte_587000[122372]);
+NOX_LEGACY_PTR_INIT(122188, &sub_44B250);
+NOX_LEGACY_PTR_INIT(122192, &byte_587000[122384]);
+NOX_LEGACY_PTR_INIT(122196, &sub_44B2D0);
+NOX_LEGACY_PTR_INIT(122200, &byte_587000[122400]);
+NOX_LEGACY_PTR_INIT(122204, &sub_44B330);
+NOX_LEGACY_PTR_INIT(122208, &byte_587000[122416]);
+NOX_LEGACY_PTR_INIT(122212, &sub_44C3F0);
+NOX_LEGACY_PTR_INIT(122216, &byte_587000[122428]);
+NOX_LEGACY_PTR_INIT(122220, &sub_4B5C40);
+NOX_LEGACY_PTR_INIT(122224, &byte_587000[122444]);
+NOX_LEGACY_PTR_INIT(122228, &sub_44C410);
+NOX_LEGACY_PTR_INIT(122232, &byte_587000[122456]);
+NOX_LEGACY_PTR_INIT(122236, &sub_44C440);
+NOX_LEGACY_PTR_INIT(122240, &byte_587000[122464]);
+NOX_LEGACY_PTR_INIT(122244, &sub_44C480);
+NOX_LEGACY_PTR_INIT(122248, &byte_587000[122476]);
+NOX_LEGACY_PTR_INIT(122252, &sub_44C4B0);
+NOX_LEGACY_PTR_INIT(122256, &byte_587000[122488]);
+NOX_LEGACY_PTR_INIT(122260, &sub_44C500);
+NOX_LEGACY_PTR_INIT(122264, &byte_587000[122500]);
+NOX_LEGACY_PTR_INIT(122268, &sub_44C4E0);
 *(void **)&byte_587000[122852] = &byte_5D4594[830980];
 #if UINTPTR_MAX > UINT32_MAX
 nox_native_video_config_states[1] = (_DWORD *)&byte_5D4594[830980];
@@ -5307,40 +5345,40 @@ nox_native_video_mode_state = (_DWORD *)&byte_5D4594[1045324];
 *(void **)&byte_587000[129792] = &byte_587000[129996];
 *(void **)&byte_587000[132124] = &byte_587000[132100];
 *(void **)&byte_587000[133480] = &byte_5D4594[1049220];
-*(void **)&byte_587000[142868] = &byte_587000[142932];
-*(void **)&byte_587000[142872] = &byte_587000[142936];
-*(void **)&byte_587000[142876] = &byte_587000[142944];
-*(void **)&byte_587000[142880] = &byte_587000[142952];
-*(void **)&byte_587000[142884] = &byte_587000[142964];
-*(void **)&byte_587000[142888] = &byte_587000[142976];
-*(void **)&byte_587000[142892] = &byte_587000[142988];
-*(void **)&byte_587000[142896] = &byte_587000[143000];
-*(void **)&byte_587000[142900] = &byte_587000[143012];
-*(void **)&byte_587000[142904] = &byte_587000[143024];
-*(void **)&byte_587000[142908] = &byte_587000[143032];
-*(void **)&byte_587000[142912] = &byte_587000[143044];
-*(void **)&byte_587000[142916] = &byte_587000[143056];
-*(void **)&byte_587000[142920] = &byte_587000[143068];
-*(void **)&byte_587000[142924] = &byte_587000[143088];
+NOX_LEGACY_PTR_INIT(142868, &byte_587000[142932]);
+NOX_LEGACY_PTR_INIT(142872, &byte_587000[142936]);
+NOX_LEGACY_PTR_INIT(142876, &byte_587000[142944]);
+NOX_LEGACY_PTR_INIT(142880, &byte_587000[142952]);
+NOX_LEGACY_PTR_INIT(142884, &byte_587000[142964]);
+NOX_LEGACY_PTR_INIT(142888, &byte_587000[142976]);
+NOX_LEGACY_PTR_INIT(142892, &byte_587000[142988]);
+NOX_LEGACY_PTR_INIT(142896, &byte_587000[143000]);
+NOX_LEGACY_PTR_INIT(142900, &byte_587000[143012]);
+NOX_LEGACY_PTR_INIT(142904, &byte_587000[143024]);
+NOX_LEGACY_PTR_INIT(142908, &byte_587000[143032]);
+NOX_LEGACY_PTR_INIT(142912, &byte_587000[143044]);
+NOX_LEGACY_PTR_INIT(142916, &byte_587000[143056]);
+NOX_LEGACY_PTR_INIT(142920, &byte_587000[143068]);
+NOX_LEGACY_PTR_INIT(142924, &byte_587000[143088]);
 *(void **)&byte_587000[145676] = &byte_587000[145688];
 *(void **)&byte_587000[145680] = &byte_587000[145696];
 *(void **)&byte_587000[145684] = &byte_587000[145704];
-*(void **)&byte_587000[151272] = &byte_587000[151304];
-*(void **)&byte_587000[151276] = &byte_587000[151320];
-*(void **)&byte_587000[151280] = &byte_587000[151336];
-*(void **)&byte_587000[151284] = &byte_587000[151352];
-*(void **)&byte_587000[151288] = &byte_587000[151368];
-*(void **)&byte_587000[151292] = &byte_587000[151384];
-*(void **)&byte_587000[151296] = &byte_587000[151400];
-*(void **)&byte_587000[151300] = &byte_587000[151416];
+NOX_LEGACY_PTR_INIT(151272, &byte_587000[151304]);
+NOX_LEGACY_PTR_INIT(151276, &byte_587000[151320]);
+NOX_LEGACY_PTR_INIT(151280, &byte_587000[151336]);
+NOX_LEGACY_PTR_INIT(151284, &byte_587000[151352]);
+NOX_LEGACY_PTR_INIT(151288, &byte_587000[151368]);
+NOX_LEGACY_PTR_INIT(151292, &byte_587000[151384]);
+NOX_LEGACY_PTR_INIT(151296, &byte_587000[151400]);
+NOX_LEGACY_PTR_INIT(151300, &byte_587000[151416]);
 *(void **)&byte_587000[154940] = &sub_4815E0;
 *(void **)&byte_587000[154944] = &sub_481900;
 *(void **)&byte_587000[155144] = &byte_5D4594[1193204];
-*(void **)&byte_587000[161216] = &byte_587000[161300];
-*(void **)&byte_587000[161220] = &byte_587000[161316];
-*(void **)&byte_587000[161224] = &byte_587000[161332];
-*(void **)&byte_587000[161228] = &byte_587000[161344];
-*(void **)&byte_587000[161232] = &byte_587000[161360];
+NOX_LEGACY_PTR_INIT(161216, &byte_587000[161300]);
+NOX_LEGACY_PTR_INIT(161220, &byte_587000[161316]);
+NOX_LEGACY_PTR_INIT(161224, &byte_587000[161332]);
+NOX_LEGACY_PTR_INIT(161228, &byte_587000[161344]);
+NOX_LEGACY_PTR_INIT(161232, &byte_587000[161360]);
 *(void **)&byte_587000[164512] = &byte_587000[164552];
 *(void **)&byte_587000[164516] = &byte_587000[164564];
 *(void **)&byte_587000[164520] = &byte_587000[164576];
@@ -5550,81 +5588,81 @@ nox_native_pointer_slot32_write(&byte_587000[166316],
 *(void **)&byte_587000[173620] = &byte_587000[173880];
 *(void **)&byte_587000[173624] = &byte_587000[173896];
 *(void **)&byte_587000[173628] = &byte_587000[173912];
-*(void **)&byte_587000[174360] = &byte_587000[174568];
-*(void **)&byte_587000[174368] = &byte_587000[174572];
-*(void **)&byte_587000[174376] = &byte_587000[174580];
-*(void **)&byte_587000[174384] = &byte_587000[174584];
-*(void **)&byte_587000[174392] = &byte_587000[174592];
-*(void **)&byte_587000[174400] = &byte_587000[174600];
-*(void **)&byte_587000[174408] = &byte_587000[174608];
-*(void **)&byte_587000[174416] = &byte_587000[174620];
-*(void **)&byte_587000[174424] = &byte_587000[174628];
-*(void **)&byte_587000[174432] = &byte_587000[174636];
-*(void **)&byte_587000[174440] = &byte_587000[174648];
-*(void **)&byte_587000[174448] = &byte_587000[174656];
-*(void **)&byte_587000[174456] = &byte_587000[174664];
-*(void **)&byte_587000[174464] = &byte_587000[174672];
-*(void **)&byte_587000[174472] = &byte_587000[174680];
-*(void **)&byte_587000[174480] = &byte_587000[174688];
-*(void **)&byte_587000[174488] = &byte_587000[174696];
-*(void **)&byte_587000[174496] = &byte_587000[174708];
-*(void **)&byte_587000[174504] = &byte_587000[174716];
-*(void **)&byte_587000[174512] = &byte_587000[174728];
-*(void **)&byte_587000[174520] = &byte_587000[174736];
-*(void **)&byte_587000[174528] = &byte_587000[174748];
-*(void **)&byte_587000[174536] = &byte_587000[174756];
-*(void **)&byte_587000[174544] = &byte_587000[174768];
-*(void **)&byte_587000[174552] = &byte_587000[174780];
-*(void **)&byte_587000[175072] = &byte_587000[175280];
-*(void **)&byte_587000[175076] = &sub_4CE390;
-*(void **)&byte_587000[175080] = &byte_587000[175304];
-*(void **)&byte_587000[175084] = &sub_4CE1D0;
-*(void **)&byte_587000[175088] = &byte_587000[175320];
-*(void **)&byte_587000[175092] = &sub_4CE360;
-*(void **)&byte_587000[175096] = &byte_587000[175344];
-*(void **)&byte_587000[175100] = &sub_4CDF80;
-*(void **)&byte_587000[175104] = &byte_587000[175364];
-*(void **)&byte_587000[175108] = &sub_4CE0A0;
-*(void **)&byte_587000[175112] = &byte_587000[175392];
-*(void **)&byte_587000[175116] = &sub_4CE0C0;
-*(void **)&byte_587000[175120] = &byte_587000[175420];
-*(void **)&byte_587000[175124] = &sub_4CDD80;
-*(void **)&byte_587000[175128] = &byte_587000[175436];
-*(void **)&byte_587000[175132] = &sub_4CDBF0;
-*(void **)&byte_587000[175136] = &byte_587000[175460];
-*(void **)&byte_587000[175140] = &sub_4CD9E0;
-*(void **)&byte_587000[175144] = &byte_587000[175484];
-*(void **)&byte_587000[175148] = &sub_4CD8D0;
-*(void **)&byte_587000[175152] = &byte_587000[175508];
-*(void **)&byte_587000[175156] = &sub_4CD690;
-*(void **)&byte_587000[175160] = &byte_587000[175528];
-*(void **)&byte_587000[175164] = &sub_4CD450;
-*(void **)&byte_587000[175168] = &byte_587000[175544];
-*(void **)&byte_587000[175172] = &sub_4CD400;
-*(void **)&byte_587000[175176] = &byte_587000[175560];
-*(void **)&byte_587000[175180] = &sub_4CCE70;
-*(void **)&byte_587000[175184] = &byte_587000[175584];
-*(void **)&byte_587000[175188] = &sub_4CD090;
-*(void **)&byte_587000[175192] = &byte_587000[175612];
-*(void **)&byte_587000[175196] = &sub_4CD0C0;
-*(void **)&byte_587000[175200] = &byte_587000[175632];
-*(void **)&byte_587000[175204] = &sub_4CD0F0;
-*(void **)&byte_587000[175208] = &byte_587000[175656];
-*(void **)&byte_587000[175212] = &sub_4CD120;
-*(void **)&byte_587000[175216] = &byte_587000[175684];
-*(void **)&byte_587000[175220] = &sub_4CCDB0;
-*(void **)&byte_587000[175224] = &byte_587000[175700];
-*(void **)&byte_587000[175228] = &sub_4CCD00;
-*(void **)&byte_587000[175232] = &byte_587000[175720];
-*(void **)&byte_587000[175236] = &sub_4CCCF0;
-*(void **)&byte_587000[175240] = &byte_587000[175748];
-*(void **)&byte_587000[175244] = &sub_4CCAC0;
-*(void **)&byte_587000[175248] = &byte_587000[175776];
-*(void **)&byte_587000[175252] = &sub_4CC950;
-*(void **)&byte_587000[175256] = &byte_587000[175804];
-*(void **)&byte_587000[175260] = &sub_4CA650;
-*(void **)&byte_587000[175264] = &byte_587000[175824];
-*(void **)&byte_587000[175268] = &sub_4BC920;
+NOX_LEGACY_PTR_INIT(174360, &byte_587000[174568]);
+NOX_LEGACY_PTR_INIT(174368, &byte_587000[174572]);
+NOX_LEGACY_PTR_INIT(174376, &byte_587000[174580]);
+NOX_LEGACY_PTR_INIT(174384, &byte_587000[174584]);
+NOX_LEGACY_PTR_INIT(174392, &byte_587000[174592]);
+NOX_LEGACY_PTR_INIT(174400, &byte_587000[174600]);
+NOX_LEGACY_PTR_INIT(174408, &byte_587000[174608]);
+NOX_LEGACY_PTR_INIT(174416, &byte_587000[174620]);
+NOX_LEGACY_PTR_INIT(174424, &byte_587000[174628]);
+NOX_LEGACY_PTR_INIT(174432, &byte_587000[174636]);
+NOX_LEGACY_PTR_INIT(174440, &byte_587000[174648]);
+NOX_LEGACY_PTR_INIT(174448, &byte_587000[174656]);
+NOX_LEGACY_PTR_INIT(174456, &byte_587000[174664]);
+NOX_LEGACY_PTR_INIT(174464, &byte_587000[174672]);
+NOX_LEGACY_PTR_INIT(174472, &byte_587000[174680]);
+NOX_LEGACY_PTR_INIT(174480, &byte_587000[174688]);
+NOX_LEGACY_PTR_INIT(174488, &byte_587000[174696]);
+NOX_LEGACY_PTR_INIT(174496, &byte_587000[174708]);
+NOX_LEGACY_PTR_INIT(174504, &byte_587000[174716]);
+NOX_LEGACY_PTR_INIT(174512, &byte_587000[174728]);
+NOX_LEGACY_PTR_INIT(174520, &byte_587000[174736]);
+NOX_LEGACY_PTR_INIT(174528, &byte_587000[174748]);
+NOX_LEGACY_PTR_INIT(174536, &byte_587000[174756]);
+NOX_LEGACY_PTR_INIT(174544, &byte_587000[174768]);
+NOX_LEGACY_PTR_INIT(174552, &byte_587000[174780]);
+NOX_LEGACY_PTR_INIT(175072, &byte_587000[175280]);
+NOX_LEGACY_PTR_INIT(175076, &sub_4CE390);
+NOX_LEGACY_PTR_INIT(175080, &byte_587000[175304]);
+NOX_LEGACY_PTR_INIT(175084, &sub_4CE1D0);
+NOX_LEGACY_PTR_INIT(175088, &byte_587000[175320]);
+NOX_LEGACY_PTR_INIT(175092, &sub_4CE360);
+NOX_LEGACY_PTR_INIT(175096, &byte_587000[175344]);
+NOX_LEGACY_PTR_INIT(175100, &sub_4CDF80);
+NOX_LEGACY_PTR_INIT(175104, &byte_587000[175364]);
+NOX_LEGACY_PTR_INIT(175108, &sub_4CE0A0);
+NOX_LEGACY_PTR_INIT(175112, &byte_587000[175392]);
+NOX_LEGACY_PTR_INIT(175116, &sub_4CE0C0);
+NOX_LEGACY_PTR_INIT(175120, &byte_587000[175420]);
+NOX_LEGACY_PTR_INIT(175124, &sub_4CDD80);
+NOX_LEGACY_PTR_INIT(175128, &byte_587000[175436]);
+NOX_LEGACY_PTR_INIT(175132, &sub_4CDBF0);
+NOX_LEGACY_PTR_INIT(175136, &byte_587000[175460]);
+NOX_LEGACY_PTR_INIT(175140, &sub_4CD9E0);
+NOX_LEGACY_PTR_INIT(175144, &byte_587000[175484]);
+NOX_LEGACY_PTR_INIT(175148, &sub_4CD8D0);
+NOX_LEGACY_PTR_INIT(175152, &byte_587000[175508]);
+NOX_LEGACY_PTR_INIT(175156, &sub_4CD690);
+NOX_LEGACY_PTR_INIT(175160, &byte_587000[175528]);
+NOX_LEGACY_PTR_INIT(175164, &sub_4CD450);
+NOX_LEGACY_PTR_INIT(175168, &byte_587000[175544]);
+NOX_LEGACY_PTR_INIT(175172, &sub_4CD400);
+NOX_LEGACY_PTR_INIT(175176, &byte_587000[175560]);
+NOX_LEGACY_PTR_INIT(175180, &sub_4CCE70);
+NOX_LEGACY_PTR_INIT(175184, &byte_587000[175584]);
+NOX_LEGACY_PTR_INIT(175188, &sub_4CD090);
+NOX_LEGACY_PTR_INIT(175192, &byte_587000[175612]);
+NOX_LEGACY_PTR_INIT(175196, &sub_4CD0C0);
+NOX_LEGACY_PTR_INIT(175200, &byte_587000[175632]);
+NOX_LEGACY_PTR_INIT(175204, &sub_4CD0F0);
+NOX_LEGACY_PTR_INIT(175208, &byte_587000[175656]);
+NOX_LEGACY_PTR_INIT(175212, &sub_4CD120);
+NOX_LEGACY_PTR_INIT(175216, &byte_587000[175684]);
+NOX_LEGACY_PTR_INIT(175220, &sub_4CCDB0);
+NOX_LEGACY_PTR_INIT(175224, &byte_587000[175700]);
+NOX_LEGACY_PTR_INIT(175228, &sub_4CCD00);
+NOX_LEGACY_PTR_INIT(175232, &byte_587000[175720]);
+NOX_LEGACY_PTR_INIT(175236, &sub_4CCCF0);
+NOX_LEGACY_PTR_INIT(175240, &byte_587000[175748]);
+NOX_LEGACY_PTR_INIT(175244, &sub_4CCAC0);
+NOX_LEGACY_PTR_INIT(175248, &byte_587000[175776]);
+NOX_LEGACY_PTR_INIT(175252, &sub_4CC950);
+NOX_LEGACY_PTR_INIT(175256, &byte_587000[175804]);
+NOX_LEGACY_PTR_INIT(175260, &sub_4CA650);
+NOX_LEGACY_PTR_INIT(175264, &byte_587000[175824]);
+NOX_LEGACY_PTR_INIT(175268, &sub_4BC920);
 *(void **)&byte_587000[177488] = &byte_587000[177568];
 *(void **)&byte_587000[177496] = &byte_587000[177584];
 *(void **)&byte_587000[177504] = &byte_587000[177604];
@@ -15562,17 +15600,18 @@ LABEL_25:
 int *__cdecl sub_410520(__int16 a1)
 {
   int *result; // eax
-  int v2; // ecx
+  uintptr_t v2; // ecx
 
   result = (int *)sub_410870();
   if ( result )
   {
     while ( 1 )
     {
-      v2 = result[1];
+      v2 = nox_native_pointer_from_32_value(
+          nox_native_pointer_slot32_read((unsigned char *)result + 4));
       if ( *(_WORD *)(v2 + 10) == a1 )
         break;
-      result = (int *)sub_410880(result);
+      result = (int *)(uintptr_t)sub_410880((uintptr_t)result);
       if ( !result )
         return result;
     }
@@ -15844,33 +15883,30 @@ _DWORD *sub_410810()
 }
 
 //----- (00410840) --------------------------------------------------------
-_DWORD *__cdecl sub_410840(int a1)
+_DWORD *__cdecl sub_410840(uintptr_t a1)
 {
   _DWORD *result; // eax
 
   result = calloc(1u, 8u);
-  result[1] = a1;
-  *result = *(_DWORD *)&byte_5D4594[251564];
-  *(_DWORD *)&byte_5D4594[251564] = result;
+  nox_native_pointer_slot32_write((unsigned char *)result + 4, a1);
+  nox_native_pointer_slot32_write(result,
+      nox_native_pointer_slot32_read(&byte_5D4594[251564]));
+  nox_native_pointer_slot32_write(&byte_5D4594[251564], (uintptr_t)result);
   return result;
 }
 
 //----- (00410870) --------------------------------------------------------
 LPVOID sub_410870()
 {
-  return *(LPVOID *)&byte_5D4594[251564];
+  return (LPVOID)nox_native_pointer_from_32_value(
+      nox_native_pointer_slot32_read(&byte_5D4594[251564]));
 }
 
 //----- (00410880) --------------------------------------------------------
-int __cdecl sub_410880(int *a1)
+uintptr_t __cdecl sub_410880(uintptr_t a1)
 {
-  int result; // eax
-
-  if ( a1 )
-    result = *a1;
-  else
-    result = 0;
-  return result;
+  return a1 ? nox_native_pointer_from_32_value(
+      nox_native_pointer_slot32_read((void *)a1)) : 0;
 }
 
 //----- (00410890) --------------------------------------------------------
@@ -15878,22 +15914,26 @@ int *__cdecl sub_410890(int *lpMem)
 {
   int *result; // eax
   int *v2; // esi
+  uintptr_t head;
+  uintptr_t next;
 
-  result = *(int **)&byte_5D4594[251564];
+  head = (uintptr_t)sub_410870();
+  result = (int *)head;
   v2 = 0;
-  if ( *(_DWORD *)&byte_5D4594[251564] )
+  if ( head )
   {
     while ( result != lpMem )
     {
       v2 = result;
-      result = (int *)sub_410880(result);
+      result = (int *)(uintptr_t)sub_410880((uintptr_t)result);
       if ( !result )
         return result;
     }
-    if ( result == *(int **)&byte_5D4594[251564] )
-      *(_DWORD *)&byte_5D4594[251564] = sub_410880(result);
+    next = sub_410880((uintptr_t)result);
+    if ( result == (int *)head )
+      nox_native_pointer_slot32_write(&byte_5D4594[251564], next);
     else
-      *v2 = sub_410880(result);
+      nox_native_pointer_slot32_write(v2, next);
     free(lpMem);
   }
   return result;
@@ -22592,10 +22632,14 @@ char *__cdecl sub_4174B0(int a1, int a2)
 }
 
 //----- (004174F0) --------------------------------------------------------
-int __cdecl sub_4174F0(int a1, int a2)
+int __cdecl sub_4174F0(uintptr_t a1, int a2)
 {
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX
+  if ( a1 <= UINT32_MAX )
+    a1 = (uintptr_t)NOX_STATIC_POINTER_FROM_32((unsigned int)a1);
+#endif
   *(_DWORD *)(a1 + 3680) |= a2;
   result = sub_40A5C0(1);
   if ( result )
@@ -22650,22 +22694,20 @@ char __cdecl sub_417530(uintptr_t a1, int a2)
 // 417577: variable 'v2' is possibly undefined
 
 //----- (004175C0) --------------------------------------------------------
-char *__cdecl sub_4175C0(int a1)
+char *__cdecl sub_4175C0(uintptr_t a1)
 {
   char *result; // eax
-  int i; // esi
   int v3; // [esp-18h] [ebp-24h]
   char v4[7]; // [esp+4h] [ebp-8h]
 
   result = sub_416EA0();
-  for ( i = (int)result; result; i = (int)result )
+  for ( ; result; result = sub_416EE0((uintptr_t)result) )
   {
     v4[0] = 106;
-    *(_WORD *)&v4[1] = *(_WORD *)(i + 2060);
+    *(_WORD *)&v4[1] = *(_WORD *)(result + 2060);
     v3 = *(unsigned __int8 *)(a1 + 2064);
-    *(_DWORD *)&v4[3] = *(_DWORD *)(i + 3680) & 0x423;
-    sub_4E5390(v3, (int)v4, 7, 0, 0);
-    result = sub_416EE0(i);
+    *(_DWORD *)&v4[3] = *(_DWORD *)(result + 3680) & 0x423;
+    sub_4E5390(v3, (uintptr_t)v4, 7, 0, 0);
   }
   return result;
 }
@@ -36672,6 +36714,17 @@ int __cdecl sub_427010(const char *a1)
   int v1; // ebp
   const char **v2; // edi
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  for ( v1 = 0; v1 < 41; ++v1 )
+  {
+    const char *name = (const char *)NOX_STATIC_POINTER_FROM_32(
+        *(uint32_t *)&byte_587000[70500 + 4 * v1]);
+
+    if ( !strcmp(name, a1) )
+      return v1;
+  }
+  return 0;
+#else
   v1 = 0;
   v2 = (const char **)&byte_587000[70500];
   while ( strcmp(*v2, a1) )
@@ -36682,13 +36735,19 @@ int __cdecl sub_427010(const char *a1)
       return 0;
   }
   return v1;
+#endif
 }
 
 //----- (00427070) --------------------------------------------------------
 int sub_427070()
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  int name_index; // ebx
+  unsigned __int8 *i; // ebp
+#else
   CHAR **v0; // ebx
   unsigned __int8 *i; // ebp
+#endif
   int v2; // esi
   wchar_t *v3; // eax
   int v4; // ecx
@@ -36700,24 +36759,60 @@ int sub_427070()
   const char *v10; // edi
   int v11; // eax
   char v13[256]; // [esp+14h] [ebp-100h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  const char *type_name;
+#endif
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  name_index = 0;
+#else
   v0 = (CHAR **)&byte_587000[70504];
+#endif
   for ( i = &byte_5D4594[740108]; ; i += 28 )
   {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    type_name = (const char *)NOX_STATIC_POINTER_FROM_32(
+        *(uint32_t *)&byte_587000[70504 + 4 * name_index]);
+    v2 = sub_44D330((CHAR *)type_name);
+#else
     v2 = sub_44D330(*v0);
+#endif
     if ( !v2 )
       break;
-    nox_sprintf(v13, (const char *)&byte_587000[71128], *v0);
+    nox_sprintf(v13, (const char *)&byte_587000[71128],
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        type_name);
+#else
+        *v0);
+#endif
     *((_DWORD *)i - 1) = sub_40F1D0(v13, 0, (const char *)&byte_587000[71140], 57);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    if ( !strcmp((const char *)nox_native_pointer_from_32(
+            *(uint32_t *)v2), (const char *)&byte_587000[71180]) )
+#else
     if ( !strcmp(*(const char **)v2, (const char *)&byte_587000[71180]) )
+#endif
       *(_DWORD *)i = 0;
     else
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      *(_DWORD *)i = sub_44CFC0((CHAR *)type_name);
+#else
       *(_DWORD *)i = sub_44CFC0(*v0);
-    nox_sprintf(v13, (const char *)&byte_587000[71188], *v0);
+#endif
+    nox_sprintf(v13, (const char *)&byte_587000[71188],
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        type_name);
+#else
+        *v0);
+#endif
     v3 = sub_40F1D0(v13, 0, (const char *)&byte_587000[71208], 65);
     v4 = *(_DWORD *)&byte_587000[71248];
     v5 = *(_DWORD *)&byte_587000[71252];
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    v6 = type_name;
+#else
     v6 = *v0;
+#endif
     *((_DWORD *)i + 1) = v3;
     *(_DWORD *)v13 = v4;
     strcpy(&v13[8], "Cage");
@@ -36726,7 +36821,11 @@ int sub_427070()
     v7 = sub_42F970(v13);
     v8 = *(_DWORD *)&byte_587000[71264];
     v9 = *(_DWORD *)&byte_587000[71268];
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    v10 = type_name;
+#else
     v10 = *v0;
+#endif
     *((_DWORD *)i + 2) = v7;
     *(_DWORD *)v13 = v8;
     strcpy(&v13[8], "k");
@@ -36747,9 +36846,15 @@ int sub_427070()
     {
       i[20] = 4;
     }
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    ++name_index;
+    if ( name_index >= 40 )
+      return 1;
+#else
     ++v0;
     if ( (int)v0 >= (int)&byte_587000[70664] )
       return 1;
+#endif
   }
   return 0;
 }
@@ -36757,7 +36862,12 @@ int sub_427070()
 //----- (00427230) --------------------------------------------------------
 char *__cdecl sub_427230(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  return (char *)NOX_STATIC_POINTER_FROM_32(
+      *(uint32_t *)&byte_587000[4 * a1 + 70500]);
+#else
   return *(char **)&byte_587000[4 * a1 + 70500];
+#endif
 }
 
 //----- (00427240) --------------------------------------------------------
@@ -38524,7 +38634,7 @@ int __cdecl sub_429530(_DWORD *a1)
           *((_WORD *)v2 + 5) = *(_WORD *)&byte_5D4594[741344];
           ++*(_DWORD *)&byte_5D4594[741344];
           if ( !sub_40A5C0(0x400000) )
-            sub_410840((int)v2);
+            sub_410840((uintptr_t)v2);
         }
         ++v6;
       }
@@ -52911,7 +53021,8 @@ int sub_43CF70()
     result = *(_DWORD *)&byte_5D4594[2618908];
     if ( *(_DWORD *)&byte_5D4594[2618908] )
     {
-      sub_4174F0(*(int *)&byte_5D4594[2618908], 64);
+      sub_4174F0(nox_native_pointer_from_32_value(
+          nox_native_pointer_slot32_read(&byte_5D4594[2618908])), 64);
       v2 = 41;
       result = sub_4E53C0(31, &v2, 1, 0, 1);
     }
@@ -55185,6 +55296,7 @@ int sub_43F1C0()
   *(_DWORD *)&byte_5D4594[816456] = 64;
   *(_DWORD *)&byte_5D4594[816484] = 1;
   *(_DWORD *)&byte_5D4594[816440] = 1;
+  *(_DWORD *)&byte_5D4594[816444] = 0;
   *(_DWORD *)&byte_5D4594[816460] = 0;
   *(_DWORD *)&byte_5D4594[816452] = 0;
   memset(&byte_5D4594[816464], 0, 20);
@@ -59086,12 +59198,12 @@ int __cdecl sub_443810(int a1, char a2, int a3)
     nox_wcscat(v5, (const wchar_t *)&byte_587000[106872]);
   v4 = sub_40F1D0((char *)&byte_587000[106924], 0, (const char *)&byte_587000[106884], 4002);
   sub_450C00(6u, v4, v5);
-  sub_4438A0((int)v5);
+  sub_4438A0((uintptr_t)v5);
   return 1;
 }
 
 //----- (004438A0) --------------------------------------------------------
-int __cdecl sub_4438A0(int a1)
+int __cdecl sub_4438A0(uintptr_t a1)
 {
   FILE *v1; // eax
   FILE *v2; // esi
@@ -59103,7 +59215,7 @@ int __cdecl sub_4438A0(int a1)
   if ( !a1 )
     return 0;
   v6[0] = 0;
-  nox_sprintf(v6, (const char *)&byte_587000[106940], a1);
+  nox_sprintf(v6, (const char *)&byte_587000[106940], (const wchar_t *)a1);
   v1 = fopen(v6, "r");
   v2 = v1;
   if ( !v1 )
@@ -59163,6 +59275,96 @@ int __cdecl sub_4439B0(int a1, unsigned __int8 a2)
 //----- (00443A20) --------------------------------------------------------
 int __cdecl sub_443A20(int a1, int a2, int a3, const wchar_t **a4, int a5)
 {
+#if UINTPTR_MAX > UINT32_MAX
+  const struct nox_native_console_command_entry *entry;
+  const struct nox_native_console_command_entry *children;
+  const wchar_t *argument;
+  const char *help;
+  uint32_t argument_pointer;
+  uintptr_t callback;
+  int result;
+  wchar_t command_name[32];
+
+  if ( !a3 || !a4 )
+    return 0;
+  argument_pointer = *(uint32_t *)(uintptr_t)(a3 + 4 * a1);
+  if ( !argument_pointer )
+    return 0;
+  argument = (const wchar_t *)(uintptr_t)argument_pointer;
+
+  entry = (const struct nox_native_console_command_entry *)a4;
+  while ( entry->name )
+  {
+    if ( entry->flags & 0x40 )
+      sub_443BF0((unsigned __int16 *)(uintptr_t)argument_pointer,
+                 (char *)command_name);
+    else
+      nox_wcscpy(command_name, argument);
+    if ( !_nox_wcsicmp(command_name, entry->name) )
+      break;
+    ++entry;
+  }
+  if ( !entry->name )
+    return 0;
+
+  if ( !(*(_DWORD *)&byte_5D4594[2650636] & 0x40000)
+       && *(_DWORD *)&byte_587000[94464]
+       && (entry->flags & 0x10) )
+    return 0;
+  if ( *(_DWORD *)&byte_5D4594[823684] )
+  {
+    if ( !(entry->flags & 1) )
+    {
+      help = (const char *)nox_native_static_pointer_from_32(
+          entry->help_pointer);
+      sub_450C00(6u, sub_40F1D0((char *)help, 0,
+                                 (const char *)&byte_587000[107028], 4091));
+      return 1;
+    }
+  }
+  else if ( !(entry->flags & 2) )
+  {
+    help = (const char *)nox_native_static_pointer_from_32(
+        entry->help_pointer);
+    sub_450C00(6u, sub_40F1D0((char *)help, 0,
+                               (const char *)&byte_587000[107080], 4097));
+    return 1;
+  }
+  if ( (entry->flags & 0x20)
+       && !(*(_DWORD *)&byte_5D4594[2650636] & 0x40000) )
+    return 1;
+
+  children = (const struct nox_native_console_command_entry *)
+      nox_native_static_pointer_from_32(entry->children_pointer);
+  if ( children )
+  {
+    if ( (unsigned __int8)a2 <= a1 + 1 )
+    {
+      help = (const char *)nox_native_static_pointer_from_32(
+          entry->help_pointer);
+      sub_450C00(6u, sub_40F1D0((char *)help, 0,
+                                 (const char *)&byte_587000[107132], 4125));
+      return 1;
+    }
+    result = sub_443A20(a1 + 1, a2, a3,
+                        (const wchar_t **)children, a5);
+  }
+  else
+  {
+    callback = nox_native_code_pointer_from_32(entry->callback_pointer);
+    result = callback
+        ? ((int (__cdecl *)(int, int, int))callback)(a1 + 1, a2, a3)
+        : 0;
+  }
+  if ( !result )
+  {
+    help = (const char *)nox_native_static_pointer_from_32(
+        entry->help_pointer);
+    sub_450C00(6u, sub_40F1D0((char *)help, 0,
+                               (const char *)&byte_587000[107132], 4125));
+  }
+  return result;
+#else
   int v5; // eax
   int v6; // ecx
   int v7; // edi
@@ -59177,21 +59379,23 @@ int __cdecl sub_443A20(int a1, int a2, int a3, const wchar_t **a4, int a5)
   wchar_t *v17; // eax
   int v18; // [esp+10h] [ebp-44h]
   wchar_t v19[32]; // [esp+14h] [ebp-40h]
+  uint32_t argument_pointer;
 
   v5 = a3;
   v6 = a1;
   v7 = 0;
   v18 = 0;
-  if ( !*(_DWORD *)(a3 + 4 * a1) || !a4 || !*a4 )
+  if ( !*(uint32_t *)(uintptr_t)(a3 + 4 * a1) || !a4 || !*a4 )
     return v18;
   v8 = a4;
   v9 = a4;
   while ( 1 )
   {
+    argument_pointer = *(uint32_t *)(uintptr_t)(v5 + 4 * v6);
     if ( (_BYTE)v8[3] & 0x40 )
-      sub_443BF0(*(unsigned __int16 **)(v5 + 4 * v6), (char *)v19);
+      sub_443BF0((unsigned __int16 *)(uintptr_t)argument_pointer, (char *)v19);
     else
-      nox_wcscpy(v19, *(const wchar_t **)(v5 + 4 * v6));
+      nox_wcscpy(v19, (const wchar_t *)(uintptr_t)argument_pointer);
     if ( !_nox_wcsicmp(v19, *v8) )
       break;
     v10 = v9[6];
@@ -59249,6 +59453,7 @@ LABEL_30:
   if ( !v16 )
     goto LABEL_30;
   return v18;
+#endif
 }
 
 //----- (00443BF0) --------------------------------------------------------
@@ -59259,18 +59464,20 @@ void __cdecl sub_443BF0(unsigned __int16 *a1, char *a2)
   unsigned __int16 v4; // ax
   unsigned __int16 *v5; // ecx
   int v6; // edx
+  const wchar_t *key;
 
   v2 = 0;
+  key = *(const wchar_t **)&byte_587000[98256];
   if ( a1 )
   {
-    if ( a2 && (v3 = nox_wcslen(*(const wchar_t **)&byte_587000[98256]), (v4 = *a1) != 0) )
+    if ( a2 && (v3 = nox_wcslen(key), (v4 = *a1) != 0) )
     {
       v5 = a1;
       do
       {
         ++v5;
         v6 = (unsigned __int8)(v2++ * (v4 - 1) % v3);
-        *(unsigned __int16 *)((char *)v5 - (char *)a1 + a2 - 2) = *(_WORD *)(*(_DWORD *)&byte_587000[98256] + 2 * v6);
+        *(unsigned __int16 *)((char *)v5 - (char *)a1 + a2 - 2) = (unsigned __int16)key[v6];
         v4 = *v5;
       }
       while ( *v5 );
@@ -59294,18 +59501,25 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
   char v3; // bl
   int result; // eax
   wchar_t *v5; // esi
-  int v6; // eax
+  uintptr_t v6; // eax
   int v7; // ecx
   wchar_t *v8; // eax
   wchar_t *v9; // eax
   int v10; // [esp+10h] [ebp-88h]
   int v11; // [esp+14h] [ebp-84h]
-  int v12[32]; // [esp+18h] [ebp-80h]
+  uintptr_t v12[32]; // [esp+18h] [ebp-80h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  uint32_t *legacy_argv;
+  void *legacy_arguments[32];
+  size_t legacy_argument_sizes[32];
+  unsigned int legacy_arg_index;
+  int legacy_argv_ready;
+#endif
 
   v2 = 0;
   v3 = 0;
   v11 = 0;
-  LOBYTE(v10) = 0;
+  v10 = 0;
 #if UINTPTR_MAX > UINT32_MAX
   /* The recovered command callback consumes a 32-bit argv record.  Preserve
    * the production load handler by constructing that record and its argument
@@ -59383,12 +59597,12 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
     {
       do
       {
-        v6 = (int)v5;
+        v6 = (uintptr_t)v5;
         if ( !v2 )
         {
           v6 = sub_443E40(v5);
           if ( !v6 )
-            v6 = (int)v5;
+            v6 = (uintptr_t)v5;
         }
         v7 = (unsigned __int8)v10;
         LOBYTE(v10) = ++v3;
@@ -59410,6 +59624,35 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
       while ( v5 );
       if ( v3 )
       {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        /* Console callbacks still consume the recovered DWORD argv vector.
+         * Materialize it and its strings below 4 GiB; v12 itself is a native
+         * pointer vector used only by the optional bot command bridge. */
+        memset(legacy_arguments, 0, sizeof(legacy_arguments));
+        memset(legacy_argument_sizes, 0, sizeof(legacy_argument_sizes));
+        legacy_argv = nox_legacy_low_alloc(32u * sizeof(*legacy_argv));
+        legacy_argv_ready = legacy_argv != 0;
+        if ( legacy_argv_ready )
+        {
+          for ( legacy_arg_index = 0;
+                legacy_arg_index < (unsigned __int8)v10;
+                ++legacy_arg_index )
+          {
+            const wchar_t *argument = (const wchar_t *)v12[legacy_arg_index];
+            size_t argument_length = (nox_wcslen(argument) + 1) * sizeof(*argument);
+
+            legacy_arguments[legacy_arg_index] = nox_legacy_low_alloc(argument_length);
+            if ( !legacy_arguments[legacy_arg_index] )
+            {
+              legacy_argv_ready = 0;
+              break;
+            }
+            legacy_argument_sizes[legacy_arg_index] = argument_length;
+            memcpy(legacy_arguments[legacy_arg_index], argument, argument_length);
+            legacy_argv[legacy_arg_index] = (uint32_t)(uintptr_t)legacy_arguments[legacy_arg_index];
+          }
+        }
+#endif
 #ifdef NOX_BOT_SUPPORT
         /* Player-issued command contexts set byte_5D4594[823692] before
          * entering this dispatcher. Keep lifecycle controls on the server/local
@@ -59419,7 +59662,22 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
           nox_bot_console_command((unsigned __int8)v10, (const wchar_t *const *)v12);
         if (!v11)
 #endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+          v11 = legacy_argv_ready
+              ? sub_443A20(0, v10, (int)(uintptr_t)legacy_argv,
+                           (const wchar_t **)&byte_587000[97368], a2)
+              : 0;
+#else
           v11 = sub_443A20(0, v10, (int)v12, (const wchar_t **)&byte_587000[97368], a2);
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        for ( legacy_arg_index = 0;
+              legacy_arg_index < (unsigned __int8)v10;
+              ++legacy_arg_index )
+          nox_legacy_low_free(legacy_arguments[legacy_arg_index],
+                              legacy_argument_sizes[legacy_arg_index]);
+        nox_legacy_low_free(legacy_argv, 32u * sizeof(*legacy_argv));
+#endif
         if ( !v11 )
         {
           v9 = sub_40F1D0((char *)&byte_587000[107236], 0, (const char *)&byte_587000[107196], 4226);
@@ -59436,7 +59694,7 @@ int __cdecl sub_443C80(wchar_t *a1, int a2)
 // 443C80: using guessed type int var_80[32];
 
 //----- (00443E40) --------------------------------------------------------
-int __cdecl sub_443E40(wchar_t *a1)
+uintptr_t __cdecl sub_443E40(wchar_t *a1)
 {
 #if UINTPTR_MAX > UINT32_MAX
   int i;
@@ -59444,7 +59702,7 @@ int __cdecl sub_443E40(wchar_t *a1)
   for ( i = 0; i < nox_cmd_localized_count; ++i )
   {
     if ( !_nox_wcsicmp(a1, nox_cmd_localized_entries[i].localized) )
-      return (int)(uintptr_t)nox_cmd_localized_entries[i].name;
+      return (uintptr_t)nox_cmd_localized_entries[i].name;
   }
   return 0;
 #else
@@ -60379,7 +60637,9 @@ int sub_445650()
                                       50,
                                       0);
   sub_46AE60(*(int *)&byte_5D4594[825744], *(int *)&byte_5D4594[825748]);
-  sub_46B430(*(_DWORD **)&byte_5D4594[825744], 0, sub_4456E0, 0);
+  sub_46B430((_DWORD *)(uintptr_t)nox_native_pointer_from_32_value(
+      nox_native_pointer_slot32_read(&byte_5D4594[825744])),
+      0, sub_4456E0, 0);
   v0 = sub_40F1D0((char *)&byte_587000[107980], 0, (const char *)&byte_587000[107940], 73);
   sub_46B000((wchar_t *)(*(_DWORD *)&byte_5D4594[825744] + 36), v0);
   return 1;
@@ -61145,7 +61405,7 @@ int sub_4465C0()
   *(_DWORD *)&byte_5D4594[826028] = v0;
   v1 = sub_46B0C0(v0, 4203);
   *(_DWORD *)&byte_5D4594[826032] = v1;
-  v2 = (_DWORD *)v1[8];
+  v2 = (_DWORD *)nox_native_window_field_32((unsigned int)(uintptr_t)v1);
   v7 = sub_42F970((const char *)&byte_587000[108784]);
   v3 = sub_42F970((const char *)&byte_587000[108796]);
   v4 = sub_46B0C0(*(_DWORD **)&byte_5D4594[826028], 4204);
@@ -61989,7 +62249,7 @@ int sub_447620()
   {
     sub_46A8C0(*(int *)&byte_5D4594[829480]);
     sub_44A4B0();
-    sub_46B430(*(_DWORD **)&byte_5D4594[829480], sub_447C70, 0, 0);
+    sub_46B430((_DWORD *)(uintptr_t)nox_native_pointer_from_32_value(nox_native_pointer_slot32_read(&byte_5D4594[829480])), sub_447C70, 0, 0);
     sub_46B340(*(int *)&byte_5D4594[829480], sub_4483A0);
     result = sub_43C5B0(*(_DWORD **)&byte_5D4594[829480], 0, 0, 0, -480, 0, 20, 0, -40);
     *(_DWORD *)&byte_5D4594[829520] = result;
@@ -62302,7 +62562,7 @@ LABEL_23:
           v10 = v8->field_4;
           v11 = sub_43F320(0);
           *(_DWORD *)&byte_5D4594[829504] = sub_46C3E0(0, 40, v9 - 40, v10 - (v11 + 4) / 2, 80, v11 + 4, 0);
-          sub_46B430(*(_DWORD **)&byte_5D4594[829504], 0, sub_448140, 0);
+          sub_46B430((_DWORD *)(uintptr_t)nox_native_pointer_from_32_value(nox_native_pointer_slot32_read(&byte_5D4594[829504])), 0, sub_448140, 0);
           sub_46A8C0(*(int *)&byte_5D4594[829504]);
           v12 = sub_46C3E0(*(int *)&byte_5D4594[829504], 8, 0, v11 / 2, 80, v11 + 2, 0);
           sub_46B430(v12, sub_448340, sub_448240, 0);
@@ -63883,7 +64143,7 @@ int sub_44A560()
     *(_DWORD *)result = 1700;
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[830244] + 48) = sub_44AA40;
     *(_DWORD *)(*(_DWORD *)&byte_5D4594[830244] + 56) = sub_44AA70;
-    sub_46B430(*(_DWORD **)&byte_5D4594[830248], sub_44AAC0, 0, 0);
+    sub_46B430((_DWORD *)(uintptr_t)nox_native_pointer_from_32_value(nox_native_pointer_slot32_read(&byte_5D4594[830248])), sub_44AAC0, 0, 0);
   }
   sub_41FCF0();
   *(_DWORD *)&byte_5D4594[830264] = sub_46B0C0(*(_DWORD **)&byte_5D4594[830248], 1708);
@@ -64407,63 +64667,96 @@ int __cdecl sub_44B390(int a1, int a2, _BYTE *a3)
   unsigned __int8 v20; // [esp+20h] [ebp+8h]
   unsigned __int8 v21; // [esp+20h] [ebp+8h]
   int v22; // [esp+24h] [ebp+Ch]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  size_t array_size;
+#endif
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v3 = nox_legacy_low_alloc(0x10u);
+#else
   v3 = calloc(1u, 0x10u);
+#endif
+  if ( !v3 )
+    return 0;
   v4 = a2;
   v5 = v3;
   v6 = a3;
   v18 = a2;
   *v3 = 16;
-  v7 = *(char **)(a2 + 8);
+  v7 = (char *)nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v8 = *v7;
   *(_DWORD *)(a2 + 8) = v7 + 1;
   *((_BYTE *)v5 + 8) = v8;
-  v9 = *(char **)(a2 + 8);
+  v9 = (char *)nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v10 = *v9;
   *(_DWORD *)(a2 + 8) = v9 + 1;
   *((_BYTE *)v5 + 9) = v10;
-  v11 = *(unsigned __int8 **)(a2 + 8);
+  v11 = nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v20 = *v11;
   *(_DWORD *)(v4 + 8) = v11 + 1;
   sub_40ACC0(a3, 1u, v20, v18);
   a3[v20] = 0;
   v5[3] = sub_44B4C0(a3);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  array_size = 4u * (size_t)*((unsigned __int8 *)v5 + 8);
+  v11 = nox_legacy_low_alloc(array_size ? array_size : 1u);
+#else
   result = (int)malloc(4 * *((unsigned __int8 *)v5 + 8));
-  v5[1] = result;
-  if ( result )
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  if ( !v11 )
+#else
+  if ( !result )
+#endif
   {
-    v13 = 0;
-    v22 = 0;
-    if ( *((_BYTE *)v5 + 8) )
-    {
-      do
-      {
-        v14 = *(int **)(v4 + 8);
-        v15 = *v14;
-        *(_DWORD *)(v4 + 8) = v14 + 1;
-        *v6 = byte_5D4594[830832];
-        if ( v15 == -1 )
-        {
-          v16 = *(char **)(v4 + 8);
-          v17 = *v16++;
-          *(_DWORD *)(v4 + 8) = v16;
-          LOBYTE(v19) = v17;
-          v21 = *v16;
-          *(_DWORD *)(v4 + 8) = v16 + 1;
-          sub_40ACC0(v6, 1u, v21, v4);
-          v15 = -1;
-          v6[v21] = 0;
-          v13 = v22;
-        }
-        *(_DWORD *)(v5[1] + 4 * v13++) = sub_42FAA0(v15, v19, v6);
-        v22 = v13;
-      }
-      while ( v13 < *((unsigned __int8 *)v5 + 8) );
-    }
-    *(_DWORD *)(a1 + 92) = v5;
-    *(_DWORD *)(a1 + 88) = sub_4BBD60;
-    result = 1;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(v5, 0x10u);
+#else
+    free(v5);
+#endif
+    return 0;
   }
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v5[1] = (uint32_t)(uintptr_t)v11;
+#else
+  v5[1] = result;
+#endif
+  v13 = 0;
+  v22 = 0;
+  if ( *((_BYTE *)v5 + 8) )
+  {
+    do
+    {
+      v14 = (int *)nox_native_file_reader_cursor32(
+          (const void *)(uintptr_t)(unsigned int)v4);
+      v15 = *v14;
+      *(_DWORD *)(v4 + 8) = v14 + 1;
+      *v6 = byte_5D4594[830832];
+      if ( v15 == -1 )
+      {
+        v16 = (char *)nox_native_file_reader_cursor32(
+            (const void *)(uintptr_t)(unsigned int)v4);
+        v17 = *v16++;
+        *(_DWORD *)(v4 + 8) = v16;
+        LOBYTE(v19) = v17;
+        v21 = *v16;
+        *(_DWORD *)(v4 + 8) = v16 + 1;
+        sub_40ACC0(v6, 1u, v21, v4);
+        v15 = -1;
+        v6[v21] = 0;
+        v13 = v22;
+      }
+      *(_DWORD *)((uintptr_t)(uint32_t)v5[1] + 4 * v13++) = sub_42FAA0(v15, v19, v6);
+      v22 = v13;
+    }
+    while ( v13 < *((unsigned __int8 *)v5 + 8) );
+  }
+  *(_DWORD *)(a1 + 92) = (uint32_t)(uintptr_t)v5;
+  *(_DWORD *)(a1 + 88) = sub_4BBD60;
+  result = 1;
   return result;
 }
 // 44B47F: variable 'v19' is possibly undefined
@@ -64514,11 +64807,18 @@ int __cdecl sub_44B560(_DWORD *a1, int a2, _BYTE *a3)
   unsigned __int8 v27; // [esp+30h] [ebp+8h]
   int v28; // [esp+34h] [ebp+Ch]
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v3 = nox_legacy_low_alloc(0x38u);
+#else
   v3 = calloc(1u, 0x38u);
+#endif
+  if ( !v3 )
+    return 0;
   v4 = a2;
   *v3 = 16;
   v24 = v3;
-  v5 = *(unsigned __int8 **)(a2 + 8);
+  v5 = nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v25 = *v5;
   *(_DWORD *)(v4 + 8) = v5 + 1;
   v23 = v25;
@@ -64538,23 +64838,30 @@ LABEL_10:
     v22 = -24 - (_DWORD)v3;
     while ( 1 )
     {
-      v8 = *(unsigned __int8 **)(v4 + 8);
+      v8 = nox_native_file_reader_cursor32(
+          (const void *)(uintptr_t)(unsigned int)v4);
       v9 = *v8;
       *(_DWORD *)(v4 + 8) = v8 + 1;
       *v7 = v9;
-      v10 = *(unsigned __int8 **)(v4 + 8);
+      v10 = nox_native_file_reader_cursor32(
+          (const void *)(uintptr_t)(unsigned int)v4);
       v11 = *v10;
       *(_DWORD *)(v4 + 8) = v10 + 1;
       v7[5] = v11;
-      v12 = *(unsigned __int8 **)(v4 + 8);
+      v12 = nox_native_file_reader_cursor32(
+          (const void *)(uintptr_t)(unsigned int)v4);
       v26 = *v12;
       *(_DWORD *)(v4 + 8) = v12 + 1;
       sub_40ACC0(v6, 1u, v26, v4);
       v6[v26] = 0;
       v13 = v20;
       v20[8] = sub_44B4C0(v6);
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      v14 = nox_legacy_low_alloc(*v7 ? 4u * (size_t)*v7 : 1u);
+#else
       v14 = malloc(4 * *v7);
-      *v20 = v14;
+#endif
+      *v20 = (uint32_t)(uintptr_t)v14;
       if ( !v14 )
         break;
       v28 = 0;
@@ -64562,13 +64869,15 @@ LABEL_10:
       {
         do
         {
-          v15 = *(int **)(v4 + 8);
+          v15 = (int *)nox_native_file_reader_cursor32(
+              (const void *)(uintptr_t)(unsigned int)v4);
           v16 = *v15;
           *(_DWORD *)(v4 + 8) = v15 + 1;
           *v6 = byte_5D4594[830836];
           if ( v16 == -1 )
           {
-            v17 = *(char **)(v4 + 8);
+            v17 = (char *)nox_native_file_reader_cursor32(
+                (const void *)(uintptr_t)(unsigned int)v4);
             v18 = *v17++;
             *(_DWORD *)(v4 + 8) = v17;
             LOBYTE(v21) = v18;
@@ -64579,7 +64888,7 @@ LABEL_10:
             v6[v27] = 0;
             v13 = v20;
           }
-          *(_DWORD *)(*v13 + 4 * v28++) = sub_42FAA0(v16, v21, v6);
+          *(_DWORD *)((uintptr_t)(uint32_t)*v13 + 4 * v28++) = sub_42FAA0(v16, v21, v6);
         }
         while ( v28 < *v7 );
       }
@@ -64621,17 +64930,31 @@ int __cdecl sub_44B700(int a1, int a2, void *a3)
   unsigned __int8 v22; // [esp+1Ch] [ebp+8h]
   unsigned __int8 v23; // [esp+1Ch] [ebp+8h]
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v3 = nox_legacy_low_alloc(0x38BCu);
+#else
   v3 = calloc(1u, 0x38BCu);
+#endif
+  if ( !v3 )
+    return 0;
   v4 = a2;
   v5 = v3;
   v21 = v3;
   *v3 = 14524;
-  v6 = *(_DWORD **)(a2 + 8);
+  v6 = (_DWORD *)nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v7 = *v6;
   v8 = (unsigned __int8 *)(v6 + 1);
   *(_DWORD *)(a2 + 8) = v8;
   if ( v7 == 1162757152 )
+  {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(v21, 0x38BCu);
+#else
+    free(v21);
+#endif
     return 0;
+  }
 LABEL_3:
   v22 = *v8;
   *(_DWORD *)(v4 + 8) = v8 + 1;
@@ -64645,7 +64968,8 @@ LABEL_3:
     return 0;
   while ( 1 )
   {
-    v12 = *(_DWORD **)(v4 + 8);
+    v12 = (_DWORD *)nox_native_file_reader_cursor32(
+        (const void *)(uintptr_t)(unsigned int)v4);
     v13 = *v12;
     v8 = (unsigned __int8 *)(v12 + 1);
     *(_DWORD *)(v4 + 8) = v8;
@@ -64662,9 +64986,15 @@ LABEL_3:
     *((_BYTE *)a3 + v23) = 0;
     if ( !strcmp((const char *)&byte_587000[122592], (const char *)a3) )
     {
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      v14 = nox_legacy_low_alloc(0x28u);
+ #else
       v14 = calloc(1u, 0x28u);
+ #endif
+      if ( !v14 )
+        return 0;
       v15 = *(__int16 *)(v11 + 40);
-      *(_DWORD *)(v11 + 48) = v14;
+      *(_DWORD *)(v11 + 48) = (uint32_t)(uintptr_t)v14;
       v16 = sub_44B940(v14, v15, v4);
     }
     else
@@ -64675,14 +65005,26 @@ LABEL_3:
         v19 = sub_44BAC0((const char *)a3);
         if ( v19 < 0 )
           return 0;
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        v20 = nox_legacy_low_alloc(0x28u);
+ #else
         v20 = calloc(1u, 0x28u);
-        *(_DWORD *)(v11 + 4 * v19 + 156) = v20;
+ #endif
+        if ( !v20 )
+          return 0;
+        *(_DWORD *)(v11 + 4 * v19 + 156) = (uint32_t)(uintptr_t)v20;
         v16 = sub_44B940(v20, *(__int16 *)(v11 + 40), v4);
       }
       else
       {
+ #if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        v18 = nox_legacy_low_alloc(0x28u);
+ #else
         v18 = calloc(1u, 0x28u);
-        *(_DWORD *)(v11 + 4 * v17 + 52) = v18;
+ #endif
+        if ( !v18 )
+          return 0;
+        *(_DWORD *)(v11 + 4 * v17 + 52) = (uint32_t)(uintptr_t)v18;
         v16 = sub_44B940(v18, *(__int16 *)(v11 + 40), v4);
       }
     }
@@ -64690,7 +65032,7 @@ LABEL_3:
       return 0;
   }
   *(_DWORD *)(a1 + 88) = sub_4B8270;
-  *(_DWORD *)(a1 + 92) = v21;
+  *(_DWORD *)(a1 + 92) = (uint32_t)(uintptr_t)v21;
   return 1;
 }
 
@@ -64705,15 +65047,18 @@ int __cdecl sub_44B8B0(int a1, int a2)
   unsigned __int8 v8; // [esp+8h] [ebp-104h]
   char v9[256]; // [esp+Ch] [ebp-100h]
 
-  v2 = *(unsigned __int8 **)(a2 + 8);
+  v2 = nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v3 = *v2;
   *(_DWORD *)(a2 + 8) = v2 + 1;
   *(_WORD *)(a1 + 40) = v3;
-  v4 = *(unsigned __int8 **)(a2 + 8);
+  v4 = nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v5 = *v4;
   *(_DWORD *)(a2 + 8) = v4 + 1;
   *(_WORD *)(a1 + 42) = v5;
-  v6 = *(unsigned __int8 **)(a2 + 8);
+  v6 = nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v8 = *v6;
   *(_DWORD *)(a2 + 8) = v6 + 1;
   sub_40ACC0(v9, 1u, v8, a2);
@@ -64740,6 +65085,9 @@ int __cdecl sub_44B940(_DWORD *a1, int a2, int a3)
   unsigned __int8 v15; // [esp+18h] [ebp-88h]
   const char *v16; // [esp+1Ch] [ebp-84h]
   char v17[128]; // [esp+20h] [ebp-80h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  size_t array_size;
+#endif
 
   v3 = a2;
   v4 = 0;
@@ -64748,8 +65096,15 @@ int __cdecl sub_44B940(_DWORD *a1, int a2, int a3)
   while ( 1 )
   {
     v13 = v4 >= 16 ? v4 + 4 : v4;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    if ( v3 < 0 )
+      return 0;
+    array_size = 4u * (size_t)v3;
+    v5 = nox_legacy_low_alloc(array_size ? array_size : 1u);
+#else
     v5 = malloc(4 * v3);
-    *(_DWORD *)((char *)a1 + v13 + 4) = v5;
+#endif
+    *(_DWORD *)((char *)a1 + v13 + 4) = (uint32_t)(uintptr_t)v5;
     if ( !v5 )
       break;
     v6 = 0;
@@ -64757,7 +65112,8 @@ int __cdecl sub_44B940(_DWORD *a1, int a2, int a3)
     {
       do
       {
-        v7 = *(int **)(a3 + 8);
+        v7 = (int *)nox_native_file_reader_cursor32(
+            (const void *)(uintptr_t)(unsigned int)a3);
         v8 = *v7;
         v9 = (char *)(v7 + 1);
         *(_DWORD *)(a3 + 8) = v9;
@@ -64793,8 +65149,20 @@ int __cdecl sub_44B940(_DWORD *a1, int a2, int a3)
 int __cdecl sub_44BA60(const char *a1)
 {
   int v1; // ebp
-  const char **v2; // edi
 
+#if UINTPTR_MAX > UINT32_MAX
+  const uint32_t *entries = (const uint32_t *)&byte_587000[113856];
+
+  for ( v1 = 0; v1 < 26; ++v1 )
+  {
+    const char *name = (const char *)NOX_STATIC_POINTER_FROM_32(entries[v1]);
+
+    if ( !strcmp(name, a1) )
+      return v1;
+  }
+  return -1;
+#else
+  const char **v2; // edi
   v1 = 0;
   v2 = (const char **)&byte_587000[113856];
   while ( strcmp(*v2, a1) )
@@ -64805,14 +65173,27 @@ int __cdecl sub_44BA60(const char *a1)
       return -1;
   }
   return v1;
+#endif
 }
 
 //----- (0044BAC0) --------------------------------------------------------
 int __cdecl sub_44BAC0(const char *a1)
 {
   int v1; // ebp
-  const char **v2; // edi
 
+#if UINTPTR_MAX > UINT32_MAX
+  const uint32_t *entries = (const uint32_t *)&byte_587000[113964];
+
+  for ( v1 = 0; v1 < 27; ++v1 )
+  {
+    const char *name = (const char *)NOX_STATIC_POINTER_FROM_32(entries[v1]);
+
+    if ( !strcmp(name, a1) )
+      return v1;
+  }
+  return -1;
+#else
+  const char **v2; // edi
   v1 = 0;
   v2 = (const char **)&byte_587000[113964];
   while ( strcmp(*v2, a1) )
@@ -64823,14 +65204,27 @@ int __cdecl sub_44BAC0(const char *a1)
       return -1;
   }
   return v1;
+#endif
 }
 
 //----- (0044BB20) --------------------------------------------------------
 int __cdecl sub_44BB20(const char *a1)
 {
   int v1; // ebp
-  const char **v2; // edi
 
+#if UINTPTR_MAX > UINT32_MAX
+  const uint32_t *entries = (const uint32_t *)&byte_587000[115688];
+
+  for ( v1 = 0; v1 < 55; ++v1 )
+  {
+    const char *name = (const char *)NOX_STATIC_POINTER_FROM_32(entries[v1]);
+
+    if ( !_strcmpi(a1, name) )
+      return v1;
+  }
+  return -1;
+#else
+  const char **v2; // edi
   v1 = 0;
   v2 = (const char **)&byte_587000[115688];
   while ( strcmp(a1, *v2) )
@@ -64841,6 +65235,7 @@ int __cdecl sub_44BB20(const char *a1)
       return -1;
   }
   return v1;
+#endif
 }
 
 //----- (0044BB80) --------------------------------------------------------
@@ -64855,11 +65250,18 @@ int __cdecl sub_44BB80(int a1, int a2)
   unsigned __int8 *v8; // eax
   int v9; // edi
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v2 = nox_legacy_low_alloc(0x304u);
+#else
   v2 = calloc(1u, 0x304u);
+#endif
+  if ( !v2 )
+    return 0;
   *v2 = 772;
   while ( 1 )
   {
-    v3 = *(_DWORD **)(a2 + 8);
+    v3 = (_DWORD *)nox_native_file_reader_cursor32(
+        (const void *)(uintptr_t)(unsigned int)a2);
     v4 = *v3;
     v5 = (unsigned __int8 *)(v3 + 1);
     *(_DWORD *)(a2 + 8) = v5;
@@ -64883,7 +65285,7 @@ int __cdecl sub_44BB80(int a1, int a2)
     return 0;
   }
   *(_DWORD *)(a1 + 88) = sub_4BC180;
-  *(_DWORD *)(a1 + 92) = v2;
+  *(_DWORD *)(a1 + 92) = (uint32_t)(uintptr_t)v2;
   return 1;
 }
 
@@ -64904,6 +65306,10 @@ int __cdecl sub_44BC50(int a1, int a2)
   int v14; // [esp+14h] [ebp-8Ch]
   const char *v15; // [esp+1Ch] [ebp-84h]
   char v16[128]; // [esp+20h] [ebp-80h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  int count;
+  size_t array_size;
+#endif
 
   v2 = 0;
   v14 = 0;
@@ -64911,8 +65317,16 @@ int __cdecl sub_44BC50(int a1, int a2)
   {
     v13 = v2 >= 16 ? v2 + 4 : v2;
     v3 = a1;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    count = *(__int16 *)(a1 + 40);
+    if ( count < 0 )
+      return 0;
+    array_size = 4u * (size_t)count;
+    v4 = nox_legacy_low_alloc(array_size ? array_size : 1u);
+#else
     v4 = malloc(4 * *(__int16 *)(a1 + 40));
-    *(_DWORD *)(v13 + a1 + 4) = v4;
+#endif
+    *(_DWORD *)(v13 + a1 + 4) = (uint32_t)(uintptr_t)v4;
     if ( !v4 )
       break;
     v5 = 0;
@@ -64920,7 +65334,8 @@ int __cdecl sub_44BC50(int a1, int a2)
     {
       do
       {
-        v6 = *(int **)(a2 + 8);
+        v6 = (int *)nox_native_file_reader_cursor32(
+            (const void *)(uintptr_t)(unsigned int)a2);
         v7 = *v6;
         v8 = v6 + 1;
         *(_DWORD *)(a2 + 8) = v8;
@@ -64975,11 +65390,18 @@ int __cdecl sub_44BD90(_DWORD *a1, int a2)
   int v9; // edi
   unsigned __int8 v11; // [esp+Ch] [ebp-4h]
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v2 = nox_legacy_low_alloc(0x94u);
+#else
   v2 = calloc(1u, 0x94u);
+#endif
+  if ( !v2 )
+    return 0;
   *v2 = 148;
   while ( 1 )
   {
-    v3 = *(int **)(a2 + 8);
+    v3 = (int *)nox_native_file_reader_cursor32(
+        (const void *)(uintptr_t)(unsigned int)a2);
     v4 = *v3;
     v5 = v3 + 1;
     *(_DWORD *)(a2 + 8) = v5;
@@ -65016,7 +65438,7 @@ int __cdecl sub_44BD90(_DWORD *a1, int a2)
   }
   a1[21] = 2;
   a1[22] = sub_4BBF10;
-  a1[23] = v2;
+  a1[23] = (uint32_t)(uintptr_t)v2;
   return 1;
 }
 // 44BE2F: variable 'v11' is possibly undefined
@@ -65035,9 +65457,21 @@ int __cdecl sub_44BE90(int a1, int a2)
   int v10; // esi
   const char *v11; // [esp+4h] [ebp-88h]
   char v12[128]; // [esp+Ch] [ebp-80h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  int count;
+  size_t array_size;
+#endif
 
   v2 = a1;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  count = *(__int16 *)(a1 + 40);
+  if ( count < 0 )
+    return 0;
+  array_size = 4u * (size_t)count;
+  result = (int)(uintptr_t)nox_legacy_low_alloc(array_size ? array_size : 1u);
+#else
   result = (int)malloc(4 * *(__int16 *)(a1 + 40));
+#endif
   *(_DWORD *)(a1 + 4) = result;
   if ( result )
   {
@@ -65046,7 +65480,8 @@ int __cdecl sub_44BE90(int a1, int a2)
     {
       do
       {
-        v5 = *(int **)(a2 + 8);
+        v5 = (int *)nox_native_file_reader_cursor32(
+            (const void *)(uintptr_t)(unsigned int)a2);
         v6 = *v5;
         v7 = v5 + 1;
         *(_DWORD *)(a2 + 8) = v7;
@@ -65081,16 +65516,28 @@ int __cdecl sub_44BF60(int a1, int a2)
   _DWORD *v3; // esi
   int result; // eax
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v2 = nox_legacy_low_alloc(0x30u);
+#else
   v2 = calloc(1u, 0x30u);
+#endif
+  if ( !v2 )
+    return 0;
   v3 = v2;
   *v2 = 48;
   result = sub_44BFA0((int)v2, a2);
   if ( result )
   {
     *(_DWORD *)(a1 + 88) = sub_4BC700;
-    *(_DWORD *)(a1 + 92) = v3;
+    *(_DWORD *)(a1 + 92) = (uint32_t)(uintptr_t)v3;
     result = 1;
   }
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  else
+  {
+    nox_legacy_low_free(v3, 0x30u);
+  }
+#endif
   return result;
 }
 
@@ -65134,50 +65581,73 @@ void *__cdecl sub_44C000(_BYTE *a1, int a2)
   unsigned __int8 v14; // [esp+14h] [ebp+4h]
   unsigned __int8 v15; // [esp+18h] [ebp+8h]
   int v16; // [esp+18h] [ebp+8h]
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  size_t array_size;
+#endif
 
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  v2 = nox_legacy_low_alloc(0xCu);
+#else
   v2 = calloc(1u, 0xCu);
+#endif
+  if ( !v2 )
+    return 0;
   v3 = a2;
   v4 = v2;
   *v2 = 12;
-  v5 = *(unsigned __int8 **)(a2 + 8);
+  v5 = nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v15 = *v5;
   *(_DWORD *)(v3 + 8) = v5 + 1;
   *((_BYTE *)v4 + 8) = v15;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  array_size = 4u * (size_t)v15;
+  result = nox_legacy_low_alloc(array_size ? array_size : 1u);
+#else
   result = malloc(4 * v15);
-  v4[1] = result;
-  if ( result )
+#endif
+  if ( !result )
   {
-    v7 = 0;
-    v16 = 0;
-    if ( *((_BYTE *)v4 + 8) )
-    {
-      v8 = a1;
-      do
-      {
-        v9 = *(int **)(v3 + 8);
-        v10 = *v9;
-        *(_DWORD *)(v3 + 8) = v9 + 1;
-        *v8 = byte_5D4594[830852];
-        if ( v10 == -1 )
-        {
-          v11 = *(char **)(v3 + 8);
-          v12 = *v11++;
-          *(_DWORD *)(v3 + 8) = v11;
-          LOBYTE(v13) = v12;
-          v14 = *v11;
-          *(_DWORD *)(v3 + 8) = v11 + 1;
-          sub_40ACC0(v8, 1u, v14, v3);
-          v10 = -1;
-          v8[v14] = 0;
-          v7 = v16;
-        }
-        *(_DWORD *)(v4[1] + 4 * v7++) = sub_42FAA0(v10, v13, v8);
-        v16 = v7;
-      }
-      while ( v7 < *((unsigned __int8 *)v4 + 8) );
-    }
-    result = v4;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(v4, 0xCu);
+#else
+    free(v4);
+#endif
+    return 0;
   }
+  v4[1] = (uint32_t)(uintptr_t)result;
+  v7 = 0;
+  v16 = 0;
+  if ( *((_BYTE *)v4 + 8) )
+  {
+    v8 = a1;
+    do
+    {
+      v9 = (int *)nox_native_file_reader_cursor32(
+          (const void *)(uintptr_t)(unsigned int)v3);
+      v10 = *v9;
+      *(_DWORD *)(v3 + 8) = v9 + 1;
+      *v8 = byte_5D4594[830852];
+      if ( v10 == -1 )
+      {
+        v11 = (char *)nox_native_file_reader_cursor32(
+            (const void *)(uintptr_t)(unsigned int)v3);
+        v12 = *v11++;
+        *(_DWORD *)(v3 + 8) = v11;
+        LOBYTE(v13) = v12;
+        v14 = *v11;
+        *(_DWORD *)(v3 + 8) = v11 + 1;
+        sub_40ACC0(v8, 1u, v14, v3);
+        v10 = -1;
+        v8[v14] = 0;
+        v7 = v16;
+      }
+      *(_DWORD *)(v4[1] + 4 * v7++) = sub_42FAA0(v10, v13, v8);
+      v16 = v7;
+    }
+    while ( v7 < *((unsigned __int8 *)v4 + 8) );
+  }
+  result = v4;
   return result;
 }
 // 44C0BD: variable 'v13' is possibly undefined
@@ -65200,7 +65670,7 @@ BOOL __cdecl sub_44C120(_DWORD *a1, int a2, _BYTE *a3)
 
   a1[22] = sub_4BBD30;
   v3 = sub_44C000(a3, a2);
-  a1[23] = v3;
+    a1[23] = (uint32_t)(uintptr_t)v3;
   a1[24] = 0;
   return v3 != 0;
 }
@@ -65208,9 +65678,9 @@ BOOL __cdecl sub_44C120(_DWORD *a1, int a2, _BYTE *a3)
 //----- (0044C160) --------------------------------------------------------
 int __cdecl sub_44C160(int a1, int a2, char *a3)
 {
-  int result; // eax
   int v4; // ebp
   int v5; // eax
+  unsigned __int8 *record;
   char *v6; // edi
   int *v7; // ecx
   int v8; // ebx
@@ -65218,47 +65688,49 @@ int __cdecl sub_44C160(int a1, int a2, char *a3)
   char v10; // dl
   unsigned __int8 v11; // [esp+Ch] [ebp+8h]
 
-  result = (int)calloc(1u, 8u);
-  v4 = result;
-  *(_DWORD *)result = 8;
-  if ( result )
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  record = nox_legacy_low_alloc(8u);
+#else
+  record = calloc(1u, 8u);
+#endif
+  if ( !record )
+    return 0;
+  *(_DWORD *)record = 8;
+  v4 = (int)(uintptr_t)record;
+  v5 = a2;
+  v6 = a3;
+  v7 = (int *)nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
+  v8 = *v7;
+  *(_DWORD *)(a2 + 8) = v7 + 1;
+  *a3 = byte_5D4594[830856];
+  if ( v8 == -1 )
   {
-    v5 = a2;
-    v6 = a3;
-    v7 = *(int **)(a2 + 8);
-    v8 = *v7;
-    *(_DWORD *)(a2 + 8) = v7 + 1;
-    *a3 = byte_5D4594[830856];
-    if ( v8 == -1 )
-    {
-      v9 = *(char **)(a2 + 8);
-      v10 = *v9++;
-      LOBYTE(a3) = v10;
-      *(_DWORD *)(a2 + 8) = v9;
-      v11 = *v9;
-      *(_DWORD *)(v5 + 8) = v9 + 1;
-      sub_40ACC0(v6, 1u, v11, v5);
-      v6[v11] = 0;
-    }
-    *(_DWORD *)(v4 + 4) = sub_42FAA0(v8, a3, v6);
-    *(_DWORD *)(a1 + 88) = sub_4BCC20;
-    *(_DWORD *)(a1 + 92) = v4;
-    result = 1;
+    v9 = (char *)nox_native_file_reader_cursor32(
+        (const void *)(uintptr_t)(unsigned int)a2);
+    v10 = *v9++;
+    LOBYTE(a3) = v10;
+    *(_DWORD *)(a2 + 8) = v9;
+    v11 = *v9;
+    *(_DWORD *)(v5 + 8) = v9 + 1;
+    sub_40ACC0(v6, 1u, v11, v5);
+    v6[v11] = 0;
   }
-  return result;
+  *(_DWORD *)(v4 + 4) = sub_42FAA0(v8, a3, v6);
+  *(_DWORD *)(a1 + 88) = sub_4BCC20;
+  *(_DWORD *)(a1 + 92) = v4;
+  return 1;
 }
 
 //----- (0044C200) --------------------------------------------------------
-int __cdecl sub_44C200(int a1, _DWORD *a2, int a3)
+int __cdecl sub_44C200(int a1, _DWORD *a2, char *a3)
 {
   unsigned __int8 *v3; // eax
   unsigned __int8 v4; // cl
   int v5; // esi
-  const char *v6; // eax
-  int v7; // edi
-  unsigned __int8 *v8; // ebp
+  uint32_t *entry; // edi
   int result; // eax
-  int (__cdecl *v10)(int, _DWORD *, int); // ecx
+  int (__cdecl *v10)(int, _DWORD *, char *); // ecx
   int v11; // [esp+10h] [ebp-104h]
   char v12[256]; // [esp+14h] [ebp-100h]
 
@@ -65270,24 +65742,20 @@ int __cdecl sub_44C200(int a1, _DWORD *a2, int a3)
   sub_40ACC0(v12, 1u, v4, (int)a2);
   v12[v5] = 0;
   sub_40AD60((char *)&v11, 4, 1, a2);
-  v6 = *(const char **)&byte_587000[116008];
-  v7 = 0;
+  entry = (uint32_t *)&byte_587000[116008];
   if ( !*(_DWORD *)&byte_587000[116008] )
     return 1;
-  v8 = &byte_587000[116008];
-  while ( strcmp(v6, v12) )
+  while ( strcmp((const char *)NOX_STATIC_POINTER_FROM_32(entry[0]), v12) )
   {
-    v6 = (const char *)*((_DWORD *)v8 + 4);
-    v8 += 16;
-    ++v7;
-    if ( !v6 )
+    entry += 4;
+    if ( !entry[0] )
       return 1;
   }
   result = 1;
-  v10 = *(int (__cdecl **)(int, _DWORD *, int))&byte_587000[16 * v7 + 116020];
+  v10 = (int (__cdecl *)(int, _DWORD *, char *))nox_native_code_pointer_from_32(entry[3]);
   if ( v10 )
     result = v10(a1, a2, a3);
-  *(_DWORD *)(a1 + 88) = *(_DWORD *)&byte_587000[16 * v7 + 116012];
+  *(_DWORD *)(a1 + 88) = entry[1];
   return result;
 }
 // 44C200: using guessed type char var_100[256];
@@ -65295,32 +65763,36 @@ int __cdecl sub_44C200(int a1, _DWORD *a2, int a3)
 //----- (0044C2F0) --------------------------------------------------------
 int __cdecl sub_44C2F0(int a1, int a2, char *a3)
 {
-  sscanf(a3, (const char *)&byte_587000[122600], &a3);
-  *(_WORD *)(a1 + 22) = (_WORD)a3;
+  int value;
+
+  sscanf(a3, (const char *)&byte_587000[122600], &value);
+  *(_WORD *)(a1 + 22) = (_WORD)value;
   return 1;
 }
 
 //----- (0044C320) --------------------------------------------------------
 int __cdecl sub_44C320(int a1, int a2, char *a3)
 {
-  int v5; // [esp+0h] [ebp-4h]
+  int minimum;
+  int maximum;
 
-  sscanf(a3, (const char *)&byte_587000[122604], &v5, &a3);
-  if ( (int)a3 < (int)v5 )
-    a3 = v5;
-  *(float *)(a1 + 68) = (double)(int)v5;
-  *(float *)(a1 + 72) = (double)(int)a3;
+  sscanf(a3, (const char *)&byte_587000[122604], &minimum, &maximum);
+  if ( maximum < minimum )
+    maximum = minimum;
+  *(float *)(a1 + 68) = (double)minimum;
+  *(float *)(a1 + 72) = (double)maximum;
   return 1;
 }
 
 //----- (0044C370) --------------------------------------------------------
 int __cdecl sub_44C370(int a1, int a2, char *a3)
 {
-  int v5; // [esp+0h] [ebp-4h]
+  int width;
+  int height;
 
-  sscanf(a3, (const char *)&byte_587000[122612], &a3, &v5);
-  *(_BYTE *)(a1 + 12) = (int)a3 / 2;
-  *(_BYTE *)(a1 + 13) = v5 / 2;
+  sscanf(a3, (const char *)&byte_587000[122612], &width, &height);
+  *(_BYTE *)(a1 + 12) = width / 2;
+  *(_BYTE *)(a1 + 13) = height / 2;
   return 1;
 }
 
@@ -65331,7 +65803,8 @@ int __cdecl sub_44C3B0(int a1, int a2)
   int v3; // edx
   unsigned __int8 *v4; // ecx
 
-  v2 = *(int **)(a2 + 8);
+  v2 = (int *)nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v3 = *v2;
   *(_DWORD *)(a2 + 8) = v2 + 1;
   *(_DWORD *)(a1 + 116) = v3;
@@ -65354,8 +65827,10 @@ int __cdecl sub_44C3F0(int a1, int a2, void *a3)
 //----- (0044C410) --------------------------------------------------------
 int __cdecl sub_44C410(int a1, int a2, char *a3)
 {
-  sscanf(a3, (const char *)&byte_587000[122620], &a3);
-  *(_DWORD *)(a1 + 120) = a3;
+  int value;
+
+  sscanf(a3, (const char *)&byte_587000[122620], &value);
+  *(_DWORD *)(a1 + 120) = value;
   return 1;
 }
 
@@ -65363,10 +65838,11 @@ int __cdecl sub_44C410(int a1, int a2, char *a3)
 int __cdecl sub_44C440(int a1, int a2, char *a3)
 {
   int v3; // ecx
+  int value;
 
-  sscanf(a3, (const char *)&byte_587000[122624], &a3);
+  sscanf(a3, (const char *)&byte_587000[122624], &value);
   v3 = *(_DWORD *)(a1 + 32);
-  *(_BYTE *)(a1 + 14) = (_BYTE)a3;
+  *(_BYTE *)(a1 + 14) = (_BYTE)value;
   *(_DWORD *)(a1 + 32) = v3 | 0x80000000;
   return 1;
 }
@@ -65404,7 +65880,8 @@ int __cdecl sub_44C500(int a1, int a2)
   unsigned __int8 v9; // [esp+8h] [ebp-84h]
   char v10[128]; // [esp+Ch] [ebp-80h]
 
-  v2 = *(int **)(a2 + 8);
+  v2 = (int *)nox_native_file_reader_cursor32(
+      (const void *)(uintptr_t)(unsigned int)a2);
   v3 = *v2;
   v4 = (char *)(v2 + 1);
   *(_DWORD *)(a2 + 8) = v4;
@@ -65437,11 +65914,29 @@ int sub_44C580()
     {
       v1 = *(_DWORD *)(v0 + 108);
       if ( *(_DWORD *)v0 )
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      {
+        const char *name = (const char *)nox_native_pointer_from_32(
+            *(uint32_t *)v0);
+
+        if ( name )
+          nox_legacy_low_free((void *)name, strlen(name) + 1u);
+      }
+#else
         free(*(LPVOID *)v0);
+#endif
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      v2 = (void *)nox_native_pointer_from_32(*(uint32_t *)(v0 + 92));
+#else
       v2 = *(void **)(v0 + 92);
+#endif
       if ( v2 )
         sub_44C650(v2, *(_DWORD *)(v0 + 88));
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      nox_legacy_low_free((LPVOID)(uintptr_t)(unsigned int)v0, 0x80u);
+#else
       free((LPVOID)v0);
+#endif
       v0 = v1;
     }
     while ( v1 );
@@ -65449,7 +65944,13 @@ int sub_44C580()
   *(_DWORD *)&byte_5D4594[830604] = 0;
   if ( *(_DWORD *)&byte_5D4594[830608] )
   {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    nox_legacy_low_free(
+        (LPVOID)(uintptr_t)*(uint32_t *)&byte_5D4594[830608],
+        4u * (size_t)*(_DWORD *)&byte_5D4594[830612]);
+#else
     free(*(LPVOID *)&byte_5D4594[830608]);
+#endif
     *(_DWORD *)&byte_5D4594[830608] = 0;
   }
   *(_DWORD *)&byte_5D4594[830612] = 0;
@@ -65462,6 +65963,19 @@ int sub_44C580()
 //----- (0044C620) --------------------------------------------------------
 void sub_44C620()
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  int i;
+
+  for ( i = 0; i < 27; ++i )
+  {
+    uint32_t encoded = *(uint32_t *)&byte_5D4594[830296 + 4 * i];
+    size_t count = *(uint32_t *)&byte_5D4594[830616 + 4 * i];
+
+    if ( encoded )
+      nox_legacy_low_free((void *)(uintptr_t)encoded, 8u * count);
+    *(uint32_t *)&byte_5D4594[830296 + 4 * i] = 0;
+  }
+#else
   LPVOID *v0; // esi
 
   v0 = (LPVOID *)&byte_5D4594[830296];
@@ -65473,6 +65987,7 @@ void sub_44C620()
     ++v0;
   }
   while ( (int)v0 < (int)&byte_5D4594[830404] );
+#endif
 }
 
 //----- (0044C650) --------------------------------------------------------
@@ -65482,6 +65997,10 @@ void __cdecl sub_44C650(LPVOID lpMem, int a2)
   int v3; // ecx
   unsigned __int8 *v4; // eax
   int v5; // edi
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  int found; // esi
+  uintptr_t parser;
+#endif
   LPVOID *v7; // esi
   int v8; // edi
   char *v9; // esi
@@ -65491,6 +66010,9 @@ void __cdecl sub_44C650(LPVOID lpMem, int a2)
 
   v2 = 0;
   v3 = 0;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  found = 0;
+#endif
   if ( *(_DWORD *)&byte_587000[116008] )
   {
     v4 = &byte_587000[116008];
@@ -65503,8 +66025,75 @@ void __cdecl sub_44C650(LPVOID lpMem, int a2)
         goto LABEL_7;
     }
     v2 = *(_DWORD *)&byte_587000[16 * v3 + 116016];
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    found = 1;
+#endif
   }
 LABEL_7:
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  parser = found ? nox_native_code_pointer_from_32(
+      *(uint32_t *)&byte_587000[16 * v3 + 116020]) : 0;
+  if ( parser == (uintptr_t)sub_44C160 )
+  {
+    nox_legacy_low_free(lpMem, 8u);
+    return;
+  }
+  if ( parser == (uintptr_t)sub_44B560 )
+  {
+    size_t array_size = 4u * (size_t)*((unsigned __int8 *)lpMem + 24);
+    void *array = (void *)(uintptr_t)*(uint32_t *)((unsigned __int8 *)lpMem + 4);
+
+    nox_legacy_low_free(array, array_size ? array_size : 1u);
+    nox_legacy_low_free(lpMem, 0x38u);
+    return;
+  }
+  if ( parser == (uintptr_t)sub_44B390 )
+  {
+    size_t array_size = 4u * (size_t)*((unsigned __int8 *)lpMem + 8);
+    void *array = (void *)(uintptr_t)*(uint32_t *)((unsigned __int8 *)lpMem + 4);
+
+    nox_legacy_low_free(array, array_size ? array_size : 1u);
+    nox_legacy_low_free(lpMem, 0x10u);
+    return;
+  }
+  if ( parser == (uintptr_t)sub_44BD90 )
+  {
+    v2 = 8;
+  }
+  if ( parser == (uintptr_t)sub_44BF60 )
+  {
+    sub_44C780((int)lpMem + 4);
+    nox_legacy_low_free(lpMem, 0x30u);
+    return;
+  }
+  if ( parser == (uintptr_t)sub_44B700 )
+  {
+    sub_44C7B0((int)(uintptr_t)lpMem);
+    nox_legacy_low_free(lpMem, 0x38BCu);
+    return;
+  }
+  if ( parser == (uintptr_t)sub_44BB80 )
+  {
+    char *record = (char *)lpMem + 8;
+    int i;
+
+    for ( i = 0; i < 16; ++i, record += 48 )
+      sub_44C780((int)(uintptr_t)record);
+    nox_legacy_low_free(lpMem, 0x304u);
+    return;
+  }
+  if ( parser == (uintptr_t)sub_44BFD0
+      || parser == (uintptr_t)sub_44C0F0
+      || parser == (uintptr_t)sub_44C120 )
+  {
+    size_t array_size = 4u * (size_t)*((unsigned __int8 *)lpMem + 8);
+    void *array = (void *)(uintptr_t)*(uint32_t *)((unsigned __int8 *)lpMem + 4);
+
+    nox_legacy_low_free(array, array_size ? array_size : 1u);
+    nox_legacy_low_free(lpMem, 0xCu);
+    return;
+  }
+#endif
   switch ( v2 )
   {
     case 2:
@@ -65545,7 +66134,11 @@ LABEL_7:
         --v10;
       }
       while ( v10 );
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      nox_legacy_low_free(lpMem, 0x304u);
+#else
       free(lpMem);
+#endif
       break;
     case 8:
       v11 = (char *)lpMem + 8;
@@ -65560,7 +66153,14 @@ LABEL_7:
       goto LABEL_22;
     default:
 LABEL_22:
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+      if ( parser == (uintptr_t)sub_44BD90 )
+        nox_legacy_low_free(lpMem, 0x94u);
+      else
+        free(lpMem);
+#else
       free(lpMem);
+#endif
       break;
   }
 }
@@ -65571,22 +66171,96 @@ void *__cdecl sub_44C780(int a1)
   int i; // esi
   int v2; // eax
   void *result; // eax
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  int count = *(__int16 *)(a1 + 36);
+  size_t array_size = count > 0 ? 4u * (size_t)count : 1u;
+#endif
 
   for ( i = 0; i < 32; i += 4 )
   {
     v2 = i;
     if ( i >= 16 )
       v2 = i + 4;
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+    result = (void *)(uintptr_t)*(uint32_t *)(v2 + a1);
+    if ( result )
+      nox_legacy_low_free(result, array_size);
+#else
     result = *(void **)(v2 + a1);
     if ( result )
       free(result);
+#endif
   }
   return result;
 }
 
 //----- (0044C7B0) --------------------------------------------------------
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+static void nox_44c7b0_free_arrays(uint32_t *record, int count)
+{
+  static const unsigned int offsets[] = {1, 2, 3, 4, 6, 7, 8, 9};
+  size_t size = count > 0 ? 4u * (size_t)count : 1u;
+  unsigned int i;
+
+  for ( i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i )
+  {
+    uint32_t array = record[offsets[i]];
+
+    if ( array )
+      nox_legacy_low_free((void *)(uintptr_t)array, size);
+  }
+}
+#endif
+
 LPVOID __cdecl sub_44C7B0(int a1)
 {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  uint32_t *v1 = (uint32_t *)(uintptr_t)(uint32_t)a1 + 13;
+  int group;
+  LPVOID result = 0;
+
+  for ( group = 0; group < 55; ++group, v1 += 66 )
+  {
+    int count = (int16_t)v1[-2];
+    uint32_t pointer = *v1;
+    int i;
+
+    if ( pointer )
+    {
+      uint32_t *record = (uint32_t *)(uintptr_t)pointer;
+
+      nox_44c7b0_free_arrays(record, count);
+      nox_44c7b0_free_arrays(record, count);
+      nox_legacy_low_free(record, 0x28u);
+      result = (LPVOID)(uintptr_t)pointer;
+    }
+    for ( i = 0; i < 26; ++i )
+    {
+      pointer = v1[i + 1];
+      if ( pointer )
+      {
+        uint32_t *record = (uint32_t *)(uintptr_t)pointer;
+
+        nox_44c7b0_free_arrays(record, count);
+        nox_legacy_low_free(record, 0x28u);
+        result = (LPVOID)(uintptr_t)pointer;
+      }
+    }
+    for ( i = 0; i < 27; ++i )
+    {
+      pointer = v1[i + 27];
+      if ( pointer )
+      {
+        uint32_t *record = (uint32_t *)(uintptr_t)pointer;
+
+        nox_44c7b0_free_arrays(record, count);
+        nox_legacy_low_free(record, 0x28u);
+        result = (LPVOID)(uintptr_t)pointer;
+      }
+    }
+  }
+  return result;
+#else
   LPVOID *v1; // ebx
   int v2; // ebp
   LPVOID *v3; // esi
@@ -65636,6 +66310,7 @@ LPVOID __cdecl sub_44C7B0(int a1)
   }
   while ( v2 );
   return result;
+#endif
 }
 
 //----- (0044C840) --------------------------------------------------------
@@ -65669,6 +66344,7 @@ void *__cdecl sub_44C840(char *a1)
   int v26; // ecx
   int i; // [esp+10h] [ebp-4h]
   unsigned __int8 v28; // [esp+18h] [ebp+4h]
+  const char *thing_name;
 
   v1 = (char *)malloc(0x40000u);
   sub_44CCA0();
@@ -65718,7 +66394,11 @@ void *__cdecl sub_44C840(char *a1)
         sub_415240((int)v2);
         break;
       case 1414024775:
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        v4 = nox_legacy_low_alloc(0x80u);
+#else
         v4 = calloc(1u, 0x80u);
+#endif
         if ( !v4 )
           return 0;
         v5 = (unsigned __int8 *)v2[2];
@@ -65757,8 +66437,12 @@ void *__cdecl sub_44C840(char *a1)
   {
     sub_40ACA0(v2);
   }
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+  result = nox_legacy_low_alloc(4u * (size_t)*(_DWORD *)&byte_5D4594[830612]);
+#else
   result = malloc(4 * *(_DWORD *)&byte_5D4594[830612]);
-  *(_DWORD *)&byte_5D4594[830608] = result;
+#endif
+  *(_DWORD *)&byte_5D4594[830608] = (uint32_t)(uintptr_t)result;
   if ( result )
   {
     sub_44CCD0();
@@ -65771,13 +66455,19 @@ void *__cdecl sub_44C840(char *a1)
       sub_44CD60((CHAR **)v7, *(_DWORD *)&byte_5D4594[830612] - i);
       if ( *(_BYTE *)(v7 + 14) )
       {
+#if UINTPTR_MAX > UINT32_MAX && defined(__linux__)
+        thing_name = (const char *)nox_native_pointer_from_32(
+            *(uint32_t *)v7);
+#else
+        thing_name = *(const char **)v7;
+#endif
         if ( !*(_DWORD *)(v7 + 4) )
         {
           strcpy((char *)&byte_5D4594[830404], "thing.db:");
-          v9 = *(CHAR **)v7;
-          v10 = strlen(*(const char **)v7) + 1;
+          v9 = (CHAR *)thing_name;
+          v10 = strlen(thing_name) + 1;
           v11 = &byte_5D4594[strlen((const char *)&byte_5D4594[830404]) + 830404];
-          qmemcpy(v11, *(const void **)v7, 4 * (v10 >> 2));
+          qmemcpy(v11, thing_name, 4 * (v10 >> 2));
           v13 = &v9[4 * (v10 >> 2)];
           v12 = &v11[4 * (v10 >> 2)];
           v14 = v10;
@@ -65795,10 +66485,10 @@ void *__cdecl sub_44C840(char *a1)
         if ( !*(_DWORD *)(v7 + 8) )
         {
           strcpy((char *)&byte_5D4594[830404], "thing.db:");
-          v18 = *(CHAR **)v7;
-          v19 = strlen(*(const char **)v7) + 1;
+          v18 = (CHAR *)thing_name;
+          v19 = strlen(thing_name) + 1;
           v20 = &byte_5D4594[strlen((const char *)&byte_5D4594[830404]) + 830404];
-          qmemcpy(v20, *(const void **)v7, 4 * (v19 >> 2));
+          qmemcpy(v20, thing_name, 4 * (v19 >> 2));
           v22 = &v18[4 * (v19 >> 2)];
           v21 = &v20[4 * (v19 >> 2)];
           v23 = v19;

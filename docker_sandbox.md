@@ -1,5 +1,45 @@
 # Cross-compilation sandbox setup
 
+## Docker Sandboxes development environment
+
+The repository includes a Docker Sandboxes environment in `sbxenv.yaml` with a
+local kit under `tools/docker-sandbox/nox-decomp-dev`. From the repository
+directory, create and enter the default environment (Linux i386 dependencies):
+
+```sh
+sbx env run
+```
+
+Select a different target with `--env-arg target=...`:
+
+```sh
+sbx env run --env-arg target=i386
+sbx env run --env-arg target=armhf
+sbx env run --env-arg target=win32
+sbx env run --env-arg target=amd64
+```
+
+Use `target=all` to install the dependency packages for all four documented
+targets in one environment:
+
+```sh
+sbx env run --env-arg target=all
+```
+
+The combined environment enables both Debian multiarch targets (`i386` and
+`armhf`) and installs the MinGW/Wine toolchain. Keep each target's CMake build
+directory and `PKG_CONFIG_LIBDIR` separate as described below. `amd64` is the
+native 64-bit experimental workflow; it is also included by `target=all`.
+Source-built FFmpeg, SDL2, OpenAL, and GLEW prefixes described in this guide
+remain additional manual setup when release parity or a missing package
+requires them.
+
+To review the environment changes before applying them, run:
+
+```sh
+sbx env plan --env-arg target=all
+```
+
 This guide lists the host packages and target libraries needed to build Nox
 Decomp in an Ubuntu/Debian sandbox for:
 

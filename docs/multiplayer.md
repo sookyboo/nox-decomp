@@ -69,7 +69,16 @@ CapFlag after `load capflag`. The current local test config now has the full
 standard binding block from `dist-scripts/nox.cfg`.
 
 Accepting the character writes a `.plr` profile under `Save/`; use a disposable
-game-data copy or back up existing profiles before running the macro.
+game-data copy or back up existing profiles before running the macro. The
+character-accept handler calls `sub_4A75C0()` before opening the color/setup
+transition. That function searches the 100 numbered profile slots (`N00.plr`
+through `N99.plr` in the observed setup) and returns failure when they are all
+occupied; the handler then skips the transition. Reusing a probe copy can
+therefore make a later click land on the still-open character-creation window
+and falsely look like a regression in the downstream menu flow. Start from a
+fresh disposable game-data copy. For macro runs that accept a character, pass
+`--guard-profile-slots` to `run-native-probe.sh`; it reports the next slot and
+refuses to run if that slot would be `N99.plr` or all 100 slots are occupied.
 
 The root pointers are non-owning handles to trees loaded by the menu and
 multiplayer setup code. `sub_46C4E0(a1)` receives a window record, marks it for
@@ -87,8 +96,7 @@ For an end-to-end manual integration probe, run from
 `build-deps/gamefiles/app` with control logging enabled:
 
 ```sh
-ulimit -c unlimited
-timeout --signal=TERM --kill-after=3s 150s env \
+bash ../../../tools/run-native-probe.sh 150 --guard-profile-slots env \
   ALSOFT_DRIVERS=null LIBGL_ALWAYS_SOFTWARE=1 SDL_VIDEODRIVER=x11 \
   NOX_GAMEPAD=0 NOX_NO_INTERNET_SERVERS=1 NOX_UPNP_ENABLE=0 \
   NOX_CONTROL_SERVER=1 NOX_CONTROL_SERVER_PASSWORD=secret \
@@ -134,23 +142,52 @@ pool-manager handles without changing the i386 layout. The six fixed-width
 `init_data()` pointer-table writes preserve adjacent `UserColor1`; the key
 continues to resolve as property ID 179.
 
-The remaining difference occurs at the Chat Area popup transition. i386 sets
-the setup-flow flag `0x800000`, dispatches event 31 through
-`sub_4DD180()`, creates `window/ServOpts.wnd` via `sub_457500()`, and completes
-the macro through server-name entry and Escape. On x64, the macro injects its
-configured popup click, but the trace does not independently confirm that the
-modal closes; `window/ServOpts.wnd` never opens, `sub_43DEB0()` does not enter
-its `0x800000`-gated validation/event path, and the wait for server options
-widget 10101 times out. The source has flag-setting paths in local
-multiplayer setup (`sub_435CC0()`) and packet type `0x2B`; which expected path
-is missed on x64 is not yet established. Do not inject the flag or event to
-bypass this state transition.
+The earlier x64 setup-flow stall came from a failed built-in map initialization.
+During `CONNECT_RESULT`, `sub_4D17F0()` calls `sub_4D1860()`, which loads
+`So_Druid.map` through `sub_4CF5F0()` and dispatches its `ObjectData` section
+through `sub_4CFCE0()` to `sub_504CF0()`. That section reader maps serialized
+object IDs to thing records and invokes each record's callback. The trace
+identified object type `Flag` (thing-table index 179): its callback
+`sub_4F6D20()` calls `sub_4F4530()`, which reaches `sub_4F5580()` for the
+versioned string property. The fixes below let this load complete and
+`sub_4D17F0()` continue into local-session setup.
 
-The bounded x64 probe stayed alive until its 120-second timeout and did not
-raise SIGSEGV; timeout is not macro success. The engine's ordinary host setup
-also opens its built-in `So_Druid` data as an initialization step, but neither
-architecture invokes `defaultServerGame`, enters the console, or explicitly
-selects a target gameplay map in this comparison. The test `nox.cfg` requests
+`sub_4F5580(a1, a2)` reads or writes a thing's string property. `a1` points to
+the recovered property slot and `a2` is its optional backing string. In map
+read mode it reads a 16-bit property version, a serialized 32-bit byte length,
+and the string bytes; it interns the string into the game's string table when
+the caller does not provide a backing buffer. The helper returns false for an
+unsupported property version or a length of 1024 bytes or more. The native
+x64 failure was that the 32-bit length was read into an 8-byte `size_t`, leaving
+its upper half uninitialized before the 64-bit bounds check. The observed
+`Flag` property had a zero low word but was rejected by that check. Keeping the
+local as `uint32_t` makes the read width match the file field on both ABIs.
+
+After the `ObjectData` callbacks succeed, `sub_4CFCE0()` calls
+`sub_4DAF10()` before it completes the map load. This no-argument pass walks
+the current thing list, resolves the cross references for things carrying
+flags `0x4000`, `0x8000`, and `0x400`, and writes the resulting links into the
+things' recovered DWORD fields. The list head at
+`byte_5D4594[1556860]` is also a DWORD pointer slot. The first post-fix trace
+reached this pass, where a native-width load combined the head with the next
+DWORD and crashed while reading the list. `sub_4DAF10()` now gets the head via
+`sub_4DA870()` and widens the returned DWORD pointer only after the read. This
+lets `ObjectData` return successfully to `CONNECT_RESULT`.
+
+On 2026-09-29, a fresh guarded x64 macro passed character-profile creation and
+entered `sub_435CC0()` / `sub_473680()`. `sub_465E00()` is a no-argument
+initializer called there; it builds the local inventory/status window tree,
+registers callbacks on its child windows, and returns success to
+`sub_473680()`. The pre-fix trace stopped when `sub_46B430()` received the
+handle from `byte_5D4594[1062468]` as a native-width pointer after its adjacent
+DWORD slot `1062472` held another live window handle. The source now reads the
+recovered handle as one DWORD with `nox_native_pointer_slot32_read()`. A rebuilt
+x64 probe is still needed to confirm the next transition to server options.
+
+The existing `multiplayerHostMenusBeforeGo` probe stops before
+`defaultServerGame`; it does not select or start the configured gameplay map.
+Earlier bounded probes did not establish successful `CapFlag` startup. The
+test `nox.cfg` requests
 `VideoMode = 1024 768 16`, `Fullscreen = 0`, and `VideoSize = 75` (windowed
 1024x768x16 game mode, rendered at 75% size); Xvfb's `1024x768x24` is only the
 host display. Do not test maps requiring reloaded EUD support for native 64-bit
@@ -228,6 +265,15 @@ that entry point, and verifies the request arrives with the expected size and
 type. It intentionally stops at the client-send boundary: server-side
 handshake acceptance and the subsequent joined-game state transition remain
 broader normal-target integration coverage.
+
+`sub_4DF0A0(record, destination)` builds a three-byte player update: opcode 58
+followed by the 16-bit value at `record + 10`. It sends the packet to one
+destination, or, when `destination` is 32, walks the active player records via
+`sub_4DA7C0()` / `sub_4DA7F0()` and sends it to each player's network slot.
+`sub_4DF1E0()` calls it for matching legacy records. A recovered pointer passed
+in `record` is decoded as a pointer into the fixed game data image before the
+field at `+10` is read; its packet layout and recipient selection remain
+unchanged.
 
 When hosting a game start a udp socket on port 18590
 Post a registration on the lobby server (if the NOX_LOBBY_REGISTER_ENABLE=1 env variable is set)

@@ -14853,7 +14853,7 @@ BOOL sub_579740()
 }
 
 //----- (00579750) --------------------------------------------------------
-int __cdecl sub_579750(int a1)
+int __cdecl sub_579750(uintptr_t a1)
 {
   unsigned __int8 *v1; // esi
   unsigned __int8 *v2; // edi
@@ -15528,7 +15528,7 @@ int __cdecl sub_57A080(wchar_t *a1)
   v1 = sub_4170D0(a1);
   if ( !v1 || v1[2064] == 31 )
     return 0;
-  sub_4174F0((int)v1, 8);
+  sub_4174F0((uintptr_t)v1, 8);
   return 1;
 }
 
@@ -15542,7 +15542,7 @@ int __cdecl sub_57A0C0(wchar_t *a1)
   v1 = sub_4170D0(a1);
   if ( !v1 )
     return 0;
-  sub_4174F0((int)v1, 4);
+  sub_4174F0((uintptr_t)v1, 4);
   return 1;
 }
 

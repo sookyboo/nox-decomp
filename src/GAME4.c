@@ -76,8 +76,18 @@ static int nox_manual_spell_target_value(int caster, int cursor_target, int defa
 
 static uintptr_t nox_game4_legacy_pool_manager(unsigned int offset)
 {
-  return nox_game3_pointer_from_32(
-      *(unsigned int *)&byte_5D4594[offset]);
+  uint32_t value = nox_native_pointer_slot32_read(&byte_5D4594[offset]);
+
+#if UINTPTR_MAX > UINT32_MAX
+  int low_address_is_mapped = value >= UINT32_C(0x50000000)
+      && value < NOX_NATIVE_LOW_POINTER_LIMIT
+      && nox_native_low_address_is_mapped(value);
+
+  return nox_native_pointer_decode32(value,
+      (uintptr_t)&byte_587000[0], low_address_is_mapped);
+#else
+  return (uintptr_t)value;
+#endif
 }
 
 static _DWORD *nox_game4_character_event_pool(void)
@@ -11838,7 +11848,7 @@ LABEL_8:
       {
         v12 = *((_DWORD *)v7 + 7);
         v7[4] = v9 | 8;
-        sub_410840(v12);
+        sub_410840((uintptr_t)(uint32_t)v12);
       }
     }
     if ( (*v2)[4] & 0x40 )
@@ -57288,8 +57298,9 @@ int __cdecl sub_53A140(_DWORD *a1, int a2, int a3, int a4)
   int v12; // edx
   int v13; // eax
   int v14; // ebx
-  int v15; // ebx
+  uintptr_t v15; // ebx
   int v16; // [esp+14h] [ebp+8h]
+  uintptr_t player_state;
 
   v4 = (_DWORD *)a2;
   v5 = sub_415820(a2);
@@ -57302,6 +57313,8 @@ int __cdecl sub_53A140(_DWORD *a1, int a2, int a3, int a4)
   if ( !(v8 & 4) || !(v4[2] & 0x1001000) )
     return 0;
   v10 = a1[187];
+  player_state = nox_game3_pointer_from_32(
+      *(uint32_t *)(v10 + 276));
   if ( *(_BYTE *)(v10 + 88) == 1 )
   {
     sub_4FA020(a1, 13);
@@ -57318,9 +57331,9 @@ int __cdecl sub_53A140(_DWORD *a1, int a2, int a3, int a4)
     v12 = v4[4];
     BYTE1(v12) &= 0xFEu;
     v4[4] = v12;
-    *(_DWORD *)(*(_DWORD *)(v10 + 276) + 4) &= 0xFFFFFFFD;
+    *(_DWORD *)(player_state + 4) &= 0xFFFFFFFD;
     if ( a3 )
-      sub_4D8590(*(unsigned __int8 *)(*(_DWORD *)(v10 + 276) + 2064), v4);
+      sub_4D8590(*(unsigned __int8 *)(player_state + 2064), v4);
     if ( a4 )
       sub_4D84C0(255, (int)v4);
   }
@@ -57330,10 +57343,10 @@ int __cdecl sub_53A140(_DWORD *a1, int a2, int a3, int a4)
     v14 = *(_DWORD *)(v13 + 16);
     BYTE1(v14) &= 0xFEu;
     *(_DWORD *)(v13 + 16) = v14;
-    v15 = *(_DWORD *)(v10 + 276);
+    v15 = player_state;
     *(_DWORD *)(v15 + 4) &= ~sub_415820(*(_DWORD *)(v10 + 104));
     if ( a3 )
-      sub_4D8590(*(unsigned __int8 *)(*(_DWORD *)(v10 + 276) + 2064), *(_DWORD **)(v10 + 104));
+      sub_4D8590(*(unsigned __int8 *)(player_state + 2064), *(_DWORD **)(v10 + 104));
     if ( a4 )
       sub_4D84C0(255, (int)v4);
     v6 = a1;
@@ -60627,6 +60640,7 @@ int __cdecl sub_53E430(_DWORD *a1, int a2, int a3, int a4)
   int v8; // ebp
   _DWORD *v9; // edi
   char v10; // al
+  uintptr_t player_state;
 
   if ( !(*(_DWORD *)(a2 + 8) & 0x2000000) )
     return 0;
@@ -60649,10 +60663,11 @@ int __cdecl sub_53E430(_DWORD *a1, int a2, int a3, int a4)
       return 0;
   }
   *(_DWORD *)(a2 + 16) = v4 & 0xEFFFFEFF;
-  v9 = *(_DWORD **)(v8 + 276);
+  player_state = nox_game3_pointer_from_32(*(uint32_t *)(v8 + 276));
+  v9 = (_DWORD *)player_state;
   *v9 &= ~sub_415C70(a2);
   if ( a3 )
-    sub_4D8590(*(unsigned __int8 *)(*(_DWORD *)(v8 + 276) + 2064), (_DWORD *)a2);
+    sub_4D8590(*(unsigned __int8 *)(player_state + 2064), (_DWORD *)a2);
   if ( a4 )
     sub_4D84C0(255, a2);
   sub_53E300(a1);
