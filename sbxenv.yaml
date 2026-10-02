@@ -1,0 +1,21 @@
+schemaVersion: "1"
+name: nox-decomp-dev
+agent: codex
+
+args:
+  target:
+    default: i386
+    description: Install Frida plus development tools and libraries for a documented Nox target, or all targets
+    enum:
+      - i386
+      - armhf
+      - win32
+      - amd64
+      - all
+
+workspace: .
+
+kits:
+  - source: ./tools/docker-sandbox/nox-decomp-dev
+    args:
+      target: "${{ env.args.target }}"
