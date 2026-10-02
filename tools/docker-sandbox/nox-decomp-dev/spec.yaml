@@ -1,0 +1,192 @@
+schemaVersion: "2"
+kind: mixin
+name: nox-decomp-dev
+displayName: Nox Decomp cross-compilation tools
+description: Build and debug dependencies for the documented Linux i386, ARMHF, Windows i386, native 64-bit, or combined all-target workflows.
+
+permissions:
+  network:
+    allow:
+      - archive.ubuntu.com:443
+      - security.ubuntu.com:443
+      - ports.ubuntu.com:443
+      - git.ffmpeg.org:443
+      - github.com:443
+      - sourceforge.net:443
+      - openal-soft.org:443
+      - pypi.org:443
+      - files.pythonhosted.org:443
+
+args:
+  target:
+    default: i386
+    description: Target architecture whose compiler and system development libraries to install, or all targets
+    enum:
+      - i386
+      - armhf
+      - win32
+      - amd64
+      - all
+
+setup:
+  install:
+    - description: Install Nox Decomp build and target dependencies
+      user: "0"
+      command: |
+        set -eu
+        export DEBIAN_FRONTEND=noninteractive
+
+        common_packages="
+          build-essential
+          autoconf
+          automake
+          libtool
+          binutils
+          ca-certificates
+          ccache
+          cmake
+          file
+          gettext
+          git
+          innoextract
+          make
+          nasm
+          ninja-build
+          pkg-config
+          python3
+          python3-venv
+          texinfo
+          unzip
+          zip
+          wget
+          yasm
+          xvfb
+          xauth
+        "
+
+        i386_packages="
+          gcc-i686-linux-gnu
+          g++-i686-linux-gnu
+          binutils-i686-linux-gnu
+          libc6-dev-i386-cross
+          linux-libc-dev-i386-cross
+          libsdl2-dev:i386
+          libopenal-dev:i386
+          libgl-dev:i386
+          libavformat-dev:i386
+          libavcodec-dev:i386
+          libavutil-dev:i386
+          libswscale-dev:i386
+          libswresample-dev:i386
+          zlib1g-dev:i386
+          gdb
+        "
+
+        armhf_packages="
+          gcc-arm-linux-gnueabihf
+          g++-arm-linux-gnueabihf
+          binutils-arm-linux-gnueabihf
+          libc6-dev-armhf-cross
+          linux-libc-dev-armhf-cross
+          qemu-user
+          gdb-multiarch
+          libsdl2-dev:armhf
+          libopenal-dev:armhf
+          libgl1-mesa-dev:armhf
+          libavformat-dev:armhf
+          libavcodec-dev:armhf
+          libavutil-dev:armhf
+          libswscale-dev:armhf
+          libswresample-dev:armhf
+          zlib1g-dev:armhf
+        "
+
+        win32_packages="
+          gcc-mingw-w64-i686
+          g++-mingw-w64-i686
+          binutils-mingw-w64-i686
+          mingw-w64-tools
+          wine
+          wine32:i386
+          gdb-multiarch
+        "
+
+        amd64_packages="
+          libsdl2-dev
+          libopenal-dev
+          libgl-dev
+          libavformat-dev
+          libavcodec-dev
+          libavutil-dev
+          libswscale-dev
+          libswresample-dev
+          zlib1g-dev
+        "
+
+        configure_armhf_repository() {
+          dpkg --add-architecture armhf
+          . /etc/os-release
+          for source_file in /etc/apt/sources.list.d/*.sources; do
+            [ -f "$source_file" ] || continue
+            case "$source_file" in
+              */armhf.sources) continue ;;
+            esac
+            if ! grep -Eq '^URIs: https?://(archive|security)\.ubuntu\.com/' "$source_file"; then
+              continue
+            fi
+            if grep -q '^Architectures:' "$source_file"; then
+              sed -i 's/^Architectures:.*/Architectures: amd64 i386/' "$source_file"
+            else
+              sed -i '/^Types:/a Architectures: amd64 i386' "$source_file"
+            fi
+          done
+          cat > /etc/apt/sources.list.d/armhf.sources <<EOF
+        Types: deb
+        Architectures: armhf
+        URIs: https://ports.ubuntu.com/ubuntu-ports/
+        Suites: ${VERSION_CODENAME} ${VERSION_CODENAME}-updates ${VERSION_CODENAME}-backports ${VERSION_CODENAME}-security
+        Components: main universe restricted multiverse
+        Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+        EOF
+        }
+
+        case "${{ kit.args.target }}" in
+          i386)
+            dpkg --add-architecture i386
+            target_packages="$i386_packages"
+            ;;
+          armhf)
+            configure_armhf_repository
+            target_packages="$armhf_packages"
+            ;;
+          win32)
+            dpkg --add-architecture i386
+            target_packages="$win32_packages"
+            ;;
+          amd64)
+            target_packages="$amd64_packages"
+            ;;
+          all)
+            dpkg --add-architecture i386
+            configure_armhf_repository
+            target_packages="$i386_packages $armhf_packages $win32_packages $amd64_packages"
+            ;;
+          *)
+            echo "Unsupported Nox target: ${{ kit.args.target }}" >&2
+            exit 2
+            ;;
+        esac
+
+        apt-get update
+        # Keep package origins on the distribution's authenticated repositories.
+        # No third-party APT sources or unofficial build images are added here.
+        apt-get install -y --no-install-recommends $common_packages $target_packages
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+
+        # Keep Frida isolated from Ubuntu's externally managed system Python.
+        python3 -m venv /opt/frida-tools
+        /opt/frida-tools/bin/pip install --upgrade pip frida-tools
+        for tool in frida frida-ps frida-trace; do
+          ln -sf "/opt/frida-tools/bin/$tool" "/usr/local/bin/$tool"
+        done

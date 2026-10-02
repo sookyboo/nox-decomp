@@ -343,6 +343,10 @@ configured map. See
 root mapping, logs, and headless test configuration. The
 `multiplayerHostMenusBeforeGo` macro is the safe UI-only variant.
 
+For the Docker sandbox setup, Frida instrumentation workflow, and commands to
+run the i386 game in dedicated or multiplayer host mode, see
+[`tools/docker-sandbox/README.md`](tools/docker-sandbox/README.md).
+
 # Other env vars
 ```
 export NOX_SKIP_INTRO_MOVIES=0 # default is 1 - skip the logo movies at the start of the game
