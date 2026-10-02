@@ -6,6 +6,8 @@
 #include "defs.h"
 #ifdef USE_SDL
 
+extern unsigned __int8 byte_5D4594[3844309];
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -441,6 +443,7 @@ static int recv_line_telnet(int fd, char *out, size_t cap)
 typedef enum {
     ACT_NONE = 0,
     ACT_MOVE,           // relative dx dy
+    ACT_CENTER_CLICK,   // center-relative dx dy, resolved on the game thread
     ACT_BTN,            // button(0/1/2) down(0/1)
     ACT_KEY,            // SDL scancode, down(0/1)
     ACT_TEXT,           // utf-8 string
@@ -841,6 +844,38 @@ static void enqueue_click_abs(int x, int y, int right)
     g_ctrl_y = y;
 }
 
+// Queue a center-relative click. Boot macros can be parsed before the video
+// surface exists, so resolve its dimensions later in nox_control_server_pump.
+static int enqueue_click_center(int dx, int dy, int right)
+{
+    ControlAction a;
+    memset(&a, 0, sizeof(a));
+    a.type = ACT_CENTER_CLICK;
+    a.a = dx;
+    a.b = dy;
+    a.down = right;
+    return q_push(&a);
+}
+
+// Resolve the offset against the active game surface and queue a physical
+// click through the same top-left-anchored input path as `click`.
+static int resolve_center_click(int dx, int dy, int right)
+{
+    int width = *(int *)&byte_5D4594[3801784];
+    int height = *(int *)&byte_5D4594[3801788];
+    if (width <= 0 || height <= 0)
+        return 0;
+
+    int center_x = width / 2;
+    int center_y = height / 2;
+    if (dx < -center_x || dx >= width - center_x ||
+        dy < -center_y || dy >= height - center_y)
+        return 0;
+
+    enqueue_click_abs(center_x + dx, center_y + dy, right);
+    return 1;
+}
+
 static int enqueue_click_abs_before_pending(int x, int y, int right, uint32_t batch_id)
 {
     ControlAction actions[5];
@@ -1010,7 +1045,7 @@ static const NoxCtrlMacro g_macros[] = {
     },
     {
         "chatScreenPopUpClickOk",
-        "sleep 2000; c 530 460; sleep 1000; # chatScreenPopUpClickOk at 1024x768\n"
+        "sleep 2000; cc 18 76; sleep 1000; # chatScreenPopUpClickOk: 18 right, 76 down from center\n"
     },
     {
         "chatScreenServerName",
@@ -1269,6 +1304,7 @@ static void help_banner(int fd)
         "  move <x> <y> | m     (home-first absolute move)\r\n"
         "  ldown|lup|rdown|rup|mdown|mup\r\n"
         "  click <x> <y> | c    (homes first)\r\n"
+        "  cclick <dx> <dy> | cc (offset right/down from screen center)\r\n"
         "  rclick <x> <y>\r\n"
         "  trhome | trh (homes to top right corner)\r\n"
         "  trmove <dx> <dy> | trm <dx> <dy>   (dx>0 = left, dy>0 = down)\r\n"
@@ -1626,6 +1662,21 @@ static void handle_one_command(int fd, const char *cmd, int *authed, const char 
         if (!parse_int(p, &x, &ep)) { send_str_maybe(fd, "ERR click x y\r\n"); return; }
         if (!parse_int(ep, &y, &ep)) { send_str_maybe(fd, "ERR click x y\r\n"); return; }
         enqueue_click_abs(x, y, streq_ci(tok, "rclick"));
+        send_str_maybe(fd, "OK\r\n");
+        return;
+    }
+
+    if (streq_ci(tok, "cclick") || streq_ci(tok, "cc")) {
+        int dx=0,dy=0;
+        const char *ep=NULL;
+        if (!parse_int(p, &dx, &ep) || !parse_int(ep, &dy, &ep)) {
+            send_str_maybe(fd, "ERR cclick dx dy\r\n");
+            return;
+        }
+        if (!enqueue_click_center(dx, dy, 0)) {
+            send_str_maybe(fd, "ERR action queue full\r\n");
+            return;
+        }
         send_str_maybe(fd, "OK\r\n");
         return;
     }
@@ -2003,8 +2054,15 @@ void nox_control_server_pump(void)
      ControlAction a;
      while (q_pop(&a)) {
          switch (a.type) {
-         case ACT_MOVE:
+        case ACT_MOVE:
              nox_ctrl_inject_mouse_move(a.a, a.b, 0);
+             break;
+
+         case ACT_CENTER_CLICK:
+             if (!resolve_center_click(a.a, a.b, a.down)) {
+                 NOX_CTRL_LOG("center click ignored: offset %d,%d outside or active surface unavailable",
+                              a.a, a.b);
+             }
              break;
 
          case ACT_BTN:

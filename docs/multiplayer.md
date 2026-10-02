@@ -32,10 +32,15 @@ controls such as the Warrior portrait require an ID-based wait.
 portrait (class-selection widget 601), class Accept (610), character-name field
 (751), character Accept (799), the Chat Area popup's OK button, server-name
 field. After character Accept, `chatScreenPopUpClickOk` waits two seconds for
-the Chat Area prompt's transition, then physically clicks its OK button at
-`530,460` in the configured 1024x768 game coordinate space. That modal is not
-exposed to the caption/widget wait scanners. `chatScreenServerName` then waits
-for server-options widget 10101 to settle (deferring while `Please wait` is
+the Chat Area prompt's transition, then physically clicks its OK button with
+`cc 18 76`. That modal is not exposed to the caption/widget wait scanners.
+`cc` measures signed offsets right/down from the active game surface center,
+then sends the click through the existing top-left-anchored physical input
+path. The offset is resolved on the main game loop because boot macros can be
+parsed before the render surface is created. At 1024x768 it resolves to
+`(530,460)`, and it stays tied to the surface center at other sizes.
+`chatScreenServerName` then waits for
+server-options widget 10101 to settle (deferring while `Please wait` is
 visible), physically clicks its center, and clears the field. The macro types
 the configured name, waits one second, sends `key esc` to cancel server setup
 and release the field's keyboard focus, then waits one second before F1. The
