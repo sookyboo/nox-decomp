@@ -41,6 +41,7 @@ set "SRC=%GAMEDIR%gamefiles"
 set "ASSET_DIR=%SRC%\app"
 set "SAVE_DIR=%ASSET_DIR%\Save"
 set "NEEDED=%ASSET_DIR%\gamedata.bin"
+set "EXTRACT_DIR=%SRC%\.nox-installer-extract"
 set "MARKER=%ASSET_DIR%\converted_dialog.txt"
 set "DIALOG_DIR=%ASSET_DIR%\Dialog"
 
@@ -85,12 +86,38 @@ if defined FOUND_INSTALLER (
   )
 
     call :log "Extracting installer with innoextract..."
-    "%INNOEXTRACT%" "%FOUND_INSTALLER%" -d "%SRC%" >> "%LOG%" 2>&1
+    if exist "%EXTRACT_DIR%" rmdir /s /q "%EXTRACT_DIR%"
+    "%INNOEXTRACT%" "%FOUND_INSTALLER%" -d "%EXTRACT_DIR%" >> "%LOG%" 2>&1
     if errorlevel 1 (
       call :log "ERROR: innoextract failed (see log)."
       echo innoextract failed (see log.txt)
       goto :end
     )
+    REM New GOG installers put game files at the installer root. Merge those
+    REM files into app while retaining existing contents; older installers
+    REM already contain app/ and are merged into gamefiles instead.
+    if exist "%EXTRACT_DIR%\gamedata.bin" (
+      if not exist "%ASSET_DIR%" mkdir "%ASSET_DIR%"
+      robocopy "%EXTRACT_DIR%" "%ASSET_DIR%" /E /COPY:DAT /DCOPY:DAT /XC /XN /XO /XD "%EXTRACT_DIR%\app" >> "%LOG%" 2>&1
+      if errorlevel 8 (
+        call :log "ERROR: failed to copy extracted files into %ASSET_DIR%"
+        goto :end
+      )
+      if exist "%EXTRACT_DIR%\app" (
+        robocopy "%EXTRACT_DIR%\app" "%ASSET_DIR%" /E /COPY:DAT /DCOPY:DAT /XC /XN /XO >> "%LOG%" 2>&1
+        if errorlevel 8 (
+          call :log "ERROR: failed to merge extracted app files into %ASSET_DIR%"
+          goto :end
+        )
+      )
+    ) else (
+      robocopy "%EXTRACT_DIR%" "%SRC%" /E /COPY:DAT /DCOPY:DAT /XC /XN /XO >> "%LOG%" 2>&1
+      if errorlevel 8 (
+        call :log "ERROR: failed to merge extracted files into %SRC%"
+        goto :end
+      )
+    )
+    rmdir /s /q "%EXTRACT_DIR%"
     REM Delete nox.cfg only after successful extraction
     if exist "%SRC%\nox.cfg" (
       del /f /q "%SRC%\app\nox.cfg" >> "%LOG%" 2>&1

@@ -2762,17 +2762,61 @@ static DWORD WINAPI worker_thread(LPVOID param) {
                 return 0;
             }
 
+            wchar_t extractDir[MAX_PATH * 4] = {0};
+            path_join(extractDir, ARRAYSIZE(extractDir), a->srcDirAbs, L".nox-installer-extract");
             wchar_t args[8192];
-            _snwprintf(args, ARRAYSIZE(args), L"\"%s\" -d \"%s\"", installer, a->srcDirAbs);
+            _snwprintf(args, ARRAYSIZE(args), L"\"%s\" -d \"%s\"", installer, extractDir);
             args[ARRAYSIZE(args)-1]=0;
 
             ui_set_status(L"Extracting...");
             ProcRunResult r = run_process_capture(a->innoextractAbs, args, a->srcDirAbs);
-            if (!r.started || r.exit_code != 0 || !file_exists(a->neededAbs)) {
-                ui_log_line(L"ERROR: innoextract failed or gamedata.bin still missing.");
+            if (!r.started || r.exit_code != 0) {
+                ui_log_line(L"ERROR: innoextract failed.");
                 PostMessageW(hwnd, WM_APP_DONE, 0, 0);
                 return 0;
             }
+
+            // New GOG installers place game files at their root. Merge those
+            // into app; older installers contain app/ and merge into gamefiles.
+            wchar_t extractedData[MAX_PATH * 4] = {0};
+            path_join(extractedData, ARRAYSIZE(extractedData), extractDir, L"gamedata.bin");
+            wchar_t destination[MAX_PATH * 4] = {0};
+            if (file_exists(extractedData)) {
+                CreateDirectoryW(a->assetsDirAbs, NULL);
+                wcsncpy(destination, a->assetsDirAbs, ARRAYSIZE(destination) - 1);
+            } else {
+                wcsncpy(destination, a->srcDirAbs, ARRAYSIZE(destination) - 1);
+            }
+            wchar_t copyArgs[8192];
+            if (file_exists(extractedData)) {
+                _snwprintf(copyArgs, ARRAYSIZE(copyArgs), L"/c robocopy \"%s\" \"%s\" /E /COPY:DAT /DCOPY:DAT /XC /XN /XO /XD \"%s\\app\"", extractDir, destination, extractDir);
+            } else {
+                _snwprintf(copyArgs, ARRAYSIZE(copyArgs), L"/c robocopy \"%s\" \"%s\" /E /COPY:DAT /DCOPY:DAT /XC /XN /XO", extractDir, destination);
+            }
+            copyArgs[ARRAYSIZE(copyArgs) - 1] = 0;
+            ProcRunResult copied = run_process_capture(L"C:\\Windows\\System32\\cmd.exe", copyArgs, a->srcDirAbs);
+            if (!copied.started || copied.exit_code >= 8 || !file_exists(a->neededAbs)) {
+                ui_log_line(L"ERROR: extracted game files could not be merged or gamedata.bin is still missing.");
+                PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+                return 0;
+            }
+            wchar_t extractedApp[MAX_PATH * 4] = {0};
+            path_join(extractedApp, ARRAYSIZE(extractedApp), extractDir, L"app");
+            if (file_exists(extractedData) && dir_exists(extractedApp)) {
+                wchar_t appCopyArgs[8192];
+                _snwprintf(appCopyArgs, ARRAYSIZE(appCopyArgs), L"/c robocopy \"%s\" \"%s\" /E /COPY:DAT /DCOPY:DAT /XC /XN /XO", extractedApp, destination);
+                appCopyArgs[ARRAYSIZE(appCopyArgs) - 1] = 0;
+                ProcRunResult appCopied = run_process_capture(L"C:\\Windows\\System32\\cmd.exe", appCopyArgs, a->srcDirAbs);
+                if (!appCopied.started || appCopied.exit_code >= 8) {
+                    ui_log_line(L"ERROR: extracted app files could not be merged.");
+                    PostMessageW(hwnd, WM_APP_DONE, 0, 0);
+                    return 0;
+                }
+            }
+            wchar_t cleanupArgs[8192];
+            _snwprintf(cleanupArgs, ARRAYSIZE(cleanupArgs), L"/c rmdir /s /q \"%s\"", extractDir);
+            cleanupArgs[ARRAYSIZE(cleanupArgs) - 1] = 0;
+            run_process_capture(L"C:\\Windows\\System32\\cmd.exe", cleanupArgs, a->srcDirAbs);
 
             a->extraction_succeeded_this_run = true;
             ui_log_line(L"innoextract succeeded.");

@@ -389,10 +389,10 @@ EOF
   if [[ -n "${zstatus:-}" ]]; then
     printf 'Running innoextract…\n' >"$zstatus" 2>/dev/null || true
     # Keep stdout+stderr for the zenity tail and for your log.txt
-    "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}" 2>&1 | tee -a "$zlog"
+    "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}/.nox-installer-extract" 2>&1 | tee -a "$zlog"
     rc=${PIPESTATUS[0]}
   else
-    "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}"
+    "${PKG_INNOEXTRACT}" "${installers[0]}" -d "${NOX_GAMEFILES_DIR}/.nox-installer-extract"
     rc=$?
   fi
 
@@ -408,6 +408,24 @@ EOF
     echo "ERROR: innoextract failed (rc=$rc)" >&2
     return 1
   fi
+
+  # New GOG installers have game files at their root. Merge these into app
+  # without replacing any existing files; older installers contain app/.
+  if [[ -f "${NOX_GAMEFILES_DIR}/.nox-installer-extract/gamedata.bin" ]]; then
+    mkdir -p "${NOX_GAMEFILES_DIR}/app"
+    local extracted_path
+    for extracted_path in "${NOX_GAMEFILES_DIR}/.nox-installer-extract"/* "${NOX_GAMEFILES_DIR}/.nox-installer-extract"/.[!.]* "${NOX_GAMEFILES_DIR}/.nox-installer-extract"/..?*; do
+      [[ -e "$extracted_path" ]] || continue
+      [[ "${extracted_path##*/}" == "app" ]] && continue
+      cp -an "$extracted_path" "${NOX_GAMEFILES_DIR}/app/"
+    done
+    if [[ -d "${NOX_GAMEFILES_DIR}/.nox-installer-extract/app" ]]; then
+      cp -an "${NOX_GAMEFILES_DIR}/.nox-installer-extract/app/." "${NOX_GAMEFILES_DIR}/app/"
+    fi
+  else
+    cp -an "${NOX_GAMEFILES_DIR}/.nox-installer-extract/." "${NOX_GAMEFILES_DIR}/"
+  fi
+  rm -rf "${NOX_GAMEFILES_DIR}/.nox-installer-extract"
 
   if [[ ! -f "${NOX_GAME_DATA_BIN}" ]]; then
     echo "ERROR: extraction finished but ${NOX_GAME_DATA_BIN} still missing." >&2
