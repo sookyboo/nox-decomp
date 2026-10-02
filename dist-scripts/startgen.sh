@@ -381,9 +381,9 @@ Please check log.txt for details."
     if [[ -n "$zstatus" ]]; then
       local -a exec_cmd
       if command -v stdbuf >/dev/null 2>&1; then
-        exec_cmd=(stdbuf -oL -eL "$INNOEXTRACT" "$installer_path" -d "$SRC")
+        exec_cmd=(stdbuf -oL -eL "$INNOEXTRACT" "$installer_path" -d "$SRC/.nox-installer-extract")
       else
-        exec_cmd=("$INNOEXTRACT" "$installer_path" -d "$SRC")
+        exec_cmd=("$INNOEXTRACT" "$installer_path" -d "$SRC/.nox-installer-extract")
       fi
 
       "${exec_cmd[@]}" 2>&1 | while IFS= read -r line; do
@@ -394,7 +394,7 @@ Please check log.txt for details."
       done
       rc=${PIPESTATUS[0]}
     else
-      "$INNOEXTRACT" "$installer_path" -d "$SRC"
+      "$INNOEXTRACT" "$installer_path" -d "$SRC/.nox-installer-extract"
       rc=$?
     fi
 
@@ -412,6 +412,26 @@ Please check log.txt for details."
 Please check log.txt for details."
       sleep 5
       exit 1
+    fi
+
+    # Newer GOG Nox installers put game files at the installer root. Keep
+    # existing gamefiles/app content and merge those root files into app.
+    if [[ -f "$SRC/.nox-installer-extract/gamedata.bin" ]]; then
+      mkdir -p "$SRC/app"
+      local extracted_path
+      for extracted_path in "$SRC/.nox-installer-extract"/* "$SRC/.nox-installer-extract"/.[!.]* "$SRC/.nox-installer-extract"/..?*; do
+        [[ -e "$extracted_path" ]] || continue
+        [[ "${extracted_path##*/}" == "app" ]] && continue
+        cp -an "$extracted_path" "$SRC/app/"
+      done
+      if [[ -d "$SRC/.nox-installer-extract/app" ]]; then
+        cp -an "$SRC/.nox-installer-extract/app/." "$SRC/app/"
+      fi
+      rm -rf "$SRC/.nox-installer-extract"
+    else
+      # Older installers already contain app/ and can be extracted in place.
+      cp -an "$SRC/.nox-installer-extract/." "$SRC/"
+      rm -rf "$SRC/.nox-installer-extract"
     fi
   fi
 

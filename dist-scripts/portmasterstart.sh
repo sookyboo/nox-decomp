@@ -104,7 +104,21 @@ install() {
         pm_message "Part 1 is extracting (10 min) and Part 2 is converting audio files (20min)"
         pm_message "Part 1 of 2 - Extracting Nox GOG installer..."
         sleep 1
-        "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC"
+        "$INNOEXTRACT" "$SRC"/$INSTALLER_EXE_GLOB -d "$SRC/.nox-installer-extract"
+        if [ -f "$SRC/.nox-installer-extract/gamedata.bin" ]; then
+            mkdir -p "$SRC/app"
+            for extracted_path in "$SRC/.nox-installer-extract"/* "$SRC/.nox-installer-extract"/.[!.]* "$SRC/.nox-installer-extract"/..?*; do
+                [ -e "$extracted_path" ] || continue
+                [ "${extracted_path##*/}" = app ] && continue
+                cp -an "$extracted_path" "$SRC/app/"
+            done
+            if [ -d "$SRC/.nox-installer-extract/app" ]; then
+                cp -an "$SRC/.nox-installer-extract/app/." "$SRC/app/"
+            fi
+        else
+            cp -an "$SRC/.nox-installer-extract/." "$SRC/"
+        fi
+        rm -rf "$SRC/.nox-installer-extract"
     fi
 
     if [ ! -f "$NEEDED" ]; then
