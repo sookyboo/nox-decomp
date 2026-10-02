@@ -7,6 +7,13 @@ cross-compilers, game build dependencies, Xvfb, and Frida's command line
 tools. The target defaults to `i386`; select it when creating the sandbox for
 the Linux 32-bit game target.
 
+In this workspace, `sbxenv.yaml` may be mounted read-only. When a requested
+environment-manifest change cannot be written there, create the revised
+manifest under a new filename (for example, `sbxenv-frida.yaml`) and leave it
+uncommitted for the maintainer to commit separately. Keep the kit implementation
+and documentation changes in their normal tracked files and commit those
+independently.
+
 The kit installs `frida-tools` into `/opt/frida-tools`, a dedicated Python
 virtual environment, and exposes `frida`, `frida-ps`, and `frida-trace` in
 `/usr/local/bin`. For a manually prepared Ubuntu/Debian sandbox, install Frida
