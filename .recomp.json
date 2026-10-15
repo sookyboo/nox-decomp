@@ -1,0 +1,40 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Nox",
+  "system": "PC (Windows)",
+  "type": "port",
+  "original": {
+    "revision": "1.2b"
+  },
+  "project": "Nox-Decomp",
+  "status": "released",
+  "targets": ["Windows", "Linux", "Steam Deck"],
+  "approach": "Native 32-bit source port of Nox using decompiled and reverse-engineered Windows game code, with portability and gameplay fixes.",
+  "maintainers": [
+    {
+      "name": "sookyboo",
+      "link": "https://github.com/sookyboo"
+    }
+  ],
+  "links": [
+    {
+      "label": "Repository",
+      "url": "https://github.com/sookyboo/nox-decomp"
+    },
+    {
+      "label": "Releases",
+      "url": "https://github.com/sookyboo/nox-decomp/releases"
+    },
+    {
+      "label": "PortMaster",
+      "url": "https://portmaster.games/detail.html?name=nox-decomp"
+    }
+  ],
+  "help": [
+    "64-bit portability of code dependent on 32-bit memory layouts",
+    "Reverse engineering and documenting remaining game functions",
+    "Testing gameplay, networking and input across supported platforms"
+  ],
+  "tags": ["source-port", "reverse-engineering", "multiplayer", "armhf", "portmaster"],
+  "notes": "Public native builds support complete single-player campaigns and multiplayer on Windows, Linux and ARM Linux handhelds, including PortMaster and Steam Deck. Requires separately obtained original Nox game data; no copyrighted game assets are distributed. The source remains 32-bit, with 64-bit support and continued reverse engineering as longer-term goals."
+}
